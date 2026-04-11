@@ -1,0 +1,20 @@
+{
+  "name": "Warung Tomi",
+  "short_name": "Warung Tomi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#005E6A",
+  "icons": [
+    {
+      "src": "https://lh3.googleusercontent.com/d/1VTlCXt_WlEUiF0s7fVHUM3JtjO3q4cqk",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://lh3.googleusercontent.com/d/1VTlCXt_WlEUiF0s7fVHUM3JtjO3q4cqk",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

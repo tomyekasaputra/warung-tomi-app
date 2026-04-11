@@ -56,13 +56,36 @@ import {
   DollarSign,
   ArrowLeft,
   Download,
-  Info
+  Info,
+  TrendingUp,
+  Layers
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 // --- Types ---
+
+const parseDate = (dateStr: string) => {
+  if (!dateStr || dateStr === "-") return new Date(0);
+  
+  // Handle DD/MM/YYYY or DD-MM-YYYY
+  const parts = dateStr.split(/[/-]/);
+  if (parts.length === 3) {
+    // Check if it's YYYY-MM-DD
+    if (parts[0].length === 4) {
+      return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    }
+    // Assume DD/MM/YYYY
+    const day = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1;
+    const year = parseInt(parts[2]);
+    return new Date(year, month, day);
+  }
+  
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? new Date(0) : d;
+};
 
 interface Customer {
   Nama: string;
@@ -96,6 +119,18 @@ interface SalesTransaction {
   Jenis: string;
   Pemasukan: number;
   Status: string;
+  Melalui: string;
+  HargaModal: number;
+  Sebagian: number;
+}
+
+interface InvestmentTransaction {
+  Tanggal: string;
+  Nama: string;
+  Nominal: number;
+  Tenor: string;
+  JatuhTempo: string;
+  Status: string;
 }
 
 // --- Data ---
@@ -117,6 +152,72 @@ const MAIN_SERVICES = [
   { id: 14, name: "Multi Finance", icon: <DollarSign className="w-6 h-6 text-emerald-600" />, bgColor: "bg-[#ECFDF5]" },
 ];
 
+// --- Constants ---
+
+const LEVELS = [
+  { 
+    name: "Bronze", 
+    min: 0, 
+    max: 999999, 
+    color: "from-orange-400 to-orange-600", 
+    icon: "🥉",
+    benefits: ["Dapat 1 Poin (Tiap kelipatan Rp10.000)"]
+  },
+  { 
+    name: "Silver", 
+    min: 1000000, 
+    max: 9999999, 
+    color: "from-slate-300 to-slate-500", 
+    icon: "🥈",
+    benefits: [
+      "Dapat 1 Poin (Tiap kelipatan Rp10.000)",
+      "Voucher Tabungan Rp2.000 (Min. setor Rp20.000)"
+    ]
+  },
+  { 
+    name: "Gold", 
+    min: 10000000, 
+    max: 19999999, 
+    color: "from-yellow-400 to-amber-600", 
+    icon: "🥇",
+    benefits: [
+      "Dapat 1 Poin (Tiap kelipatan Rp10.000)",
+      "Voucher Tabungan Rp5.000 (Min. setor Rp50.000)",
+      "Voucher Investasi Rp.10.000 (Min. investasi Rp 500.000)"
+    ]
+  },
+  { 
+    name: "Platinum", 
+    min: 20000000, 
+    max: Infinity, 
+    color: "from-blue-400 to-indigo-600", 
+    icon: "💎",
+    benefits: [
+      "Dapat 1 Poin (Tiap kelipatan Rp10.000)",
+      "Voucher Tabungan Rp10.000 (Min. setor Rp100.000)",
+      "Voucher Investasi Rp.25.000 (Min. investasi Rp 1.000.000)",
+      "Voucher Gratis admin senilai Rp 5.000"
+    ]
+  }
+];
+
+const calculateCustomerLevel = (transactions: SalesTransaction[], userName: string) => {
+  if (!userName) return { ...LEVELS[0], total: 0 };
+  
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+  const total = transactions
+    .filter(t => t.Nama.toLowerCase() === userName.toLowerCase())
+    .filter(t => parseDate(t.Tanggal) >= threeMonthsAgo)
+    .reduce((acc, curr) => acc + (Number(curr.Pemasukan) || 0), 0);
+
+  if (total >= 20000000) return { ...LEVELS[3], total };
+  if (total >= 10000000) return { ...LEVELS[2], total };
+  if (total >= 1000000) return { ...LEVELS[1], total };
+  return { ...LEVELS[0], total };
+};
+
 // --- Components ---
 
 const Header = ({ 
@@ -125,19 +226,24 @@ const Header = ({
   onLogin, 
   onLogout,
   setActiveTab,
-  isLoading
+  isLoading,
+  salesTransactions
 }: { 
   customers: Customer[], 
   loggedInUser: Customer | null, 
   onLogin: (user: Customer) => void,
   onLogout: () => void,
   setActiveTab: (id: string) => void,
-  isLoading: boolean
+  isLoading: boolean,
+  salesTransactions: SalesTransaction[]
 }) => {
   const [isPortalOpen, setIsPortalOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [showPinInput, setShowPinInput] = useState(false);
+  const navigate = useNavigate();
+
+  const customerLevel = calculateCustomerLevel(salesTransactions, loggedInUser?.Nama || "");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
@@ -277,7 +383,16 @@ const Header = ({
                     </div>
                     <div className="flex flex-col">
                       <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest">{loggedInUser.Nama || "User"}</h3>
-                      <p className="text-[10px] text-[#F15A24] font-black uppercase tracking-widest">Nasabah Prioritas</p>
+                      <button 
+                        onClick={() => {
+                          navigate("/level");
+                          setIsPortalOpen(false);
+                        }}
+                        className="flex items-center gap-1 group"
+                      >
+                        <p className="text-[10px] text-[#F15A24] font-black uppercase tracking-widest group-hover:underline">{customerLevel.name}</p>
+                        <ChevronRight className="w-2.5 h-2.5 text-[#F15A24] group-hover:translate-x-0.5 transition-transform" />
+                      </button>
                     </div>
                   </div>
                   <button 
@@ -679,7 +794,7 @@ const AssetPieChart = ({ data }: { data: any[] }) => {
   );
 };
 
-const AsetPage = ({ user }: { user: Customer | null }) => {
+const AsetPage = ({ user, transactions, investmentTransactions }: { user: Customer | null, transactions: SalesTransaction[], investmentTransactions: InvestmentTransaction[] }) => {
   const navigate = useNavigate();
   // Helper to parse currency string to number
   const parseCurrency = (val: string | undefined) => {
@@ -689,16 +804,33 @@ const AsetPage = ({ user }: { user: Customer | null }) => {
   };
 
   const tabunganBalance = parseCurrency(user?.Tabungan);
-  const investasiBalance = parseCurrency(user?.Investasi);
-  const lainnyaBalance = 0; // Placeholder for now
+  
+  // Calculate Investasi balance from investmentTransactions
+  const userInvestments = investmentTransactions.filter(t => 
+    t.Nama.toLowerCase() === user?.Nama?.toLowerCase() &&
+    t.Status.toLowerCase() !== "sukses dicairkan"
+  );
+  const investasiBalance = userInvestments.reduce((acc, curr) => acc + curr.Nominal, 0);
+  
+  // Calculate Lainnya balance from "BELUM DIAMBIL" transactions
+  const lainnyaTransactions = transactions.filter(t => 
+    t.Nama.toLowerCase() === user?.Nama?.toLowerCase() && 
+    t.Status.toUpperCase() === "BELUM DIAMBIL"
+  );
+  
+  const lainnyaBalance = lainnyaTransactions.reduce((acc, curr) => {
+    const net = curr.HargaModal - curr.Sebagian;
+    return acc + (net > 0 ? net : 0);
+  }, 0);
+
   const hutangBalance = parseCurrency(user?.Hutang);
   
   const totalAset = tabunganBalance + investasiBalance + lainnyaBalance - hutangBalance;
 
   const assetData = [
     { name: 'Tabungan', value: tabunganBalance, color: '#22c55e' },
-    { name: 'Investasi', value: investasiBalance, color: '#14b8a6' },
-    { name: 'Lainnya', value: lainnyaBalance, color: '#6366f1' },
+    { name: 'Investasi', value: investasiBalance, color: '#6366f1' },
+    { name: 'Lainnya', value: lainnyaBalance, color: '#14b8a6' },
     { name: 'Hutang', value: hutangBalance, color: '#ef4444' },
   ].filter(item => item.value !== 0);
 
@@ -728,27 +860,63 @@ const AsetPage = ({ user }: { user: Customer | null }) => {
           <AssetPieChart data={assetData} />
         </div>
         
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Rincian Saldo</h3>
           {[
-            { name: "Tabungan", balance: user?.Tabungan || "0", color: "bg-green-500", clickable: true, path: "/detail-tabungan" },
-            { name: "Investasi", balance: user?.Investasi || "0", color: "bg-teal-500", clickable: false },
-            { name: "Lainnya", balance: "0", color: "bg-indigo-500", clickable: false },
-            { name: "Hutang", balance: user?.Hutang || "0", color: "bg-red-500", clickable: true, path: "/detail-hutang" },
+            { 
+              name: "Tabungan", 
+              balance: user?.Tabungan || "0", 
+              gradient: "from-green-500 to-emerald-600",
+              icon: Wallet,
+              clickable: true, 
+              path: "/detail-tabungan" 
+            },
+            { 
+              name: "Investasi", 
+              balance: formatCurrency(investasiBalance), 
+              gradient: "from-indigo-500 to-violet-600",
+              icon: TrendingUp,
+              clickable: true, 
+              path: "/detail-investasi" 
+            },
+            { 
+              name: "Lainnya", 
+              balance: formatCurrency(lainnyaBalance), 
+              gradient: "from-teal-500 to-cyan-600",
+              icon: Layers,
+              clickable: true, 
+              path: "/detail-lainnya" 
+            },
+            { 
+              name: "Hutang", 
+              balance: user?.Hutang || "0", 
+              gradient: "from-rose-500 to-red-600",
+              icon: CreditCard,
+              clickable: true, 
+              path: "/detail-hutang" 
+            },
           ].map((item, i) => (
             <div 
               key={i} 
               onClick={() => item.clickable && item.path && navigate(item.path)}
-              className={`bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm ${item.clickable ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+              className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-5 rounded-[2rem] flex items-center justify-between shadow-lg shadow-slate-200/50 ${item.clickable ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
             >
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-8 ${item.color} rounded-full`} />
+              {/* Decorative Circle */}
+              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+              
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
+                  <item.icon className="w-6 h-6 text-white" />
+                </div>
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{item.name}</p>
-                  <p className="text-sm font-black text-[#005E6A]">Rp {item.balance}</p>
+                  <p className="text-[10px] font-black text-white/70 uppercase tracking-widest leading-none mb-1.5">{item.name}</p>
+                  <p className="text-lg font-black text-white tracking-tight">Rp {item.balance}</p>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-200" />
+              
+              <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center relative z-10">
+                <ChevronRight className="w-4 h-4 text-white" />
+              </div>
             </div>
           ))}
         </div>
@@ -779,10 +947,18 @@ const SavingsDetailPage = ({ user, transactions }: { user: Customer | null, tran
           <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
         </button>
 
-        <div className="bg-gradient-to-br from-[#005E6A] to-[#008E9E] rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden">
+        <div className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+          <div className="absolute -bottom-4 -right-4 opacity-10">
+            <Wallet className="w-32 h-32" />
+          </div>
           <div className="relative z-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Total Saldo Tabungan</p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Total Saldo Tabungan</p>
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
+                <Wallet className="w-5 h-5 text-white" />
+              </div>
+            </div>
             <div className="flex items-baseline gap-2">
               <span className="text-lg font-bold opacity-80">Rp</span>
               <h2 className="text-4xl font-black tracking-tight">{user?.Tabungan || "0"}</h2>
@@ -792,42 +968,42 @@ const SavingsDetailPage = ({ user, transactions }: { user: Customer | null, tran
 
         <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-50">
-            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest">Riwayat Mutasi</h3>
+            <h3 className="text-sm font-black text-green-600 uppercase tracking-widest">Riwayat Mutasi</h3>
           </div>
           
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipe</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Nominal</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Saldo</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tanggal</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tipe</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Saldo</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {userTransactions.length > 0 ? (
                   userTransactions.map((t, i) => (
                     <tr key={i} className="hover:bg-slate-50/30 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <p className="text-xs font-bold text-slate-600">{t.Tanggal}</p>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <Badge className={`text-[8px] font-black uppercase tracking-widest border-none ${
                           t.Tipe === 'SETOR' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
                         }`}>
                           {t.Tipe}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
                         <p className={`text-xs font-black ${
                           t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'
                         }`}>
                           {t.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(t.Nominal)}
                         </p>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <p className="text-xs font-black text-[#005E6A]">Rp {formatCurrency(t.SaldoAkhir)}</p>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <p className="text-xs font-black text-green-600">Rp {formatCurrency(t.SaldoAkhir)}</p>
                       </td>
                     </tr>
                   ))
@@ -874,8 +1050,16 @@ const DebtDetailPage = ({ user, transactions }: { user: Customer | null, transac
 
         <div className="bg-gradient-to-br from-red-600 to-rose-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+          <div className="absolute -bottom-4 -right-4 opacity-10">
+            <CreditCard className="w-32 h-32" />
+          </div>
           <div className="relative z-10">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2">Total Hutang</p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Total Hutang</p>
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
+                <CreditCard className="w-5 h-5 text-white" />
+              </div>
+            </div>
             <div className="flex items-baseline gap-2">
               <span className="text-lg font-bold opacity-80">Rp</span>
               <h2 className="text-4xl font-black tracking-tight">{user?.Hutang || "0"}</h2>
@@ -943,6 +1127,402 @@ const DebtDetailPage = ({ user, transactions }: { user: Customer | null, transac
   );
 };
 
+const InvestasiPage = ({ user, transactions }: { user: Customer | null, transactions: InvestmentTransaction[] }) => {
+  const navigate = useNavigate();
+  
+  const userTransactions = transactions.filter(t => 
+    t.Nama.toLowerCase() === user?.Nama?.toLowerCase()
+  );
+
+  const formatCurrency = (val: number) => {
+    return val.toLocaleString('id-ID');
+  };
+
+  const totalInvestasi = userTransactions
+    .filter(t => t.Status.toLowerCase() !== "sukses dicairkan")
+    .reduce((acc, curr) => acc + curr.Nominal, 0);
+
+  return (
+    <ProtectedPage user={user} title="Investasi">
+      <div className="px-6 py-4">
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-slate-500 mb-6 group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
+        </button>
+
+        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+          <div className="absolute -bottom-4 -right-4 opacity-10">
+            <TrendingUp className="w-32 h-32" />
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Total Investasi Aktif</p>
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
+                <TrendingUp className="w-5 h-5 text-white" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-bold opacity-80">Rp</span>
+              <h2 className="text-4xl font-black tracking-tight">{formatCurrency(totalInvestasi)}</h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-50">
+            <h3 className="text-sm font-black text-indigo-600 uppercase tracking-widest">Riwayat Investasi</h3>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tanggal</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Tenor</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Jatuh Tempo</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {userTransactions.length > 0 ? (
+                  userTransactions.map((t, i) => (
+                    <tr key={i} className="hover:bg-slate-50/30 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <p className="text-xs font-bold text-slate-600">{t.Tanggal}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(t.Nominal)}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <p className="text-xs font-bold text-slate-600">{t.Tenor}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <p className="text-xs font-bold text-slate-600">{t.JatuhTempo}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <Badge className={`text-[8px] font-black uppercase tracking-widest border-none ${
+                          t.Status.toUpperCase() === 'AKTIF' 
+                            ? 'bg-green-50 text-green-600' 
+                            : t.Status.toLowerCase() === 'sukses dicairkan'
+                              ? 'bg-red-50 text-red-600'
+                              : 'bg-slate-50 text-slate-400'
+                        }`}>
+                          {t.Status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2 opacity-20">
+                        <History className="w-8 h-8" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Belum ada investasi</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </ProtectedPage>
+  );
+};
+
+const LainnyaPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
+  const navigate = useNavigate();
+  
+  const userTransactions = transactions.filter(t => 
+    t.Nama.toLowerCase() === user?.Nama?.toLowerCase() && 
+    t.Status.toUpperCase() === "BELUM DIAMBIL"
+  );
+
+  const formatCurrency = (val: number) => {
+    return val.toLocaleString('id-ID');
+  };
+
+  const totalBelumDiambil = userTransactions.reduce((acc, curr) => {
+    const net = curr.HargaModal - curr.Sebagian;
+    return acc + (net > 0 ? net : 0);
+  }, 0);
+
+  const getWaktuLabel = (dateStr: string) => {
+    const tDate = parseDate(dateStr);
+    if (tDate.getTime() === 0) return "-";
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const txDate = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate());
+    
+    const diffTime = today.getTime() - txDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "Hari ini";
+    if (diffDays === 1) return "Kemarin";
+    if (diffDays < 30) return `${diffDays} hari lalu`;
+    
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) return `${diffMonths} bulan lalu`;
+    
+    const diffYears = Math.floor(diffDays / 365);
+    return `${diffYears} tahun lalu`;
+  };
+
+  return (
+    <ProtectedPage user={user} title="Lainnya">
+      <div className="px-6 py-4">
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-slate-500 mb-6 group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
+        </button>
+
+        <div className="bg-gradient-to-br from-teal-600 to-emerald-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+          <div className="absolute -bottom-4 -right-4 opacity-10">
+            <Layers className="w-32 h-32" />
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Total Lainnya Belum Diambil</p>
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
+                <Layers className="w-5 h-5 text-white" />
+              </div>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-bold opacity-80">Rp</span>
+              <h2 className="text-4xl font-black tracking-tight">{formatCurrency(totalBelumDiambil)}</h2>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-50">
+            <h3 className="text-sm font-black text-teal-600 uppercase tracking-widest">Daftar Belum Diambil</h3>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Waktu</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keterangan</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Potongan</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Terima Bersih</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {userTransactions.length > 0 ? (
+                  userTransactions.map((t, i) => (
+                    <tr key={i} className="hover:bg-slate-50/30 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <p className="text-xs font-bold text-slate-600">{getWaktuLabel(t.Tanggal)}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-xs font-bold text-[#005E6A]">{t.Jenis}</p>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-tighter">Melalui {t.Melalui}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(t.Pemasukan)}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <p className="text-[10px] font-bold text-red-500">Admin: {formatCurrency(t.Pemasukan - t.HargaModal)}</p>
+                        {t.Sebagian > 0 && (
+                          <p className="text-[8px] font-medium text-orange-500 mt-0.5">Sudah Diambil {formatCurrency(t.Sebagian)}</p>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <p className="text-xs font-black text-green-600">Rp {formatCurrency(t.HargaModal - t.Sebagian)}</p>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2 opacity-20">
+                        <History className="w-8 h-8" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Semua data sudah diambil</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </ProtectedPage>
+  );
+};
+
+const LevelPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
+  const navigate = useNavigate();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const currentLevelInfo = calculateCustomerLevel(transactions, user?.Nama || "");
+  const currentLevelIndex = LEVELS.findIndex(l => l.name === currentLevelInfo.name);
+
+  const formatCurrency = (val: number) => {
+    return val.toLocaleString('id-ID');
+  };
+
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const cardWidth = 280 + 16; // w-[280px] + gap-4 (16px)
+      const scrollAmount = currentLevelIndex * cardWidth;
+      
+      // Center the card
+      const containerWidth = container.offsetWidth;
+      const centerOffset = (containerWidth - 280) / 2;
+      
+      container.scrollTo({
+        left: scrollAmount - centerOffset + 24, // +24 for px-6 padding
+        behavior: 'smooth'
+      });
+    }
+  }, [currentLevelIndex]);
+
+  return (
+    <ProtectedPage user={user} title="Level Pelanggan">
+      <div className="min-h-screen bg-slate-50 pb-24">
+        <div className="px-6 pt-6 pb-4">
+          <button 
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-slate-500 mb-6 group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
+          </button>
+
+          <div className="mb-8">
+            <h2 className="text-2xl font-black text-[#005E6A] leading-tight">Level Keanggotaan</h2>
+            <p className="text-xs font-medium text-slate-400 mt-1">Tingkatkan transaksi Anda untuk level lebih tinggi</p>
+          </div>
+        </div>
+
+        {/* Progress Section - Moved Above Carousel */}
+        <div className="px-6 mb-8">
+          <div className="bg-gradient-to-br from-[#005E6A] to-[#F15A24] rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden text-white">
+            {/* Decorative background elements */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+            <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-black/10 rounded-full blur-3xl" />
+            
+            <div className="relative z-10">
+              <div className="flex justify-between items-end mb-6">
+                <div>
+                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Total Transaksi (3 Bulan)</p>
+                  <h4 className="text-2xl font-black">Rp {formatCurrency(currentLevelInfo.total)}</h4>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Status</p>
+                  <Badge className={`border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 bg-white/20 text-white backdrop-blur-md`}>
+                    {currentLevelInfo.name}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              {currentLevelIndex < LEVELS.length - 1 && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/80">
+                    <span>Progress ke {LEVELS[currentLevelIndex + 1].name}</span>
+                    <span>{Math.min(100, Math.round((currentLevelInfo.total / LEVELS[currentLevelIndex + 1].min) * 100))}%</span>
+                  </div>
+                  <div className="h-3 bg-white/20 rounded-full overflow-hidden p-0.5 border border-white/10 backdrop-blur-sm">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, (currentLevelInfo.total / LEVELS[currentLevelIndex + 1].min) * 100)}%` }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                      className={`h-full rounded-full bg-white shadow-sm`}
+                    />
+                  </div>
+                  <p className="text-[10px] font-bold text-white/60 text-center italic">
+                    Butuh Rp {formatCurrency(LEVELS[currentLevelIndex + 1].min - currentLevelInfo.total)} lagi untuk naik level
+                  </p>
+                </div>
+              )}
+              
+              {currentLevelInfo.name === "Platinum" && (
+                <div className="text-center py-4">
+                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
+                    <Star className="w-8 h-8 text-white fill-white" />
+                  </div>
+                  <p className="text-xs font-black text-white uppercase tracking-widest">Level Tertinggi Tercapai!</p>
+                  <p className="text-[10px] font-medium text-white/60 mt-2">Anda telah menikmati semua keuntungan eksklusif kami.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Carousel Container */}
+        <div 
+          ref={scrollContainerRef}
+          className="relative overflow-x-auto flex gap-4 px-6 pb-8 snap-x snap-mandatory no-scrollbar" 
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {LEVELS.map((level, i) => {
+            const isCurrent = level.name === currentLevelInfo.name;
+            
+            return (
+              <div 
+                key={i}
+                className={`flex-shrink-0 w-[280px] snap-center bg-gradient-to-br ${level.color} rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden transition-all duration-300`}
+              >
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+                <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-black/5 rounded-full blur-3xl" />
+                
+                <div className="relative z-10 h-full flex flex-col">
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl border border-white/20 shadow-inner">
+                      {level.icon}
+                    </div>
+                    {isCurrent && (
+                      <Badge className="bg-white/20 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 backdrop-blur-sm">
+                        Level Anda
+                      </Badge>
+                    )}
+                  </div>
+
+                  <h3 className="text-3xl font-black mb-1 tracking-tight">{level.name}</h3>
+                  <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-6">
+                    {level.max === Infinity ? `Min Rp ${formatCurrency(level.min)}` : `Rp ${formatCurrency(level.min)} - ${formatCurrency(level.max)}`}
+                  </p>
+
+                  <div className="mt-auto space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Keuntungan:</p>
+                    <ul className="space-y-2.5">
+                      {level.benefits.map((benefit, idx) => (
+                        <li key={idx} className="flex items-center gap-2 text-[11px] font-bold">
+                          <div className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                            <ShieldCheck className="w-2.5 h-2.5" />
+                          </div>
+                          {benefit}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </ProtectedPage>
+  );
+};
+
 const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -958,36 +1538,47 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
         t.Status.toLowerCase().includes(query)
       );
     })
-    .sort((a, b) => new Date(b.Tanggal).getTime() - new Date(a.Tanggal).getTime());
+    .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
 
   const formatCurrency = (val: number) => {
     return val.toLocaleString('id-ID');
   };
 
-  // Process data for the chart (last 3 months)
+  // Process data for the chart (last 3 months) - Fixed logic
   const chartData = React.useMemo(() => {
-    const months: { [key: string]: number } = {};
     const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
     
-    // Initialize last 3 months
+    const last3Months: { month: number, year: number, label: string, total: number }[] = [];
     for (let i = 2; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthLabel = d.toLocaleString('id-ID', { month: 'short' });
-      months[monthLabel] = 0;
+      const d = new Date(currentYear, currentMonth - i, 1);
+      last3Months.push({
+        month: d.getMonth(),
+        year: d.getFullYear(),
+        label: d.toLocaleString('id-ID', { month: 'short' }),
+        total: 0
+      });
     }
 
-    // Use all user transactions for chart, not filtered by search
-    const allUserTransactions = transactions.filter(t => t.Nama.toLowerCase() === user?.Nama?.toLowerCase());
+    const allUserTransactions = transactions.filter(t => 
+      t.Nama.toLowerCase() === user?.Nama?.toLowerCase()
+    );
     
     allUserTransactions.forEach(t => {
-      const tDate = new Date(t.Tanggal);
-      const monthLabel = tDate.toLocaleString('id-ID', { month: 'short' });
-      if (months[monthLabel] !== undefined) {
-        months[monthLabel] += t.Pemasukan;
+      const tDate = parseDate(t.Tanggal);
+      if (tDate.getTime() === 0) return;
+
+      const tMonth = tDate.getMonth();
+      const tYear = tDate.getFullYear();
+
+      const bucket = last3Months.find(m => m.month === tMonth && m.year === tYear);
+      if (bucket) {
+        bucket.total += t.Pemasukan;
       }
     });
 
-    return Object.entries(months).map(([name, total]) => ({ name, total }));
+    return last3Months.map(m => ({ name: m.label, total: m.total }));
   }, [transactions, user]);
 
   const totalThreeMonths = chartData.reduce((acc, curr) => acc + curr.total, 0);
@@ -1011,7 +1602,7 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
           
           <div className="flex items-center justify-between mb-8 relative z-10">
             <div>
-              <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Total 3 Bulan Terakhir</p>
+              <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Total Belanja (3 Bln Terakhir)</p>
               <h3 className="text-2xl font-black text-white">Rp {formatCurrency(totalThreeMonths)}</h3>
             </div>
             <div className="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/10">
@@ -1024,8 +1615,8 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ffffff" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#ffffff" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#F15A24" stopOpacity={0.6}/>
+                    <stop offset="95%" stopColor="#F15A24" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
@@ -1037,13 +1628,13 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
                   dy={10}
                 />
                 <Tooltip 
-                  cursor={{ stroke: 'rgba(255,255,255,0.2)', strokeWidth: 2 }}
+                  cursor={{ stroke: 'rgba(241, 90, 36, 0.2)', strokeWidth: 2 }}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       return (
                         <div className="bg-white/10 backdrop-blur-xl p-3 rounded-2xl border border-white/20 shadow-2xl text-[10px] font-black">
                           <p className="text-white/60 uppercase mb-1">{payload[0].payload.name}</p>
-                          <p className="text-white text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
+                          <p className="text-[#F15A24] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
                         </div>
                       );
                     }
@@ -1051,9 +1642,9 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
                   }}
                 />
                 <Area 
-                  type="step" 
+                  type="monotone" 
                   dataKey="total" 
-                  stroke="#ffffff" 
+                  stroke="#F15A24" 
                   strokeWidth={4}
                   fillOpacity={1} 
                   fill="url(#colorTotal)" 
@@ -1118,31 +1709,57 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
 
         <div className="space-y-4">
           {userTransactions.length > 0 ? (
-            userTransactions.map((item, i) => (
-              <div key={i} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50">
-                    <ShoppingBag className="w-5 h-5 text-blue-600" />
+            userTransactions.map((item, i) => {
+              // Find matching service for icon and color
+              let service = MAIN_SERVICES.find(s => 
+                item.Jenis.toLowerCase().includes(s.name.toLowerCase()) || 
+                s.name.toLowerCase().includes(item.Jenis.toLowerCase())
+              );
+
+              // Special case for E-Wallet topups
+              const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
+                item.Jenis.toLowerCase().includes(wallet.toLowerCase())
+              );
+
+              if (isEWalletTopup) {
+                service = MAIN_SERVICES.find(s => s.name === "E-Walet");
+              }
+              
+              const IconComponent = service ? (service.icon as any).type : ShoppingBag;
+              const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
+              const bgColorClass = service ? service.bgColor : 'bg-blue-50';
+
+              const getStatusColor = (status: string) => {
+                const s = status.toLowerCase();
+                if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500';
+                if (s.includes('kasbon')) return 'bg-red-500';
+                if (s.includes('proses')) return 'bg-yellow-500';
+                if (s.includes('belum diambil')) return 'bg-blue-500';
+                return 'bg-slate-400';
+              };
+
+              return (
+                <div key={i} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm relative overflow-hidden">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bgColorClass}`}>
+                      <IconComponent className={`w-5 h-5 ${iconColorClass}`} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-800">{item.Jenis}</p>
+                      <p className="text-[10px] text-slate-400">{item.Tanggal}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800">{item.Jenis}</p>
-                    <p className="text-[10px] text-slate-400">{item.Tanggal}</p>
+                  <div className="text-right pr-2">
+                    <p className="text-xs font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
+                  </div>
+                  
+                  {/* Horizontal Ribbon Status - Fixed Width */}
+                  <div className={`absolute bottom-0 right-0 w-24 py-1 rounded-tl-2xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm flex justify-center items-center ${getStatusColor(item.Status)}`}>
+                    {item.Status}
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
-                  <div className="mt-1">
-                    <Badge className={`text-[7px] font-black uppercase tracking-widest border-none px-2 py-0.5 ${
-                      item.Status.toLowerCase() === 'lunas' || item.Status.toLowerCase() === 'selesai' 
-                        ? 'bg-green-50 text-green-600' 
-                        : 'bg-orange-50 text-orange-600'
-                    }`}>
-                      {item.Status}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="flex flex-col items-center justify-center py-20 opacity-20">
               <History className="w-12 h-12 mb-2" />
@@ -1200,6 +1817,7 @@ const SettingsPage = ({ user, onLogout }: { user: Customer | null, onLogout: () 
 
 const QRISPage = () => {
   const navigate = useNavigate();
+  const [isFullScreen, setIsFullScreen] = useState(false);
   const qrisUrl = "https://lh3.googleusercontent.com/d/1P7Itn82Za-1G1a_4wpEa5BmarzCPvtn_";
 
   const handleDownload = async () => {
@@ -1242,7 +1860,10 @@ const QRISPage = () => {
             <span className="text-xl font-black text-[#005E6A]">QRIS</span>
           </div>
           
-          <div className="w-full aspect-square bg-slate-50 rounded-2xl overflow-hidden border-2 border-slate-100 mb-6 flex items-center justify-center">
+          <div 
+            className="w-full aspect-square bg-slate-50 rounded-2xl overflow-hidden border-2 border-slate-100 mb-6 flex items-center justify-center cursor-pointer"
+            onClick={() => setIsFullScreen(true)}
+          >
             <img 
               src={qrisUrl} 
               alt="QRIS Warung Tomi" 
@@ -1290,6 +1911,38 @@ const QRISPage = () => {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isFullScreen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-4"
+            onClick={() => setIsFullScreen(false)}
+          >
+            <button 
+              className="absolute top-6 right-6 text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsFullScreen(false);
+              }}
+            >
+              <X className="w-8 h-8" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              src={qrisUrl}
+              alt="QRIS Full Screen"
+              className="max-w-full max-h-full object-contain"
+              referrerPolicy="no-referrer"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
@@ -1302,7 +1955,8 @@ const Layout = ({
   loggedInUser,
   onLogin,
   onLogout,
-  isLoading
+  isLoading,
+  salesTransactions
 }: { 
   children: React.ReactNode, 
   activeTab: string, 
@@ -1311,7 +1965,8 @@ const Layout = ({
   loggedInUser: Customer | null,
   onLogin: (user: Customer) => void,
   onLogout: () => void,
-  isLoading: boolean
+  isLoading: boolean,
+  salesTransactions: SalesTransaction[]
 }) => (
   <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans pb-24">
     <Header 
@@ -1321,6 +1976,7 @@ const Layout = ({
       onLogout={onLogout} 
       setActiveTab={setActiveTab}
       isLoading={isLoading}
+      salesTransactions={salesTransactions}
     />
     <main className="container mx-auto max-w-lg">
       {children}
@@ -1335,6 +1991,7 @@ const HomePage = ({
   loggedInUser,
   onLogout,
   salesTransactions,
+  investmentTransactions,
   customers,
   onLogin
 }: { 
@@ -1343,6 +2000,7 @@ const HomePage = ({
   loggedInUser: Customer | null,
   onLogout: () => void,
   salesTransactions: SalesTransaction[],
+  investmentTransactions: InvestmentTransaction[],
   customers: Customer[],
   onLogin: (user: Customer) => void
 }) => {
@@ -1359,6 +2017,10 @@ const HomePage = ({
           navigate('/detail-tabungan', { replace: true });
         } else if (subPage === 'hutang') {
           navigate('/detail-hutang', { replace: true });
+        } else if (subPage === 'lainnya') {
+          navigate('/detail-lainnya', { replace: true });
+        } else if (subPage === 'investasi') {
+          navigate('/detail-investasi', { replace: true });
         } else {
           setActiveTab("aset");
         }
@@ -1379,7 +2041,7 @@ const HomePage = ({
           <MainServices />
         </motion.div>
       )}
-      {activeTab === "aset" && <AsetPage user={loggedInUser} />}
+      {activeTab === "aset" && <AsetPage user={loggedInUser} transactions={salesTransactions} investmentTransactions={investmentTransactions} />}
       {activeTab === "riwayat" && <RiwayatPage user={loggedInUser} transactions={salesTransactions} />}
       {activeTab === "settings" && <SettingsPage user={loggedInUser} onLogout={onLogout} />}
     </AnimatePresence>
@@ -1398,10 +2060,10 @@ const LoadingPopup = () => (
       animate={{ scale: 1, opacity: 1 }}
       className="bg-white rounded-[1.5rem] p-5 w-full max-w-[160px] flex flex-col items-center shadow-2xl"
     >
-      <div className="w-10 h-10 bg-[#E6F4F5] rounded-xl flex items-center justify-center mb-3">
-        <RefreshCw className="w-5 h-5 text-[#005E6A] animate-spin" />
+      <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mb-3">
+        <RefreshCw className="w-5 h-5 text-orange-500 animate-spin" />
       </div>
-      <h3 className="text-[7px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-0.5 text-center">Mohon Tunggu</h3>
+      <h3 className="text-[7px] font-black text-orange-600 uppercase tracking-[0.2em] mb-0.5 text-center">Mohon Tunggu</h3>
       <p className="text-[6px] font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">Memuat data...</p>
       
       <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden relative">
@@ -1409,7 +2071,7 @@ const LoadingPopup = () => (
           initial={{ left: "-100%" }}
           animate={{ left: "100%" }}
           transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-          className="absolute top-0 bottom-0 w-1/2 bg-gradient-to-r from-transparent via-[#005E6A] to-transparent"
+          className="absolute top-0 bottom-0 w-1/2 bg-gradient-to-r from-transparent via-orange-500 to-transparent"
         />
       </div>
     </motion.div>
@@ -1423,31 +2085,34 @@ const InstallPrompt = ({ onInstall, onDismiss }: { onInstall: () => void, onDism
     exit={{ opacity: 0, y: 100 }}
     className="fixed bottom-6 left-6 right-6 z-[90] flex items-center justify-center"
   >
-    <div className="bg-white rounded-[2rem] p-5 w-full max-w-sm shadow-2xl border border-slate-100 flex items-center gap-4">
-      <div className="w-14 h-14 bg-slate-50 rounded-2xl overflow-hidden flex-shrink-0 border border-slate-100">
-        <img 
-          src="https://lh3.googleusercontent.com/d/1VTlCXt_WlEUiF0s7fVHUM3JtjO3q4cqk" 
-          alt="Warung Tomi Icon" 
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
+    <div className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col gap-5">
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 bg-slate-50 rounded-2xl overflow-hidden flex-shrink-0 border border-slate-100">
+          <img 
+            src="https://lh3.googleusercontent.com/d/1VTlCXt_WlEUiF0s7fVHUM3JtjO3q4cqk" 
+            alt="Warung Tomi Icon" 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-wider mb-0.5">Instal Warung Tomi</h3>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Akses lebih cepat & mudah langsung dari layar utama Anda</p>
+        </div>
       </div>
-      <div className="flex-1">
-        <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-wider mb-0.5">Instal Warung Tomi</h3>
-        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Akses lebih cepat & mudah langsung dari layar utama Anda</p>
-      </div>
-      <div className="flex flex-col gap-2">
-        <button 
-          onClick={onInstall}
-          className="bg-[#F15A24] text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 active:scale-95 transition-transform"
-        >
-          Instal
-        </button>
+      
+      <div className="flex items-center gap-3">
         <button 
           onClick={onDismiss}
-          className="text-[8px] font-bold text-slate-300 uppercase tracking-widest text-center hover:text-slate-500 transition-colors"
+          className="flex-1 bg-slate-50 text-slate-400 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-transform border border-slate-100"
         >
           Nanti
+        </button>
+        <button 
+          onClick={onInstall}
+          className="flex-[2] bg-[#F15A24] text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 active:scale-95 transition-transform"
+        >
+          Instal Sekarang
         </button>
       </div>
     </div>
@@ -1460,6 +2125,7 @@ export default function App() {
   const [savingsTransactions, setSavingsTransactions] = useState<SavingTransaction[]>([]);
   const [debtTransactions, setDebtTransactions] = useState<DebtTransaction[]>([]);
   const [salesTransactions, setSalesTransactions] = useState<SalesTransaction[]>([]);
+  const [investmentTransactions, setInvestmentTransactions] = useState<InvestmentTransaction[]>([]);
   const [loggedInUser, setLoggedInUser] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -1569,6 +2235,7 @@ export default function App() {
                 const allSavingsTransactions: SavingTransaction[] = [];
                 const allDebtTransactions: DebtTransaction[] = [];
                 const allSalesTransactions: SalesTransaction[] = [];
+                const allInvestmentTransactions: InvestmentTransaction[] = [];
                 const validCustomers = results.data
                   .filter((c: any) => c && c[namaKey])
                   .map((c: any) => {
@@ -1621,14 +2288,32 @@ export default function App() {
                       const iNamaKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('nama'));
                       return iNamaKey && String(i[iNamaKey]).trim().toLowerCase() === name.toLowerCase();
                     });
-                    let totalInvestasi = 0;
-                    userInvestasi.forEach(i => {
-                      const nominalKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('nominal') || k.toLowerCase().trim().includes('jumlah') || k.toLowerCase().trim().includes('investasi') || k.toLowerCase().trim().includes('total') || k.toLowerCase().trim().includes('diterima'));
-                      if (nominalKey) {
-                        const nominalStr = String(i[nominalKey]).replace(/[^\d]/g, '');
-                        totalInvestasi += parseInt(nominalStr) || 0;
-                      }
+                    
+                    const iTransactions: InvestmentTransaction[] = userInvestasi.map(i => {
+                      const tanggalKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('tanggal') || k.toLowerCase().trim().includes('date'));
+                      const nominalKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('diterima') || k.toLowerCase().trim().includes('nominal') || k.toLowerCase().trim().includes('jumlah'));
+                      const tenorKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('tenor'));
+                      const jatuhTempoKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('jatuh tempo'));
+                      const statusKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('status'));
+                      
+                      const nominalStr = nominalKey ? String(i[nominalKey]).replace(/[^\d]/g, '') : "0";
+                      const nominal = parseInt(nominalStr) || 0;
+                      
+                      return {
+                        Tanggal: tanggalKey ? String(i[tanggalKey]).trim() : "-",
+                        Nama: name,
+                        Nominal: nominal,
+                        Tenor: tenorKey ? String(i[tenorKey]).trim() : "-",
+                        JatuhTempo: jatuhTempoKey ? String(i[jatuhTempoKey]).trim() : "-",
+                        Status: statusKey ? String(i[statusKey]).trim() : "Aktif"
+                      };
                     });
+                    
+                    allInvestmentTransactions.push(...iTransactions);
+                    
+                    let totalInvestasi = iTransactions
+                      .filter(t => t.Status.toLowerCase() !== "sukses dicairkan")
+                      .reduce((acc, curr) => acc + curr.Nominal, 0);
 
                     // Calculate Hutang
                     const userHutangData = hutangData.filter(h => {
@@ -1684,16 +2369,28 @@ export default function App() {
                       const tanggalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('tanggal') || k.toLowerCase().trim().includes('date'));
                       const pemasukanKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga jual') || k.toLowerCase().trim().includes('pemasukan') || k.toLowerCase().trim().includes('jumlah') || k.toLowerCase().trim().includes('nominal'));
                       const statusKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('status'));
+                      const melaluiKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('melalui'));
+                      const modalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga modal') || k.toLowerCase().trim().includes('modal'));
+                      const sebagianKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('sebagian'));
 
-                      const nominalStr = pemasukanKey ? String(s[pemasukanKey]).replace(/[^0-9.-]/g, '') : "0";
-                      const nominal = parseFloat(nominalStr) || 0;
+                      const nominalStr = pemasukanKey ? String(s[pemasukanKey]).replace(/[^\d]/g, '') : "0";
+                      const nominal = parseInt(nominalStr) || 0;
                       
+                      const modalStr = modalKey ? String(s[modalKey]).replace(/[^\d]/g, '') : "0";
+                      const modal = parseInt(modalStr) || 0;
+
+                      const sebagianStr = sebagianKey ? String(s[sebagianKey]).replace(/[^\d]/g, '') : "0";
+                      const sebagian = parseInt(sebagianStr) || 0;
+
                       return {
                         Tanggal: tanggalKey ? String(s[tanggalKey]).trim() : "-",
                         Nama: name,
                         Jenis: jenisKey ? String(s[jenisKey]).trim() : "Belanja",
                         Pemasukan: Math.abs(Math.round(nominal)),
-                        Status: statusKey ? String(s[statusKey]).trim() : "Selesai"
+                        Status: statusKey ? String(s[statusKey]).trim() : "Selesai",
+                        Melalui: melaluiKey ? String(s[melaluiKey]).trim() : "-",
+                        HargaModal: Math.abs(Math.round(modal)),
+                        Sebagian: Math.abs(Math.round(sebagian))
                       };
                     });
 
@@ -1714,6 +2411,7 @@ export default function App() {
                 setSavingsTransactions(allSavingsTransactions);
                 setDebtTransactions(allDebtTransactions);
                 setSalesTransactions(allSalesTransactions);
+                setInvestmentTransactions(allInvestmentTransactions);
                 
                 // Update logged in user using functional update to avoid closure issues
                 setLoggedInUser(prev => {
@@ -1775,6 +2473,7 @@ export default function App() {
             onLogin={handleLogin}
             onLogout={handleLogout}
             isLoading={isLoading}
+            salesTransactions={salesTransactions}
           >
             <HomePage 
               activeTab={activeTab} 
@@ -1782,6 +2481,7 @@ export default function App() {
               loggedInUser={loggedInUser}
               onLogout={handleLogout}
               salesTransactions={salesTransactions}
+              investmentTransactions={investmentTransactions}
               customers={customers}
               onLogin={handleLogin}
             />
@@ -1796,6 +2496,7 @@ export default function App() {
             onLogin={handleLogin}
             onLogout={handleLogout}
             isLoading={isLoading}
+            salesTransactions={salesTransactions}
           >
             <HomePage 
               activeTab={activeTab} 
@@ -1803,6 +2504,7 @@ export default function App() {
               loggedInUser={loggedInUser}
               onLogout={handleLogout}
               salesTransactions={salesTransactions}
+              investmentTransactions={investmentTransactions}
               customers={customers}
               onLogin={handleLogin}
             />
@@ -1817,6 +2519,7 @@ export default function App() {
             onLogin={handleLogin}
             onLogout={handleLogout}
             isLoading={isLoading}
+            salesTransactions={salesTransactions}
           >
             <HomePage 
               activeTab={activeTab} 
@@ -1824,6 +2527,7 @@ export default function App() {
               loggedInUser={loggedInUser}
               onLogout={handleLogout}
               salesTransactions={salesTransactions}
+              investmentTransactions={investmentTransactions}
               customers={customers}
               onLogin={handleLogin}
             />
@@ -1835,7 +2539,14 @@ export default function App() {
         <Route path="/detail-hutang" element={
           <DebtDetailPage user={loggedInUser} transactions={debtTransactions} />
         } />
+        <Route path="/detail-lainnya" element={
+          <LainnyaPage user={loggedInUser} transactions={salesTransactions} />
+        } />
+        <Route path="/detail-investasi" element={
+          <InvestasiPage user={loggedInUser} transactions={investmentTransactions} />
+        } />
         <Route path="/qris" element={<QRISPage />} />
+        <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} />} />
       </Routes>
     </BrowserRouter>
   );
