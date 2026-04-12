@@ -5,6 +5,8 @@ import Papa from "papaparse";
 import { 
   LineChart, 
   Line, 
+  BarChart,
+  Bar,
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -48,17 +50,19 @@ import {
   Globe,
   Home,
   Bot,
+  BarChart3,
+  TrendingUp,
+  ArrowLeft,
+  Info,
+  Lock,
   HeartPulse,
   Droplets,
   Tv,
   Gamepad2,
   FileText,
   DollarSign,
-  ArrowLeft,
   Download,
-  Info,
-  TrendingUp,
-  Layers
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -238,10 +242,14 @@ const Header = ({
   salesTransactions: SalesTransaction[]
 }) => {
   const [isPortalOpen, setIsPortalOpen] = useState(false);
+  const [activePortalTab, setActivePortalTab] = useState<"USER" | "ADMIN">("USER");
   const [customerName, setCustomerName] = useState("");
   const [pinInput, setPinInput] = useState("");
+  const [adminCode, setAdminCode] = useState("");
   const [showPinInput, setShowPinInput] = useState(false);
   const navigate = useNavigate();
+
+  const ADMIN_ACCESS_CODE = "160910"; // In a real app, this would be hashed/encrypted
 
   const customerLevel = calculateCustomerLevel(salesTransactions, loggedInUser?.Nama || "");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -250,7 +258,7 @@ const Header = ({
 
   useEffect(() => {
     const trimmedInput = customerName.trim();
-    if (trimmedInput.length > 0 && !showPinInput) {
+    if (trimmedInput.length > 0 && !showPinInput && activePortalTab === "USER") {
       const filtered = customers.filter(c => 
         c && c.Nama && 
         typeof c.Nama === 'string' && 
@@ -260,7 +268,17 @@ const Header = ({
     } else {
       setSuggestions([]);
     }
-  }, [customerName, customers, showPinInput]);
+  }, [customerName, customers, showPinInput, activePortalTab]);
+
+  const handleAdminSubmit = () => {
+    if (adminCode === ADMIN_ACCESS_CODE) {
+      setIsPortalOpen(false);
+      setAdminCode("");
+      navigate("/admin");
+    } else {
+      setError("Kode Akses Salah");
+    }
+  };
 
   const handleLoginAttempt = () => {
     const user = customers.find(c => 
@@ -375,6 +393,34 @@ const Header = ({
             className="bg-white"
           >
             <div className="px-6 py-6 border-t border-slate-50 bg-gradient-to-b from-slate-50/50 to-white">
+              {/* Tabs */}
+              {!loggedInUser && (
+                <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
+                  <button
+                    onClick={() => {
+                      setActivePortalTab("USER");
+                      setError("");
+                    }}
+                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                      activePortalTab === "USER" ? "bg-white text-[#005E6A] shadow-sm" : "text-slate-400"
+                    }`}
+                  >
+                    User
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActivePortalTab("ADMIN");
+                      setError("");
+                    }}
+                    className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                      activePortalTab === "ADMIN" ? "bg-white text-[#F15A24] shadow-sm" : "text-slate-400"
+                    }`}
+                  >
+                    Admin
+                  </button>
+                </div>
+              )}
+
               {loggedInUser ? (
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
@@ -405,7 +451,7 @@ const Header = ({
                     Keluar Akun
                   </button>
                 </div>
-              ) : (
+              ) : activePortalTab === "USER" ? (
                 <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2">
@@ -501,6 +547,42 @@ const Header = ({
                       </button>
                     </div>
                   )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-3 bg-[#F15A24] rounded-full" />
+                      <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Akses Administrator</h3>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-medium ml-3">
+                      Masukkan kode akses khusus untuk masuk ke dashboard admin
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-4">
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#F15A24] transition-colors pointer-events-none" />
+                      <input
+                        type="password"
+                        value={adminCode}
+                        onChange={(e) => setAdminCode(e.target.value)}
+                        placeholder="Kode Akses Admin..."
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-[11px] font-bold focus:outline-none focus:border-[#F15A24] focus:ring-2 focus:ring-orange-50 transition-all shadow-sm"
+                      />
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleAdminSubmit}
+                      className="w-full bg-[#F15A24] text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-100"
+                    >
+                      Masuk Dashboard Admin
+                    </motion.button>
+                    {error && (
+                      <p className="text-[10px] font-bold text-red-500 text-center">{error}</p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1365,9 +1447,301 @@ const LainnyaPage = ({ user, transactions }: { user: Customer | null, transactio
   );
 };
 
+const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
+  const navigate = useNavigate();
+  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Convert ISO date (YYYY-MM-DD) to DD/MM/YYYY for matching
+  const formattedFilterDate = filterDate.split('-').reverse().join('/');
+
+  // Filter transactions for selected date
+  const filteredTransactions = transactions.filter(t => t.Tanggal.startsWith(formattedFilterDate));
+
+  const totalPemasukan = filteredTransactions.reduce((acc, curr) => acc + curr.Pemasukan, 0);
+  const totalModal = filteredTransactions.reduce((acc, curr) => acc + curr.HargaModal, 0);
+  const totalKeuntungan = totalPemasukan - totalModal;
+  const totalTransaksi = filteredTransactions.length;
+
+  return (
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+        
+        <div className="relative z-10">
+          <button 
+            onClick={() => navigate("/admin")}
+            className="flex items-center gap-2 text-white/70 mb-6 group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Dashboard</span>
+          </button>
+          
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+              <FileText className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-2xl font-black tracking-tight uppercase">Laporan Transaksi</h1>
+          </div>
+          <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Data Penjualan Harian</p>
+        </div>
+      </div>
+
+      <div className="px-6 -mt-12 relative z-20 space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Penjualan</p>
+            <h3 className="text-[10px] font-black text-[#005E6A]">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
+          </div>
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Keuntungan</p>
+            <h3 className="text-[10px] font-black text-green-600">Rp {totalKeuntungan.toLocaleString('id-ID')}</h3>
+          </div>
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Transaksi</p>
+            <h3 className="text-[10px] font-black text-[#F15A24]">{totalTransaksi}</h3>
+          </div>
+        </div>
+
+        {/* Date Filter */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-slate-400" />
+            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Pilih Tanggal:</span>
+          </div>
+          <input 
+            type="date" 
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 text-[10px] font-bold text-[#005E6A] focus:outline-none focus:border-[#F15A24] appearance-none"
+          />
+        </div>
+
+        {/* Transaction List Cards */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Transaksi</h3>
+            <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1">
+              {filteredTransactions.length} Data
+            </Badge>
+          </div>
+
+          <div className="grid gap-4">
+            {filteredTransactions.length > 0 ? (
+              filteredTransactions.map((t, i) => {
+                const service = MAIN_SERVICES.find(s => 
+                  s.name.toLowerCase() === t.Jenis.toLowerCase() || 
+                  (t.Jenis.toLowerCase() === 'qris' && s.name.toLowerCase() === 'qris')
+                );
+                const statusLower = t.Status.toLowerCase();
+                let ribbonColor = 'bg-slate-500';
+                if (statusLower.includes('selesai') || statusLower.includes('sukses')) ribbonColor = 'bg-green-500';
+                else if (statusLower.includes('kasbon')) ribbonColor = 'bg-red-500';
+                else if (statusLower.includes('proses')) ribbonColor = 'bg-yellow-500';
+                else if (statusLower.includes('belum') || statusLower.includes('ambil')) ribbonColor = 'bg-blue-500';
+
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative"
+                  >
+                    <div className="p-3 pb-7 flex justify-between items-start">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${service?.bgColor || 'bg-slate-50'}`}>
+                          {service ? React.cloneElement(service.icon as React.ReactElement, { className: "w-4 h-4" }) : <ShoppingBag className="w-4 h-4 text-slate-400" />}
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{t.Nama}</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[8px] font-bold text-slate-700 uppercase">{t.Jenis}</span>
+                            <span className="text-[8px] font-medium text-slate-400 uppercase tracking-wider">• {t.Melalui}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[11px] font-black text-[#005E6A]">Rp {t.Pemasukan.toLocaleString('id-ID')}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Ribbon at bottom right with uniform width */}
+                    <div className={`absolute bottom-0 right-0 w-28 py-1 rounded-tl-xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm text-center ${ribbonColor}`}>
+                      {t.Status}
+                    </div>
+                  </motion.div>
+                );
+              })
+            ) : (
+              <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
+                <div className="flex flex-col items-center gap-2 opacity-20">
+                  <FileText className="w-8 h-8" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdminDashboard = ({ transactions, user }: { transactions: SalesTransaction[], user: Customer | null }) => {
+  const navigate = useNavigate();
+  
+  // Filter transactions for current month
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  const monthlySales = transactions.filter(t => {
+    const date = parseDate(t.Tanggal);
+    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+  });
+
+  // Group by date
+  const salesByDate = monthlySales.reduce((acc: any, curr) => {
+    const dateStr = curr.Tanggal.split(' ')[0]; // Assuming "DD/MM/YYYY" or similar
+    if (!acc[dateStr]) acc[dateStr] = 0;
+    acc[dateStr] += curr.Pemasukan;
+    return acc;
+  }, {});
+
+  const chartData = Object.keys(salesByDate).map(date => ({
+    date,
+    total: salesByDate[date]
+  })).sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
+
+  const totalPemasukan = monthlySales.reduce((acc, curr) => acc + curr.Pemasukan, 0);
+  const totalTransaksi = monthlySales.length;
+
+  return (
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
+        
+        <div className="relative z-10">
+          <button 
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 text-white/70 mb-6 group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Beranda</span>
+          </button>
+          
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+              <BarChart3 className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-2xl font-black tracking-tight uppercase">Dashboard Admin</h1>
+          </div>
+          <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Laporan Penjualan Bulan Ini</p>
+        </div>
+      </div>
+
+      <div className="px-6 -mt-12 relative z-20 space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Penjualan</p>
+            <h3 className="text-lg font-black text-[#005E6A]">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
+          </div>
+          <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Transaksi</p>
+            <h3 className="text-lg font-black text-[#F15A24]">{totalTransaksi} <span className="text-[10px] font-bold text-slate-400">Order</span></h3>
+          </div>
+        </div>
+
+        {/* Chart Card */}
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Grafik Harian</h3>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Penjualan per Tanggal</p>
+            </div>
+            <div className="w-8 h-8 bg-orange-50 rounded-full flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-[#F15A24]" />
+            </div>
+          </div>
+
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              < BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 8, fontWeight: 700, fill: '#94a3b8' }}
+                  tickFormatter={(val) => val.split('/')[0]} // Just show day
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 8, fontWeight: 700, fill: '#94a3b8' }}
+                  tickFormatter={(val) => `Rp ${val/1000}k`}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '1rem', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    fontSize: '10px',
+                    fontWeight: 'bold'
+                  }}
+                  formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Penjualan']}
+                />
+                <Bar 
+                  dataKey="total" 
+                  fill="#F15A24" 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={12}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Recent Transactions List */}
+        <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Transaksi Terakhir</h3>
+            <button 
+              onClick={() => navigate("/admin/report")}
+              className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:text-[#F15A24] hover:bg-orange-50 transition-all"
+            >
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-4">
+            {monthlySales.slice(0, 5).map((t, i) => (
+              <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
+                    <ShoppingBag className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{t.Nama}</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{t.Jenis} • {t.Tanggal}</p>
+                  </div>
+                </div>
+                <p className="text-[10px] font-black text-[#005E6A]">Rp {t.Pemasukan.toLocaleString('id-ID')}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const LevelPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const currentLevelInfo = calculateCustomerLevel(transactions, user?.Nama || "");
   const currentLevelIndex = LEVELS.findIndex(l => l.name === currentLevelInfo.name);
 
@@ -1378,127 +1752,164 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
   useEffect(() => {
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current;
-      const cardWidth = 280 + 16; // w-[280px] + gap-4 (16px)
+      const cardWidth = 260 - 100; 
       const scrollAmount = currentLevelIndex * cardWidth;
       
-      // Center the card
       const containerWidth = container.offsetWidth;
-      const centerOffset = (containerWidth - 280) / 2;
+      const centerOffset = (containerWidth - 260) / 2;
       
       container.scrollTo({
-        left: scrollAmount - centerOffset + 24, // +24 for px-6 padding
+        left: scrollAmount - centerOffset + 40,
         behavior: 'smooth'
       });
+      setActiveIndex(currentLevelIndex);
     }
   }, [currentLevelIndex]);
 
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const scrollLeft = container.scrollLeft;
+      const cardWidth = 260 - 100;
+      const containerWidth = container.offsetWidth;
+      const centerOffset = (containerWidth - 260) / 2;
+      const index = Math.round((scrollLeft + centerOffset - 40) / cardWidth);
+      if (index >= 0 && index < LEVELS.length) {
+        setActiveIndex(index);
+      }
+    }
+  };
+
   return (
     <ProtectedPage user={user} title="Level Pelanggan">
-      <div className="min-h-screen bg-slate-50 pb-24">
-        <div className="px-6 pt-6 pb-4">
+      <div className="min-h-screen bg-slate-50 pb-24 overflow-hidden">
+        <div className="px-6 pt-6 pb-2">
           <button 
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-slate-500 mb-6 group"
+            className="flex items-center gap-2 text-slate-500 mb-4 group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
             <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
           </button>
 
-          <div className="mb-8">
-            <h2 className="text-2xl font-black text-[#005E6A] leading-tight">Level Keanggotaan</h2>
+          <div className="mb-6">
+            <h2 className="text-2xl font-black text-[#005E6A] leading-tight">Level Pelanggan</h2>
             <p className="text-xs font-medium text-slate-400 mt-1">Tingkatkan transaksi Anda untuk level lebih tinggi</p>
           </div>
-        </div>
 
-        {/* Progress Section - Moved Above Carousel */}
-        <div className="px-6 mb-8">
-          <div className="bg-gradient-to-br from-[#005E6A] to-[#F15A24] rounded-[2.5rem] p-8 shadow-xl relative overflow-hidden text-white">
-            {/* Decorative background elements */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-            <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-black/10 rounded-full blur-3xl" />
-            
-            <div className="relative z-10">
-              <div className="flex justify-between items-end mb-6">
-                <div>
-                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Total Transaksi (3 Bulan)</p>
-                  <h4 className="text-2xl font-black">Rp {formatCurrency(currentLevelInfo.total)}</h4>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Status</p>
-                  <Badge className={`border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 bg-white/20 text-white backdrop-blur-md`}>
-                    {currentLevelInfo.name}
-                  </Badge>
-                </div>
+          {/* New Carousel Card Above Level Cards */}
+          <div className="mb-8">
+            <div className="bg-white rounded-[2.5rem] p-4 shadow-xl border-2 border-white overflow-hidden">
+              <div className="relative aspect-[16/9] rounded-[1.8rem] overflow-hidden mb-4">
+                <PromoSection />
               </div>
-
-              {/* Progress Bar */}
-              {currentLevelIndex < LEVELS.length - 1 && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-white/80">
-                    <span>Progress ke {LEVELS[currentLevelIndex + 1].name}</span>
-                    <span>{Math.min(100, Math.round((currentLevelInfo.total / LEVELS[currentLevelIndex + 1].min) * 100))}%</span>
-                  </div>
-                  <div className="h-3 bg-white/20 rounded-full overflow-hidden p-0.5 border border-white/10 backdrop-blur-sm">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (currentLevelInfo.total / LEVELS[currentLevelIndex + 1].min) * 100)}%` }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                      className={`h-full rounded-full bg-white shadow-sm`}
-                    />
-                  </div>
-                  <p className="text-[10px] font-bold text-white/60 text-center italic">
-                    Butuh Rp {formatCurrency(LEVELS[currentLevelIndex + 1].min - currentLevelInfo.total)} lagi untuk naik level
-                  </p>
-                </div>
-              )}
-              
-              {currentLevelInfo.name === "Platinum" && (
-                <div className="text-center py-4">
-                  <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4 backdrop-blur-md">
-                    <Star className="w-8 h-8 text-white fill-white" />
-                  </div>
-                  <p className="text-xs font-black text-white uppercase tracking-widest">Level Tertinggi Tercapai!</p>
-                  <p className="text-[10px] font-medium text-white/60 mt-2">Anda telah menikmati semua keuntungan eksklusif kami.</p>
-                </div>
-              )}
+              <div className="px-4 pb-2">
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Keuntungan Eksklusif</h3>
+                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Nikmati berbagai penawaran menarik sesuai level Anda</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Carousel Container */}
+        {/* Carousel Container with Progressive Stack Effect */}
         <div 
           ref={scrollContainerRef}
-          className="relative overflow-x-auto flex gap-4 px-6 pb-8 snap-x snap-mandatory no-scrollbar" 
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          onScroll={handleScroll}
+          className="relative overflow-x-auto flex px-[30%] pb-12 snap-x snap-mandatory no-scrollbar items-center py-12" 
+          style={{ 
+            scrollbarWidth: 'none', 
+            msOverflowStyle: 'none',
+          }}
         >
           {LEVELS.map((level, i) => {
-            const isCurrent = level.name === currentLevelInfo.name;
+            const isLocked = i > currentLevelIndex;
+            const isCompleted = i < currentLevelIndex;
+            const distance = Math.abs(i - activeIndex);
+            const zIndex = 50 - distance;
             
             return (
-              <div 
+              <motion.div 
                 key={i}
-                className={`flex-shrink-0 w-[280px] snap-center bg-gradient-to-br ${level.color} rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden transition-all duration-300`}
+                initial={{ scale: 0.6, opacity: 1 }}
+                whileInView={{ 
+                  scale: 1, 
+                  opacity: 1,
+                  transition: { type: "spring", stiffness: 300, damping: 25 }
+                }}
+                viewport={{ once: false, amount: 0.8 }}
+                className={`flex-shrink-0 w-[260px] -mx-[50px] snap-center bg-gradient-to-br ${level.color} rounded-[2.5rem] p-6 text-white shadow-2xl relative overflow-hidden flex flex-col min-h-[460px] transition-all duration-500`}
+                style={{
+                  zIndex: zIndex,
+                }}
               >
                 {/* Decorative Elements */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-                <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-black/5 rounded-full blur-3xl" />
+                <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-black/10 rounded-full blur-3xl" />
                 
-                <div className="relative z-10 h-full flex flex-col">
+                <div className="relative z-10 h-full flex flex-col flex-grow">
                   <div className="flex justify-between items-start mb-6">
                     <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl border border-white/20 shadow-inner">
-                      {level.icon}
+                      {isLocked ? <Lock className="w-6 h-6 text-white/60" /> : level.icon}
                     </div>
-                    {isCurrent && (
+                    {level.name === currentLevelInfo.name && (
                       <Badge className="bg-white/20 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 backdrop-blur-sm">
                         Level Anda
                       </Badge>
                     )}
+                    {isLocked && (
+                      <Badge className="bg-black/20 text-white/60 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 backdrop-blur-sm">
+                        Terkunci
+                      </Badge>
+                    )}
+                    {isCompleted && (
+                      <Badge className="bg-white/20 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 backdrop-blur-sm">
+                        Tercapai
+                      </Badge>
+                    )}
                   </div>
 
-                  <h3 className="text-3xl font-black mb-1 tracking-tight">{level.name}</h3>
-                  <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest mb-6">
-                    {level.max === Infinity ? `Min Rp ${formatCurrency(level.min)}` : `Rp ${formatCurrency(level.min)} - ${formatCurrency(level.max)}`}
-                  </p>
+                  <div className="mb-6">
+                    <h3 className="text-3xl font-black mb-1 tracking-tight">{level.name}</h3>
+                    <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest">
+                      {level.max === Infinity ? `Min Rp ${formatCurrency(level.min)}` : `Rp ${formatCurrency(level.min)} - ${formatCurrency(level.max)}`}
+                    </p>
+                  </div>
+
+                  {/* Integrated Transaction Card */}
+                  <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-5 border border-white/10 mb-6 shadow-inner">
+                    <div className="flex justify-between items-end mb-4">
+                      <div>
+                        <p className="text-[8px] font-black text-white/50 uppercase tracking-widest mb-1">Total Transaksi</p>
+                        <h4 className="text-sm font-black">Rp {formatCurrency(currentLevelInfo.total)}</h4>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[8px] font-black text-white/50 uppercase tracking-widest mb-1">Target</p>
+                        <p className="text-[10px] font-bold">Rp {formatCurrency(level.min)}</p>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar for this specific level */}
+                    <div className="space-y-2">
+                      <div className="h-2 bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/5">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ 
+                            width: isCompleted ? "100%" : 
+                                   isLocked ? `${Math.min(100, Math.max(0, (currentLevelInfo.total / level.min) * 100))}%` :
+                                   `${Math.min(100, Math.max(0, (currentLevelInfo.total / (LEVELS[i+1]?.min || level.min)) * 100))}%`
+                          }}
+                          transition={{ duration: 1.5, ease: "easeOut" }}
+                          className={`h-full rounded-full bg-white shadow-sm`}
+                        />
+                      </div>
+                      <p className="text-[8px] font-bold text-white/60 text-center italic">
+                        {isCompleted ? "Level telah terlampaui" : 
+                         isLocked ? `Butuh Rp ${formatCurrency(level.min - currentLevelInfo.total)} lagi` :
+                         i < LEVELS.length - 1 ? `Butuh Rp ${formatCurrency(LEVELS[i+1].min - currentLevelInfo.total)} lagi ke ${LEVELS[i+1].name}` : 
+                         "Anda berada di level tertinggi"}
+                      </p>
+                    </div>
+                  </div>
 
                   <div className="mt-auto space-y-4">
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Keuntungan:</p>
@@ -1508,13 +1919,13 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
                           <div className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
                             <ShieldCheck className="w-2.5 h-2.5" />
                           </div>
-                          {benefit}
+                          <span className={isLocked ? "opacity-50" : ""}>{benefit}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -2181,8 +2592,8 @@ export default function App() {
       setLoggedInUser(JSON.parse(savedUser));
     }
 
-    const fetchData = async () => {
-      setIsLoading(true);
+    const fetchData = async (showLoading = true) => {
+      if (showLoading) setIsLoading(true);
       try {
         const customerUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv";
         const savingsUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv";
@@ -2190,12 +2601,14 @@ export default function App() {
         const hutangUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv";
         const salesUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv";
         
+        const cacheBuster = `&cb=${Date.now()}`;
+        
         const [customerRes, savingsRes, investasiRes, hutangRes, salesRes] = await Promise.all([
-          fetch(customerUrl),
-          fetch(savingsUrl),
-          fetch(investasiUrl),
-          fetch(hutangUrl),
-          fetch(salesUrl)
+          fetch(customerUrl + cacheBuster),
+          fetch(savingsUrl + cacheBuster),
+          fetch(investasiUrl + cacheBuster),
+          fetch(hutangUrl + cacheBuster),
+          fetch(salesUrl + cacheBuster)
         ]);
 
         const customerCsv = customerRes.ok ? await customerRes.text() : "";
@@ -2438,6 +2851,8 @@ export default function App() {
       }
     };
     fetchData();
+    const interval = setInterval(() => fetchData(false), 5000); // Poll every 5 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogin = (user: Customer) => {
@@ -2547,6 +2962,8 @@ export default function App() {
         } />
         <Route path="/qris" element={<QRISPage />} />
         <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} />} />
+        <Route path="/admin" element={<AdminDashboard transactions={salesTransactions} user={loggedInUser} />} />
+        <Route path="/admin/report" element={<AdminReportPage transactions={salesTransactions} />} />
       </Routes>
     </BrowserRouter>
   );
