@@ -517,8 +517,13 @@ const Header = ({
                         <input
                           type="password"
                           maxLength={6}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           value={pinInput}
                           onChange={(e) => setPinInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handlePinSubmit();
+                          }}
                           placeholder="••••••"
                           autoFocus
                           className="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-[#F15A24] focus:ring-2 focus:ring-orange-50 transition-all text-center tracking-[0.4em] font-black shadow-sm"
@@ -565,8 +570,13 @@ const Header = ({
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#F15A24] transition-colors pointer-events-none" />
                       <input
                         type="password"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         value={adminCode}
                         onChange={(e) => setAdminCode(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAdminSubmit();
+                        }}
                         placeholder="Kode Akses Admin..."
                         className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-[11px] font-bold focus:outline-none focus:border-[#F15A24] focus:ring-2 focus:ring-orange-50 transition-all shadow-sm"
                       />
@@ -1454,8 +1464,9 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
   // Convert ISO date (YYYY-MM-DD) to DD/MM/YYYY for matching
   const formattedFilterDate = filterDate.split('-').reverse().join('/');
 
-  // Filter transactions for selected date
-  const filteredTransactions = transactions.filter(t => t.Tanggal.startsWith(formattedFilterDate));
+  // Filter transactions for selected date and use spreadsheet order
+  const filteredTransactions = [...transactions]
+    .filter(t => t.Tanggal.startsWith(formattedFilterDate));
 
   const totalPemasukan = filteredTransactions.reduce((acc, curr) => acc + curr.Pemasukan, 0);
   const totalModal = filteredTransactions.reduce((acc, curr) => acc + curr.HargaModal, 0);
@@ -1480,7 +1491,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-2xl font-black tracking-tight uppercase">Laporan Transaksi</h1>
+            <h1 className="text-2xl font-black tracking-tight uppercase whitespace-nowrap">Laporan Transaksi</h1>
           </div>
           <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Data Penjualan Harian</p>
         </div>
@@ -1489,17 +1500,17 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
       <div className="px-6 -mt-12 relative z-20 space-y-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Penjualan</p>
-            <h3 className="text-[10px] font-black text-[#005E6A]">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center min-h-[100px]">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Pemasukan</p>
+            <h3 className="text-[12px] font-black text-[#005E6A]">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
           </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Keuntungan</p>
-            <h3 className="text-[10px] font-black text-green-600">Rp {totalKeuntungan.toLocaleString('id-ID')}</h3>
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center min-h-[100px]">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Keuntungan</p>
+            <h3 className="text-[12px] font-black text-green-600">Rp {totalKeuntungan.toLocaleString('id-ID')}</h3>
           </div>
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Transaksi</p>
-            <h3 className="text-[10px] font-black text-[#F15A24]">{totalTransaksi}</h3>
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center min-h-[100px]">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Transaksi</p>
+            <h3 className="text-[12px] font-black text-[#F15A24]">{totalTransaksi}</h3>
           </div>
         </div>
 
@@ -1529,11 +1540,24 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
           <div className="grid gap-4">
             {filteredTransactions.length > 0 ? (
               filteredTransactions.map((t, i) => {
+                const jenisLower = t.Jenis.toLowerCase().trim();
                 const service = MAIN_SERVICES.find(s => 
-                  s.name.toLowerCase() === t.Jenis.toLowerCase() || 
-                  (t.Jenis.toLowerCase() === 'qris' && s.name.toLowerCase() === 'qris')
+                  s.name.toLowerCase().trim() === jenisLower ||
+                  (jenisLower.includes('qris') && s.name.toLowerCase() === 'qris') ||
+                  (jenisLower.includes('tarik') && s.name.toLowerCase() === 'tarik') ||
+                  (jenisLower.includes('kirim') && s.name.toLowerCase() === 'kirim') ||
+                  (jenisLower.includes('transfer') && s.name.toLowerCase() === 'kirim') ||
+                  (jenisLower.includes('dana') && s.name.toLowerCase() === 'e-walet') ||
+                  (jenisLower.includes('ovo') && s.name.toLowerCase() === 'e-walet') ||
+                  (jenisLower.includes('gopay') && s.name.toLowerCase() === 'e-walet') ||
+                  (jenisLower.includes('shopeepay') && s.name.toLowerCase() === 'e-walet') ||
+                  (jenisLower.includes('pulsa') && s.name.toLowerCase() === 'pulsa') ||
+                  (jenisLower.includes('data') && s.name.toLowerCase() === 'data') ||
+                  (jenisLower.includes('listrik') && s.name.toLowerCase() === 'listrik') ||
+                  (jenisLower.includes('belanja') && s.name.toLowerCase() === 'belanja')
                 );
                 const statusLower = t.Status.toLowerCase();
+                const displayName = t.Nama && t.Nama.trim() !== "" ? t.Nama : "Pelanggan Umum";
                 let ribbonColor = 'bg-slate-500';
                 if (statusLower.includes('selesai') || statusLower.includes('sukses')) ribbonColor = 'bg-green-500';
                 else if (statusLower.includes('kasbon')) ribbonColor = 'bg-red-500';
@@ -1548,26 +1572,35 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
                     transition={{ delay: i * 0.05 }}
                     className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative"
                   >
-                    <div className="p-3 pb-7 flex justify-between items-start">
-                      <div className="flex items-start gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${service?.bgColor || 'bg-slate-50'}`}>
-                          {service ? React.cloneElement(service.icon as React.ReactElement, { className: "w-4 h-4" }) : <ShoppingBag className="w-4 h-4 text-slate-400" />}
-                        </div>
-                        <div className="space-y-0.5">
-                          <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{t.Nama}</p>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[8px] font-bold text-slate-700 uppercase">{t.Jenis}</span>
-                            <span className="text-[8px] font-medium text-slate-400 uppercase tracking-wider">• {t.Melalui}</span>
-                          </div>
-                        </div>
+                    <div className="p-4 flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${service?.bgColor || 'bg-slate-50'}`}>
+                        {service ? service.icon : <ShoppingBag className="w-6 h-6 text-slate-400" />}
                       </div>
-                      <div className="text-right">
-                        <p className="text-[11px] font-black text-[#005E6A]">Rp {t.Pemasukan.toLocaleString('id-ID')}</p>
+                      
+                      <div className="flex-1 min-w-0 flex justify-between items-center">
+                        <div className="space-y-1.5 min-w-0 flex-1">
+                          {/* Row 1: Nama */}
+                          <p className="text-[11px] font-black text-[#005E6A] uppercase truncate pr-2">{displayName}</p>
+                          
+                          {/* Row 2: Jenis & Melalui */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[8px] font-bold text-slate-700 uppercase leading-none">{t.Jenis}</span>
+                            <span className="text-[8px] font-medium text-slate-400 uppercase tracking-wider truncate leading-none">via {t.Melalui}</span>
+                          </div>
+
+                          {/* Row 3: Tanggal */}
+                          <p className="text-[7px] font-medium text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+                        </div>
+
+                        {/* Nominal Pemasukan (Right) */}
+                        <div className="text-right pl-4 shrink-0">
+                          <p className="text-[13px] font-black text-[#005E6A]">Rp {t.Pemasukan.toLocaleString('id-ID')}</p>
+                        </div>
                       </div>
                     </div>
-                    
-                    {/* Ribbon at bottom right with uniform width */}
-                    <div className={`absolute bottom-0 right-0 w-28 py-1 rounded-tl-xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm text-center ${ribbonColor}`}>
+
+                    {/* Ribbon at bottom right */}
+                    <div className={`absolute bottom-0 right-0 w-24 py-1 rounded-tl-xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm text-center ${ribbonColor}`}>
                       {t.Status}
                     </div>
                   </motion.div>
@@ -2586,6 +2619,8 @@ export default function App() {
     localStorage.setItem('install_prompt_dismissed', 'true');
   };
 
+  const isFetching = useRef(false);
+
   useEffect(() => {
     const savedUser = localStorage.getItem("warung_tomi_user");
     if (savedUser) {
@@ -2593,6 +2628,8 @@ export default function App() {
     }
 
     const fetchData = async (showLoading = true) => {
+      if (isFetching.current) return;
+      isFetching.current = true;
       if (showLoading) setIsLoading(true);
       try {
         const customerUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv";
@@ -2601,7 +2638,8 @@ export default function App() {
         const hutangUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv";
         const salesUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv";
         
-        const cacheBuster = `&cb=${Date.now()}`;
+        // Use a more aggressive cache buster
+        const cacheBuster = `&cb=${new Date().getTime()}`;
         
         const [customerRes, savingsRes, investasiRes, hutangRes, salesRes] = await Promise.all([
           fetch(customerUrl + cacheBuster),
@@ -2647,8 +2685,38 @@ export default function App() {
               if (namaKey) {
                 const allSavingsTransactions: SavingTransaction[] = [];
                 const allDebtTransactions: DebtTransaction[] = [];
-                const allSalesTransactions: SalesTransaction[] = [];
                 const allInvestmentTransactions: InvestmentTransaction[] = [];
+                
+                // Process all sales transactions first to maintain spreadsheet order
+                const allSalesTransactions: SalesTransaction[] = salesData.map(s => {
+                  const sNamaKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('nama'));
+                  const jenisKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('jenis'));
+                  const tanggalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('tanggal') || k.toLowerCase().trim().includes('date'));
+                  const pemasukanKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga jual') || k.toLowerCase().trim().includes('pemasukan') || k.toLowerCase().trim().includes('jumlah') || k.toLowerCase().trim().includes('nominal'));
+                  const statusKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('status'));
+                  const melaluiKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('melalui'));
+                  const modalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga modal') || k.toLowerCase().trim().includes('modal'));
+                  const sebagianKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('sebagian'));
+
+                  const nominalStr = pemasukanKey ? String(s[pemasukanKey]).replace(/[^\d]/g, '') : "0";
+                  const nominal = parseInt(nominalStr) || 0;
+                  const modalStr = modalKey ? String(s[modalKey]).replace(/[^\d]/g, '') : "0";
+                  const modal = parseInt(modalStr) || 0;
+                  const sebagianStr = sebagianKey ? String(s[sebagianKey]).replace(/[^\d]/g, '') : "0";
+                  const sebagian = parseInt(sebagianStr) || 0;
+
+                  return {
+                    Tanggal: tanggalKey ? String(s[tanggalKey]).trim() : "-",
+                    Nama: sNamaKey ? String(s[sNamaKey]).trim() : "Unknown",
+                    Jenis: jenisKey ? String(s[jenisKey]).trim() : "Belanja",
+                    Pemasukan: Math.abs(Math.round(nominal)),
+                    Status: statusKey ? String(s[statusKey]).trim() : "Selesai",
+                    Melalui: melaluiKey ? String(s[melaluiKey]).trim() : "-",
+                    HargaModal: Math.abs(Math.round(modal)),
+                    Sebagian: Math.abs(Math.round(sebagian))
+                  };
+                });
+
                 const validCustomers = results.data
                   .filter((c: any) => c && c[namaKey])
                   .map((c: any) => {
@@ -2772,42 +2840,7 @@ export default function App() {
                     allDebtTransactions.push(...dTransactions);
 
                     // Calculate Sales (Belanja)
-                    const userSalesData = salesData.filter(s => {
-                      const sNamaKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('nama'));
-                      return sNamaKey && String(s[sNamaKey]).trim().toLowerCase() === name.toLowerCase();
-                    });
-
-                    const sTransactions: SalesTransaction[] = userSalesData.map(s => {
-                      const jenisKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('jenis'));
-                      const tanggalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('tanggal') || k.toLowerCase().trim().includes('date'));
-                      const pemasukanKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga jual') || k.toLowerCase().trim().includes('pemasukan') || k.toLowerCase().trim().includes('jumlah') || k.toLowerCase().trim().includes('nominal'));
-                      const statusKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('status'));
-                      const melaluiKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('melalui'));
-                      const modalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga modal') || k.toLowerCase().trim().includes('modal'));
-                      const sebagianKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('sebagian'));
-
-                      const nominalStr = pemasukanKey ? String(s[pemasukanKey]).replace(/[^\d]/g, '') : "0";
-                      const nominal = parseInt(nominalStr) || 0;
-                      
-                      const modalStr = modalKey ? String(s[modalKey]).replace(/[^\d]/g, '') : "0";
-                      const modal = parseInt(modalStr) || 0;
-
-                      const sebagianStr = sebagianKey ? String(s[sebagianKey]).replace(/[^\d]/g, '') : "0";
-                      const sebagian = parseInt(sebagianStr) || 0;
-
-                      return {
-                        Tanggal: tanggalKey ? String(s[tanggalKey]).trim() : "-",
-                        Nama: name,
-                        Jenis: jenisKey ? String(s[jenisKey]).trim() : "Belanja",
-                        Pemasukan: Math.abs(Math.round(nominal)),
-                        Status: statusKey ? String(s[statusKey]).trim() : "Selesai",
-                        Melalui: melaluiKey ? String(s[melaluiKey]).trim() : "-",
-                        HargaModal: Math.abs(Math.round(modal)),
-                        Sebagian: Math.abs(Math.round(sebagian))
-                      };
-                    });
-
-                    allSalesTransactions.push(...sTransactions);
+                    const userSalesTransactions = allSalesTransactions.filter(t => t.Nama.toLowerCase() === name.toLowerCase());
 
                     return {
                       ...c,
@@ -2839,19 +2872,22 @@ export default function App() {
               }
             }
             setIsLoading(false);
+            isFetching.current = false;
           },
           error: (error) => {
             console.error("PapaParse error:", error);
             setIsLoading(false);
+            isFetching.current = false;
           }
         });
       } catch (error) {
         console.error("Error fetching data:", error);
         setIsLoading(false);
+        isFetching.current = false;
       }
     };
     fetchData();
-    const interval = setInterval(() => fetchData(false), 5000); // Poll every 5 seconds
+    const interval = setInterval(() => fetchData(false), 10000); // Poll every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
