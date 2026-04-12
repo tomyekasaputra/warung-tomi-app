@@ -91,6 +91,36 @@ const parseDate = (dateStr: string) => {
   return isNaN(d.getTime()) ? new Date(0) : d;
 };
 
+const parseCurrency = (val: string | number | undefined) => {
+  if (val === undefined || val === null) return 0;
+  if (typeof val === 'number') return val;
+  return parseInt(String(val).replace(/[^\d]/g, '')) || 0;
+};
+
+const getRelativeTime = (dateStr: string) => {
+  const date = parseDate(dateStr);
+  if (date.getTime() === 0) return "";
+  
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  
+  const diffTime = today.getTime() - targetDate.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return "Hari ini";
+  if (diffDays === 1) return "Kemarin";
+  if (diffDays < 30) return `${diffDays} hari lalu`;
+  
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths === 1) return "1 bulan lalu";
+  if (diffMonths < 12) return `${diffMonths} bulan lalu`;
+  
+  const diffYears = Math.floor(diffDays / 365);
+  if (diffYears === 1) return "1 tahun lalu";
+  return `${diffYears} tahun lalu`;
+};
+
 interface Customer {
   Nama: string;
   PIN?: string;
@@ -127,6 +157,73 @@ interface SalesTransaction {
   HargaModal: number;
   Sebagian: number;
 }
+
+const TransactionCard: React.FC<{ t: SalesTransaction, index: number }> = ({ t, index }) => {
+  const jenisLower = t.Jenis.toLowerCase().trim();
+  const service = MAIN_SERVICES.find(s => 
+    s.name.toLowerCase().trim() === jenisLower ||
+    (jenisLower.includes('qris') && s.name.toLowerCase() === 'qris') ||
+    (jenisLower.includes('tarik') && s.name.toLowerCase() === 'tarik') ||
+    (jenisLower.includes('kirim') && s.name.toLowerCase() === 'kirim') ||
+    (jenisLower.includes('transfer') && s.name.toLowerCase() === 'kirim') ||
+    (jenisLower.includes('dana') && s.name.toLowerCase() === 'e-walet') ||
+    (jenisLower.includes('ovo') && s.name.toLowerCase() === 'e-walet') ||
+    (jenisLower.includes('gopay') && s.name.toLowerCase() === 'e-walet') ||
+    (jenisLower.includes('shopeepay') && s.name.toLowerCase() === 'e-walet') ||
+    (jenisLower.includes('pulsa') && s.name.toLowerCase() === 'pulsa') ||
+    (jenisLower.includes('data') && s.name.toLowerCase() === 'data') ||
+    (jenisLower.includes('listrik') && s.name.toLowerCase() === 'listrik') ||
+    (jenisLower.includes('belanja') && s.name.toLowerCase() === 'belanja')
+  );
+  const statusLower = t.Status.toLowerCase();
+  const displayName = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
+  let ribbonColor = 'bg-slate-500';
+  if (statusLower.includes('selesai') || statusLower.includes('sukses')) ribbonColor = 'bg-green-500';
+  else if (statusLower.includes('kasbon')) ribbonColor = 'bg-red-500';
+  else if (statusLower.includes('proses')) ribbonColor = 'bg-yellow-500';
+  else if (statusLower.includes('belum') || statusLower.includes('ambil')) ribbonColor = 'bg-blue-500';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative"
+    >
+      <div className="p-4 flex items-center gap-4">
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${service?.bgColor || 'bg-slate-50'}`}>
+          {service ? service.icon : <ShoppingBag className="w-6 h-6 text-slate-400" />}
+        </div>
+        
+        <div className="flex-1 min-w-0 flex justify-between items-center">
+          <div className="space-y-1.5 min-w-0 flex-1">
+            {/* Row 1: Nama */}
+            <p className="text-[11px] font-black text-[#005E6A] uppercase truncate pr-2">{displayName}</p>
+            
+            {/* Row 2: Jenis & Melalui */}
+            <div className="flex items-center gap-2">
+              <span className="text-[8px] font-bold text-slate-700 uppercase leading-none">{t.Jenis}</span>
+              <span className="text-[8px] font-medium text-slate-400 uppercase tracking-wider truncate leading-none">via {t.Melalui}</span>
+            </div>
+
+            {/* Row 3: Tanggal */}
+            <p className="text-[7px] font-medium text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+          </div>
+
+          {/* Nominal Pemasukan (Right) */}
+          <div className="text-right pl-4 shrink-0">
+            <p className="text-[13px] font-black text-[#005E6A]">Rp {t.Pemasukan.toLocaleString('id-ID')}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Ribbon at bottom right */}
+      <div className={`absolute bottom-0 right-0 w-24 py-1 rounded-tl-xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm text-center ${ribbonColor}`}>
+        {t.Status}
+      </div>
+    </motion.div>
+  );
+};
 
 interface InvestmentTransaction {
   Tanggal: string;
@@ -1539,73 +1636,9 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
 
           <div className="grid gap-4">
             {filteredTransactions.length > 0 ? (
-              filteredTransactions.map((t, i) => {
-                const jenisLower = t.Jenis.toLowerCase().trim();
-                const service = MAIN_SERVICES.find(s => 
-                  s.name.toLowerCase().trim() === jenisLower ||
-                  (jenisLower.includes('qris') && s.name.toLowerCase() === 'qris') ||
-                  (jenisLower.includes('tarik') && s.name.toLowerCase() === 'tarik') ||
-                  (jenisLower.includes('kirim') && s.name.toLowerCase() === 'kirim') ||
-                  (jenisLower.includes('transfer') && s.name.toLowerCase() === 'kirim') ||
-                  (jenisLower.includes('dana') && s.name.toLowerCase() === 'e-walet') ||
-                  (jenisLower.includes('ovo') && s.name.toLowerCase() === 'e-walet') ||
-                  (jenisLower.includes('gopay') && s.name.toLowerCase() === 'e-walet') ||
-                  (jenisLower.includes('shopeepay') && s.name.toLowerCase() === 'e-walet') ||
-                  (jenisLower.includes('pulsa') && s.name.toLowerCase() === 'pulsa') ||
-                  (jenisLower.includes('data') && s.name.toLowerCase() === 'data') ||
-                  (jenisLower.includes('listrik') && s.name.toLowerCase() === 'listrik') ||
-                  (jenisLower.includes('belanja') && s.name.toLowerCase() === 'belanja')
-                );
-                const statusLower = t.Status.toLowerCase();
-                const displayName = t.Nama && t.Nama.trim() !== "" ? t.Nama : "Pelanggan Umum";
-                let ribbonColor = 'bg-slate-500';
-                if (statusLower.includes('selesai') || statusLower.includes('sukses')) ribbonColor = 'bg-green-500';
-                else if (statusLower.includes('kasbon')) ribbonColor = 'bg-red-500';
-                else if (statusLower.includes('proses')) ribbonColor = 'bg-yellow-500';
-                else if (statusLower.includes('belum') || statusLower.includes('ambil')) ribbonColor = 'bg-blue-500';
-
-                return (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative"
-                  >
-                    <div className="p-4 flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${service?.bgColor || 'bg-slate-50'}`}>
-                        {service ? service.icon : <ShoppingBag className="w-6 h-6 text-slate-400" />}
-                      </div>
-                      
-                      <div className="flex-1 min-w-0 flex justify-between items-center">
-                        <div className="space-y-1.5 min-w-0 flex-1">
-                          {/* Row 1: Nama */}
-                          <p className="text-[11px] font-black text-[#005E6A] uppercase truncate pr-2">{displayName}</p>
-                          
-                          {/* Row 2: Jenis & Melalui */}
-                          <div className="flex items-center gap-2">
-                            <span className="text-[8px] font-bold text-slate-700 uppercase leading-none">{t.Jenis}</span>
-                            <span className="text-[8px] font-medium text-slate-400 uppercase tracking-wider truncate leading-none">via {t.Melalui}</span>
-                          </div>
-
-                          {/* Row 3: Tanggal */}
-                          <p className="text-[7px] font-medium text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
-                        </div>
-
-                        {/* Nominal Pemasukan (Right) */}
-                        <div className="text-right pl-4 shrink-0">
-                          <p className="text-[13px] font-black text-[#005E6A]">Rp {t.Pemasukan.toLocaleString('id-ID')}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Ribbon at bottom right */}
-                    <div className={`absolute bottom-0 right-0 w-24 py-1 rounded-tl-xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm text-center ${ribbonColor}`}>
-                      {t.Status}
-                    </div>
-                  </motion.div>
-                );
-              })
+              filteredTransactions.map((t, i) => (
+                <TransactionCard key={i} t={t} index={i} />
+              ))
             ) : (
               <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
                 <div className="flex flex-col items-center gap-2 opacity-20">
@@ -1621,22 +1654,64 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
   );
 };
 
-const AdminDashboard = ({ transactions, user }: { transactions: SalesTransaction[], user: Customer | null }) => {
+const AdminDashboard = ({ transactions, user, customers }: { transactions: SalesTransaction[], user: Customer | null, customers: Customer[] }) => {
   const navigate = useNavigate();
+  const [timeFilter, setTimeFilter] = useState("Hari ini");
   
-  // Filter transactions for current month
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
+  const totalTabungan = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
+  const totalInvestasi = customers.reduce((acc, c) => acc + parseCurrency(c.Investasi), 0);
+  const totalHutang = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
   
-  const monthlySales = transactions.filter(t => {
-    const date = parseDate(t.Tanggal);
-    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+  // Calculate total Lainnya from customers + general transactions
+  const totalLainnyaFromCustomers = customers.reduce((acc, c) => acc + parseCurrency(c.Lainnya), 0);
+  const totalLainnyaFromGeneral = transactions
+    .filter(t => {
+      const name = (t.Nama || "").toLowerCase().trim();
+      const isGeneral = !name || name === "unknown" || name === "pelanggan umum";
+      const s = (t.Status || "").toLowerCase().trim();
+      return isGeneral && (s.includes('belum') || s.includes('ambil'));
+    })
+    .reduce((acc, t) => acc + ((t.HargaModal || 0) - (t.Sebagian || 0)), 0);
+  
+  const totalLainnya = totalLainnyaFromCustomers + totalLainnyaFromGeneral;
+
+  const assetData = [
+    { name: 'Tabungan', value: totalTabungan, color: '#10b981', path: '/admin/savings' },
+    { name: 'Investasi', value: totalInvestasi, color: '#8b5cf6', path: '/admin/investment' },
+    { name: 'Hutang', value: totalHutang, color: '#ef4444', path: '/admin/debt' },
+    { name: 'Lainnya', value: totalLainnya, color: '#14b8a6', path: '/admin/others' }
+  ].filter(d => d.value > 0);
+
+  const totalAssets = totalTabungan + totalInvestasi + totalLainnya - totalHutang;
+
+  // Filter transactions based on timeFilter
+  const filteredSales = transactions.filter(t => {
+    const d = parseDate(t.Tanggal);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+    if (timeFilter === "Hari ini") {
+      return targetDate.getTime() === today.getTime();
+    } else if (timeFilter === "Minggu ini") {
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      return targetDate >= startOfWeek && targetDate <= today;
+    } else if (timeFilter === "Bulan ini") {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    } else if (timeFilter === "Tahun ini") {
+      return d.getFullYear() === now.getFullYear();
+    }
+    return true;
   });
 
-  // Group by date
-  const salesByDate = monthlySales.reduce((acc: any, curr) => {
-    const dateStr = curr.Tanggal.split(' ')[0]; // Assuming "DD/MM/YYYY" or similar
+  const totalPemasukan = filteredSales.reduce((acc, curr) => acc + curr.Pemasukan, 0);
+  const totalKeuntungan = filteredSales.reduce((acc, curr) => acc + (curr.Pemasukan - (curr.HargaModal || 0)), 0);
+  const totalTransaksi = filteredSales.length;
+
+  // Group by date for chart
+  const salesByDate = filteredSales.reduce((acc: any, curr) => {
+    const dateStr = curr.Tanggal.split(' ')[0];
     if (!acc[dateStr]) acc[dateStr] = 0;
     acc[dateStr] += curr.Pemasukan;
     return acc;
@@ -1646,9 +1721,6 @@ const AdminDashboard = ({ transactions, user }: { transactions: SalesTransaction
     date,
     total: salesByDate[date]
   })).sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
-
-  const totalPemasukan = monthlySales.reduce((acc, curr) => acc + curr.Pemasukan, 0);
-  const totalTransaksi = monthlySales.length;
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
@@ -1671,20 +1743,36 @@ const AdminDashboard = ({ transactions, user }: { transactions: SalesTransaction
             </div>
             <h1 className="text-2xl font-black tracking-tight uppercase">Dashboard Admin</h1>
           </div>
-          <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Laporan Penjualan Bulan Ini</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Laporan Penjualan</p>
+            <select 
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value)}
+              className="bg-white/10 backdrop-blur-md border-none text-white text-[10px] font-black uppercase tracking-widest rounded-lg px-2 py-1 focus:ring-0 cursor-pointer hover:bg-white/20 transition-colors"
+            >
+              <option value="Hari ini" className="text-slate-900">Hari ini</option>
+              <option value="Minggu ini" className="text-slate-900">Minggu ini</option>
+              <option value="Bulan ini" className="text-slate-900">Bulan ini</option>
+              <option value="Tahun ini" className="text-slate-900">Tahun ini</option>
+            </select>
+          </div>
         </div>
       </div>
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Penjualan</p>
-            <h3 className="text-lg font-black text-[#005E6A]">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Penjualan {timeFilter}</p>
+            <h3 className="text-sm font-black text-[#005E6A]">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
           </div>
-          <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Transaksi</p>
-            <h3 className="text-lg font-black text-[#F15A24]">{totalTransaksi} <span className="text-[10px] font-bold text-slate-400">Order</span></h3>
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Keuntungan {timeFilter}</p>
+            <h3 className="text-sm font-black text-green-600">Rp {totalKeuntungan.toLocaleString('id-ID')}</h3>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-100">
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Transaksi {timeFilter}</p>
+            <h3 className="text-sm font-black text-[#F15A24]">{totalTransaksi} <span className="text-[8px] font-bold text-slate-400">Order</span></h3>
           </div>
         </div>
 
@@ -1738,9 +1826,68 @@ const AdminDashboard = ({ transactions, user }: { transactions: SalesTransaction
           </div>
         </div>
 
+        {/* Asset Distribution Chart */}
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Distribusi Aset</h3>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Total: Rp {totalAssets.toLocaleString('id-ID')}</p>
+            </div>
+            <div className="w-8 h-8 bg-teal-50 rounded-full flex items-center justify-center">
+              <Wallet className="w-4 h-4 text-[#005E6A]" />
+            </div>
+          </div>
+
+          <div className="h-[300px] w-full flex flex-col items-center">
+            <ResponsiveContainer width="100%" height="80%">
+              <PieChart>
+                <Pie
+                  data={assetData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {assetData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Nominal']}
+                  contentStyle={{ 
+                    borderRadius: '1rem', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    fontSize: '10px',
+                    fontWeight: 'bold'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-4">
+              {assetData.map((item, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => navigate(item.path)}
+                  className="flex items-center gap-2 text-left hover:bg-slate-50 p-1.5 rounded-xl transition-colors group"
+                >
+                  <div className="w-2 h-2 rounded-full group-hover:scale-125 transition-transform" style={{ backgroundColor: item.color }} />
+                  <div className="flex flex-col">
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest group-hover:text-[#F15A24] transition-colors">{item.name}</span>
+                    <span className="text-[10px] font-black text-slate-700">Rp {item.value.toLocaleString('id-ID')}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Recent Transactions List */}
-        <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100">
-          <div className="flex items-center justify-between mb-4">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-2">
             <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Transaksi Terakhir</h3>
             <button 
               onClick={() => navigate("/admin/report")}
@@ -1749,25 +1896,216 @@ const AdminDashboard = ({ transactions, user }: { transactions: SalesTransaction
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-          <div className="space-y-4">
-            {monthlySales.slice(0, 5).map((t, i) => (
-              <div key={i} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
-                    <ShoppingBag className="w-4 h-4 text-slate-400" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{t.Nama}</p>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{t.Jenis} • {t.Tanggal}</p>
-                  </div>
-                </div>
-                <p className="text-[10px] font-black text-[#005E6A]">Rp {t.Pemasukan.toLocaleString('id-ID')}</p>
-              </div>
+          <div className="grid gap-4">
+            {filteredSales.slice(0, 5).map((t, i) => (
+              <TransactionCard key={i} t={t} index={i} />
             ))}
           </div>
         </div>
       </div>
     </div>
+  );
+};
+
+const AdminManagementPage = ({ 
+  title, 
+  subtitle, 
+  totalLabel, 
+  totalValue, 
+  items, 
+  icon: Icon,
+  colorClass
+}: { 
+  title: string, 
+  subtitle: string, 
+  totalLabel: string, 
+  totalValue: number, 
+  items: { name: string, value: number, subtext?: string }[],
+  icon: any,
+  colorClass: string
+}) => {
+  const navigate = useNavigate();
+  return (
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="relative z-10">
+          <button onClick={() => navigate("/admin")} className="flex items-center gap-2 text-white/70 mb-6 group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Dashboard</span>
+          </button>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+              <Icon className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-2xl font-black tracking-tight uppercase">{title}</h1>
+          </div>
+          <p className="text-xs font-medium text-white/60 uppercase tracking-widest">{subtitle}</p>
+        </div>
+      </div>
+
+      <div className="px-6 -mt-12 relative z-20 space-y-6">
+        <div className="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-100 flex flex-col items-center justify-center text-center">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{totalLabel}</p>
+          <h3 className={`text-2xl font-black ${colorClass}`}>Rp {totalValue.toLocaleString('id-ID')}</h3>
+        </div>
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider px-2">Daftar Rincian</h3>
+          <div className="grid gap-3">
+            {items.map((item, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 text-slate-400">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black text-[#005E6A] uppercase">{item.name}</p>
+                    {item.subtext && <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{item.subtext}</p>}
+                  </div>
+                </div>
+                <p className={`text-[13px] font-black ${colorClass}`}>Rp {item.value.toLocaleString('id-ID')}</p>
+              </motion.div>
+            ))}
+            {items.length === 0 && (
+              <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
+                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Tidak ada data</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdminSavingsManagement = ({ customers }: { customers: Customer[] }) => {
+  const total = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
+  const items = customers
+    .filter(c => parseCurrency(c.Tabungan) > 0)
+    .map(c => ({ name: c.Nama, value: parseCurrency(c.Tabungan) }))
+    .sort((a, b) => b.value - a.value);
+
+  return (
+    <AdminManagementPage 
+      title="Management Tabungan"
+      subtitle="Total Tabungan Seluruh Pelanggan"
+      totalLabel="Total Tabungan"
+      totalValue={total}
+      items={items}
+      icon={Wallet}
+      colorClass="text-[#005E6A]"
+    />
+  );
+};
+
+const AdminInvestmentManagement = ({ customers }: { customers: Customer[] }) => {
+  const total = customers.reduce((acc, c) => acc + parseCurrency(c.Investasi), 0);
+  const items = customers
+    .filter(c => parseCurrency(c.Investasi) > 0)
+    .map(c => ({ name: c.Nama, value: parseCurrency(c.Investasi) }))
+    .sort((a, b) => b.value - a.value);
+
+  return (
+    <AdminManagementPage 
+      title="Management Investasi"
+      subtitle="Total Investasi Seluruh Pelanggan"
+      totalLabel="Total Investasi"
+      totalValue={total}
+      items={items}
+      icon={TrendingUp}
+      colorClass="text-[#F15A24]"
+    />
+  );
+};
+
+const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[], transactions: DebtTransaction[] }) => {
+  const total = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
+  const items = customers
+    .filter(c => parseCurrency(c.Hutang) > 0)
+    .map(c => {
+      const userTransactions = transactions.filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase());
+      const latestDateStr = userTransactions.length > 0 
+        ? userTransactions.sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())[0].Tanggal
+        : "-";
+      
+      return { 
+        name: c.Nama, 
+        value: parseCurrency(c.Hutang),
+        date: parseDate(latestDateStr),
+        subtext: latestDateStr !== "-" ? getRelativeTime(latestDateStr) : ""
+      };
+    })
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  return (
+    <AdminManagementPage 
+      title="Management Hutang"
+      subtitle="Total Hutang Seluruh Pelanggan"
+      totalLabel="Total Hutang"
+      totalValue={total}
+      items={items}
+      icon={Receipt}
+      colorClass="text-red-600"
+    />
+  );
+};
+
+const AdminOthersManagement = ({ transactions, customers }: { transactions: SalesTransaction[], customers: Customer[] }) => {
+  const othersFromCustomers = customers
+    .filter(c => parseCurrency(c.Lainnya) > 0)
+    .map(c => {
+      const userLainnyaTransactions = transactions.filter(t => {
+        const nameMatch = t.Nama.toLowerCase() === c.Nama.toLowerCase();
+        const s = (t.Status || "").toLowerCase().trim();
+        return nameMatch && (s.includes('belum') || s.includes('ambil'));
+      });
+      
+      const latestDateStr = userLainnyaTransactions.length > 0
+        ? userLainnyaTransactions.sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())[0].Tanggal
+        : "-";
+      
+      return { 
+        name: c.Nama, 
+        value: parseCurrency(c.Lainnya),
+        date: parseDate(latestDateStr),
+        subtext: latestDateStr !== "-" ? getRelativeTime(latestDateStr) : ""
+      };
+    });
+
+  const generalOthers = transactions
+    .filter(t => {
+      const name = (t.Nama || "").toLowerCase().trim();
+      const isGeneral = !name || name === "unknown" || name === "pelanggan umum";
+      const s = (t.Status || "").toLowerCase().trim();
+      return isGeneral && (s.includes('belum') || s.includes('ambil'));
+    })
+    .map(t => ({ 
+      name: "Pelanggan Umum", 
+      value: (t.HargaModal || 0) - (t.Sebagian || 0),
+      date: parseDate(t.Tanggal),
+      subtext: `${t.Jenis} • ${getRelativeTime(t.Tanggal)}`
+    }));
+
+  const items = [...othersFromCustomers, ...generalOthers].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const total = items.reduce((acc, item) => acc + item.value, 0);
+
+  return (
+    <AdminManagementPage 
+      title="Management Lainnya"
+      subtitle="Transaksi Status Belum Diambil"
+      totalLabel="Total Lainnya"
+      totalValue={total}
+      items={items}
+      icon={ShoppingBag}
+      colorClass="text-blue-600"
+    />
   );
 };
 
@@ -2698,12 +3036,9 @@ export default function App() {
                   const modalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga modal') || k.toLowerCase().trim().includes('modal'));
                   const sebagianKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('sebagian'));
 
-                  const nominalStr = pemasukanKey ? String(s[pemasukanKey]).replace(/[^\d]/g, '') : "0";
-                  const nominal = parseInt(nominalStr) || 0;
-                  const modalStr = modalKey ? String(s[modalKey]).replace(/[^\d]/g, '') : "0";
-                  const modal = parseInt(modalStr) || 0;
-                  const sebagianStr = sebagianKey ? String(s[sebagianKey]).replace(/[^\d]/g, '') : "0";
-                  const sebagian = parseInt(sebagianStr) || 0;
+                  const nominal = parseCurrency(pemasukanKey ? s[pemasukanKey] : 0);
+                  const modal = parseCurrency(modalKey ? s[modalKey] : 0);
+                  const sebagian = parseCurrency(sebagianKey ? s[sebagianKey] : 0);
 
                   return {
                     Tanggal: tanggalKey ? String(s[tanggalKey]).trim() : "-",
@@ -2842,6 +3177,14 @@ export default function App() {
                     // Calculate Sales (Belanja)
                     const userSalesTransactions = allSalesTransactions.filter(t => t.Nama.toLowerCase() === name.toLowerCase());
 
+                    // Calculate Lainnya (Belum Diambil)
+                    const userLainnya = userSalesTransactions
+                      .filter(t => {
+                        const s = (t.Status || "").toLowerCase().trim();
+                        return s.includes('belum') || s.includes('ambil');
+                      })
+                      .reduce((acc, t) => acc + ((t.HargaModal || 0) - (t.Sebagian || 0)), 0);
+
                     return {
                       ...c,
                       Nama: name,
@@ -2850,7 +3193,8 @@ export default function App() {
                       ID: idKey ? String(c[idKey]).trim() : "",
                       Tabungan: runningBalance.toLocaleString('id-ID'),
                       Investasi: totalInvestasi.toLocaleString('id-ID'),
-                      Hutang: runningHutang.toLocaleString('id-ID')
+                      Hutang: runningHutang.toLocaleString('id-ID'),
+                      Lainnya: userLainnya.toLocaleString('id-ID')
                     };
                   });
                 setCustomers(validCustomers);
@@ -2998,8 +3342,12 @@ export default function App() {
         } />
         <Route path="/qris" element={<QRISPage />} />
         <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} />} />
-        <Route path="/admin" element={<AdminDashboard transactions={salesTransactions} user={loggedInUser} />} />
+        <Route path="/admin" element={<AdminDashboard transactions={salesTransactions} user={loggedInUser} customers={customers} />} />
         <Route path="/admin/report" element={<AdminReportPage transactions={salesTransactions} />} />
+        <Route path="/admin/savings" element={<AdminSavingsManagement customers={customers} />} />
+        <Route path="/admin/investment" element={<AdminInvestmentManagement customers={customers} />} />
+        <Route path="/admin/debt" element={<AdminDebtManagement customers={customers} transactions={debtTransactions} />} />
+        <Route path="/admin/others" element={<AdminOthersManagement transactions={salesTransactions} customers={customers} />} />
       </Routes>
     </BrowserRouter>
   );
