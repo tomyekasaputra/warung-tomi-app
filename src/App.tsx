@@ -167,6 +167,7 @@ interface RedeemedPoint {
   Tanggal: string;
   Nama: string;
   Poin: number;
+  Hadiah: string;
 }
 
 const TransactionCard: React.FC<{ t: SalesTransaction, index: number }> = ({ t, index }) => {
@@ -313,6 +314,47 @@ const LEVELS = [
   }
 ];
 
+const REWARDS = [
+  { id: 1, name: "Rinso Cair 40gr", points: 300, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRx2y-CntAKktOdPZg-QyxvsR-ycNsoDkPrZENCiL9qP0dmqoHetfzwkRs&s=10" },
+  { id: 2, name: "Mama Lemon 105ml", points: 500, image: "https://down-id.img.susercontent.com/file/id-11134207-7r98z-lwzh3qxfs5zv45" },
+  { id: 3, name: "Teh Pucuk 350ml", points: 800, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRLiDMxxcd9y-jJL_kXpF5ZvYi8TOsAX6VR9znp4NtnMqPjIXjTziv_uHo_&s=10" },
+  { id: 4, name: "Pop Mie 75gr", points: 1000, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTjaKfZSXjGpy3-7kGW6dSuURVxq5Yba6uckE2bEQKr1Q&s=10" },
+  { id: 5, name: "Minyak Fitri 400ml", points: 2000, image: "https://www.static-src.com/wcsstore/Indraprastha/images/catalog/full/catalog-image/111/MTA-183073988/brd-43554_fitri-minyak-goreng-fitri-200-ml-400-ml-sembako-krat-bundle_full07-7eeebc13.webp" },
+  { id: 6, name: "Pisau Dapur Set", points: 3000, image: "https://img.lazcdn.com/g/p/15533e17722ace64fbf6bcb647833f96.jpg_720x720q80.jpg" },
+  { id: 7, name: "Payung Cantik", points: 4000, image: "https://down-id.img.susercontent.com/file/id-11134207-7rase-m0u4n99lgh32d7" },
+  { id: 8, name: "Rak 3 Susun", points: 6000, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSu_6zKy3xP5mabEFTMpo0hymNUW2VghG7aOoZZo0NJXQ&s=10" },
+  { id: 9, name: "Musik Box", points: 8000, image: "https://id-test-11.slatic.net/p/2/paling-laris-music-gogo-speaker-music-box-bluetooth-subwoofer-random-0616-84267845-ae00ae4583208e5b7c75022599c92399.jpg_500x500Q80.jpg" },
+  { id: 10, name: "Kipas Angin", points: 10000, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQHaDqK6c-V8NToV0tSWtbI92HOTT_BDTElNyAuMdJQRY2SJq5TDgwphPx-&s=10" },
+];
+
+const calculateActivePoints = (customerName: string, salesTransactions: SalesTransaction[], redeemedPoints: RedeemedPoint[]) => {
+  const now = new Date();
+  const startDate = new Date(2025, 10, 1); // 1 November 2025
+  const userSales = salesTransactions.filter(t => t.Nama.toLowerCase() === customerName.toLowerCase());
+  const userRedeemed = redeemedPoints
+    .filter(r => r.Nama.toLowerCase() === customerName.toLowerCase())
+    .reduce((acc, curr) => acc + curr.Poin, 0);
+
+  let totalEarned = 0;
+  let totalExpired = 0;
+
+  userSales.forEach(t => {
+    const tDate = parseDate(t.Tanggal);
+    if (tDate >= startDate) {
+      const points = Math.floor(t.Pemasukan / 10000);
+      totalEarned += points;
+
+      const expiryDate = new Date(tDate);
+      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+      if (expiryDate < now) {
+        totalExpired += points;
+      }
+    }
+  });
+
+  return Math.max(0, totalEarned - totalExpired - userRedeemed);
+};
+
 const calculateCustomerLevel = (transactions: SalesTransaction[], userName: string) => {
   if (!userName) return { ...LEVELS[0], total: 0 };
   
@@ -360,34 +402,6 @@ const Header = ({
   const navigate = useNavigate();
 
   const ADMIN_ACCESS_CODE = "160910"; // In a real app, this would be hashed/encrypted
-
-  const calculateActivePoints = (customerName: string) => {
-    const now = new Date();
-    const startDate = new Date(2025, 10, 1); // 1 November 2025
-    const userSales = salesTransactions.filter(t => t.Nama.toLowerCase() === customerName.toLowerCase());
-    const userRedeemed = redeemedPoints
-      .filter(r => r.Nama.toLowerCase() === customerName.toLowerCase())
-      .reduce((acc, curr) => acc + curr.Poin, 0);
-
-    let totalEarned = 0;
-    let totalExpired = 0;
-
-    userSales.forEach(t => {
-      const tDate = parseDate(t.Tanggal);
-      if (tDate >= startDate) {
-        const points = Math.floor(t.Pemasukan / 10000);
-        totalEarned += points;
-
-        const expiryDate = new Date(tDate);
-        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-        if (expiryDate < now) {
-          totalExpired += points;
-        }
-      }
-    });
-
-    return Math.max(0, totalEarned - totalExpired - userRedeemed);
-  };
 
   const customerLevel = calculateCustomerLevel(salesTransactions, loggedInUser?.Nama || "");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -585,14 +599,28 @@ const Header = ({
                       {loggedInUser.Nama?.charAt(0) || "U"}
                     </div>
                     <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-widest mb-1">{loggedInUser.Nama || "User"}</h3>
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-slate-100 shadow-sm">
-                        <Star className="w-3 h-3 text-[#F15A24] fill-[#F15A24]" />
-                        <p className="text-[10px] text-[#F15A24] font-black uppercase tracking-widest">Level {customerLevel.name}</p>
+                    
+                    <div className="grid grid-cols-2 gap-3 w-full mt-4">
+                      <div 
+                        onClick={() => setIsPortalOpen(false) || navigate("/level")}
+                        className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-orange-100 transition-colors cursor-pointer active:scale-95"
+                      >
+                        <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-1">
+                          <Star className="w-4 h-4 text-[#F15A24] fill-[#F15A24]" />
+                        </div>
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Level Pelanggan</p>
+                        <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
                       </div>
-                      <p className="text-[11px] font-black text-[#005E6A] mt-2">
-                        {calculateActivePoints(loggedInUser.Nama)} <span className="text-[8px] text-slate-400 uppercase tracking-widest">Poin Aktif</span>
-                      </p>
+                      <div 
+                        onClick={() => setIsPortalOpen(false) || navigate("/poin")}
+                        className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-teal-100 transition-colors cursor-pointer active:scale-95"
+                      >
+                        <div className="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center mb-1">
+                          <Zap className="w-4 h-4 text-[#005E6A] fill-[#005E6A]" />
+                        </div>
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poin Loyalitas</p>
+                        <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{calculateActivePoints(loggedInUser.Nama, salesTransactions, redeemedPoints)} Poin</p>
+                      </div>
                     </div>
                   </div>
 
@@ -782,32 +810,65 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const [activeTahap, setActiveTahap] = useState(defaultTahap);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const processedData = React.useMemo(() => {
-    const stages: Record<number, { nama: string, pkh: number, bpnt: number }[]> = { 1: [], 2: [], 3: [], 4: [] };
+  const { result: processedData, targetYear } = React.useMemo(() => {
+    const stages: Record<number, Map<string, { nama: string, pkh: number, bpnt: number }>> = { 
+      1: new Map(), 2: new Map(), 3: new Map(), 4: new Map() 
+    };
     
+    // Find the latest year that has PKH/BPNT transactions to focus on current program
+    let latestYear = 0;
     transactions.forEach(t => {
       const jenis = t.Jenis?.toUpperCase() || "";
       if (jenis.includes("PKH") || jenis.includes("BPNT")) {
-        const date = new Date(t.Tanggal);
-        if (isNaN(date.getTime())) return;
-        const month = date.getMonth();
-        const stage = Math.floor(month / 3) + 1;
-        
-        let kpm = stages[stage].find(k => k.nama === t.Nama);
-        if (!kpm) {
-          kpm = { nama: t.Nama, pkh: 0, bpnt: 0 };
-          stages[stage].push(kpm);
-        }
-        
-        if (jenis.includes("PKH")) {
-          kpm.pkh += Number(t.Pemasukan) || 0;
-        } else if (jenis.includes("BPNT")) {
-          kpm.bpnt += Number(t.Pemasukan) || 0;
+        const date = parseDate(t.Tanggal);
+        if (date && date.getFullYear() > 1970 && date.getFullYear() > latestYear) {
+          latestYear = date.getFullYear();
         }
       }
     });
 
-    return stages;
+    // If no transactions found, default to current year
+    const year = latestYear || new Date().getFullYear();
+
+    transactions.forEach(t => {
+      const status = (t.Status || "").toLowerCase();
+      if (status.includes("batal") || status.includes("cancel")) return;
+
+      const jenis = t.Jenis?.toUpperCase() || "";
+      if (jenis.includes("PKH") || jenis.includes("BPNT")) {
+        const date = parseDate(t.Tanggal);
+        if (!date || date.getTime() === 0) return;
+        
+        // Only process transactions from the target year
+        if (date.getFullYear() !== year) return;
+
+        const month = date.getMonth();
+        const stage = Math.floor(month / 3) + 1;
+        
+        if (stage < 1 || stage > 4) return;
+
+        const nameKey = t.Nama.trim().toLowerCase();
+        let kpm = stages[stage].get(nameKey);
+        if (!kpm) {
+          kpm = { nama: t.Nama.trim(), pkh: 0, bpnt: 0 };
+          stages[stage].set(nameKey, kpm);
+        }
+        
+        const amount = Number(t.Pemasukan) || 0;
+        if (jenis.includes("PKH")) {
+          kpm.pkh += amount;
+        }
+        if (jenis.includes("BPNT")) {
+          kpm.bpnt += amount;
+        }
+      }
+    });
+
+    const result: Record<number, { nama: string, pkh: number, bpnt: number }[]> = { 1: [], 2: [], 3: [], 4: [] };
+    for (let i = 1; i <= 4; i++) {
+      result[i] = Array.from(stages[i].values());
+    }
+    return { result, targetYear: year };
   }, [transactions]);
 
   const currentStageData = processedData[activeTahap] || [];
@@ -833,26 +894,26 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
       </div>
 
       <div className="px-6 pt-6">
-        {/* Main Image Card */}
-        <div className="relative rounded-[2.5rem] overflow-hidden aspect-[16/10] shadow-2xl shadow-slate-200 mb-8">
-          <img 
-            src="https://lh3.googleusercontent.com/d/1GpNZ4yIov99m-EDWMUmfb3m9aISQBEe6" 
-            alt="Bansos Banner" 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-
-        {/* Title Section - Moved below image */}
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-black text-[#005E6A] uppercase tracking-tight mb-2">Pencairan Bansos</h1>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest leading-relaxed max-w-[280px] mx-auto">
-            Program Keluarga Harapan (PKH) & Bantuan Pangan Non Tunai (BPNT)
-          </p>
+        {/* Combined Image & Title Card */}
+        <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200 mb-10 border border-slate-50">
+          <div className="aspect-[16/10] overflow-hidden">
+            <img 
+              src="https://lh3.googleusercontent.com/d/1GpNZ4yIov99m-EDWMUmfb3m9aISQBEe6" 
+              alt="Bansos Banner" 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div className="p-8 text-center">
+            <h1 className="text-2xl font-black text-black uppercase tracking-tight mb-2">Pencairan Bansos {targetYear}</h1>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed max-w-[240px] mx-auto">
+              Program Keluarga Harapan (PKH) & Bantuan Pangan Non Tunai (BPNT)
+            </p>
+          </div>
         </div>
 
         {/* Tahap Tabs */}
-        <div className="bg-slate-50 p-1.5 rounded-[2rem] flex mb-8 border border-slate-100 overflow-x-auto no-scrollbar">
+        <div className="bg-slate-50 p-1 rounded-xl flex mb-8 border border-slate-100 overflow-x-auto no-scrollbar">
           {[
             { id: 1, label: "Tahap 1", period: "Jan - Mar" },
             { id: 2, label: "Tahap 2", period: "Apr - Jun" },
@@ -862,76 +923,76 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
             <button
               key={tahap.id}
               onClick={() => setActiveTahap(tahap.id)}
-              className={`flex-1 min-w-[80px] py-3 rounded-[1.5rem] transition-all flex flex-col items-center ${
+              className={`flex-1 min-w-[80px] py-2.5 rounded-lg transition-all flex flex-col items-center ${
                 activeTahap === tahap.id 
-                  ? "bg-[#005E6A] text-white shadow-lg shadow-teal-100" 
+                  ? "bg-[#005E6A] text-white shadow-md shadow-teal-100" 
                   : "text-slate-400"
               }`}
             >
-              <span className="text-[10px] font-black uppercase tracking-widest">{tahap.label}</span>
-              <span className={`text-[8px] font-bold uppercase tracking-widest opacity-60`}>{tahap.period}</span>
+              <span className="text-[9px] font-black uppercase tracking-widest">{tahap.label}</span>
+              <span className={`text-[7px] font-bold uppercase tracking-widest opacity-60`}>{tahap.period}</span>
             </button>
           ))}
         </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="bg-[#005E6A] p-6 rounded-[2rem] text-white relative overflow-hidden group">
+          <div className="bg-[#005E6A] p-5 rounded-lg text-white relative overflow-hidden group">
             <div className="absolute -right-4 -top-4 w-20 h-20 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mb-4">
-              <Wallet className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center mb-3">
+              <Wallet className="w-4 h-4 text-white" />
             </div>
-            <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Total Dana Tersalurkan</p>
-            <p className="text-sm font-black tracking-tight">Rp {totalDana.toLocaleString('id-ID')}</p>
+            <p className="text-[7px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Total Dana Tersalurkan</p>
+            <p className="text-xs font-black tracking-tight">Rp {totalDana.toLocaleString('id-ID')}</p>
           </div>
-          <div className="bg-[#F15A24] p-6 rounded-[2rem] text-white relative overflow-hidden group">
+          <div className="bg-[#F15A24] p-5 rounded-lg text-white relative overflow-hidden group">
             <div className="absolute -right-4 -top-4 w-20 h-20 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center mb-4">
-              <Users className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center mb-3">
+              <Users className="w-4 h-4 text-white" />
             </div>
-            <p className="text-[8px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Jumlah KPM</p>
-            <p className="text-sm font-black tracking-tight">{totalKPM} Orang</p>
+            <p className="text-[7px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Jumlah KPM</p>
+            <p className="text-xs font-black tracking-tight">{totalKPM} Orang</p>
           </div>
         </div>
 
         {/* Search Bar */}
         <div className="relative mb-6 group">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-[#F15A24] transition-colors" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 group-focus-within:text-[#F15A24] transition-colors" />
           <input 
             type="text"
             placeholder="Cari nama KPM di tahap ini..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-6 py-4 text-xs font-bold focus:outline-none focus:bg-white focus:border-[#F15A24] focus:ring-4 focus:ring-orange-50 transition-all shadow-inner"
+            className="w-full bg-slate-50 border border-slate-100 rounded-lg pl-10 pr-4 py-3 text-[9px] font-bold focus:outline-none focus:bg-white focus:border-[#F15A24] focus:ring-2 focus:ring-orange-50 transition-all shadow-inner"
           />
         </div>
 
         {/* Table */}
-        <div className="border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm">
-          <table className="w-full text-left border-collapse">
+        <div className="border border-slate-100 rounded-lg overflow-x-auto shadow-sm no-scrollbar">
+          <table className="w-full text-left border-collapse min-w-[320px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">No.</th>
-                <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Nama KPM</th>
-                <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">PKH</th>
-                <th className="px-4 py-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">BPNT</th>
+                <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">No.</th>
+                <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Nama KPM</th>
+                <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">PKH</th>
+                <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">BPNT</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredData.length > 0 ? filteredData.map((item, index) => (
                 <tr key={index} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-4 text-[10px] font-bold text-slate-400">{index + 1}</td>
-                  <td className="px-4 py-4 text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{item.nama}</td>
-                  <td className="px-4 py-4 text-[10px] font-bold text-slate-600 text-center">
+                  <td className="px-3 py-3 text-[9px] font-bold text-slate-400 whitespace-nowrap">{index + 1}</td>
+                  <td className="px-3 py-3 text-[9px] font-black text-black uppercase tracking-tight whitespace-nowrap">{item.nama}</td>
+                  <td className="px-3 py-3 text-[9px] font-bold text-green-600 text-center whitespace-nowrap">
                     {item.pkh > 0 ? `Rp ${item.pkh.toLocaleString('id-ID')}` : "-"}
                   </td>
-                  <td className="px-4 py-4 text-[10px] font-bold text-slate-600 text-center">
+                  <td className="px-3 py-3 text-[9px] font-bold text-orange-600 text-center whitespace-nowrap">
                     {item.bpnt > 0 ? `Rp ${item.bpnt.toLocaleString('id-ID')}` : "-"}
                   </td>
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={4} className="px-4 py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <td colSpan={4} className="px-3 py-10 text-center text-[8px] font-bold text-slate-400 uppercase tracking-widest">
                     Tidak ada data untuk tahap ini
                   </td>
                 </tr>
@@ -1223,7 +1284,333 @@ const AssetPieChart = ({ data }: { data: any[] }) => {
   );
 };
 
-const AsetPage = ({ user, transactions, investmentTransactions }: { user: Customer | null, transactions: SalesTransaction[], investmentTransactions: InvestmentTransaction[] }) => {
+const LoyaltyPointsPage = ({ user, transactions, redeemedPoints }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<"RIWAYAT" | "TUKAR">("RIWAYAT");
+
+  if (!user) return null;
+
+  const now = new Date();
+  const startDate = new Date(2025, 10, 1);
+  const userSales = transactions.filter(t => t.Nama.toLowerCase() === user.Nama.toLowerCase());
+  const userRedeemed = redeemedPoints
+    .filter(r => r.Nama.toLowerCase() === user.Nama.toLowerCase())
+    .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+
+  let totalEarned = 0;
+  let totalExpired = 0;
+  const pointsHistory: { tanggal: string, poin: number, keterangan: string }[] = [];
+
+  userSales.forEach(t => {
+    const tDate = parseDate(t.Tanggal);
+    if (tDate >= startDate) {
+      const points = Math.floor(t.Pemasukan / 10000);
+      if (points > 0) {
+        totalEarned += points;
+        pointsHistory.push({
+          tanggal: t.Tanggal,
+          poin: points,
+          keterangan: t.Jenis
+        });
+
+        const expiryDate = new Date(tDate);
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        if (expiryDate < now) {
+          totalExpired += points;
+        }
+      }
+    }
+  });
+
+  // Sort points history by date descending
+  const sortedPointsHistory = [...pointsHistory].sort((a, b) => 
+    parseDate(b.tanggal).getTime() - parseDate(a.tanggal).getTime()
+  );
+
+  const totalRedeemed = userRedeemed.reduce((acc, curr) => acc + curr.Poin, 0);
+  const activePoints = Math.max(0, totalEarned - totalExpired - totalRedeemed);
+
+  const getExpiryInfo = (tanggal: string) => {
+    const tDate = parseDate(tanggal);
+    const expiryDate = new Date(tDate);
+    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+    
+    const diffTime = expiryDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    const isSoon = diffDays <= 30;
+    const isExpired = diffDays <= 0;
+    
+    return {
+      date: expiryDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
+      isSoon,
+      isExpired,
+      color: isSoon ? "bg-red-500" : "bg-yellow-400"
+    };
+  };
+
+  return (
+    <ProtectedPage user={user} title="Poin Loyalitas">
+      <div className="px-6 py-4">
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-slate-500 mb-6 group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
+        </button>
+
+        {/* Main Card */}
+        <div className="bg-[#005E6A] rounded-[2rem] p-8 text-white shadow-lg mb-4 relative overflow-hidden group">
+          <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+          <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-4">
+            <Zap className="w-6 h-6 text-white fill-white" />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Total Poin Aktif</p>
+          <h2 className="text-4xl font-black tracking-tighter">{activePoints} <span className="text-sm font-bold uppercase tracking-widest opacity-60">Poin</span></h2>
+        </div>
+
+        {/* Small Cards */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm">
+            <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-3">
+              <Gift className="w-4 h-4 text-[#F15A24]" />
+            </div>
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Ditukar</p>
+            <p className="text-sm font-black text-[#F15A24]">{totalRedeemed} Poin</p>
+          </div>
+          <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm">
+            <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center mb-3">
+              <Clock className="w-4 h-4 text-red-500" />
+            </div>
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Hangus</p>
+            <p className="text-sm font-black text-red-500">{totalExpired} Poin</p>
+          </div>
+        </div>
+
+        {/* Redeem Invitation Card */}
+        {activePoints >= 300 && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            onClick={() => navigate("/tukar-poin")}
+            className="bg-gradient-to-r from-[#F15A24] to-[#FF8C00] p-5 rounded-lg text-white mb-8 shadow-lg shadow-orange-100 flex items-center justify-between cursor-pointer active:scale-95 transition-all group"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                <Gift className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest mb-0.5">Poin Anda Cukup!</p>
+                <p className="text-[8px] font-bold opacity-80 uppercase tracking-widest">Tukarkan dengan hadiah menarik</p>
+              </div>
+            </div>
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center group-hover:translate-x-1 transition-transform">
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </motion.div>
+        )}
+
+        {/* Tabs */}
+        <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
+          <button
+            onClick={() => setActiveTab("RIWAYAT")}
+            className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+              activeTab === "RIWAYAT" ? "bg-white text-[#005E6A] shadow-md" : "text-slate-400"
+            }`}
+          >
+            Riwayat Poin
+          </button>
+          <button
+            onClick={() => setActiveTab("TUKAR")}
+            className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+              activeTab === "TUKAR" ? "bg-white text-[#F15A24] shadow-md" : "text-slate-400"
+            }`}
+          >
+            Riwayat Tukar
+          </button>
+        </div>
+
+        {/* List */}
+        <div className="space-y-3">
+          {activeTab === "RIWAYAT" ? (
+            sortedPointsHistory.length > 0 ? (
+              sortedPointsHistory.map((item, i) => {
+                const expiry = getExpiryInfo(item.tanggal);
+                if (expiry.isExpired) return null;
+                
+                return (
+                  <div key={i} className="bg-white p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm relative overflow-hidden">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center">
+                        <Zap className="w-5 h-5 text-[#005E6A] fill-[#005E6A]" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">Dari transaksi {item.keterangan}</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.tanggal}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs font-black text-[#005E6A]">+{item.poin} Poin</p>
+                    
+                    {/* Expiry Ribbon */}
+                    <div className={`absolute bottom-0 right-0 px-3 py-0.5 ${expiry.color} text-white text-[6px] font-black uppercase tracking-widest rounded-tl-lg`}>
+                      Exp: {expiry.date}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="py-12 text-center">
+                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Belum ada riwayat poin</p>
+              </div>
+            )
+          ) : (
+            userRedeemed.length > 0 ? (
+              userRedeemed.map((item, i) => (
+                <div key={i} className="bg-white p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center">
+                      <Gift className="w-5 h-5 text-[#F15A24]" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{item.Hadiah}</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                        {item.Tanggal.split(',')[0]}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs font-black text-[#F15A24]">{item.Poin} Poin</p>
+                </div>
+              ))
+            ) : (
+              <div className="py-12 text-center">
+                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Belum ada riwayat tukar</p>
+              </div>
+            )
+          )}
+        </div>
+      </div>
+    </ProtectedPage>
+  );
+};
+
+const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
+  const navigate = useNavigate();
+  
+  if (!user) return null;
+
+  const now = new Date();
+  const startDate = new Date(2025, 10, 1);
+  const userSales = transactions.filter(t => t.Nama.toLowerCase() === user.Nama.toLowerCase());
+  const userRedeemed = redeemedPoints.filter(r => r.Nama.toLowerCase() === user.Nama.toLowerCase());
+
+  let totalEarned = 0;
+  let totalExpired = 0;
+
+  userSales.forEach(t => {
+    const tDate = parseDate(t.Tanggal);
+    if (tDate >= startDate) {
+      const points = Math.floor(t.Pemasukan / 10000);
+      if (points > 0) {
+        totalEarned += points;
+        const expiryDate = new Date(tDate);
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        if (expiryDate < now) {
+          totalExpired += points;
+        }
+      }
+    }
+  });
+
+  const totalRedeemed = userRedeemed.reduce((acc, curr) => acc + curr.Poin, 0);
+  const activePoints = Math.max(0, totalEarned - totalExpired - totalRedeemed);
+
+  return (
+    <ProtectedPage user={user} title="Tukar Hadiah">
+      <div className="px-6 py-4">
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-slate-500 mb-6 group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
+        </button>
+
+        <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm mb-8 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Aktif Anda</p>
+            <p className="text-2xl font-black text-[#005E6A] tracking-tight">{activePoints} Poin</p>
+          </div>
+          <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center">
+            <Zap className="w-6 h-6 text-[#005E6A] fill-[#005E6A]" />
+          </div>
+        </div>
+
+        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Daftar Hadiah Tersedia</h3>
+        
+        <div className="grid grid-cols-1 gap-4">
+          {REWARDS.map((reward) => {
+            const isAvailable = activePoints >= reward.points;
+            
+            return (
+              <div 
+                key={reward.id}
+                className={`bg-white rounded-lg border p-4 flex items-center gap-4 transition-all ${
+                  isAvailable ? "border-slate-100 shadow-sm" : "border-slate-50 opacity-60 grayscale"
+                }`}
+              >
+                <div className="w-20 h-20 bg-slate-50 rounded-lg overflow-hidden shrink-0">
+                  <img 
+                    src={reward.image} 
+                    alt={reward.name} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-black text-black uppercase tracking-tight mb-1 truncate">{reward.name}</p>
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="w-3 h-3 text-[#F15A24] fill-[#F15A24]" />
+                    <p className="text-[10px] font-black text-[#F15A24]">{reward.points.toLocaleString('id-ID')} Poin</p>
+                  </div>
+                  
+                  {!isAvailable && (
+                    <div className="mt-2 bg-slate-100 rounded-full h-1.5 w-full overflow-hidden">
+                      <div 
+                        className="bg-slate-300 h-full rounded-full" 
+                        style={{ width: `${(activePoints / reward.points) * 100}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  {isAvailable ? (
+                    <button className="bg-[#005E6A] text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm shadow-teal-100 active:scale-95 transition-transform">
+                      Tukar
+                    </button>
+                  ) : (
+                    <div className="bg-slate-50 text-slate-300 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100">
+                      Kurang {reward.points - activePoints}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        <div className="mt-12 p-6 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200 text-center">
+          <Info className="w-6 h-6 text-slate-300 mx-auto mb-3" />
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+            Silakan hubungi admin Warung Tomi untuk melakukan penukaran poin dengan hadiah yang Anda pilih.
+          </p>
+        </div>
+      </div>
+    </ProtectedPage>
+  );
+};
+
+const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints }: { user: Customer | null, transactions: SalesTransaction[], investmentTransactions: InvestmentTransaction[], redeemedPoints: RedeemedPoint[] }) => {
   const navigate = useNavigate();
   // Helper to parse currency string to number
   const parseCurrency = (val: string | undefined) => {
@@ -1267,6 +1654,9 @@ const AsetPage = ({ user, transactions, investmentTransactions }: { user: Custom
     return val.toLocaleString('id-ID');
   };
 
+  const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
+  const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
+
   return (
     <ProtectedPage user={user} title="Aset">
       <motion.div 
@@ -1274,6 +1664,35 @@ const AsetPage = ({ user, transactions, investmentTransactions }: { user: Custom
         animate={{ opacity: 1, y: 0 }}
         className="px-6 py-4"
       >
+        {/* User Profile Header */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">Halo, {user?.Nama}</h1>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Selamat datang kembali di portal Anda</p>
+          
+          <div className="grid grid-cols-2 gap-3 mt-6">
+            <div 
+              onClick={() => navigate("/level")}
+              className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-orange-100 transition-colors cursor-pointer active:scale-95"
+            >
+              <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-1">
+                <Star className="w-4 h-4 text-[#F15A24] fill-[#F15A24]" />
+              </div>
+              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Level Pelanggan</p>
+              <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
+            </div>
+            <div 
+              onClick={() => navigate("/poin")}
+              className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-teal-100 transition-colors cursor-pointer active:scale-95"
+            >
+              <div className="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center mb-1">
+                <Zap className="w-4 h-4 text-[#005E6A] fill-[#005E6A]" />
+              </div>
+              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poin Loyalitas</p>
+              <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{activePoints} Poin</p>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-black uppercase tracking-wider">Total Aset</h2>
@@ -2576,19 +2995,6 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
             <h2 className="text-2xl font-black text-[#005E6A] leading-tight">Level Pelanggan</h2>
             <p className="text-xs font-medium text-slate-400 mt-1">Tingkatkan transaksi Anda untuk level lebih tinggi</p>
           </div>
-
-          {/* New Carousel Card Above Level Cards */}
-          <div className="mb-8">
-            <div className="bg-white rounded-[2.5rem] p-4 shadow-xl border-2 border-white overflow-hidden">
-              <div className="relative aspect-[16/9] rounded-[1.8rem] overflow-hidden mb-4">
-                <PromoSection />
-              </div>
-              <div className="px-4 pb-2">
-                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Keuntungan Eksklusif</h3>
-                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Nikmati berbagai penawaran menarik sesuai level Anda</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Carousel Container with Progressive Stack Effect */}
@@ -3170,7 +3576,8 @@ const HomePage = ({
   salesTransactions,
   investmentTransactions,
   customers,
-  onLogin
+  onLogin,
+  redeemedPoints
 }: { 
   activeTab: string, 
   setActiveTab: (id: string) => void,
@@ -3179,7 +3586,8 @@ const HomePage = ({
   salesTransactions: SalesTransaction[],
   investmentTransactions: InvestmentTransaction[],
   customers: Customer[],
-  onLogin: (user: Customer) => void
+  onLogin: (user: Customer) => void,
+  redeemedPoints: RedeemedPoint[]
 }) => {
   const { customerName, subPage } = useParams();
   const navigate = useNavigate();
@@ -3218,7 +3626,7 @@ const HomePage = ({
           <MainServices />
         </motion.div>
       )}
-      {activeTab === "aset" && <AsetPage user={loggedInUser} transactions={salesTransactions} investmentTransactions={investmentTransactions} />}
+      {activeTab === "aset" && <AsetPage user={loggedInUser} transactions={salesTransactions} investmentTransactions={investmentTransactions} redeemedPoints={redeemedPoints} />}
       {activeTab === "riwayat" && <RiwayatPage user={loggedInUser} transactions={salesTransactions} />}
       {activeTab === "settings" && <SettingsPage user={loggedInUser} onLogout={onLogout} />}
     </AnimatePresence>
@@ -3413,11 +3821,13 @@ export default function App() {
           const rNamaKey = Object.keys(r).find(k => k.toLowerCase().trim().includes('nama'));
           const rTanggalKey = Object.keys(r).find(k => k.toLowerCase().trim().includes('tanggal'));
           const rPoinKey = Object.keys(r).find(k => k.toLowerCase().trim().includes('poin'));
+          const rHadiahKey = Object.keys(r).find(k => k.toLowerCase().trim().includes('hadiah'));
 
           return {
             Tanggal: rTanggalKey ? String(r[rTanggalKey]).trim() : "-",
             Nama: rNamaKey ? String(r[rNamaKey]).trim() : "Unknown",
-            Poin: rPoinKey ? parseCurrency(r[rPoinKey]) : 0
+            Poin: rPoinKey ? parseCurrency(r[rPoinKey]) : 0,
+            Hadiah: rHadiahKey ? String(r[rHadiahKey]).trim() : "Penukaran Hadiah"
           };
         });
 
@@ -3694,6 +4104,7 @@ export default function App() {
               investmentTransactions={investmentTransactions}
               customers={customers}
               onLogin={handleLogin}
+              redeemedPoints={redeemedPoints}
             />
           </Layout>
         } />
@@ -3718,6 +4129,7 @@ export default function App() {
               investmentTransactions={investmentTransactions}
               customers={customers}
               onLogin={handleLogin}
+              redeemedPoints={redeemedPoints}
             />
           </Layout>
         } />
@@ -3742,6 +4154,7 @@ export default function App() {
               investmentTransactions={investmentTransactions}
               customers={customers}
               onLogin={handleLogin}
+              redeemedPoints={redeemedPoints}
             />
           </Layout>
         } />
@@ -3756,6 +4169,12 @@ export default function App() {
         } />
         <Route path="/detail-investasi" element={
           <InvestasiPage user={loggedInUser} transactions={investmentTransactions} />
+        } />
+        <Route path="/poin" element={
+          <LoyaltyPointsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
+        } />
+        <Route path="/tukar-poin" element={
+          <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
         } />
         <Route path="/qris" element={<QRISPage />} />
         <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} />} />
