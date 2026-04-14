@@ -67,6 +67,8 @@ import {
   Download,
   Layers,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -170,7 +172,7 @@ interface RedeemedPoint {
   Hadiah: string;
 }
 
-const TransactionCard: React.FC<{ t: SalesTransaction, index: number }> = ({ t, index }) => {
+const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: boolean }> = ({ t, index, isAdmin }) => {
   const jenisLower = t.Jenis.toLowerCase().trim();
   const service = MAIN_SERVICES.find(s => 
     s.name.toLowerCase().trim() === jenisLower ||
@@ -189,11 +191,11 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number }> = ({ t, 
   );
   const statusLower = t.Status.toLowerCase();
   const displayName = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
-  let ribbonColor = 'bg-slate-500';
-  if (statusLower.includes('selesai') || statusLower.includes('sukses')) ribbonColor = 'bg-green-500';
-  else if (statusLower.includes('kasbon')) ribbonColor = 'bg-red-500';
-  else if (statusLower.includes('proses')) ribbonColor = 'bg-yellow-500';
-  else if (statusLower.includes('belum') || statusLower.includes('ambil')) ribbonColor = 'bg-blue-500';
+  let ribbonColor = 'bg-slate-500/5 text-slate-500';
+  if (statusLower.includes('selesai') || statusLower.includes('sukses')) ribbonColor = 'bg-green-500/5 text-green-600';
+  else if (statusLower.includes('kasbon')) ribbonColor = 'bg-red-500/5 text-red-600';
+  else if (statusLower.includes('proses')) ribbonColor = 'bg-yellow-500/5 text-yellow-600';
+  else if (statusLower.includes('belum') || statusLower.includes('ambil')) ribbonColor = 'bg-blue-500/5 text-blue-600';
 
   return (
     <motion.div
@@ -218,8 +220,13 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number }> = ({ t, 
               <span className="text-[8px] font-medium text-slate-400 uppercase tracking-wider truncate leading-none">via {t.Melalui}</span>
             </div>
 
-            {/* Row 3: Tanggal */}
-            <p className="text-[7px] font-medium text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+            {/* Row 3: Tanggal & Status */}
+            <div className="flex items-center gap-2">
+              <p className="text-[7px] font-medium text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+              <p className={`text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full w-fit ${ribbonColor}`}>
+                {t.Status}
+              </p>
+            </div>
           </div>
 
           {/* Nominal Pemasukan (Right) */}
@@ -229,10 +236,18 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number }> = ({ t, 
         </div>
       </div>
 
-      {/* Ribbon at bottom right */}
-      <div className={`absolute bottom-0 right-0 w-24 py-1 rounded-tl-xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm text-center ${ribbonColor}`}>
-        {t.Status}
-      </div>
+      {/* Ribbon at bottom right - Points (Customer) or Profit (Admin) */}
+      {isAdmin ? (
+        <div className="absolute bottom-0 right-0 w-20 py-1 rounded-tl-xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm text-center bg-[#F15A24]">
+          Rp {(t.Pemasukan - (t.HargaModal || 0)).toLocaleString('id-ID')}
+        </div>
+      ) : (
+        Math.floor(t.Pemasukan / 10000) > 0 && (
+          <div className="absolute bottom-0 right-0 w-20 py-1 rounded-tl-xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm text-center bg-[#F15A24]">
+            +{Math.floor(t.Pemasukan / 10000)} Poin
+          </div>
+        )
+      )}
     </motion.div>
   );
 };
@@ -1773,11 +1788,15 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints }
   );
 };
 
-const SavingsDetailPage = ({ user, transactions }: { user: Customer | null, transactions: SavingTransaction[] }) => {
+const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer | null, transactions: SavingTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
+  const { customerName } = useParams();
+  const displayUser = customerName && customers 
+    ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
+    : user;
   
   const userTransactions = transactions
-    .filter(t => t.Nama.toLowerCase() === user?.Nama?.toLowerCase())
+    .filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase())
     .reverse();
 
   const formatCurrency = (val: number) => {
@@ -1785,7 +1804,7 @@ const SavingsDetailPage = ({ user, transactions }: { user: Customer | null, tran
   };
 
   return (
-    <ProtectedPage user={user} title="Detail Tabungan">
+    <ProtectedPage user={displayUser} title="Detail Tabungan">
       <div className="px-6 py-4">
         <button 
           onClick={() => navigate(-1)}
@@ -1809,7 +1828,7 @@ const SavingsDetailPage = ({ user, transactions }: { user: Customer | null, tran
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-lg font-bold opacity-80">Rp</span>
-              <h2 className="text-4xl font-black tracking-tight">{user?.Tabungan || "0"}</h2>
+              <h2 className="text-4xl font-black tracking-tight">{displayUser?.Tabungan || "0"}</h2>
             </div>
           </div>
         </div>
@@ -1874,11 +1893,15 @@ const SavingsDetailPage = ({ user, transactions }: { user: Customer | null, tran
   );
 };
 
-const DebtDetailPage = ({ user, transactions }: { user: Customer | null, transactions: DebtTransaction[] }) => {
+const DebtDetailPage = ({ user, transactions, customers }: { user: Customer | null, transactions: DebtTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
+  const { customerName } = useParams();
+  const displayUser = customerName && customers 
+    ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
+    : user;
   
   const userTransactions = transactions
-    .filter(t => t.Nama.toLowerCase() === user?.Nama?.toLowerCase())
+    .filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase())
     .reverse();
 
   const formatCurrency = (val: number) => {
@@ -1886,7 +1909,7 @@ const DebtDetailPage = ({ user, transactions }: { user: Customer | null, transac
   };
 
   return (
-    <ProtectedPage user={user} title="Detail Hutang">
+    <ProtectedPage user={displayUser} title="Detail Hutang">
       <div className="px-6 py-4">
         <button 
           onClick={() => navigate(-1)}
@@ -1910,7 +1933,7 @@ const DebtDetailPage = ({ user, transactions }: { user: Customer | null, transac
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-lg font-bold opacity-80">Rp</span>
-              <h2 className="text-4xl font-black tracking-tight">{user?.Hutang || "0"}</h2>
+              <h2 className="text-4xl font-black tracking-tight">{displayUser?.Hutang || "0"}</h2>
             </div>
           </div>
         </div>
@@ -1975,11 +1998,15 @@ const DebtDetailPage = ({ user, transactions }: { user: Customer | null, transac
   );
 };
 
-const InvestasiPage = ({ user, transactions }: { user: Customer | null, transactions: InvestmentTransaction[] }) => {
+const InvestasiPage = ({ user, transactions, customers }: { user: Customer | null, transactions: InvestmentTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
+  const { customerName } = useParams();
+  const displayUser = customerName && customers 
+    ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
+    : user;
   
   const userTransactions = transactions.filter(t => 
-    t.Nama.toLowerCase() === user?.Nama?.toLowerCase()
+    t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase()
   );
 
   const formatCurrency = (val: number) => {
@@ -1991,7 +2018,7 @@ const InvestasiPage = ({ user, transactions }: { user: Customer | null, transact
     .reduce((acc, curr) => acc + curr.Nominal, 0);
 
   return (
-    <ProtectedPage user={user} title="Investasi">
+    <ProtectedPage user={displayUser} title="Investasi">
       <div className="px-6 py-4">
         <button 
           onClick={() => navigate(-1)}
@@ -2084,11 +2111,15 @@ const InvestasiPage = ({ user, transactions }: { user: Customer | null, transact
   );
 };
 
-const LainnyaPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
+const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null, transactions: SalesTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
+  const { customerName } = useParams();
+  const displayUser = customerName && customers 
+    ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
+    : user;
   
   const userTransactions = transactions.filter(t => 
-    t.Nama.toLowerCase() === user?.Nama?.toLowerCase() && 
+    t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase() && 
     t.Status.toUpperCase() === "BELUM DIAMBIL"
   );
 
@@ -2296,7 +2327,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
           <div className="grid gap-4">
             {filteredTransactions.length > 0 ? (
               filteredTransactions.map((t, i) => (
-                <TransactionCard key={i} t={t} index={i} />
+                <TransactionCard key={i} t={t} index={i} isAdmin={true} />
               ))
             ) : (
               <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
@@ -2437,86 +2468,6 @@ const AdminDashboard = ({ transactions, user, customers }: { transactions: Sales
           </button>
         </div>
 
-        {/* Chart Card */}
-        <div 
-          onClick={() => navigate("/admin/report")}
-          className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 cursor-pointer hover:shadow-2xl transition-all group/card"
-        >
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Grafik Laporan</h3>
-              <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Penjualan</p>
-                <select 
-                  value={timeFilter}
-                  onChange={(e) => setTimeFilter(e.target.value)}
-                  className="bg-slate-50 border-none text-slate-600 text-[9px] font-black uppercase tracking-widest rounded-lg px-2 py-0.5 focus:ring-0 cursor-pointer hover:bg-slate-100 transition-colors"
-                >
-                  <option value="Hari ini">Hari ini</option>
-                  <option value="Minggu ini">Minggu ini</option>
-                  <option value="Bulan ini">Bulan ini</option>
-                  <option value="Tahun ini">Tahun ini</option>
-                </select>
-              </div>
-            </div>
-            <div className="w-8 h-8 bg-orange-50 rounded-full flex items-center justify-center group-hover/card:scale-110 transition-transform">
-              <TrendingUp className="w-4 h-4 text-[#F15A24]" />
-            </div>
-          </div>
-
-          <div className="h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              < BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="date" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 8, fontWeight: 700, fill: '#94a3b8' }}
-                  tickFormatter={(val) => val.split('/')[0]} // Just show day
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 8, fontWeight: 700, fill: '#94a3b8' }}
-                  tickFormatter={(val) => `Rp ${val/1000}k`}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '1rem', 
-                    border: 'none', 
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                    fontSize: '10px',
-                    fontWeight: 'bold'
-                  }}
-                  formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Penjualan']}
-                />
-                <Bar 
-                  dataKey="total" 
-                  fill="#F15A24" 
-                  radius={[4, 4, 0, 0]} 
-                  barSize={12}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="flex flex-col gap-4 mt-6 pt-6 border-t border-slate-50">
-            <div className="flex items-center justify-between">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Penjualan</p>
-              <p className="text-[11px] font-black text-[#005E6A]">Rp {totalPemasukan.toLocaleString('id-ID')}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Keuntungan</p>
-              <p className="text-[11px] font-black text-green-600">Rp {totalKeuntungan.toLocaleString('id-ID')}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Transaksi</p>
-              <p className="text-[11px] font-black text-[#F15A24]">{totalTransaksi} Order</p>
-            </div>
-          </div>
-        </div>
-
         {/* Asset Distribution Chart */}
         <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
           <div className="flex items-center justify-between mb-8">
@@ -2576,6 +2527,93 @@ const AdminDashboard = ({ transactions, user, customers }: { transactions: Sales
           </div>
         </div>
 
+        {/* Chart Card */}
+        <div 
+          onClick={() => navigate("/admin/report")}
+          className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 cursor-pointer hover:shadow-2xl transition-all group/card"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Grafik Laporan</h3>
+              <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Penjualan</p>
+                <select 
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value)}
+                  className="bg-slate-50 border-none text-slate-600 text-[9px] font-black uppercase tracking-widest rounded-lg px-2 py-0.5 focus:ring-0 cursor-pointer hover:bg-slate-100 transition-colors"
+                >
+                  <option value="Hari ini">Hari ini</option>
+                  <option value="Minggu ini">Minggu ini</option>
+                  <option value="Bulan ini">Bulan ini</option>
+                  <option value="Tahun ini">Tahun ini</option>
+                </select>
+              </div>
+            </div>
+            <div className="w-8 h-8 bg-orange-50 rounded-full flex items-center justify-center group-hover/card:scale-110 transition-transform">
+              <TrendingUp className="w-4 h-4 text-[#F15A24]" />
+            </div>
+          </div>
+
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <defs>
+                  <linearGradient id="barGradientDashboard" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#F15A24" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#F15A24" stopOpacity={0.4} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 8, fontWeight: 700, fill: '#94a3b8' }}
+                  tickFormatter={(val) => val.split('/')[0]} // Just show day
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 8, fontWeight: 700, fill: '#94a3b8' }}
+                  tickFormatter={(val) => `Rp ${val/1000}k`}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '1rem', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    fontSize: '10px',
+                    fontWeight: 'bold'
+                  }}
+                  formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Penjualan']}
+                />
+                <Bar 
+                  dataKey="total" 
+                  fill="url(#barGradientDashboard)" 
+                  radius={[6, 6, 6, 6]} 
+                  barSize={12}
+                  animationDuration={1500}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="flex flex-col gap-4 mt-6 pt-6 border-t border-slate-50">
+            <div className="flex items-center justify-between">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Penjualan</p>
+              <p className="text-[11px] font-black text-[#005E6A]">Rp {totalPemasukan.toLocaleString('id-ID')}</p>
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Keuntungan</p>
+              <p className="text-[11px] font-black text-green-600">Rp {totalKeuntungan.toLocaleString('id-ID')}</p>
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Transaksi</p>
+              <p className="text-[11px] font-black text-[#F15A24]">{totalTransaksi} Order</p>
+            </div>
+          </div>
+        </div>
+
         {/* Recent Transactions List */}
         <div className="space-y-4">
           <div className="flex items-center justify-between px-2">
@@ -2589,7 +2627,7 @@ const AdminDashboard = ({ transactions, user, customers }: { transactions: Sales
           </div>
           <div className="grid gap-4">
             {filteredSales.slice(0, 5).map((t, i) => (
-              <TransactionCard key={i} t={t} index={i} />
+              <TransactionCard key={i} t={t} index={i} isAdmin={true} />
             ))}
           </div>
         </div>
@@ -2605,7 +2643,8 @@ const AdminManagementPage = ({
   totalValue, 
   items, 
   icon: Icon,
-  colorClass
+  colorClass,
+  onItemClick
 }: { 
   title: string, 
   subtitle: string, 
@@ -2613,7 +2652,8 @@ const AdminManagementPage = ({
   totalValue: number, 
   items: { name: string, value: number, subtext?: string }[],
   icon: any,
-  colorClass: string
+  colorClass: string,
+  onItemClick?: (name: string) => void
 }) => {
   const navigate = useNavigate();
   return (
@@ -2650,7 +2690,8 @@ const AdminManagementPage = ({
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center"
+                onClick={() => onItemClick && onItemClick(item.name)}
+                className={`bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 text-slate-400">
@@ -2677,11 +2718,16 @@ const AdminManagementPage = ({
 };
 
 const AdminSavingsManagement = ({ customers }: { customers: Customer[] }) => {
+  const navigate = useNavigate();
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
   const items = customers
     .filter(c => parseCurrency(c.Tabungan) > 0)
     .map(c => ({ name: c.Nama, value: parseCurrency(c.Tabungan) }))
     .sort((a, b) => b.value - a.value);
+
+  const handleItemClick = (name: string) => {
+    navigate(`/admin/detail-tabungan/${encodeURIComponent(name)}`);
+  };
 
   return (
     <AdminManagementPage 
@@ -2692,16 +2738,22 @@ const AdminSavingsManagement = ({ customers }: { customers: Customer[] }) => {
       items={items}
       icon={Wallet}
       colorClass="text-[#005E6A]"
+      onItemClick={handleItemClick}
     />
   );
 };
 
 const AdminInvestmentManagement = ({ customers }: { customers: Customer[] }) => {
+  const navigate = useNavigate();
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Investasi), 0);
   const items = customers
     .filter(c => parseCurrency(c.Investasi) > 0)
     .map(c => ({ name: c.Nama, value: parseCurrency(c.Investasi) }))
     .sort((a, b) => b.value - a.value);
+
+  const handleItemClick = (name: string) => {
+    navigate(`/admin/detail-investasi/${encodeURIComponent(name)}`);
+  };
 
   return (
     <AdminManagementPage 
@@ -2712,6 +2764,7 @@ const AdminInvestmentManagement = ({ customers }: { customers: Customer[] }) => 
       items={items}
       icon={TrendingUp}
       colorClass="text-[#F15A24]"
+      onItemClick={handleItemClick}
     />
   );
 };
@@ -2854,6 +2907,7 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
 };
 
 const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[], transactions: DebtTransaction[] }) => {
+  const navigate = useNavigate();
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
   const items = customers
     .filter(c => parseCurrency(c.Hutang) > 0)
@@ -2872,6 +2926,10 @@ const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[
     })
     .sort((a, b) => b.date.getTime() - a.date.getTime());
 
+  const handleItemClick = (name: string) => {
+    navigate(`/admin/detail-hutang/${encodeURIComponent(name)}`);
+  };
+
   return (
     <AdminManagementPage 
       title="Management Hutang"
@@ -2881,11 +2939,13 @@ const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[
       items={items}
       icon={Receipt}
       colorClass="text-red-600"
+      onItemClick={handleItemClick}
     />
   );
 };
 
 const AdminOthersManagement = ({ transactions, customers }: { transactions: SalesTransaction[], customers: Customer[] }) => {
+  const navigate = useNavigate();
   const othersFromCustomers = customers
     .filter(c => parseCurrency(c.Lainnya) > 0)
     .map(c => {
@@ -2924,6 +2984,11 @@ const AdminOthersManagement = ({ transactions, customers }: { transactions: Sale
   const items = [...othersFromCustomers, ...generalOthers].sort((a, b) => b.date.getTime() - a.date.getTime());
   const total = items.reduce((acc, item) => acc + item.value, 0);
 
+  const handleItemClick = (name: string) => {
+    if (name === "Pelanggan Umum") return;
+    navigate(`/admin/detail-lainnya/${encodeURIComponent(name)}`);
+  };
+
   return (
     <AdminManagementPage 
       title="Management Lainnya"
@@ -2933,6 +2998,7 @@ const AdminOthersManagement = ({ transactions, customers }: { transactions: Sale
       items={items}
       icon={ShoppingBag}
       colorClass="text-blue-600"
+      onItemClick={handleItemClick}
     />
   );
 };
@@ -3121,36 +3187,36 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
 };
 
 const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
+  const [activeTab, setActiveTab] = useState<"trend" | "rincian">("trend");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  
+  const now = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<{ month: number, year: number }>({ 
+    month: now.getMonth(), 
+    year: now.getFullYear() 
+  });
 
-  const userTransactions = transactions
-    .filter(t => t.Nama.toLowerCase() === user?.Nama?.toLowerCase())
-    .filter(t => {
-      if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
-      return (
-        t.Jenis.toLowerCase().includes(query) ||
-        t.Tanggal.toLowerCase().includes(query) ||
-        t.Status.toLowerCase().includes(query)
-      );
-    })
-    .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+  React.useEffect(() => {
+    if (activeTab === "trend" && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+    }
+  }, [activeTab]);
 
   const formatCurrency = (val: number) => {
     return val.toLocaleString('id-ID');
   };
 
-  // Process data for the chart (last 3 months) - Fixed logic
+  // Process data for the chart (last 12 months)
   const chartData = React.useMemo(() => {
-    const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     
-    const last3Months: { month: number, year: number, label: string, total: number }[] = [];
-    for (let i = 2; i >= 0; i--) {
+    const last12Months: { month: number, year: number, label: string, total: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
       const d = new Date(currentYear, currentMonth - i, 1);
-      last3Months.push({
+      last12Months.push({
         month: d.getMonth(),
         year: d.getFullYear(),
         label: d.toLocaleString('id-ID', { month: 'short' }),
@@ -3169,16 +3235,107 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
       const tMonth = tDate.getMonth();
       const tYear = tDate.getFullYear();
 
-      const bucket = last3Months.find(m => m.month === tMonth && m.year === tYear);
+      const bucket = last12Months.find(m => m.month === tMonth && m.year === tYear);
       if (bucket) {
         bucket.total += t.Pemasukan;
       }
     });
 
-    return last3Months.map(m => ({ name: m.label, total: m.total }));
+    return last12Months;
   }, [transactions, user]);
 
-  const totalThreeMonths = chartData.reduce((acc, curr) => acc + curr.total, 0);
+  const filteredTransactions = React.useMemo(() => {
+    let base = transactions.filter(t => t.Nama.toLowerCase() === user?.Nama?.toLowerCase());
+    
+    // Always filter by selected month for both tabs if we want consistency, 
+    // but user asked for "dropdown yang sama" in Rincian tab too.
+    base = base.filter(t => {
+      const tDate = parseDate(t.Tanggal);
+      return tDate.getMonth() === selectedMonth.month && tDate.getFullYear() === selectedMonth.year;
+    });
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      base = base.filter(t => 
+        t.Jenis.toLowerCase().includes(query) ||
+        t.Tanggal.toLowerCase().includes(query) ||
+        t.Status.toLowerCase().includes(query)
+      );
+    }
+
+    return base.sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+  }, [transactions, user, selectedMonth, searchQuery]);
+
+  const groupedTransactions = React.useMemo(() => {
+    const groups: { [key: string]: { items: SalesTransaction[], total: number } } = {};
+    filteredTransactions.forEach(t => {
+      if (!groups[t.Jenis]) {
+        groups[t.Jenis] = { items: [], total: 0 };
+      }
+      groups[t.Jenis].items.push(t);
+      groups[t.Jenis].total += t.Pemasukan;
+    });
+    return groups;
+  }, [filteredTransactions]);
+
+  const pieData = React.useMemo(() => {
+    return Object.entries(groupedTransactions).map(([name, data]: [string, any]) => {
+      // Find matching service for color
+      let service = MAIN_SERVICES.find(s => 
+        name.toLowerCase().includes(s.name.toLowerCase()) || 
+        s.name.toLowerCase().includes(name.toLowerCase())
+      );
+
+      const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
+        name.toLowerCase().includes(wallet.toLowerCase())
+      );
+
+      if (isEWalletTopup) {
+        service = MAIN_SERVICES.find(s => s.name === "E-Walet");
+      }
+
+      // Map Tailwind color classes to hex for Recharts
+      const colorMap: { [key: string]: string } = {
+        'text-blue-600': '#2563eb',
+        'text-purple-600': '#9333ea',
+        'text-orange-600': '#ea580c',
+        'text-green-600': '#16a34a',
+        'text-pink-600': '#db2777',
+        'text-teal-600': '#0d9488',
+        'text-yellow-600': '#ca8a04',
+        'text-red-600': '#dc2626',
+        'text-cyan-600': '#0891b2',
+        'text-indigo-600': '#4f46e5',
+        'text-rose-600': '#e11d48',
+        'text-amber-600': '#d97706',
+        'text-emerald-600': '#059669',
+      };
+
+      const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
+      const color = colorMap[iconColorClass] || '#2563eb';
+
+      return {
+        name,
+        value: data.total,
+        color
+      };
+    });
+  }, [groupedTransactions]);
+
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+
+  const toggleGroup = (jenis: string) => {
+    setExpandedGroups(prev => 
+      prev.includes(jenis) ? prev.filter(g => g !== jenis) : [...prev, jenis]
+    );
+  };
+
+  const totalSixMonths = (chartData as any[]).reduce((acc, curr) => acc + curr.total, 0);
+  const selectedMonthData = (chartData as any[]).find(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
+  const totalSelectedMonth = selectedMonthData?.total || 0;
+  const selectedMonthLabel = selectedMonthData?.label || "";
+
+  const COLORS = ['#005E6A', '#F15A24', '#22C55E', '#3B82F6', '#A855F7', '#EAB308', '#EC4899'];
 
   return (
     <ProtectedPage user={user} title="Riwayat">
@@ -3191,179 +3348,340 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
           <h2 className="text-lg font-bold text-black uppercase tracking-wider">Riwayat Belanja</h2>
         </div>
 
-        {/* Transaction Chart Section - Redesigned */}
-        <div className="bg-[#005E6A] rounded-[2.5rem] p-6 shadow-xl border border-[#005E6A]/10 mb-8 relative overflow-hidden">
-          {/* Decorative background elements */}
-          <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl" />
-          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-black/10 rounded-full blur-3xl" />
-          
-          <div className="flex items-center justify-between mb-8 relative z-10">
-            <div>
-              <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Total Belanja (3 Bln Terakhir)</p>
-              <h3 className="text-2xl font-black text-white">Rp {formatCurrency(totalThreeMonths)}</h3>
+        {/* Shared Month Selector Dropdown */}
+        <div className="mb-6">
+          <div className="relative">
+            <select
+              value={`${selectedMonth.month}-${selectedMonth.year}`}
+              onChange={(e) => {
+                const [m, y] = e.target.value.split('-').map(Number);
+                setSelectedMonth({ month: m, year: y });
+              }}
+              className="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-widest text-[#005E6A] appearance-none focus:outline-none focus:border-[#005E6A]/20 transition-all shadow-sm"
+            >
+              {chartData.map((m, i) => (
+                <option key={i} value={`${m.month}-${m.year}`}>
+                  {m.label} {m.year}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none">
+              <ChevronDown className="w-4 h-4 text-slate-400" />
             </div>
-            <div className="bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/10">
-              <History className="w-6 h-6 text-white" />
-            </div>
-          </div>
-          
-          <div className="h-40 w-full mb-8 relative z-10">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#F15A24" stopOpacity={0.6}/>
-                    <stop offset="95%" stopColor="#F15A24" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 900 }}
-                  dy={10}
-                />
-                <Tooltip 
-                  cursor={{ stroke: 'rgba(241, 90, 36, 0.2)', strokeWidth: 2 }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-white/10 backdrop-blur-xl p-3 rounded-2xl border border-white/20 shadow-2xl text-[10px] font-black">
-                          <p className="text-white/60 uppercase mb-1">{payload[0].payload.name}</p>
-                          <p className="text-[#F15A24] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="total" 
-                  stroke="#F15A24" 
-                  strokeWidth={4}
-                  fillOpacity={1} 
-                  fill="url(#colorTotal)" 
-                  animationDuration={2000}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 relative z-10">
-            {chartData.map((item, i) => (
-              <div key={i} className="text-center p-3 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/5">
-                <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1">{item.name}</p>
-                <p className="text-[11px] font-black text-white">Rp {formatCurrency(item.total)}</p>
-              </div>
-            ))}
           </div>
         </div>
 
-        <div className="flex items-center justify-between mb-4 relative overflow-hidden h-12">
-          <AnimatePresence mode="wait">
-            {!isSearchOpen ? (
-              <motion.h3 
-                key="title"
-                initial={{ x: -20, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: -20, opacity: 0 }}
-                className="text-xs font-bold text-slate-400 uppercase tracking-widest"
-              >
-                Daftar Transaksi
-              </motion.h3>
-            ) : (
-              <motion.div 
-                key="search-input"
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: "calc(100% - 48px)", opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                className="flex-1 mr-2"
-              >
-                <input 
-                  autoFocus
-                  type="text"
-                  placeholder="Cari jenis, tanggal, status..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 bg-slate-100 rounded-full px-4 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#005E6A]/20"
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-2xl">
           <button 
-            onClick={() => {
-              setIsSearchOpen(!isSearchOpen);
-              if (isSearchOpen) setSearchQuery("");
-            }}
-            className={`p-2 rounded-full transition-all duration-300 ${isSearchOpen ? 'bg-[#005E6A] text-white rotate-90 scale-110 shadow-lg' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            onClick={() => setActiveTab("trend")}
+            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "trend" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
           >
-            {isSearchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+            Trend
+          </button>
+          <button 
+            onClick={() => setActiveTab("rincian")}
+            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "rincian" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
+          >
+            Rincian
           </button>
         </div>
 
-        <div className="space-y-4">
-          {userTransactions.length > 0 ? (
-            userTransactions.map((item, i) => {
-              // Find matching service for icon and color
-              let service = MAIN_SERVICES.find(s => 
-                item.Jenis.toLowerCase().includes(s.name.toLowerCase()) || 
-                s.name.toLowerCase().includes(item.Jenis.toLowerCase())
-              );
-
-              // Special case for E-Wallet topups
-              const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
-                item.Jenis.toLowerCase().includes(wallet.toLowerCase())
-              );
-
-              if (isEWalletTopup) {
-                service = MAIN_SERVICES.find(s => s.name === "E-Walet");
-              }
-              
-              const IconComponent = service ? (service.icon as any).type : ShoppingBag;
-              const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
-              const bgColorClass = service ? service.bgColor : 'bg-blue-50';
-
-              const getStatusColor = (status: string) => {
-                const s = status.toLowerCase();
-                if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500';
-                if (s.includes('kasbon')) return 'bg-red-500';
-                if (s.includes('proses')) return 'bg-yellow-500';
-                if (s.includes('belum diambil')) return 'bg-blue-500';
-                return 'bg-slate-400';
-              };
-
-              return (
-                <div key={i} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm relative overflow-hidden">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bgColorClass}`}>
-                      <IconComponent className={`w-5 h-5 ${iconColorClass}`} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-800">{item.Jenis}</p>
-                      <p className="text-[10px] text-slate-400">{item.Tanggal}</p>
-                    </div>
-                  </div>
-                  <div className="text-right pr-2">
-                    <p className="text-xs font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
-                  </div>
-                  
-                  {/* Horizontal Ribbon Status - Fixed Width */}
-                  <div className={`absolute bottom-0 right-0 w-24 py-1 rounded-tl-2xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm flex justify-center items-center ${getStatusColor(item.Status)}`}>
-                    {item.Status}
-                  </div>
+        {activeTab === "trend" ? (
+          <div className="mb-8">
+            {/* 6-Month Trend Chart with Integrated Total */}
+            <div className="bg-[#005E6A] rounded-[2.5rem] p-8 shadow-xl border border-[#005E6A]/10 mb-6 relative overflow-hidden">
+              <div className="relative z-10 mb-6 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Total Transaksi {selectedMonthLabel}</p>
+                  <h4 className="text-xl font-black text-white">
+                    Rp {formatCurrency(totalSelectedMonth)}
+                  </h4>
                 </div>
-              );
-            })
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20 opacity-20">
-              <History className="w-12 h-12 mb-2" />
-              <p className="text-xs font-black uppercase tracking-widest">Belum ada riwayat belanja</p>
+                <div className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-white" />
+                </div>
+              </div>
+
+              <div 
+                ref={scrollContainerRef}
+                className="h-48 w-full relative z-10 overflow-x-auto no-scrollbar scroll-smooth"
+              >
+                <div className="h-full min-w-[600px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                    <defs>
+                      <linearGradient id="barGradientTrend" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#F15A24" stopOpacity={1} />
+                        <stop offset="100%" stopColor="#F15A24" stopOpacity={0.4} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                    <XAxis 
+                      dataKey="label" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 900 }}
+                      dy={10}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white/10 backdrop-blur-xl p-3 rounded-2xl border border-white/20 shadow-2xl text-[10px] font-black">
+                              <p className="text-white/60 uppercase mb-1">{payload[0].payload.label}</p>
+                              <p className="text-[#F15A24] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar 
+                      dataKey="total" 
+                      radius={[10, 10, 10, 10]} 
+                      barSize={18}
+                      animationDuration={1500}
+                    >
+                      {chartData.map((entry, index) => {
+                        const isActive = entry.month === selectedMonth.month && entry.year === selectedMonth.year;
+                        return (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={isActive ? "#FFFFFF" : "url(#barGradientTrend)"}
+                            style={{
+                              filter: isActive ? 'drop-shadow(0 0 12px rgba(255, 255, 255, 0.9))' : 'none',
+                              transition: 'all 0.5s ease'
+                            }}
+                          />
+                        );
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+
+            {/* Transaction List for Trend Tab */}
+            <div className="space-y-4">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">
+                Daftar Transaksi {chartData.find(m => m.month === selectedMonth.month && m.year === selectedMonth.year)?.label}
+              </h3>
+              {filteredTransactions.length > 0 ? (
+                filteredTransactions.map((item, i) => {
+                  let service = MAIN_SERVICES.find(s => 
+                    item.Jenis.toLowerCase().includes(s.name.toLowerCase()) || 
+                    s.name.toLowerCase().includes(item.Jenis.toLowerCase())
+                  );
+
+                  const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
+                    item.Jenis.toLowerCase().includes(wallet.toLowerCase())
+                  );
+
+                  if (isEWalletTopup) {
+                    service = MAIN_SERVICES.find(s => s.name === "E-Walet");
+                  }
+                  
+                  const IconComponent = service ? (service.icon as any).type : ShoppingBag;
+                  const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
+                  const bgColorClass = service ? service.bgColor : 'bg-blue-50';
+
+                  const getStatusColor = (status: string) => {
+                    const s = status.toLowerCase();
+                    if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
+                    if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
+                    if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
+                    if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
+                    return 'bg-slate-400/10 text-slate-500';
+                  };
+
+                  return (
+                    <div key={i} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm relative overflow-hidden">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bgColorClass}`}>
+                          <IconComponent className={`w-5 h-5 ${iconColorClass}`} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">{item.Jenis}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-[8px] text-slate-400 uppercase tracking-widest">{item.Tanggal}</p>
+                            <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full w-fit ${getStatusColor(item.Status)}`}>
+                              {item.Status}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right pr-2">
+                        <p className="text-xs font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
+                      </div>
+                      {Math.floor(item.Pemasukan / 10000) > 0 && (
+                        <div className="absolute bottom-0 right-0 w-20 py-1 rounded-tl-2xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm flex justify-center items-center bg-[#F15A24]">
+                          +{Math.floor(item.Pemasukan / 10000)} Poin
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 opacity-20">
+                  <History className="w-10 h-10 mb-2" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="mb-8">
+            {/* Pie Chart Section with Integrated Total */}
+            <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-slate-100 mb-6 relative overflow-hidden">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Transaksi {selectedMonthLabel}</p>
+                  <h4 className="text-xl font-black text-[#005E6A]">
+                    Rp {formatCurrency(totalSelectedMonth)}
+                  </h4>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-2xl">
+                  <PieChart className="w-5 h-5 text-[#005E6A]" />
+                </div>
+              </div>
+              
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                      animationDuration={1500}
+                    >
+                      {pieData.map((entry: any, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-50 text-[10px] font-black">
+                              <p className="text-slate-400 uppercase mb-1">{payload[0].name}</p>
+                              <p className="text-[#005E6A] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                {pieData.map((item: any, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                    <p className="text-[8px] font-black text-slate-500 uppercase truncate">{item.name}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Expandable Categorized List */}
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Kategori Transaksi</h3>
+              {Object.entries(groupedTransactions).map(([jenis, data]: [string, any], idx) => {
+                // Find matching service for icon and color
+                let service = MAIN_SERVICES.find(s => 
+                  jenis.toLowerCase().includes(s.name.toLowerCase()) || 
+                  s.name.toLowerCase().includes(jenis.toLowerCase())
+                );
+
+                const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
+                  jenis.toLowerCase().includes(wallet.toLowerCase())
+                );
+
+                if (isEWalletTopup) {
+                  service = MAIN_SERVICES.find(s => s.name === "E-Walet");
+                }
+                
+                const IconComponent = service ? (service.icon as any).type : ShoppingBag;
+                const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
+                const bgColorClass = service ? service.bgColor : 'bg-blue-50';
+
+                const getStatusColor = (status: string) => {
+                  const s = status.toLowerCase();
+                  if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
+                  if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
+                  if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
+                  if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
+                  return 'bg-slate-400/10 text-slate-500';
+                };
+
+                return (
+                  <div key={jenis} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <button 
+                      onClick={() => toggleGroup(jenis)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bgColorClass}`}>
+                          <IconComponent className={`w-4 h-4 ${iconColorClass}`} />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{jenis}</p>
+                          <p className="text-[9px] text-slate-400 font-bold">{data.items.length} Transaksi</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <p className="text-xs font-black text-[#005E6A]">Rp {formatCurrency(data.total)}</p>
+                        {expandedGroups.includes(jenis) ? <ChevronUp className="w-4 h-4 text-slate-300" /> : <ChevronDown className="w-4 h-4 text-slate-300" />}
+                      </div>
+                    </button>
+
+                    <AnimatePresence>
+                      {expandedGroups.includes(jenis) && (
+                        <motion.div 
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="border-t border-slate-50 bg-slate-50/30"
+                        >
+                          <div className="p-2 space-y-2">
+                            {data.items.map((item, i) => (
+                              <div key={i} className="bg-white/50 p-3 rounded-xl flex items-center justify-between">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-[10px] font-bold text-slate-600">{item.Tanggal}</p>
+                                    <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${getStatusColor(item.Status)}`}>
+                                      {item.Status}
+                                    </p>
+                                  </div>
+                                  {Math.floor(item.Pemasukan / 10000) > 0 && (
+                                    <p className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest mt-1">+{Math.floor(item.Pemasukan / 10000)} Poin</p>
+                                  )}
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[10px] font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
       </motion.div>
     </ProtectedPage>
   );
@@ -4161,14 +4479,26 @@ export default function App() {
         <Route path="/detail-tabungan" element={
           <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} />
         } />
+        <Route path="/admin/detail-tabungan/:customerName" element={
+          <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} customers={customers} />
+        } />
         <Route path="/detail-hutang" element={
           <DebtDetailPage user={loggedInUser} transactions={debtTransactions} />
+        } />
+        <Route path="/admin/detail-hutang/:customerName" element={
+          <DebtDetailPage user={loggedInUser} transactions={debtTransactions} customers={customers} />
         } />
         <Route path="/detail-lainnya" element={
           <LainnyaPage user={loggedInUser} transactions={salesTransactions} />
         } />
+        <Route path="/admin/detail-lainnya/:customerName" element={
+          <LainnyaPage user={loggedInUser} transactions={salesTransactions} customers={customers} />
+        } />
         <Route path="/detail-investasi" element={
           <InvestasiPage user={loggedInUser} transactions={investmentTransactions} />
+        } />
+        <Route path="/admin/detail-investasi/:customerName" element={
+          <InvestasiPage user={loggedInUser} transactions={investmentTransactions} customers={customers} />
         } />
         <Route path="/poin" element={
           <LoyaltyPointsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
