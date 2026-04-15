@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { BrowserRouter, Routes, Route, useNavigate, Link, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, Link, useParams, useLocation } from "react-router-dom";
 import Papa from "papaparse";
 import { 
   LineChart, 
@@ -70,6 +70,8 @@ import {
   ChevronDown,
   ChevronUp,
   Share2,
+  Camera,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -401,411 +403,44 @@ const Header = ({
 }: { 
   customers: Customer[], 
   loggedInUser: Customer | null, 
-  onLogin: (user: Customer) => void,
+  onLogin: (user: Customer) => void, 
   onLogout: () => void,
   setActiveTab: (id: string) => void,
   isLoading: boolean,
   salesTransactions: SalesTransaction[],
   redeemedPoints: RedeemedPoint[]
 }) => {
-  const [isPortalOpen, setIsPortalOpen] = useState(false);
-  const [activePortalTab, setActivePortalTab] = useState<"USER" | "ADMIN">("USER");
-  const [customerName, setCustomerName] = useState("");
-  const [pinInput, setPinInput] = useState("");
-  const [adminCode, setAdminCode] = useState("");
-  const [showPinInput, setShowPinInput] = useState(false);
-  const navigate = useNavigate();
+  const location = useLocation();
+  const isAdminPage = location.pathname.startsWith('/admin');
 
-  const ADMIN_ACCESS_CODE = "160910"; // In a real app, this would be hashed/encrypted
-
-  const customerLevel = calculateCustomerLevel(salesTransactions, loggedInUser?.Nama || "");
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [error, setError] = useState("");
-  const [suggestions, setSuggestions] = useState<Customer[]>([]);
-
-  useEffect(() => {
-    const trimmedInput = customerName.trim();
-    if (trimmedInput.length > 0 && !showPinInput && activePortalTab === "USER") {
-      const filtered = customers.filter(c => 
-        c && c.Nama && 
-        typeof c.Nama === 'string' && 
-        c.Nama.toLowerCase().includes(trimmedInput.toLowerCase())
-      ).slice(0, 5);
-      setSuggestions(filtered);
-    } else {
-      setSuggestions([]);
-    }
-  }, [customerName, customers, showPinInput, activePortalTab]);
-
-  const handleAdminSubmit = () => {
-    if (adminCode === ADMIN_ACCESS_CODE) {
-      setIsPortalOpen(false);
-      setAdminCode("");
-      navigate("/admin");
-    } else {
-      setError("Kode Akses Salah");
-    }
-  };
-
-  const handleLoginAttempt = () => {
-    const user = customers.find(c => 
-      c && c.Nama && typeof c.Nama === 'string' && c.Nama.toLowerCase() === customerName.toLowerCase()
-    );
-    if (user) {
-      if (user.PIN && user.PIN.trim() !== "") {
-        setSelectedCustomer(user);
-        setShowPinInput(true);
-        setError("");
-      } else {
-        onLogin(user);
-        setIsPortalOpen(false);
-        setCustomerName("");
-        setActiveTab("aset");
-      }
-    } else {
-      setError("Nama tidak ditemukan");
-    }
-  };
-
-  const handlePinSubmit = () => {
-    if (selectedCustomer && selectedCustomer.PIN === pinInput) {
-      onLogin(selectedCustomer);
-      setIsPortalOpen(false);
-      setCustomerName("");
-      setPinInput("");
-      setShowPinInput(false);
-      setSelectedCustomer(null);
-      setError("");
-      setActiveTab("aset");
-    } else {
-      setError("PIN Salah");
-    }
-  };
-
-  const handleSelectSuggestion = (user: Customer) => {
-    setCustomerName(user.Nama);
-    setSuggestions([]);
-    
-    if (user.PIN && user.PIN.trim() !== "") {
-      setSelectedCustomer(user);
-      setShowPinInput(true);
-    } else {
-      onLogin(user);
-      setIsPortalOpen(false);
-      setCustomerName("");
-      setActiveTab("aset");
-    }
-  };
+  if (isAdminPage) return null;
 
   return (
     <header className="bg-white sticky top-0 z-50 border-b border-slate-100 transition-all duration-300">
       <div className="px-6 py-3 flex items-center justify-between">
-        <div className="flex flex-col">
+        <Link to="/" className="flex flex-col group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
           <div className="flex items-center gap-1">
-            <span className="text-lg font-black tracking-tighter text-[#005E6A]">WARUNG</span>
-            <span className="text-lg font-black tracking-tighter text-[#F15A24]">TOMI</span>
+            <span className="text-lg font-black tracking-tighter text-[#005E6A] group-hover:text-[#F15A24] transition-colors">WARUNG</span>
+            <span className="text-lg font-black tracking-tighter text-[#F15A24] group-hover:text-[#005E6A] transition-colors">TOMI</span>
           </div>
-          <span className="text-[8px] font-bold text-muted-foreground tracking-[0.2em] uppercase leading-none">Solusi Digital & Keuangan</span>
-        </div>
-        
-        <motion.button
-          layout
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsPortalOpen(!isPortalOpen)}
-          transition={{
-            type: "spring",
-            stiffness: 400,
-            damping: 30
-          }}
-          className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors duration-500 relative ${
-            isPortalOpen 
-              ? "bg-[#F15A24] text-white" 
-              : "bg-white border border-slate-200 text-slate-700 hover:border-orange-200"
-          }`}
+          <div className="flex justify-between w-full px-0.5 mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+            {"Digital Solution".split("").map((char, i) => (
+              <span key={i} className="text-[6.5px] font-black text-muted-foreground tracking-widest uppercase leading-none">
+                {char === " " ? "\u00A0" : char}
+              </span>
+            ))}
+          </div>
+        </Link>
+
+        {/* BNI 46 Badge */}
+        <motion.div 
+          whileHover={{ scale: 1.05 }}
+          className="bg-[#E6F4F5] px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm border border-[#005E6A]/5 cursor-default"
         >
-          <motion.div 
-            layout
-            className={`rounded-full flex items-center justify-center shrink-0 transition-all duration-500 ${
-              isPortalOpen 
-                ? "w-10 h-10 bg-transparent" 
-                : "w-8 h-8 border-2 border-[#F15A24] bg-white"
-            }`}
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={isPortalOpen ? "close" : "user"}
-                initial={{ rotate: -180, opacity: 0, scale: 0.5 }}
-                animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                exit={{ rotate: 180, opacity: 0, scale: 0.5 }}
-                transition={{ duration: 0.3 }}
-                className="flex items-center justify-center"
-              >
-                {isPortalOpen ? (
-                  <X className="w-5 h-5 text-white" strokeWidth={3} />
-                ) : (
-                  <User className="w-4 h-4 text-[#F15A24]" strokeWidth={3} />
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </motion.div>
-        </motion.button>
+          <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
+          <span className="text-[10px] font-black text-[#F15A24]">46</span>
+        </motion.div>
       </div>
-
-      <AnimatePresence>
-        {isPortalOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-[73px] inset-x-0 bottom-0 z-[40] bg-white flex flex-col overflow-y-auto"
-          >
-            {/* Login Style Header */}
-            <div className="px-8 pt-10 pb-6 flex flex-col items-center text-center">
-              {!loggedInUser && (
-                <>
-                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 shadow-xl shadow-slate-200/50 border-4 border-slate-50 overflow-hidden">
-                    <img 
-                      src="https://lh3.googleusercontent.com/d/1VTlCXt_WlEUiF0s7fVHUM3JtjO3q4cqk" 
-                      alt="Warung Tomi Logo" 
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-
-                  <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight mb-1">Akses Portal</h2>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em]">Warung Tomi Digital Solution</p>
-                </>
-              )}
-            </div>
-
-            <div className="flex-1 px-8 pb-12 max-w-[340px] mx-auto w-full">
-              {/* Tabs */}
-              {!loggedInUser && (
-                <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-                  <button
-                    onClick={() => {
-                      setActivePortalTab("USER");
-                      setError("");
-                    }}
-                    className={`flex-1 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                      activePortalTab === "USER" ? "bg-white text-[#005E6A] shadow-md" : "text-slate-400"
-                    }`}
-                  >
-                    Pelanggan
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActivePortalTab("ADMIN");
-                      setError("");
-                    }}
-                    className={`flex-1 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-                      activePortalTab === "ADMIN" ? "bg-white text-[#F15A24] shadow-md" : "text-slate-400"
-                    }`}
-                  >
-                    Admin
-                  </button>
-                </div>
-              )}
-
-              {loggedInUser ? (
-                <div className="flex flex-col gap-6">
-                  <div className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 flex flex-col items-center text-center">
-                    <div className="w-20 h-20 bg-[#005E6A] rounded-full flex items-center justify-center text-white font-black text-2xl shadow-xl mb-4">
-                      {loggedInUser.Nama?.charAt(0) || "U"}
-                    </div>
-                    <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-widest mb-1">{loggedInUser.Nama || "User"}</h3>
-                    
-                    <div className="grid grid-cols-2 gap-3 w-full mt-4">
-                      <div 
-                        onClick={() => setIsPortalOpen(false) || navigate("/level")}
-                        className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-orange-100 transition-colors cursor-pointer active:scale-95"
-                      >
-                        <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-1">
-                          <Star className="w-4 h-4 text-[#F15A24] fill-[#F15A24]" />
-                        </div>
-                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Level Pelanggan</p>
-                        <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
-                      </div>
-                      <div 
-                        onClick={() => setIsPortalOpen(false) || navigate("/poin")}
-                        className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-teal-100 transition-colors cursor-pointer active:scale-95"
-                      >
-                        <div className="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center mb-1">
-                          <Zap className="w-4 h-4 text-[#005E6A] fill-[#005E6A]" />
-                        </div>
-                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poin Loyalitas</p>
-                        <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{calculateActivePoints(loggedInUser.Nama, salesTransactions, redeemedPoints)} Poin</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={() => {
-                      onLogout();
-                      setIsPortalOpen(false);
-                    }}
-                    className="w-full bg-red-50 text-red-600 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-colors mt-4"
-                  >
-                    Keluar dari Akun
-                  </button>
-                </div>
-              ) : activePortalTab === "USER" ? (
-                <div className="flex flex-col gap-6">
-                  <div className="text-center mb-2">
-                    <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-1">
-                      {showPinInput ? "Verifikasi PIN" : "Masuk Pelanggan"}
-                    </h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                      {showPinInput ? `Halo, ${selectedCustomer?.Nama}` : "Akses data & riwayat transaksi Anda"}
-                    </p>
-                  </div>
-                  
-                  {!showPinInput ? (
-                    <div className="flex flex-col gap-4">
-                      <div className="relative">
-                        <div className="relative group">
-                          <User className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-[#F15A24] transition-colors pointer-events-none" />
-                          <input
-                            type="text"
-                            value={customerName}
-                            onChange={(e) => setCustomerName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleLoginAttempt();
-                            }}
-                            placeholder="Masukkan Nama Anda..."
-                            className="w-full bg-slate-50 border border-slate-100 rounded-xl pl-12 pr-6 py-3.5 text-[11px] font-bold focus:outline-none focus:bg-white focus:border-[#F15A24] focus:ring-4 focus:ring-orange-50 transition-all shadow-inner"
-                          />
-                        </div>
-                        
-                        {suggestions.length > 0 && (
-                          <motion.div 
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-2xl z-[110] overflow-hidden divide-y divide-slate-50"
-                          >
-                            {suggestions.map((user, i) => (
-                              <button
-                                key={i}
-                                onClick={() => handleSelectSuggestion(user)}
-                                className="w-full text-left px-5 py-3.5 text-[10px] hover:bg-orange-50 transition-colors flex items-center justify-between group"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="w-7 h-7 bg-slate-100 rounded-full flex items-center justify-center group-hover:bg-white transition-colors">
-                                    <User className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#F15A24]" />
-                                  </div>
-                                  <span className="font-black text-slate-700 group-hover:text-[#005E6A] uppercase">{user.Nama}</span>
-                                </div>
-                                <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#F15A24] transition-all" />
-                              </button>
-                            ))}
-                          </motion.div>
-                        )}
-
-                        {error && !suggestions.length && (
-                          <p className="mt-2 text-[9px] font-bold text-red-500 text-center flex items-center justify-center gap-1">
-                            <Info className="w-3 h-3" />
-                            {error}
-                          </p>
-                        )}
-                      </div>
-
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleLoginAttempt}
-                        className="w-full bg-[#005E6A] text-white py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-100/50"
-                      >
-                        Masuk
-                      </motion.button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-6">
-                      <div className="flex gap-2 justify-center">
-                        <input
-                          type="password"
-                          maxLength={6}
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={pinInput}
-                          onChange={(e) => setPinInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handlePinSubmit();
-                          }}
-                          placeholder="••••••"
-                          autoFocus
-                          className="w-full max-w-[240px] bg-slate-50 border border-slate-100 rounded-2xl px-6 py-5 text-2xl focus:outline-none focus:bg-white focus:border-[#F15A24] focus:ring-4 focus:ring-orange-50 transition-all text-center tracking-[0.5em] font-black shadow-inner"
-                        />
-                      </div>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handlePinSubmit}
-                        className="w-full bg-[#005E6A] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-teal-100"
-                      >
-                        Verifikasi Keamanan
-                      </motion.button>
-                      {error && (
-                        <p className="text-[10px] font-bold text-red-500 text-center">{error}</p>
-                      )}
-                      <button 
-                        onClick={() => {
-                          setShowPinInput(false);
-                          setPinInput("");
-                          setError("");
-                        }}
-                        className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors text-center"
-                      >
-                        Ganti Akun
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-6">
-                  <div className="text-center mb-2">
-                    <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-1">Akses Admin</h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Gunakan kode akses khusus administrator</p>
-                  </div>
-
-                  <div className="flex flex-col gap-4">
-                    <div className="relative group">
-                      <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-[#F15A24] transition-colors pointer-events-none" />
-                      <input
-                        type="password"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={adminCode}
-                        onChange={(e) => setAdminCode(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleAdminSubmit();
-                        }}
-                        placeholder="Masukkan Kode Akses..."
-                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-14 pr-6 py-4 text-xs font-bold focus:outline-none focus:bg-white focus:border-[#F15A24] focus:ring-4 focus:ring-orange-50 transition-all shadow-inner"
-                      />
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={handleAdminSubmit}
-                      className="w-full bg-[#F15A24] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-orange-100"
-                    >
-                      Masuk ke Dashboard
-                    </motion.button>
-                    {error && (
-                      <p className="text-[10px] font-bold text-red-500 text-center">{error}</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer Info */}
-            <div className="px-8 py-8 mt-auto border-t border-slate-50 text-center">
-              <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.3em]">Warung Tomi &copy; 2026</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </header>
   );
 };
@@ -895,7 +530,12 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const totalKPM = currentStageData.length;
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="min-h-screen bg-white pb-24"
+    >
       {/* Top Header */}
       <div className="px-6 py-4 flex items-center justify-between border-b border-slate-50 sticky top-0 bg-white z-50">
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-600 active:scale-95 transition-transform">
@@ -1016,7 +656,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
           </table>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -1147,7 +787,7 @@ const BottomNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTa
     { id: "beranda", label: "Beranda", icon: Home },
     { id: "aset", label: "Aset", icon: Wallet },
     { id: "riwayat", label: "Riwayat", icon: History },
-    { id: "settings", label: "Pengaturan", icon: Settings },
+    { id: "settings", label: "Profil", icon: User },
   ];
 
   return (
@@ -1210,37 +850,327 @@ const BottomNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTa
   );
 };
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [pathname]);
+
+  return null;
+};
+
+const PageTransition = ({ children }: { children: React.ReactNode }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20, scale: 0.98, filter: "blur(4px)" }}
+    animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+    exit={{ opacity: 0, y: -20, scale: 0.98, filter: "blur(4px)" }}
+    transition={{ 
+      duration: 0.5, 
+      ease: [0.22, 1, 0.36, 1] 
+    }}
+  >
+    {children}
+  </motion.div>
+);
+
 const ProtectedPage = ({ 
   user, 
   children, 
-  title 
+  title,
+  customers,
+  onLogin,
+  setActiveTab
 }: { 
   user: Customer | null, 
   children: React.ReactNode,
-  title: string
+  title: string,
+  customers?: Customer[],
+  onLogin?: (user: Customer) => void,
+  setActiveTab?: (id: string) => void
 }) => {
+  const [customerName, setCustomerName] = useState("");
+  const [pinInput, setPinInput] = useState("");
+  const [showPinInput, setShowPinInput] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [error, setError] = useState("");
+  const [suggestions, setSuggestions] = useState<Customer[]>([]);
+  const [isAdminPopupOpen, setIsAdminPopupOpen] = useState(false);
+  const [adminCode, setAdminCode] = useState("");
+  const navigate = useNavigate();
+
+  const ADMIN_ACCESS_CODE = "160910";
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []); // Only scroll to top when the component first mounts
+
+  useEffect(() => {
+    const trimmedInput = customerName.trim();
+    if (trimmedInput.length > 0 && !showPinInput && customers) {
+      const filtered = customers.filter(c => 
+        c && c.Nama && 
+        typeof c.Nama === 'string' && 
+        c.Nama.toLowerCase().includes(trimmedInput.toLowerCase())
+      ).slice(0, 5);
+      setSuggestions(filtered);
+    } else {
+      setSuggestions([]);
+    }
+  }, [customerName, customers, showPinInput]);
+
+  const handleLoginAttempt = () => {
+    if (!customers || !onLogin || !setActiveTab) return;
+    const user = customers.find(c => 
+      c && c.Nama && typeof c.Nama === 'string' && c.Nama.toLowerCase() === customerName.toLowerCase()
+    );
+    if (user) {
+      if (user.PIN && user.PIN.trim() !== "") {
+        setSelectedCustomer(user);
+        setShowPinInput(true);
+        setError("");
+      } else {
+        onLogin(user);
+        setCustomerName("");
+        setActiveTab("aset");
+      }
+    } else {
+      setError("Nama tidak ditemukan");
+    }
+  };
+
+  const handlePinSubmit = () => {
+    if (selectedCustomer && selectedCustomer.PIN === pinInput && onLogin && setActiveTab) {
+      onLogin(selectedCustomer);
+      setCustomerName("");
+      setPinInput("");
+      setShowPinInput(false);
+      setSelectedCustomer(null);
+      setError("");
+      setActiveTab("aset");
+    } else {
+      setError("PIN Salah");
+    }
+  };
+
+  const handleAdminSubmit = () => {
+    if (adminCode === ADMIN_ACCESS_CODE) {
+      setIsAdminPopupOpen(false);
+      setAdminCode("");
+      navigate("/admin");
+    } else {
+      setError("Kode Akses Salah");
+    }
+  };
+
   if (!user) {
     return (
       <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="px-6 py-12 flex flex-col items-center text-center"
+        initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
+        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="px-6 py-12 flex flex-col items-center min-h-[80vh]"
       >
-        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
-          <ShieldCheck className="w-10 h-10 text-slate-300" />
+        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl shadow-slate-200/50 border-4 border-slate-50 overflow-hidden">
+          <img 
+            src="https://lh3.googleusercontent.com/d/1VTlCXt_WlEUiF0s7fVHUM3JtjO3q4cqk" 
+            alt="Warung Tomi Logo" 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
         </div>
-        <h2 className="text-lg font-black text-[#005E6A] uppercase tracking-wider mb-2">Akses Terbatas</h2>
-        <p className="text-xs text-slate-500 font-medium leading-relaxed mb-8 max-w-[240px]">
-          Silakan masuk melalui portal pelanggan di pojok kanan atas untuk melihat halaman <span className="font-black text-[#F15A24]">{title}</span>.
+        <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight mb-2">
+          Portal <span className="text-[#F15A24]">Pelanggan</span>
+        </h2>
+        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-8 text-center">
+          Silakan masuk untuk melihat halaman <span className="text-[#F15A24]">{title}</span>
         </p>
-        <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-          <ArrowUpRight className="w-4 h-4" />
-          <span>Klik Ikon User di Atas</span>
+
+        <div className="w-full max-w-[300px] space-y-4">
+          {!showPinInput ? (
+            <div className="space-y-4">
+              <div className="relative">
+                <div className="absolute left-5 top-1/2 -translate-y-1/2">
+                  <User className="w-4 h-4 text-slate-400" />
+                </div>
+                <input 
+                  type="text" 
+                  placeholder="NAMA PELANGGAN"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleLoginAttempt();
+                  }}
+                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
+                />
+                
+                <AnimatePresence>
+                  {suggestions.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50"
+                    >
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            if (s.PIN && s.PIN.trim() !== "") {
+                              setCustomerName(s.Nama);
+                              setSelectedCustomer(s);
+                              setShowPinInput(true);
+                              setSuggestions([]);
+                            } else if (onLogin && setActiveTab) {
+                              onLogin(s);
+                              setCustomerName("");
+                              setActiveTab("aset");
+                            }
+                          }}
+                          className="w-full px-5 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between group"
+                        >
+                          <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{s.Nama}</span>
+                          <ArrowRight className="w-3 h-3 text-slate-300 group-hover:text-[#F15A24] transition-colors" />
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <button 
+                onClick={handleLoginAttempt}
+                className="w-full bg-[#005E6A] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 active:scale-95 transition-transform"
+              >
+                Lanjutkan
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-[#005E6A] rounded-full flex items-center justify-center text-white font-black text-[10px]">
+                    {selectedCustomer?.Nama?.charAt(0)}
+                  </div>
+                  <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{selectedCustomer?.Nama}</span>
+                </div>
+                <button 
+                  onClick={() => {
+                    setShowPinInput(false);
+                    setPinInput("");
+                  }}
+                  className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest"
+                >
+                  Ganti
+                </button>
+              </div>
+
+              <div className="relative">
+                <div className="absolute left-5 top-1/2 -translate-y-1/2">
+                  <Lock className="w-4 h-4 text-slate-400" />
+                </div>
+                <input 
+                  type="password" 
+                  inputMode="numeric"
+                  placeholder="MASUKKAN PIN"
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handlePinSubmit();
+                  }}
+                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
+                />
+              </div>
+
+              <button 
+                onClick={handlePinSubmit}
+                className="w-full bg-[#F15A24] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 active:scale-95 transition-transform"
+              >
+                Masuk Sekarang
+              </button>
+            </div>
+          )}
+
+          {error && (
+            <motion.p 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center"
+            >
+              {error}
+            </motion.p>
+          )}
+
+          {/* Admin Access Link */}
+          <div className="pt-8 flex justify-center">
+            <button 
+              onClick={() => setIsAdminPopupOpen(true)}
+              className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em] hover:text-slate-400 transition-colors"
+            >
+              Masuk Akses Admin
+            </button>
+          </div>
         </div>
+
+        {/* Admin Access Popup */}
+        <AnimatePresence>
+          {isAdminPopupOpen && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-widest">Akses Admin</h3>
+                  <button onClick={() => setIsAdminPopupOpen(false)} className="p-2 hover:bg-slate-50 rounded-full transition-colors">
+                    <X className="w-4 h-4 text-slate-400" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="relative">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2">
+                      <ShieldCheck className="w-4 h-4 text-slate-400" />
+                    </div>
+                    <input 
+                      type="password" 
+                      inputMode="numeric"
+                      placeholder="KODE AKSES ADMIN"
+                      value={adminCode}
+                      onChange={(e) => setAdminCode(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAdminSubmit();
+                      }}
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
+                    />
+                  </div>
+
+                  <button 
+                    onClick={handleAdminSubmit}
+                    className="w-full bg-[#F15A24] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 active:scale-95 transition-transform"
+                  >
+                    Verifikasi Akses
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   }
-  return <>{children}</>;
+  return (
+    <PageTransition>
+      {children}
+    </PageTransition>
+  );
 };
 
 const AssetPieChart = ({ data }: { data: any[] }) => {
@@ -1366,7 +1296,12 @@ const LoyaltyPointsPage = ({ user, transactions, redeemedPoints }: { user: Custo
 
   return (
     <ProtectedPage user={user} title="Poin Loyalitas">
-      <div className="px-6 py-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="px-6 py-4"
+      >
         <button 
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-slate-500 mb-6 group"
@@ -1504,7 +1439,7 @@ const LoyaltyPointsPage = ({ user, transactions, redeemedPoints }: { user: Custo
             )
           )}
         </div>
-      </div>
+      </motion.div>
     </ProtectedPage>
   );
 };
@@ -1542,7 +1477,12 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Custo
 
   return (
     <ProtectedPage user={user} title="Tukar Hadiah">
-      <div className="px-6 py-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="px-6 py-4"
+      >
         <button 
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-slate-500 mb-6 group"
@@ -1620,12 +1560,12 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Custo
             Silakan hubungi admin Warung Tomi untuk melakukan penukaran poin dengan hadiah yang Anda pilih.
           </p>
         </div>
-      </div>
+      </motion.div>
     </ProtectedPage>
   );
 };
 
-const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints }: { user: Customer | null, transactions: SalesTransaction[], investmentTransactions: InvestmentTransaction[], redeemedPoints: RedeemedPoint[] }) => {
+const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, customers, onLogin, setActiveTab }: { user: Customer | null, transactions: SalesTransaction[], investmentTransactions: InvestmentTransaction[], redeemedPoints: RedeemedPoint[], customers: Customer[], onLogin: (user: Customer) => void, setActiveTab: (id: string) => void }) => {
   const navigate = useNavigate();
   // Helper to parse currency string to number
   const parseCurrency = (val: string | undefined) => {
@@ -1673,41 +1613,12 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints }
   const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
 
   return (
-    <ProtectedPage user={user} title="Aset">
+    <ProtectedPage user={user} title="Aset" customers={customers} onLogin={onLogin} setActiveTab={setActiveTab}>
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="px-6 py-4"
       >
-        {/* User Profile Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">Halo, {user?.Nama}</h1>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Selamat datang kembali di portal Anda</p>
-          
-          <div className="grid grid-cols-2 gap-3 mt-6">
-            <div 
-              onClick={() => navigate("/level")}
-              className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-orange-100 transition-colors cursor-pointer active:scale-95"
-            >
-              <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-1">
-                <Star className="w-4 h-4 text-[#F15A24] fill-[#F15A24]" />
-              </div>
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Level Pelanggan</p>
-              <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
-            </div>
-            <div 
-              onClick={() => navigate("/poin")}
-              className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-teal-100 transition-colors cursor-pointer active:scale-95"
-            >
-              <div className="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center mb-1">
-                <Zap className="w-4 h-4 text-[#005E6A] fill-[#005E6A]" />
-              </div>
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poin Loyalitas</p>
-              <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{activePoints} Poin</p>
-            </div>
-          </div>
-        </div>
-
         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-black uppercase tracking-wider">Total Aset</h2>
@@ -1723,12 +1634,12 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints }
           <AssetPieChart data={assetData} />
         </div>
         
-        <div className="grid grid-cols-1 gap-4">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Rincian Saldo</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest col-span-2">Rincian Saldo</h3>
           {[
             { 
               name: "Tabungan", 
-              balance: user?.Tabungan || "0", 
+              balance: formatCurrency(tabunganBalance), 
               gradient: "from-green-500 to-emerald-600",
               icon: Wallet,
               clickable: true, 
@@ -1752,7 +1663,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints }
             },
             { 
               name: "Hutang", 
-              balance: user?.Hutang || "0", 
+              balance: formatCurrency(hutangBalance), 
               gradient: "from-rose-500 to-red-600",
               icon: CreditCard,
               clickable: true, 
@@ -1762,23 +1673,23 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints }
             <div 
               key={i} 
               onClick={() => item.clickable && item.path && navigate(item.path)}
-              className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-5 rounded-[2rem] flex items-center justify-between shadow-lg shadow-slate-200/50 ${item.clickable ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+              className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-[2rem] flex flex-col justify-between shadow-lg shadow-slate-200/50 min-h-[120px] ${item.clickable ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
             >
               {/* Decorative Circle */}
-              <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-2xl" />
               
-              <div className="flex items-center gap-4 relative z-10">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
-                  <item.icon className="w-6 h-6 text-white" />
+              <div className="flex justify-between items-start relative z-10">
+                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
+                  <item.icon className="w-5 h-5 text-white" />
                 </div>
-                <div>
-                  <p className="text-[10px] font-black text-white/70 uppercase tracking-widest leading-none mb-1.5">{item.name}</p>
-                  <p className="text-lg font-black text-white tracking-tight">Rp {item.balance}</p>
+                <div className="w-6 h-6 bg-white/10 rounded-full flex items-center justify-center">
+                  <ChevronRight className="w-3 h-3 text-white" />
                 </div>
               </div>
-              
-              <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center relative z-10">
-                <ChevronRight className="w-4 h-4 text-white" />
+
+              <div className="relative z-10 mt-4">
+                <p className="text-[8px] font-black text-white/70 uppercase tracking-widest leading-none mb-1.5">{item.name}</p>
+                <p className="text-[13px] font-black text-white tracking-tight">Rp {item.balance}</p>
               </div>
             </div>
           ))}
@@ -1805,7 +1716,12 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
 
   return (
     <ProtectedPage user={displayUser} title="Detail Tabungan">
-      <div className="px-6 py-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="px-6 py-4"
+      >
         <button 
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-slate-500 mb-6 group"
@@ -1888,7 +1804,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
             </table>
           </div>
         </div>
-      </div>
+      </motion.div>
     </ProtectedPage>
   );
 };
@@ -1910,7 +1826,12 @@ const DebtDetailPage = ({ user, transactions, customers }: { user: Customer | nu
 
   return (
     <ProtectedPage user={displayUser} title="Detail Hutang">
-      <div className="px-6 py-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="px-6 py-4"
+      >
         <button 
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-slate-500 mb-6 group"
@@ -1993,7 +1914,7 @@ const DebtDetailPage = ({ user, transactions, customers }: { user: Customer | nu
             </table>
           </div>
         </div>
-      </div>
+      </motion.div>
     </ProtectedPage>
   );
 };
@@ -2019,7 +1940,12 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
 
   return (
     <ProtectedPage user={displayUser} title="Investasi">
-      <div className="px-6 py-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="px-6 py-4"
+      >
         <button 
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-slate-500 mb-6 group"
@@ -2106,7 +2032,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
             </table>
           </div>
         </div>
-      </div>
+      </motion.div>
     </ProtectedPage>
   );
 };
@@ -2114,14 +2040,25 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
 const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null, transactions: SalesTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
   const { customerName } = useParams();
+  
+  const decodedName = customerName ? decodeURIComponent(customerName) : "";
+  const isGeneral = decodedName.toLowerCase() === "pelanggan umum";
+  
   const displayUser = customerName && customers 
-    ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
+    ? (isGeneral ? { Nama: "Pelanggan Umum" } as Customer : (customers.find(c => c.Nama.toLowerCase() === decodedName.toLowerCase()) || user))
     : user;
   
-  const userTransactions = transactions.filter(t => 
-    t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase() && 
-    t.Status.toUpperCase() === "BELUM DIAMBIL"
-  );
+  const userTransactions = transactions.filter(t => {
+    const tName = (t.Nama || "").toLowerCase().trim();
+    const statusMatch = (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL";
+    
+    if (isGeneral) {
+      const isGeneralName = !tName || tName === "unknown" || tName === "pelanggan umum";
+      return isGeneralName && statusMatch;
+    }
+    
+    return tName === displayUser?.Nama?.toLowerCase() && statusMatch;
+  });
 
   const formatCurrency = (val: number) => {
     return val.toLocaleString('id-ID');
@@ -2155,8 +2092,13 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
   };
 
   return (
-    <ProtectedPage user={user} title="Lainnya">
-      <div className="px-6 py-4">
+    <ProtectedPage user={displayUser} title="Lainnya">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="px-6 py-4"
+      >
         <button 
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-slate-500 mb-6 group"
@@ -2239,7 +2181,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
             </table>
           </div>
         </div>
-      </div>
+      </motion.div>
     </ProtectedPage>
   );
 };
@@ -2261,7 +2203,12 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
   const totalTransaksi = filteredTransactions.length;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="min-h-screen bg-slate-50 pb-24"
+    >
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         
@@ -2340,7 +2287,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -2413,7 +2360,12 @@ const AdminDashboard = ({ transactions, user, customers }: { transactions: Sales
   })).sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="min-h-screen bg-slate-50 pb-24"
+    >
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
@@ -2632,7 +2584,7 @@ const AdminDashboard = ({ transactions, user, customers }: { transactions: Sales
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -2657,7 +2609,12 @@ const AdminManagementPage = ({
 }) => {
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="min-h-screen bg-slate-50 pb-24"
+    >
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10">
@@ -2713,7 +2670,7 @@ const AdminManagementPage = ({
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -2824,7 +2781,12 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
   const activeCustomersCount = customers.length;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="min-h-screen bg-slate-50 pb-24"
+    >
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10">
@@ -2902,7 +2864,7 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -2985,7 +2947,6 @@ const AdminOthersManagement = ({ transactions, customers }: { transactions: Sale
   const total = items.reduce((acc, item) => acc + item.value, 0);
 
   const handleItemClick = (name: string) => {
-    if (name === "Pelanggan Umum") return;
     navigate(`/admin/detail-lainnya/${encodeURIComponent(name)}`);
   };
 
@@ -3047,7 +3008,12 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
 
   return (
     <ProtectedPage user={user} title="Level Pelanggan">
-      <div className="min-h-screen bg-slate-50 pb-24 overflow-hidden">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="min-h-screen bg-slate-50 pb-24 overflow-hidden"
+      >
         <div className="px-6 pt-6 pb-2">
           <button 
             onClick={() => navigate(-1)}
@@ -3181,7 +3147,7 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
             );
           })}
         </div>
-      </div>
+      </motion.div>
     </ProtectedPage>
   );
 };
@@ -3687,31 +3653,132 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
   );
 };
 
-const SettingsPage = ({ user, onLogout }: { user: Customer | null, onLogout: () => void }) => (
-  <motion.div 
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="px-6 py-4"
-  >
-    <div className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm">
-      {[
-        { icon: User, label: "Profil Saya", color: "text-blue-500" },
-        { icon: ShieldCheck, label: "Keamanan", color: "text-green-500" },
-        { icon: Bell, label: "Notifikasi", color: "text-orange-500" },
-        { icon: Globe, label: "Bahasa", color: "text-purple-500" },
-        { icon: Bot, label: "Bantuan AI", color: "text-[#005E6A]" },
-      ].map((item, i) => (
-        <button key={i} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
-          <div className="flex items-center gap-3">
-            <item.icon className={`w-5 h-5 ${item.color}`} />
-            <span className="text-xs font-bold text-slate-700">{item.label}</span>
+const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, onLogin, setActiveTab }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[], onLogout: () => void, customers: Customer[], onLogin: (user: Customer) => void, setActiveTab: (id: string) => void }) => {
+  const navigate = useNavigate();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
+  const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
+
+  return (
+    <ProtectedPage user={user} title="Profil" customers={customers} onLogin={onLogin} setActiveTab={setActiveTab}>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="px-6 py-4"
+      >
+        {/* Profile Image Section */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-100 mb-4 relative group">
+            <img 
+              src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.Nama || 'default'}&backgroundColor=F15A24&fontFamily=Arial&fontWeight=700`} 
+              alt="Profile" 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Camera className="w-6 h-6 text-white" />
+            </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-300" />
-        </button>
-      ))}
-    </div>
-  </motion.div>
-);
+          <h1 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">Halo, {user?.Nama}</h1>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Selamat datang kembali di portal Anda</p>
+        </div>
+
+      {/* Level & Points Header */}
+      <div className="mb-8">
+        <div className="grid grid-cols-2 gap-3">
+          <div 
+            onClick={() => navigate("/level")}
+            className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-orange-100 transition-colors cursor-pointer active:scale-95"
+          >
+            <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-1">
+              <Star className="w-4 h-4 text-[#F15A24] fill-[#F15A24]" />
+            </div>
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Level Pelanggan</p>
+            <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
+          </div>
+          <div 
+            onClick={() => navigate("/poin")}
+            className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-teal-100 transition-colors cursor-pointer active:scale-95"
+          >
+            <div className="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center mb-1">
+              <Zap className="w-4 h-4 text-[#005E6A] fill-[#005E6A]" />
+            </div>
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poin Loyalitas</p>
+            <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{activePoints} Poin</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm mb-6">
+        {[
+          { icon: ShieldCheck, label: "Keamanan", color: "text-green-500" },
+          { icon: Bell, label: "Notifikasi", color: "text-orange-500" },
+          { icon: Globe, label: "Bahasa", color: "text-purple-500" },
+          { icon: Bot, label: "Bantuan AI", color: "text-[#005E6A]" },
+        ].map((item, i) => (
+          <button key={i} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
+            <div className="flex items-center gap-3">
+              <item.icon className={`w-5 h-5 ${item.color}`} />
+              <span className="text-xs font-bold text-slate-700">{item.label}</span>
+            </div>
+            <ChevronRight className="w-4 h-4 text-slate-300" />
+          </button>
+        ))}
+      </div>
+
+      {/* Logout Button */}
+      <button 
+        onClick={() => setShowLogoutConfirm(true)}
+        className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 p-4 rounded-2xl flex items-center justify-center gap-3 transition-colors active:scale-95"
+      >
+        <LogOut className="w-5 h-5" />
+        <span className="text-xs font-black uppercase tracking-[0.2em]">Keluar Akun</span>
+      </button>
+
+      {/* Logout Confirmation Popup */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 text-center"
+            >
+              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <LogOut className="w-8 h-8 text-rose-500" />
+              </div>
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-2">Konfirmasi Keluar</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-8 leading-relaxed">
+                Apakah Anda yakin ingin keluar dari akun {user?.Nama}?
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={onLogout}
+                  className="w-full bg-rose-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-100 active:scale-95 transition-transform"
+                >
+                  Ya, Keluar
+                </button>
+                <button 
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="w-full bg-slate-50 text-slate-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform"
+                >
+                  Batal
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+    </ProtectedPage>
+  );
+};
 
 const QRISPage = () => {
   const navigate = useNavigate();
@@ -3739,18 +3806,12 @@ const QRISPage = () => {
 
   return (
     <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
       exit={{ opacity: 0 }}
       className="min-h-screen bg-white"
     >
-      <div className="bg-[#005E6A] p-6 text-white flex items-center gap-4 sticky top-0 z-50">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <h1 className="text-lg font-bold uppercase tracking-wider">QRIS Pembayaran</h1>
-      </div>
-
       <div className="p-6 flex flex-col items-center">
         <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col items-center w-full max-w-sm">
           <div className="flex items-center gap-2 mb-6">
@@ -3849,36 +3910,12 @@ const Layout = ({
   children, 
   activeTab, 
   setActiveTab,
-  customers,
-  loggedInUser,
-  onLogin,
-  onLogout,
-  isLoading,
-  salesTransactions,
-  redeemedPoints
 }: { 
   children: React.ReactNode, 
   activeTab: string, 
   setActiveTab: (id: string) => void,
-  customers: Customer[],
-  loggedInUser: Customer | null,
-  onLogin: (user: Customer) => void,
-  onLogout: () => void,
-  isLoading: boolean,
-  salesTransactions: SalesTransaction[],
-  redeemedPoints: RedeemedPoint[]
 }) => (
   <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans pb-24">
-    <Header 
-      customers={customers} 
-      loggedInUser={loggedInUser} 
-      onLogin={onLogin} 
-      onLogout={onLogout} 
-      setActiveTab={setActiveTab}
-      isLoading={isLoading}
-      salesTransactions={salesTransactions}
-      redeemedPoints={redeemedPoints}
-    />
     <main className="container mx-auto max-w-lg">
       {children}
     </main>
@@ -3936,17 +3973,42 @@ const HomePage = ({
       {activeTab === "beranda" && (
         <motion.div
           key="beranda"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
         >
           <PromoSection />
           <MainServices />
         </motion.div>
       )}
-      {activeTab === "aset" && <AsetPage user={loggedInUser} transactions={salesTransactions} investmentTransactions={investmentTransactions} redeemedPoints={redeemedPoints} />}
-      {activeTab === "riwayat" && <RiwayatPage user={loggedInUser} transactions={salesTransactions} />}
-      {activeTab === "settings" && <SettingsPage user={loggedInUser} onLogout={onLogout} />}
+      {activeTab === "aset" && (
+        <motion.div
+          key="aset"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        >
+          <AsetPage user={loggedInUser} transactions={salesTransactions} investmentTransactions={investmentTransactions} redeemedPoints={redeemedPoints} customers={customers} onLogin={onLogin} setActiveTab={setActiveTab} />
+        </motion.div>
+      )}
+      {activeTab === "riwayat" && (
+        <ProtectedPage user={loggedInUser} title="Riwayat" customers={customers} onLogin={onLogin} setActiveTab={setActiveTab}>
+          <RiwayatPage user={loggedInUser} transactions={salesTransactions} />
+        </ProtectedPage>
+      )}
+      {activeTab === "settings" && (
+        <motion.div
+          key="settings"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        >
+          <ProfilPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} onLogout={onLogout} customers={customers} onLogin={onLogin} setActiveTab={setActiveTab} />
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 };
@@ -4389,6 +4451,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AnimatePresence>
         {isLoading && <LoadingPopup />}
       </AnimatePresence>
@@ -4400,18 +4463,23 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+      
+      <Header 
+        customers={customers} 
+        loggedInUser={loggedInUser} 
+        onLogin={handleLogin} 
+        onLogout={handleLogout} 
+        setActiveTab={setActiveTab}
+        isLoading={isLoading}
+        salesTransactions={salesTransactions}
+        redeemedPoints={redeemedPoints}
+      />
+
       <Routes>
         <Route path="/" element={
           <Layout 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
-            customers={customers}
-            loggedInUser={loggedInUser}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-            isLoading={isLoading}
-            salesTransactions={salesTransactions}
-            redeemedPoints={redeemedPoints}
           >
             <HomePage 
               activeTab={activeTab} 
@@ -4430,13 +4498,6 @@ export default function App() {
           <Layout 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
-            customers={customers}
-            loggedInUser={loggedInUser}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-            isLoading={isLoading}
-            salesTransactions={salesTransactions}
-            redeemedPoints={redeemedPoints}
           >
             <HomePage 
               activeTab={activeTab} 
@@ -4455,13 +4516,6 @@ export default function App() {
           <Layout 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
-            customers={customers}
-            loggedInUser={loggedInUser}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-            isLoading={isLoading}
-            salesTransactions={salesTransactions}
-            redeemedPoints={redeemedPoints}
           >
             <HomePage 
               activeTab={activeTab} 
@@ -4512,13 +4566,6 @@ export default function App() {
           <Layout 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
-            customers={customers}
-            loggedInUser={loggedInUser}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-            isLoading={isLoading}
-            salesTransactions={salesTransactions}
-            redeemedPoints={redeemedPoints}
           >
             <BansosPage transactions={salesTransactions} />
           </Layout>
