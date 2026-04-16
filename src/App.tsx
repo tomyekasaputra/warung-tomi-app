@@ -55,6 +55,7 @@ import {
   Bot,
   BarChart3,
   TrendingUp,
+  TrendingDown,
   ArrowLeft,
   Info,
   Lock,
@@ -1706,13 +1707,61 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
     ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
     : user;
   
-  const userTransactions = transactions
-    .filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase())
-    .reverse();
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    return {
+      label: d.toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    };
+  });
+
+  const [selectedMonth, setSelectedMonth] = useState(months[0].value);
+  const selectedMonthLabel = months.find(m => m.value === selectedMonth)?.label.split(' ')[0] || "";
+  const [activeTab, setActiveTab] = useState<'riwayat' | 'statistik'>('riwayat');
 
   const formatCurrency = (val: number) => {
     return val.toLocaleString('id-ID');
   };
+
+  const filteredTransactions = transactions
+    .filter(t => {
+      if (t.Nama.toLowerCase() !== displayUser?.Nama?.toLowerCase()) return false;
+      const tDate = parseDate(t.Tanggal);
+      const tMonthYear = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
+      return tMonthYear === selectedMonth;
+    })
+    .reverse();
+
+  const monthlyStats = filteredTransactions.reduce((acc, t) => {
+    if (t.Tipe === 'SETOR') acc.setor += t.Nominal;
+    else if (t.Tipe === 'TARIK') acc.tarik += t.Nominal;
+    return acc;
+  }, { setor: 0, tarik: 0 });
+
+  const chartData = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - (5 - i));
+    const m = d.getMonth();
+    const y = d.getFullYear();
+    
+    const stats = transactions
+      .filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase())
+      .reduce((acc, t) => {
+        const tDate = parseDate(t.Tanggal);
+        if (tDate.getMonth() === m && tDate.getFullYear() === y) {
+          if (t.Tipe === 'SETOR') acc.setor += t.Nominal;
+          else if (t.Tipe === 'TARIK') acc.tarik += t.Nominal;
+        }
+        return acc;
+      }, { setor: 0, tarik: 0 });
+
+    return {
+      name: d.toLocaleString('id-ID', { month: 'short' }),
+      setor: stats.setor,
+      tarik: stats.tarik
+    };
+  });
 
   return (
     <ProtectedPage user={displayUser} title="Detail Tabungan">
@@ -1720,91 +1769,251 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="px-6 py-4"
+        className="px-6 py-4 pb-24"
       >
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-slate-500 mb-6 group"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
-        </button>
-
-        <div className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-          <div className="absolute -bottom-4 -right-4 opacity-10">
-            <Wallet className="w-32 h-32" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Total Saldo Tabungan</p>
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
-                <Wallet className="w-5 h-5 text-white" />
+        <AnimatePresence mode="wait">
+          {activeTab === 'riwayat' ? (
+            <motion.div 
+              key="balance"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+              <div className="absolute -bottom-4 -right-4 opacity-10">
+                <Wallet className="w-32 h-32" />
               </div>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-bold opacity-80">Rp</span>
-              <h2 className="text-4xl font-black tracking-tight">{displayUser?.Tabungan || "0"}</h2>
-            </div>
-          </div>
-        </div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider mb-1">{displayUser?.Nama}</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Saldo Tabungan</p>
+                  </div>
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
+                    <Wallet className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+                <div className="flex items-baseline gap-2 mb-8">
+                  <span className="text-lg font-bold opacity-80">Rp</span>
+                  <h2 className="text-4xl font-black tracking-tight">{displayUser?.Tabungan || "0"}</h2>
+                </div>
 
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-50">
-            <h3 className="text-sm font-black text-green-600 uppercase tracking-widest">Riwayat Mutasi</h3>
+                {/* Integrated Stats */}
+                <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+                      <TrendingUp className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[7px] font-black text-white/50 uppercase tracking-widest mb-0.5">Setor {selectedMonthLabel}</p>
+                      <p className="text-xs font-black text-white whitespace-nowrap">Rp {formatCurrency(monthlyStats.setor)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
+                      <TrendingDown className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[7px] font-black text-white/50 uppercase tracking-widest mb-0.5">Tarik {selectedMonthLabel}</p>
+                      <p className="text-xs font-black text-white whitespace-nowrap">Rp {formatCurrency(monthlyStats.tarik)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="chart"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm mb-8"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Perbandingan 6 Bulan</h4>
+                  <p className="text-[10px] font-bold text-slate-400 mt-1">Setor vs Tarik</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-[8px] font-black text-slate-400 uppercase">Setor</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-[8px] font-black text-slate-400 uppercase">Tarik</span>
+                  </div>
+                </div>
+              </div>
+              <div className="h-[180px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
+                      dy={10}
+                    />
+                    <Tooltip 
+                      cursor={{ fill: '#f8fafc' }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xl">
+                              <p className="text-[10px] font-black text-slate-900 uppercase mb-2">{payload[0].payload.name}</p>
+                              <div className="space-y-1">
+                                <p className="text-[9px] font-bold text-green-600 flex justify-between gap-4">
+                                  <span>Setor:</span>
+                                  <span>Rp {formatCurrency(payload[0].value as number)}</span>
+                                </p>
+                                <p className="text-[9px] font-bold text-red-600 flex justify-between gap-4">
+                                  <span>Tarik:</span>
+                                  <span>Rp {formatCurrency(payload[1].value as number)}</span>
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="setor" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
+                    <Bar dataKey="tarik" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Removed old tabs from here */}
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-[10px] font-black text-green-600 uppercase tracking-widest">
+              {activeTab === 'riwayat' ? 'Riwayat Mutasi' : 'Statistik Bulanan'}
+            </h3>
+            {activeTab === 'riwayat' && (
+              <div className="relative">
+                <select 
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="appearance-none bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 pr-8 text-[10px] font-black text-slate-600 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                >
+                  {months.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            )}
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tanggal</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tipe</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Saldo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {userTransactions.length > 0 ? (
-                  userTransactions.map((t, i) => (
-                    <tr key={i} className="hover:bg-slate-50/30 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="text-xs font-bold text-slate-600">{t.Tanggal}</p>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={`text-[8px] font-black uppercase tracking-widest border-none ${
-                          t.Tipe === 'SETOR' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                        }`}>
-                          {t.Tipe}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <p className={`text-xs font-black ${
-                          t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {t.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(t.Nominal)}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <p className="text-xs font-black text-green-600">Rp {formatCurrency(t.SaldoAkhir)}</p>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center gap-2 opacity-20">
-                        <History className="w-8 h-8" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Belum ada transaksi</p>
+          <div className="space-y-3">
+            {activeTab === 'riwayat' ? (
+              filteredTransactions.length > 0 ? (
+                filteredTransactions.map((t, i) => (
+                  <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden relative">
+                    <div className="p-4 flex items-center gap-4">
+                      {/* Icon Left */}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        t.Tipe === 'SETOR' ? 'bg-green-50' : 'bg-red-50'
+                      }`}>
+                        {t.Tipe === 'SETOR' ? (
+                          <ArrowUpRight className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <ArrowDownLeft className="w-5 h-5 text-red-600" />
+                        )}
                       </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-2">
+                            <p className="text-[11px] font-black text-black uppercase tracking-widest leading-none">{t.Tipe}</p>
+                            <p className="text-[9px] font-bold text-slate-400 leading-none">{t.Tanggal}</p>
+                          </div>
+                          <p className={`text-sm font-black leading-none whitespace-nowrap ${
+                            t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {t.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(t.Nominal)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Horizontal Ribbon at bottom right */}
+                    <div className="absolute bottom-0 right-0 bg-[#005E6A] px-4 py-1.5 rounded-tl-2xl shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[6px] font-black text-white/50 uppercase tracking-widest">Saldo Akhir</span>
+                        <span className="text-[10px] font-black text-white">Rp {formatCurrency(t.SaldoAkhir)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
+                  <div className="flex flex-col items-center gap-2 opacity-20">
+                    <History className="w-8 h-8" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada mutasi</p>
+                  </div>
+                </div>
+              )
+            ) : (
+              /* Statistik List - 6 Months */
+              [...chartData].reverse().map((data, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[11px] font-black text-black uppercase tracking-widest">{data.name}</p>
+                    <div className="bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
+                      <p className="text-[8px] font-black text-[#005E6A] uppercase tracking-widest">Total Aktivitas</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Setor</p>
+                      <p className="text-xs font-black text-green-600">Rp {formatCurrency(data.setor)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Tarik</p>
+                      <p className="text-xs font-black text-red-600">Rp {formatCurrency(data.tarik)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </motion.div>
+
+      {/* Bottom Navbar for Savings Detail */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-slate-100 px-8 py-4 z-50 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <button 
+          onClick={() => setActiveTab('riwayat')}
+          className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${
+            activeTab === 'riwayat' ? 'text-green-600 scale-110' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <div className={`p-2 rounded-xl transition-all duration-300 ${activeTab === 'riwayat' ? 'bg-green-50' : 'bg-transparent'}`}>
+            <History className="w-5 h-5" />
+          </div>
+          <span className="text-[8px] font-black uppercase tracking-widest">Riwayat</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('statistik')}
+          className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${
+            activeTab === 'statistik' ? 'text-green-600 scale-110' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <div className={`p-2 rounded-xl transition-all duration-300 ${activeTab === 'statistik' ? 'bg-green-50' : 'bg-transparent'}`}>
+            <BarChart3 className="w-5 h-5" />
+          </div>
+          <span className="text-[8px] font-black uppercase tracking-widest">Statistik</span>
+        </button>
+      </div>
     </ProtectedPage>
   );
 };
