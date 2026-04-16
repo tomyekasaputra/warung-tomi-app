@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { BrowserRouter, Routes, Route, useNavigate, Link, useParams, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, Link, useParams, useLocation, useSearchParams } from "react-router-dom";
 import Papa from "papaparse";
 import { 
   LineChart, 
@@ -107,6 +107,77 @@ const parseCurrency = (val: string | number | undefined) => {
   return parseInt(String(val).replace(/[^\d]/g, '')) || 0;
 };
 
+const formatCurrency = (val: number) => {
+  return val.toLocaleString('id-ID');
+};
+
+const parseDateForProgress = (dateStr: string) => {
+  if (!dateStr || dateStr === "-") return new Date();
+  return parseDate(dateStr);
+};
+
+const calculateProgress = (startDateStr: string, endDateStr: string) => {
+  try {
+    const start = parseDateForProgress(startDateStr).getTime();
+    const end = parseDateForProgress(endDateStr).getTime();
+    const now = new Date().getTime();
+    
+    if (now < start) return 0;
+    if (now > end) return 100;
+    
+    const total = end - start;
+    const elapsed = now - start;
+    
+    if (total <= 0) return 0;
+    return Math.min(Math.max(Math.round((elapsed / total) * 100), 0), 100);
+  } catch (e) {
+    return 0;
+  }
+};
+
+const calculateEstimatedReturn = (nominal: number, nisbah: string | undefined, startDateStr?: string, endDateStr?: string) => {
+  // Default to 10% p.a. if nisbah is missing or explicitly requested
+  const defaultNisbah = nisbah || "10%";
+  
+  // Calculate duration in years
+  let durationInYears = 1; // Default
+  if (startDateStr && endDateStr) {
+    const start = parseDateForProgress(startDateStr);
+    const end = parseDateForProgress(endDateStr);
+    if (start && end && !isNaN(start.getTime()) && !isNaN(end.getTime())) {
+      // Use month-based calculation for "cleaner" financial results as requested by user
+      const monthDiff = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      const dayDiff = end.getDate() - start.getDate();
+      const totalMonths = monthDiff + (dayDiff / 30);
+      durationInYears = totalMonths / 12;
+    }
+  }
+
+  // Check for percentage
+  const percentMatch = defaultNisbah.match(/(\d+)%/);
+  if (percentMatch) {
+    const percentPerYear = parseInt(percentMatch[1]);
+    // Apply duration weighting (assume all % are per year if unspecified or if it's the default)
+    const profit = Math.round(nominal * (percentPerYear / 100) * durationInYears);
+    return { 
+      profit, 
+      total: nominal + profit, 
+      percent: Math.round(percentPerYear * durationInYears * 10) / 10,
+      rateYearly: percentPerYear
+    };
+  }
+  
+  // Check for fixed amount
+  const amountMatch = defaultNisbah.match(/Rp\s*([\d.]+)/);
+  if (amountMatch) {
+    const profit = parseInt(amountMatch[1].replace(/\./g, ''));
+    const percent = Math.round((profit / nominal) * 100);
+    return { profit, total: nominal + profit, percent, rateYearly: percent / durationInYears };
+  }
+
+  return { profit: 0, total: nominal, percent: 0, rateYearly: 0 };
+};
+
 const getRelativeTime = (dateStr: string) => {
   const date = parseDate(dateStr);
   if (date.getTime() === 0) return "";
@@ -146,6 +217,7 @@ interface SavingTransaction {
   Tipe: string;
   Nominal: number;
   SaldoAkhir: number;
+  Berita?: string;
 }
 
 interface DebtTransaction {
@@ -262,6 +334,8 @@ interface InvestmentTransaction {
   Tenor: string;
   JatuhTempo: string;
   Status: string;
+  Keterangan?: string;
+  Nisbah?: string;
 }
 
 // --- Data ---
@@ -413,36 +487,116 @@ const Header = ({
 }) => {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith('/admin');
+  const [isAgenInfoOpen, setIsAgenInfoOpen] = useState(false);
 
   if (isAdminPage) return null;
 
   return (
-    <header className="bg-white sticky top-0 z-50 border-b border-slate-100 transition-all duration-300">
-      <div className="px-6 py-3 flex items-center justify-between">
-        <Link to="/" className="flex flex-col group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
-          <div className="flex items-center gap-1">
-            <span className="text-lg font-black tracking-tighter text-[#005E6A] group-hover:text-[#F15A24] transition-colors">WARUNG</span>
-            <span className="text-lg font-black tracking-tighter text-[#F15A24] group-hover:text-[#005E6A] transition-colors">TOMI</span>
-          </div>
-          <div className="flex justify-between w-full px-0.5 mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-            {"Digital Solution".split("").map((char, i) => (
-              <span key={i} className="text-[6.5px] font-black text-muted-foreground tracking-widest uppercase leading-none">
-                {char === " " ? "\u00A0" : char}
-              </span>
-            ))}
-          </div>
-        </Link>
+    <>
+      <header className="bg-white sticky top-0 z-50 border-b border-slate-100 transition-all duration-300">
+        <div className="px-6 py-3 flex items-center justify-between">
+          <Link to="/" className="flex flex-col group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
+            <div className="flex items-center gap-1">
+              <span className="text-lg font-black tracking-tighter text-[#005E6A] group-hover:text-[#F15A24] transition-colors">WARUNG</span>
+              <span className="text-lg font-black tracking-tighter text-[#F15A24] group-hover:text-[#005E6A] transition-colors">TOMI</span>
+            </div>
+            <div className="flex justify-between w-full px-0.5 mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+              {"Digital Solution".split("").map((char, i) => (
+                <span key={i} className="text-[6.5px] font-black text-muted-foreground tracking-widest uppercase leading-none">
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </div>
+          </Link>
 
-        {/* BNI 46 Badge */}
-        <motion.div 
-          whileHover={{ scale: 1.05 }}
-          className="bg-[#E6F4F5] px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm border border-[#005E6A]/5 cursor-default"
-        >
-          <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
-          <span className="text-[10px] font-black text-[#F15A24]">46</span>
-        </motion.div>
-      </div>
-    </header>
+          {/* BNI 46 Badge */}
+          <motion.div 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsAgenInfoOpen(true)}
+            className="bg-[#E6F4F5] px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm border border-[#005E6A]/5 cursor-pointer"
+          >
+            <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
+            <span className="text-[10px] font-black text-[#F15A24]">46</span>
+          </motion.div>
+        </div>
+      </header>
+
+      {/* Agen BNI 46 Info Popup */}
+      <AnimatePresence>
+        {isAgenInfoOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAgenInfoOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-[2.5rem] overflow-hidden shadow-2xl"
+            >
+              {/* Header Design */}
+              <div className="bg-[#005E6A] p-8 text-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#F15A24]/20 rounded-full -ml-12 -mb-12 blur-xl" />
+                
+                <div className="relative z-10">
+                  <div className="bg-white w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg transform -rotate-6">
+                    <span className="text-xl font-black text-[#005E6A]">BNI</span>
+                    <span className="text-xl font-black text-[#F15A24]">46</span>
+                  </div>
+                  <h3 className="text-white font-black text-xl uppercase tracking-tight">Agen BNI 46</h3>
+                  <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest mt-1">Mitra Resmi Perbankan</p>
+                </div>
+              </div>
+
+              <div className="p-8">
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-[#005E6A] font-black text-xs uppercase tracking-widest mb-2">Apa itu Agen BNI 46?</h4>
+                    <p className="text-slate-600 text-xs leading-relaxed font-medium">
+                      Agen BNI 46 adalah mitra BNI (perorangan atau badan hukum) yang telah bekerjasama dengan BNI untuk menyediakan layanan perbankan kepada masyarakat.
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                    <div className="flex items-start gap-3">
+                      <div className="bg-[#F15A24] p-2 rounded-lg shrink-0 mt-0.5">
+                        <ShieldCheck className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <h4 className="text-slate-900 font-black text-xs uppercase tracking-widest mb-1">Warung Tomi</h4>
+                        <p className="text-slate-500 text-[11px] leading-relaxed font-bold">
+                          Telah menjadi mitra resmi Agen BNI 46 sejak tahun <span className="text-[#F15A24]">2021</span>.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-[#005E6A] font-black text-xs uppercase tracking-widest mb-2">Titik Kumpul KPM</h4>
+                    <p className="text-slate-600 text-xs leading-relaxed font-medium">
+                      Kami bangga menjadi titik kumpul resmi bagi para Keluarga Penerima Manfaat (KPM) untuk melakukan pencairan bantuan sosial <span className="font-bold text-slate-900">PKH</span> dan <span className="font-bold text-slate-900">BPNT</span> secara aman dan nyaman.
+                    </p>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={() => setIsAgenInfoOpen(false)}
+                  className="w-full mt-8 bg-[#F15A24] hover:bg-[#d94e1f] text-white font-black uppercase tracking-widest py-6 rounded-2xl shadow-lg shadow-[#F15A24]/20"
+                >
+                  Tutup Informasi
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
@@ -537,17 +691,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="min-h-screen bg-white pb-24"
     >
-      {/* Top Header */}
-      <div className="px-6 py-4 flex items-center justify-between border-b border-slate-50 sticky top-0 bg-white z-50">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-600 active:scale-95 transition-transform">
-          <ChevronLeft className="w-5 h-5" />
-          <span className="text-sm font-bold uppercase tracking-widest">Kembali</span>
-        </button>
-        <button className="flex items-center gap-2 text-slate-600 active:scale-95 transition-transform">
-          <Share2 className="w-4 h-4" />
-          <span className="text-sm font-bold uppercase tracking-widest">Bagikan</span>
-        </button>
-      </div>
+      {/* Top Header Removed */}
 
       <div className="px-6 pt-6">
         {/* Combined Image & Title Card */}
@@ -561,7 +705,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
             />
           </div>
           <div className="p-8 text-center">
-            <h1 className="text-2xl font-black text-black uppercase tracking-tight mb-2">Pencairan Bansos {targetYear}</h1>
+            <h1 className="text-2xl font-black text-black uppercase tracking-tight mb-2">Pencairan Bansos</h1>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed max-w-[240px] mx-auto">
               Program Keluarga Harapan (PKH) & Bantuan Pangan Non Tunai (BPNT)
             </p>
@@ -749,10 +893,10 @@ const PromoSection = () => {
 const MainServices = () => {
   const navigate = useNavigate();
   return (
-    <section className="px-6 py-1">
+    <section className="px-6 py-1 space-y-6">
       <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 relative z-10">
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-base font-bold text-black uppercase tracking-wider">Layanan Utama</h2>
+          <h2 className="text-base font-bold text-black uppercase tracking-wider">Layanan</h2>
           <div className="bg-[#E6F4F5] px-3 py-1 rounded-full flex items-center gap-1">
             <span className="text-[8px] font-extrabold text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
             <span className="text-[8px] font-extrabold text-[#F15A24]">46</span>
@@ -777,6 +921,70 @@ const MainServices = () => {
               <span className="text-[9px] font-bold text-slate-500 text-center leading-tight px-0.5">{service.name}</span>
             </motion.button>
           ))}
+        </div>
+      </div>
+
+      {/* Contact & Location Card */}
+      <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-xl shadow-slate-200 border border-slate-100">
+        <div className="bg-[#005E6A] p-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+          <div className="relative z-10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
+                <MapPin className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-white font-black text-sm uppercase tracking-tight">Kontak & Lokasi</h3>
+                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Kunjungi Kami</p>
+              </div>
+            </div>
+            <div className="bg-white px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm">
+              <span className="text-[8px] font-black text-[#005E6A]">BNI</span>
+              <span className="text-[8px] font-black text-[#F15A24]">46</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-8 space-y-6">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 bg-[#E6F4F5] rounded-xl flex items-center justify-center shrink-0">
+              <MapPin className="w-5 h-5 text-[#005E6A]" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider mb-1">Alamat Resmi</p>
+              <p className="text-[11px] text-slate-600 font-bold leading-relaxed">
+                Dusun Manis, RT009/RW005, Desa Wilanagara, Kec. Luragung, Kab. Kuningan
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 bg-[#FFF0E6] rounded-xl flex items-center justify-center shrink-0">
+              <Phone className="w-5 h-5 text-[#F15A24]" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-wider mb-1">WhatsApp Center</p>
+              <p className="text-[11px] text-slate-600 font-bold">087774138090</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 text-slate-400" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Jam Operasional</p>
+              <p className="text-[11px] text-slate-600 font-bold">Setiap Hari: 06:00 - 22:00 WIB</p>
+            </div>
+          </div>
+
+          <Button 
+            className="w-full mt-2 bg-[#F15A24] hover:bg-[#d94e1f] text-white font-black uppercase tracking-widest py-7 rounded-2xl shadow-lg shadow-[#F15A24]/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+            onClick={() => window.open('https://maps.app.goo.gl/bnUitCFdP5sgqiw49', '_blank')}
+          >
+            <MapPin className="w-4 h-4" />
+            Buka Google Maps
+          </Button>
         </div>
       </div>
     </section>
@@ -1582,7 +1790,11 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
     t.Nama.toLowerCase() === user?.Nama?.toLowerCase() &&
     t.Status.toLowerCase() !== "sukses dicairkan"
   );
-  const investasiBalance = userInvestments.reduce((acc, curr) => acc + curr.Nominal, 0);
+  
+  const investasiBalance = userInvestments.reduce((acc, curr) => {
+    const estimate = calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo);
+    return acc + estimate.total;
+  }, 0);
   
   // Calculate Lainnya balance from "BELUM DIAMBIL" transactions
   const lainnyaTransactions = transactions.filter(t => 
@@ -1605,10 +1817,6 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
     { name: 'Lainnya', value: lainnyaBalance, color: '#14b8a6' },
     { name: 'Hutang', value: hutangBalance, color: '#ef4444' },
   ].filter(item => item.value !== 0);
-
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString('id-ID');
-  };
 
   const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
   const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
@@ -1707,26 +1915,85 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
     ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
     : user;
   
-  const months = Array.from({ length: 12 }, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - i);
-    return {
-      label: d.toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
-      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    };
-  });
+  const userTransactions = useMemo(() => 
+    transactions.filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase()),
+    [transactions, displayUser]
+  );
 
-  const [selectedMonth, setSelectedMonth] = useState(months[0].value);
+  const allMonths = useMemo(() => {
+    if (userTransactions.length === 0) {
+      const now = new Date();
+      return [{
+        label: now.toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
+        value: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+        month: now.getMonth(),
+        year: now.getFullYear()
+      }];
+    }
+
+    const earliestTransaction = userTransactions.reduce((earliest, t) => {
+      const tDate = parseDate(t.Tanggal);
+      return tDate < earliest ? tDate : earliest;
+    }, new Date());
+
+    const startMonth = earliestTransaction.getMonth();
+    const startYear = earliestTransaction.getFullYear();
+    const now = new Date();
+    
+    const result = [];
+    let tempDate = new Date(startYear, startMonth, 1);
+    while (tempDate <= now) {
+      result.push({
+        label: tempDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
+        value: `${tempDate.getFullYear()}-${String(tempDate.getMonth() + 1).padStart(2, '0')}`,
+        month: tempDate.getMonth(),
+        year: tempDate.getFullYear()
+      });
+      tempDate.setMonth(tempDate.getMonth() + 1);
+    }
+    return result;
+  }, [userTransactions]);
+
+  const months = useMemo(() => [...allMonths].reverse(), [allMonths]);
+
+  const [searchParams] = useSearchParams();
+  const initialMonth = searchParams.get('month');
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth || allMonths[allMonths.length - 1]?.value || "");
+  
+  useEffect(() => {
+    if (initialMonth) {
+      setSelectedMonth(initialMonth);
+    } else if (allMonths.length > 0 && !selectedMonth) {
+      setSelectedMonth(allMonths[allMonths.length - 1].value);
+    }
+  }, [allMonths, initialMonth]);
+
   const selectedMonthLabel = months.find(m => m.value === selectedMonth)?.label.split(' ')[0] || "";
   const [activeTab, setActiveTab] = useState<'riwayat' | 'statistik'>('riwayat');
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+  const chartScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const scrollToRight = () => {
+      if (chartScrollRef.current && activeTab === 'statistik') {
+        chartScrollRef.current.scrollLeft = chartScrollRef.current.scrollWidth;
+      }
+    };
+
+    // Scroll immediately
+    scrollToRight();
+    
+    // Also scroll after a short delay to ensure chart has rendered
+    const timer = setTimeout(scrollToRight, 100);
+    return () => clearTimeout(timer);
+  }, [activeTab, allMonths.length]);
 
   const formatCurrency = (val: number) => {
     return val.toLocaleString('id-ID');
   };
 
-  const filteredTransactions = transactions
+  const filteredTransactions = userTransactions
     .filter(t => {
-      if (t.Nama.toLowerCase() !== displayUser?.Nama?.toLowerCase()) return false;
       const tDate = parseDate(t.Tanggal);
       const tMonthYear = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
       return tMonthYear === selectedMonth;
@@ -1739,14 +2006,11 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
     return acc;
   }, { setor: 0, tarik: 0 });
 
-  const chartData = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date();
-    d.setMonth(d.getMonth() - (5 - i));
-    const m = d.getMonth();
-    const y = d.getFullYear();
+  const chartData = useMemo(() => allMonths.map(mInfo => {
+    const m = mInfo.month;
+    const y = mInfo.year;
     
-    const stats = transactions
-      .filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase())
+    const stats = userTransactions
       .reduce((acc, t) => {
         const tDate = parseDate(t.Tanggal);
         if (tDate.getMonth() === m && tDate.getFullYear() === y) {
@@ -1757,20 +2021,23 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
       }, { setor: 0, tarik: 0 });
 
     return {
-      name: d.toLocaleString('id-ID', { month: 'short' }),
+      name: new Date(y, m).toLocaleString('id-ID', { month: 'short' }).replace('.', ''),
+      month: m,
+      year: y,
       setor: stats.setor,
       tarik: stats.tarik
     };
-  });
+  }), [allMonths, userTransactions]);
 
   return (
-    <ProtectedPage user={displayUser} title="Detail Tabungan">
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="px-6 py-4 pb-24"
-      >
+    <>
+      <ProtectedPage user={displayUser} title="Detail Tabungan">
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="px-6 py-4 pb-20"
+        >
         <AnimatePresence mode="wait">
           {activeTab === 'riwayat' ? (
             <motion.div 
@@ -1832,7 +2099,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
             >
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Perbandingan 6 Bulan</h4>
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Grafik Perbandingan</h4>
                   <p className="text-[10px] font-bold text-slate-400 mt-1">Setor vs Tarik</p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -1846,44 +2113,46 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                   </div>
                 </div>
               </div>
-              <div className="h-[180px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
-                      dy={10}
-                    />
-                    <Tooltip 
-                      cursor={{ fill: '#f8fafc' }}
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xl">
-                              <p className="text-[10px] font-black text-slate-900 uppercase mb-2">{payload[0].payload.name}</p>
-                              <div className="space-y-1">
-                                <p className="text-[9px] font-bold text-green-600 flex justify-between gap-4">
-                                  <span>Setor:</span>
-                                  <span>Rp {formatCurrency(payload[0].value as number)}</span>
-                                </p>
-                                <p className="text-[9px] font-bold text-red-600 flex justify-between gap-4">
-                                  <span>Tarik:</span>
-                                  <span>Rp {formatCurrency(payload[1].value as number)}</span>
-                                </p>
+              <div className="h-[180px] w-full overflow-x-auto scrollbar-hide" ref={chartScrollRef}>
+                <div style={{ minWidth: `${Math.max(100, chartData.length * 60)}px`, height: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
+                        dy={10}
+                      />
+                      <Tooltip 
+                        cursor={{ fill: '#f8fafc' }}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xl">
+                                <p className="text-[10px] font-black text-slate-900 uppercase mb-2">{payload[0].payload.name}</p>
+                                <div className="space-y-1">
+                                  <p className="text-[9px] font-bold text-green-600 flex justify-between gap-4">
+                                    <span>Setor:</span>
+                                    <span>Rp {formatCurrency(payload[0].value as number)}</span>
+                                  </p>
+                                  <p className="text-[9px] font-bold text-red-600 flex justify-between gap-4">
+                                    <span>Tarik:</span>
+                                    <span>Rp {formatCurrency(payload[1].value as number)}</span>
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Bar dataKey="setor" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
-                    <Bar dataKey="tarik" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} />
-                  </BarChart>
-                </ResponsiveContainer>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar dataKey="setor" fill="#10b981" radius={[4, 4, 0, 0]} barSize={12} />
+                      <Bar dataKey="tarik" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={12} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </motion.div>
           )}
@@ -1933,7 +2202,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start">
                           <div className="space-y-2">
-                            <p className="text-[11px] font-black text-black uppercase tracking-widest leading-none">{t.Tipe}</p>
+                            <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-widest leading-none">{t.Berita || t.Tipe}</p>
                             <p className="text-[9px] font-bold text-slate-400 leading-none">{t.Tanggal}</p>
                           </div>
                           <p className={`text-sm font-black leading-none whitespace-nowrap ${
@@ -1946,10 +2215,10 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                     </div>
 
                     {/* Horizontal Ribbon at bottom right */}
-                    <div className="absolute bottom-0 right-0 bg-[#005E6A] px-4 py-1.5 rounded-tl-2xl shadow-sm">
+                    <div className="absolute bottom-0 right-0 bg-[#F15A24] w-40 py-0.5 rounded-tl-2xl rounded-br-2xl shadow-sm flex items-center justify-center">
                       <div className="flex items-center gap-2">
-                        <span className="text-[6px] font-black text-white/50 uppercase tracking-widest">Saldo Akhir</span>
-                        <span className="text-[10px] font-black text-white">Rp {formatCurrency(t.SaldoAkhir)}</span>
+                        <span className="text-[5px] font-black text-white/50 uppercase tracking-widest">Saldo Akhir</span>
+                        <span className="text-[9px] font-black text-white">Rp {formatCurrency(t.SaldoAkhir)}</span>
                       </div>
                     </div>
                   </div>
@@ -1964,57 +2233,105 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
               )
             ) : (
               /* Statistik List - 6 Months */
-              [...chartData].reverse().map((data, i) => (
-                <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-[11px] font-black text-black uppercase tracking-widest">{data.name}</p>
-                    <div className="bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">
-                      <p className="text-[8px] font-black text-[#005E6A] uppercase tracking-widest">Total Aktivitas</p>
-                    </div>
+              [...chartData].reverse().map((data, i) => {
+                const isExpanded = expandedMonth === `${data.year}-${data.month}`;
+                const monthTransactions = transactions.filter(t => {
+                  if (t.Nama.toLowerCase() !== displayUser?.Nama?.toLowerCase()) return false;
+                  const tDate = parseDate(t.Tanggal);
+                  return tDate.getMonth() === data.month && tDate.getFullYear() === data.year;
+                }).reverse();
+
+                return (
+                  <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all duration-300">
+                    <button 
+                      onClick={() => setExpandedMonth(isExpanded ? null : `${data.year}-${data.month}`)}
+                      className="w-full p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors"
+                    >
+                      {/* Month Icon */}
+                      <div className="w-12 h-12 rounded-full bg-[#005E6A] flex items-center justify-center shrink-0 shadow-sm border-2 border-white">
+                        <span className="text-[10px] font-black text-[#F15A24] uppercase">{data.name}</span>
+                      </div>
+                      
+                      {/* Stats */}
+                      <div className="flex-1 grid grid-cols-2 gap-4 text-left">
+                        <div className="space-y-1">
+                          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Setor</p>
+                          <p className="text-xs font-black text-green-600">Rp {formatCurrency(data.setor)}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Tarik</p>
+                          <p className="text-xs font-black text-red-600">Rp {formatCurrency(data.tarik)}</p>
+                        </div>
+                      </div>
+
+                      <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: "easeInOut" }}
+                        >
+                          <div className="px-4 pb-4 pt-2 border-t border-slate-50 space-y-2">
+                            {monthTransactions.length > 0 ? (
+                              monthTransactions.map((mt, j) => (
+                                <div key={j} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                                  <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{mt.Tipe}</p>
+                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{mt.Tanggal}</p>
+                                  </div>
+                                  <p className={`text-xs font-black ${mt.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'}`}>
+                                    {mt.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(mt.Nominal)}
+                                  </p>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest text-center py-4">Tidak ada riwayat</p>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Setor</p>
-                      <p className="text-xs font-black text-green-600">Rp {formatCurrency(data.setor)}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Tarik</p>
-                      <p className="text-xs font-black text-red-600">Rp {formatCurrency(data.tarik)}</p>
-                    </div>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
       </motion.div>
+    </ProtectedPage>
 
       {/* Bottom Navbar for Savings Detail */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-slate-100 px-8 py-4 z-50 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-        <button 
-          onClick={() => setActiveTab('riwayat')}
-          className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${
-            activeTab === 'riwayat' ? 'text-green-600 scale-110' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <div className={`p-2 rounded-xl transition-all duration-300 ${activeTab === 'riwayat' ? 'bg-green-50' : 'bg-transparent'}`}>
-            <History className="w-5 h-5" />
-          </div>
-          <span className="text-[8px] font-black uppercase tracking-widest">Riwayat</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('statistik')}
-          className={`flex flex-col items-center gap-1.5 transition-all duration-300 ${
-            activeTab === 'statistik' ? 'text-green-600 scale-110' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <div className={`p-2 rounded-xl transition-all duration-300 ${activeTab === 'statistik' ? 'bg-green-50' : 'bg-transparent'}`}>
-            <BarChart3 className="w-5 h-5" />
-          </div>
-          <span className="text-[8px] font-black uppercase tracking-widest">Statistik</span>
-        </button>
-      </div>
-    </ProtectedPage>
+      {displayUser && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-8 py-2 z-50 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+          <button 
+            onClick={() => setActiveTab('riwayat')}
+            className={`flex flex-col items-center gap-1 transition-all duration-300 ${
+              activeTab === 'riwayat' ? 'text-green-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <div className={`p-1.5 rounded-xl transition-all duration-300 ${activeTab === 'riwayat' ? 'bg-green-50' : 'bg-transparent'}`}>
+              <History className="w-5 h-5" />
+            </div>
+            <span className="text-[8px] font-black uppercase tracking-widest">Riwayat</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('statistik')}
+            className={`flex flex-col items-center gap-1 transition-all duration-300 ${
+              activeTab === 'statistik' ? 'text-green-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <div className={`p-1.5 rounded-xl transition-all duration-300 ${activeTab === 'statistik' ? 'bg-green-50' : 'bg-transparent'}`}>
+              <BarChart3 className="w-5 h-5" />
+            </div>
+            <span className="text-[8px] font-black uppercase tracking-widest">Statistik</span>
+          </button>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -2041,14 +2358,6 @@ const DebtDetailPage = ({ user, transactions, customers }: { user: Customer | nu
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="px-6 py-4"
       >
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-slate-500 mb-6 group"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
-        </button>
-
         <div className="bg-gradient-to-br from-red-600 to-rose-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
           <div className="absolute -bottom-4 -right-4 opacity-10">
@@ -2068,59 +2377,61 @@ const DebtDetailPage = ({ user, transactions, customers }: { user: Customer | nu
           </div>
         </div>
 
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-50">
-            <h3 className="text-sm font-black text-red-600 uppercase tracking-widest">Riwayat Hutang</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Hutang</h3>
+            <Badge className="bg-red-50 text-red-600 border-none text-[8px] font-black uppercase tracking-widest">
+              {userTransactions.length} Transaksi
+            </Badge>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipe</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Jumlah</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keterangan</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {userTransactions.length > 0 ? (
-                  userTransactions.map((t, i) => (
-                    <tr key={i} className="hover:bg-slate-50/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <p className="text-xs font-bold text-slate-600">{t.Tanggal}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge className={`text-[8px] font-black uppercase tracking-widest border-none ${
-                          t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
-                        }`}>
-                          {t.Tipe}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <p className={`text-xs font-black ${
-                          t.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'
-                        }`}>
-                          {t.Tipe === 'TAMBAH' ? '+' : '-'}{formatCurrency(t.Jumlah)}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-[10px] text-slate-500 line-clamp-1">{t.Keterangan}</p>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center gap-2 opacity-20">
-                        <History className="w-8 h-8" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Belum ada transaksi</p>
+          <div className="space-y-3">
+            {userTransactions.length > 0 ? (
+              userTransactions.map((t, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                    }`}>
+                      {t.Tipe === 'TAMBAH' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownLeft className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-slate-900 uppercase tracking-tight mb-0.5">
+                        {t.Tipe === 'TAMBAH' ? 'KASBOS' : 'BAYAR'}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
                       </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-black ${
+                      t.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {t.Tipe === 'TAMBAH' ? '+' : '-'}{formatCurrency(t.Jumlah)}
+                    </p>
+                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-0.5">
+                      {t.Keterangan}
+                    </p>
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100 border-dashed">
+                <div className="flex flex-col items-center gap-3 opacity-20">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                    <History className="w-8 h-8" />
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em]">Belum ada riwayat hutang</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
@@ -2131,6 +2442,8 @@ const DebtDetailPage = ({ user, transactions, customers }: { user: Customer | nu
 const InvestasiPage = ({ user, transactions, customers }: { user: Customer | null, transactions: InvestmentTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
   const { customerName } = useParams();
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  
   const displayUser = customerName && customers 
     ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
     : user;
@@ -2139,13 +2452,28 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
     t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase()
   );
 
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString('id-ID');
-  };
+  const sortedTransactions = [...userTransactions].sort((a, b) => {
+    // Status "Aktif" first
+    const statusA = a.Status.toLowerCase();
+    const statusB = b.Status.toLowerCase();
+    const isA_Aktif = statusA.includes("aktif") || statusA.includes("active");
+    const isB_Aktif = statusB.includes("aktif") || statusB.includes("active");
+
+    if (isA_Aktif && !isB_Aktif) return -1;
+    if (!isA_Aktif && isB_Aktif) return 1;
+
+    // Then by nearest maturity date
+    const dateA = parseDateForProgress(a.JatuhTempo).getTime();
+    const dateB = parseDateForProgress(b.JatuhTempo).getTime();
+    return dateA - dateB;
+  });
 
   const totalInvestasi = userTransactions
     .filter(t => t.Status.toLowerCase() !== "sukses dicairkan")
-    .reduce((acc, curr) => acc + curr.Nominal, 0);
+    .reduce((acc, curr) => {
+      const estimate = calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo);
+      return acc + estimate.total;
+    }, 0);
 
   return (
     <ProtectedPage user={displayUser} title="Investasi">
@@ -2153,93 +2481,232 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="px-6 py-4"
+        className="px-6 py-4 bg-slate-50 min-h-screen"
       >
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-slate-500 mb-6 group"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
-        </button>
-
-        <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-          <div className="absolute -bottom-4 -right-4 opacity-10">
-            <TrendingUp className="w-32 h-32" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Total Investasi Aktif</p>
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
-                <TrendingUp className="w-5 h-5 text-white" />
+        <div className="bg-gradient-to-br from-[#6D28D9] to-[#4C1D95] rounded-[2.5rem] p-8 text-white shadow-2xl mb-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl opacity-50" />
+          <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-white/5 rounded-full blur-3xl opacity-30" />
+          
+          <div className="relative z-10 flex flex-col h-full justify-between">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <h3 className="text-2xl font-black tracking-tight drop-shadow-sm">{displayUser?.Nama}</h3>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Estimasi Portofolio</p>
+              </div>
+              <div className="w-16 h-16 bg-white/10 backdrop-blur-xl rounded-[1.5rem] flex items-center justify-center border border-white/20 shadow-2xl rotate-12 -mr-2 -mt-2 group hover:rotate-0 transition-transform duration-500">
+                <TrendingUp className="w-8 h-8 text-white" />
               </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-bold opacity-80">Rp</span>
-              <h2 className="text-4xl font-black tracking-tight">{formatCurrency(totalInvestasi)}</h2>
+            
+            <div className="mt-12 space-y-4">
+              <div className="space-y-1">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-lg font-bold opacity-40">Rp</span>
+                  <h2 className="text-5xl font-black tracking-tighter tabular-nums leading-none drop-shadow-md">
+                    {formatCurrency(totalInvestasi)}
+                  </h2>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-50">
-            <h3 className="text-sm font-black text-indigo-600 uppercase tracking-widest">Riwayat Investasi</h3>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tanggal</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Tenor</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Jatuh Tempo</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {userTransactions.length > 0 ? (
-                  userTransactions.map((t, i) => (
-                    <tr key={i} className="hover:bg-slate-50/30 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="text-xs font-bold text-slate-600">{t.Tanggal}</p>
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(t.Nominal)}</p>
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <p className="text-xs font-bold text-slate-600">{t.Tenor}</p>
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <p className="text-xs font-bold text-slate-600">{t.JatuhTempo}</p>
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <Badge className={`text-[8px] font-black uppercase tracking-widest border-none ${
-                          t.Status.toUpperCase() === 'AKTIF' 
-                            ? 'bg-green-50 text-green-600' 
-                            : t.Status.toLowerCase() === 'sukses dicairkan'
-                              ? 'bg-red-50 text-red-600'
-                              : 'bg-slate-50 text-slate-400'
-                        }`}>
-                          {t.Status}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center gap-2 opacity-20">
-                        <History className="w-8 h-8" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Belum ada investasi</p>
+        <div className="space-y-8 pb-12">
+          {sortedTransactions.length > 0 ? (
+            sortedTransactions.map((t, i) => {
+              const estimate = calculateEstimatedReturn(t.Nominal, t.Nisbah, t.Tanggal, t.JatuhTempo);
+              const progress = calculateProgress(t.Tanggal, t.JatuhTempo);
+              const invYear = parseDateForProgress(t.Tanggal).getFullYear();
+              const invMonth = parseDateForProgress(t.Tanggal).getMonth() + 1;
+              const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+              const refId = `INV-${String(i + 1).padStart(3, '0')}/WT/${romanMonths[invMonth - 1]}/${invYear}`;
+              const isExpanded = expandedIndex === i;
+              const statusLower = t.Status.toLowerCase();
+              const isA_Aktif = statusLower.includes("aktif") || statusLower.includes("active");
+
+              return (
+                <div key={i} className="px-2">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    onClick={() => setExpandedIndex(isExpanded ? null : i)}
+                    className="bg-white rounded-[2.5rem] text-slate-900 shadow-xl relative overflow-hidden cursor-pointer transition-all border border-slate-100"
+                  >
+                    {/* Background Decorative Elements */}
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-full -mr-20 -mt-20 blur-3xl opacity-50" />
+                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-slate-50 rounded-full -ml-16 -mb-16 blur-2xl opacity-50" />
+
+                    <div className="p-7 space-y-8 relative z-10">
+                      {/* Top Summary Row */}
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-[8px] sm:text-[10px] font-black tracking-[0.1em] text-slate-400 uppercase truncate flex-1">{refId}</span>
+                        {isA_Aktif ? (
+                          <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 text-[8px] sm:text-[9px] font-black py-1 px-3 rounded-full hover:bg-green-500/20 transition-colors uppercase tracking-widest whitespace-nowrap">
+                            {t.Status.toUpperCase()}
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-red-500/10 text-red-600 border border-red-500/20 text-[8px] sm:text-[9px] font-black py-1 px-3 rounded-full uppercase tracking-widest whitespace-nowrap">
+                            SELESAI
+                          </Badge>
+                        )}
                       </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                      
+                      {/* Estimate Section */}
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                            {isA_Aktif ? "Estimasi Pengembalian Total" : "Sudah Dicairkan Ke Tabungan"}
+                          </p>
+                          <h4 className="text-4xl font-black tracking-tight tabular-nums text-[#6D28D9] font-black">Rp {formatCurrency(estimate.total)}</h4>
+                          
+                          {isA_Aktif && (
+                            <div className="space-y-3 pt-2">
+                              {t.Keterangan && (
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{t.Keterangan}</p>
+                              )}
+                              
+                              {/* Progress Bar moved here */}
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <h5 className="text-[8px] font-black uppercase tracking-widest text-[#6D28D9]">Progress <span className="text-slate-400 ml-1">({progress}% Berjalan)</span></h5>
+                                </div>
+                                <div className="relative pt-0.5">
+                                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                    <motion.div 
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${progress}%` }}
+                                      transition={{ duration: 1.2, ease: "easeOut" }}
+                                      className="h-full bg-[#6D28D9] rounded-full"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between opacity-60">
+                                   <div className="flex flex-col">
+                                     <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Akad</span>
+                                     <span className="text-[8px] font-black text-slate-900">{t.Tanggal}</span>
+                                   </div>
+                                   <div className="flex flex-col text-right">
+                                     <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Tempo</span>
+                                     <span className="text-[8px] font-black text-slate-900">{t.JatuhTempo}</span>
+                                   </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 rounded-full">
+                            <p className="text-[9px] font-bold text-slate-500">
+                              {isA_Aktif 
+                                ? (<>+Rp {formatCurrency(estimate.profit)} <span className="text-[#6D28D9] font-black">(Est. {estimate.rateYearly}% pertahun)</span></>)
+                                : `Pada Tanggal ${t.JatuhTempo}`
+                              }
+                            </p>
+                          </div>
+
+                          <motion.div
+                            animate={{ rotate: isExpanded ? 180 : 0 }}
+                            className="cursor-pointer"
+                          >
+                            <ChevronDown className="w-5 h-5 text-[#6D28D9]" />
+                          </motion.div>
+                        </div>
+                      </div>
+
+                      {/* Expansion Content */}
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                            className="overflow-hidden"
+                          >
+                            <div className="pt-2 space-y-8">
+                              {/* Integrated Progress Section - REMOVED from here as it is now below nominal */}
+
+                              {/* Sharpened Detail Cards (Slightly off-white for depth) */}
+                              <div className="space-y-3 pt-2">
+                                <div className="bg-slate-50 rounded-xl p-5 shadow-sm flex items-center gap-4 border border-slate-100">
+                                  <div className="flex-1 space-y-3">
+                                    <h6 className="text-[11px] font-black text-[#6D28D9] uppercase tracking-widest">Pokok & Keuntungan</h6>
+                                    <div className="grid grid-cols-1 gap-2">
+                                      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                                        <span className="text-[10px] font-bold text-slate-400">Nilai Pokok</span>
+                                        <span className="text-[10px] font-black text-slate-800 tracking-tight text-lg">Rp {formatCurrency(t.Nominal)}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-[10px] font-bold text-slate-400">Bagi Hasil ({estimate.rateYearly}% pertahun)</span>
+                                        <span className="text-[10px] font-black text-green-600">Rp {formatCurrency(estimate.profit)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="bg-slate-50 rounded-xl p-5 shadow-sm flex items-center gap-4 border border-slate-100">
+                                  <div className="flex-1 space-y-3">
+                                    <h6 className="text-[11px] font-black text-[#6D28D9] uppercase tracking-widest">Waktu Kontrak</h6>
+                                    <div className="grid grid-cols-1 gap-2 text-slate-600">
+                                      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                                        <span className="text-[10px] font-bold text-slate-400">Jangka Waktu</span>
+                                        <span className="text-[10px] font-black tracking-tight">{t.Tenor}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                        <span className="text-[10px] font-bold text-slate-400">Masa Berakhir</span>
+                                        <span className="text-[10px] font-black tracking-tight">{t.JatuhTempo}</span>
+                                      </div>
+                                    </div>
+
+                                  </div>
+                                </div>
+
+                                {!isA_Aktif && (
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const targetDate = parseDate(t.JatuhTempo);
+                                        const monthVal = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+                                        navigate(`/detail-tabungan?month=${monthVal}`);
+                                      }}
+                                      className="w-full bg-[#6D28D9] text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-[#5b21b6] transition-all flex items-center justify-center mt-4 active:scale-[0.98]"
+                                    >
+                                      Cek Riwayat Tabungan
+                                    </button>
+                                )}
+
+                                {!isA_Aktif && t.Keterangan && (
+                                   <div className="px-5 py-4 bg-slate-100/50 border border-slate-200 rounded-xl">
+                                      <p className="text-[10px] font-medium italic text-slate-500 leading-relaxed text-center">{t.Keterangan}</p>
+                                    </div>
+                                )}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </motion.div>
+                </div>
+              );
+            })
+
+
+          ) : (
+            <div className="bg-white rounded-[2.5rem] p-16 text-center border border-slate-100 border-dashed shadow-inner bg-slate-50/20">
+              <div className="flex flex-col items-center gap-4 opacity-30">
+                <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm">
+                  <TrendingUp className="w-10 h-10 text-slate-300" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Portofolio Kosong</p>
+                  <p className="text-[10px] font-bold text-slate-400">Belum ada kontrak investasi aktif untuk saat ini</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </motion.div>
     </ProtectedPage>
@@ -3877,12 +4344,8 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
       >
         {/* Profile Image Section */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-100 mb-4 relative group">
-            <img 
-              src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.Nama || 'default'}&backgroundColor=F15A24&fontFamily=Arial&fontWeight=700`} 
-              alt="Profile" 
-              className="w-full h-full object-cover"
-            />
+          <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-200 mb-4 relative group flex items-center justify-center">
+            <User className="w-12 h-12 text-slate-400" />
             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <Camera className="w-6 h-6 text-white" />
             </div>
@@ -4487,12 +4950,14 @@ export default function App() {
                       const tipeKey = Object.keys(t).find(k => k.toLowerCase().trim().includes('tipe') || k.toLowerCase().trim().includes('type'));
                       const nominalKey = Object.keys(t).find(k => k.toLowerCase().trim().includes('nominal') || k.toLowerCase().trim().includes('tabungan') || k.toLowerCase().trim().includes('jumlah') || k.toLowerCase().trim().includes('setor') || k.toLowerCase().trim().includes('tarik'));
                       const tanggalKey = Object.keys(t).find(k => k.toLowerCase().trim().includes('tanggal') || k.toLowerCase().trim().includes('date'));
+                      const beritaKey = Object.keys(t).find(k => k.toLowerCase().trim().includes('berita') || k.toLowerCase().trim().includes('ket') || k.toLowerCase().trim().includes('memo'));
                       
                       if (tipeKey && nominalKey) {
                         const tipe = String(t[tipeKey]).trim().toUpperCase();
                         const nominalStr = String(t[nominalKey]).replace(/[^\d]/g, '');
                         const nominal = parseInt(nominalStr) || 0;
                         const tanggal = tanggalKey ? String(t[tanggalKey]).trim() : "-";
+                        const berita = beritaKey ? String(t[beritaKey]).trim() : "";
 
                         if (tipe === 'SETOR') {
                           runningBalance += nominal;
@@ -4505,7 +4970,8 @@ export default function App() {
                           Nama: name,
                           Tipe: tipe,
                           Nominal: nominal,
-                          SaldoAkhir: runningBalance
+                          SaldoAkhir: runningBalance,
+                          Berita: berita
                         });
                       }
                     });
@@ -4524,6 +4990,8 @@ export default function App() {
                       const tenorKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('tenor'));
                       const jatuhTempoKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('jatuh tempo'));
                       const statusKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('status'));
+                      const keteranganKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('keterangan') || k.toLowerCase().trim().includes('catatan'));
+                      const nisbahKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('nisbah') || k.toLowerCase().trim().includes('bunga') || k.toLowerCase().trim().includes('profit'));
                       
                       const nominalStr = nominalKey ? String(i[nominalKey]).replace(/[^\d]/g, '') : "0";
                       const nominal = parseInt(nominalStr) || 0;
@@ -4534,7 +5002,9 @@ export default function App() {
                         Nominal: nominal,
                         Tenor: tenorKey ? String(i[tenorKey]).trim() : "-",
                         JatuhTempo: jatuhTempoKey ? String(i[jatuhTempoKey]).trim() : "-",
-                        Status: statusKey ? String(i[statusKey]).trim() : "Aktif"
+                        Status: statusKey ? String(i[statusKey]).trim() : "Aktif",
+                        Keterangan: keteranganKey ? String(i[keteranganKey]).trim() : undefined,
+                        Nisbah: nisbahKey ? String(i[nisbahKey]).trim() : undefined
                       };
                     });
                     
