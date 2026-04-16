@@ -29,6 +29,7 @@ import {
   Menu as MenuIcon, 
   X,
   ChevronRight,
+  ChevronDown,
   Star,
   ArrowRight,
   ShieldCheck,
@@ -54,6 +55,8 @@ import {
   Home,
   Bot,
   BarChart3,
+  CheckCircle2,
+  Timer,
   TrendingUp,
   TrendingDown,
   ArrowLeft,
@@ -68,7 +71,6 @@ import {
   Download,
   Layers,
   ChevronLeft,
-  ChevronDown,
   ChevronUp,
   Share2,
   Camera,
@@ -2338,104 +2340,461 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
 const DebtDetailPage = ({ user, transactions, customers }: { user: Customer | null, transactions: DebtTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
   const { customerName } = useParams();
+  const [activeTab, setActiveTab] = useState<'riwayat' | 'statistik'>('riwayat');
+  const [expandedPeriod, setExpandedPeriod] = useState<number | null>(null);
+  const [selectedPeriodIndex, setSelectedPeriodIndex] = useState<string>('all');
+
   const displayUser = customerName && customers 
     ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
     : user;
   
-  const userTransactions = transactions
-    .filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase())
-    .reverse();
+  const userTransactions = useMemo(() => {
+    return transactions
+      .filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase())
+      .reverse();
+  }, [transactions, displayUser]);
+
+  // Calculate Debt Periods
+  const debtPeriods = useMemo(() => {
+    const periods: {
+      id: number;
+      status: 'Lunas' | 'Berjalan';
+      transactions: DebtTransaction[];
+      startDate: string;
+      endDate: string;
+      totalBorrowed: number;
+      durationDays: number;
+    }[] = [];
+    
+    let currentGroup: DebtTransaction[] = [];
+    let isPeriodActive = false;
+    
+    // chronological order
+    const chronological = [...userTransactions].reverse();
+    
+    chronological.forEach(t => {
+      if (!isPeriodActive && t.SaldoAkhir > 0) {
+        isPeriodActive = true;
+      }
+      
+      if (isPeriodActive) {
+        currentGroup.push(t);
+      }
+      
+      if (isPeriodActive && t.SaldoAkhir === 0) {
+        const start = parseDate(currentGroup[0].Tanggal);
+        const end = parseDate(t.Tanggal);
+        const diffTime = Math.abs(end.getTime() - start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+        periods.push({
+          id: periods.length + 1,
+          status: 'Lunas',
+          transactions: [...currentGroup].reverse(),
+          startDate: currentGroup[0].Tanggal,
+          endDate: t.Tanggal,
+          totalBorrowed: currentGroup.filter(item => item.Tipe === 'TAMBAH').reduce((s, item) => s + item.Jumlah, 0),
+          durationDays: diffDays
+        });
+        currentGroup = [];
+        isPeriodActive = false;
+      }
+    });
+    
+    if (currentGroup.length > 0) {
+      const start = parseDate(currentGroup[0].Tanggal);
+      const end = new Date();
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+      periods.push({
+        id: periods.length + 1,
+        status: 'Berjalan',
+        transactions: [...currentGroup].reverse(),
+        startDate: currentGroup[0].Tanggal,
+        endDate: "Berjalan",
+        totalBorrowed: currentGroup.filter(item => item.Tipe === 'TAMBAH').reduce((s, item) => s + item.Jumlah, 0),
+        durationDays: diffDays
+      });
+    }
+    
+    return periods.reverse(); 
+  }, [userTransactions]);
+
+  // Set default period to 'Berjalan' on mount
+  useEffect(() => {
+    const walkingIdx = debtPeriods.findIndex(p => p.status === 'Berjalan');
+    if (walkingIdx !== -1) {
+      setSelectedPeriodIndex(String(walkingIdx));
+    } else if (debtPeriods.length > 0) {
+      setSelectedPeriodIndex('0');
+    }
+  }, [debtPeriods]);
+
+  const filteredTransactions = useMemo(() => {
+    if (selectedPeriodIndex === 'all') return userTransactions;
+    const idx = parseInt(selectedPeriodIndex);
+    if (!isNaN(idx) && debtPeriods[idx]) {
+      return debtPeriods[idx].transactions;
+    }
+    return userTransactions;
+  }, [selectedPeriodIndex, userTransactions, debtPeriods]);
+
+  const avgDuration = useMemo(() => {
+    if (debtPeriods.length === 0) return 0;
+    const totalDays = debtPeriods.reduce((acc, p) => acc + p.durationDays, 0);
+    return Math.round(totalDays / debtPeriods.length);
+  }, [debtPeriods]);
+
+  const collectability = useMemo(() => {
+    if (debtPeriods.length === 0) return { label: "-", color: "text-white" };
+    if (avgDuration <= 30) return { label: "Lancar", color: "text-green-300" };
+    if (avgDuration <= 90) return { label: "Diragukan", color: "text-yellow-300" };
+    return { label: "Macet", color: "text-red-300" };
+  }, [avgDuration, debtPeriods.length]);
 
   const formatCurrency = (val: number) => {
     return val.toLocaleString('id-ID');
   };
 
   return (
+    <>
     <ProtectedPage user={displayUser} title="Detail Hutang">
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="px-6 py-4"
+        className="px-6 py-4 pb-24"
       >
-        <div className="bg-gradient-to-br from-red-600 to-rose-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-          <div className="absolute -bottom-4 -right-4 opacity-10">
-            <CreditCard className="w-32 h-32" />
-          </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Total Hutang</p>
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
-                <CreditCard className="w-5 h-5 text-white" />
+        {/* Main Card / Chart */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'riwayat' ? (
+            <motion.div 
+              key="debt-card"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-gradient-to-br from-red-600 to-rose-700 rounded-[2.5rem] text-white shadow-2xl mb-8 relative overflow-hidden transition-all duration-500 hover:shadow-red-500/20"
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl opacity-50" />
+              <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-black/10 rounded-full blur-3xl opacity-30" />
+              
+              <div className="relative z-10 p-8">
+                <div className="flex justify-between items-start mb-10">
+                  <div className="space-y-1">
+                    <h3 className="text-2xl font-black tracking-tight drop-shadow-sm truncate max-w-[200px]">{displayUser?.Nama}</h3>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Total Hutang Saat Ini</p>
+                  </div>
+                  <div className="w-14 h-14 bg-white/10 backdrop-blur-xl rounded-[1.2rem] flex items-center justify-center border border-white/20 shadow-xl rotate-12 -mr-1 -mt-1 group-hover:rotate-0 transition-transform duration-500 shrink-0">
+                    <CreditCard className="w-7 h-7 text-white" />
+                  </div>
+                </div>
+                
+                <div className="mb-10">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-lg font-bold opacity-40">Rp</span>
+                    <h2 className="text-5xl font-black tracking-tighter tabular-nums leading-none drop-shadow-md">
+                      {displayUser?.Hutang || "0"}
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-white/10 flex items-center">
+                  <div className="flex-1 text-center">
+                    <p className="text-[7px] font-black uppercase tracking-widest text-white/50 mb-1">Rata-rata Pelunasan</p>
+                    <p className="text-sm font-black tracking-tight">{avgDuration} <span className="text-[10px] font-bold opacity-50 uppercase">Hari</span></p>
+                  </div>
+                  
+                  <div className="w-px h-8 bg-white/10 mx-2" />
+                  
+                  <div className="flex-1 text-center">
+                    <p className="text-[7px] font-black uppercase tracking-widest text-white/50 mb-1">Kolektabilitas</p>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <div className={`w-1.5 h-1.5 rounded-full ${collectability.label === 'Lancar' ? 'bg-green-400' : collectability.label === 'Diragukan' ? 'bg-yellow-400' : 'bg-red-400'} animate-pulse`} />
+                      <p className={`text-sm font-black tracking-tight uppercase ${collectability.color}`}>{collectability.label}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-bold opacity-80">Rp</span>
-              <h2 className="text-4xl font-black tracking-tight">{displayUser?.Hutang || "0"}</h2>
-            </div>
-          </div>
-        </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="debt-chart"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2.5rem] p-6 shadow-xl mb-8 border border-slate-100"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Tren Hutang</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Historis Kasbon Per Periode</p>
+                </div>
+                <div className="p-2 bg-red-50 rounded-xl">
+                  <BarChart3 className="w-5 h-5 text-red-600" />
+                </div>
+              </div>
+
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={[...debtPeriods].reverse().map(p => ({
+                    period: `P${p.id}`,
+                    total: p.totalBorrowed
+                  }))}>
+                    <defs>
+                      <linearGradient id="colorDebt" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#dc2626" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#dc2626" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis 
+                      dataKey="period" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 9, fontWeight: 900, fill: '#94a3b8' }}
+                      dy={10}
+                    />
+                    <YAxis 
+                      hide
+                    />
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-slate-900 text-white px-3 py-2 rounded-xl shadow-2xl border border-white/10">
+                              <p className="text-[8px] font-black uppercase tracking-widest text-white/50 mb-1">{payload[0].payload.period}</p>
+                              <p className="text-xs font-black">Rp {formatCurrency(payload[0].value as number)}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="total" 
+                      stroke="#dc2626" 
+                      strokeWidth={3}
+                      fillOpacity={1} 
+                      fill="url(#colorDebt)" 
+                      animationDuration={1500}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="mt-4 flex items-center justify-center gap-4">
+                 <div className="flex items-center gap-2">
+                   <div className="w-2 h-2 rounded-full bg-red-600" />
+                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Kasbon</span>
+                 </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between px-2">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Riwayat Hutang</h3>
-            <Badge className="bg-red-50 text-red-600 border-none text-[8px] font-black uppercase tracking-widest">
-              {userTransactions.length} Transaksi
-            </Badge>
+            <h3 className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-none">
+              {activeTab === 'riwayat' ? 'Riwayat Hutang' : 'Statistik Periode'}
+            </h3>
+            
+            {activeTab === 'riwayat' ? (
+              <div className="relative">
+                <select 
+                  value={selectedPeriodIndex}
+                  onChange={(e) => setSelectedPeriodIndex(e.target.value)}
+                  className="appearance-none bg-red-50/50 border border-red-100 rounded-lg pl-3 pr-8 py-1 text-[9px] font-black text-red-600 focus:outline-none focus:ring-1 focus:ring-red-500/20 uppercase tracking-widest"
+                >
+                  <option value="all">Semua Riwayat</option>
+                  {debtPeriods.map((p, i) => (
+                    <option key={i} value={String(i)}>
+                      Periode {p.id} ({p.status})
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                   <ChevronDown className="w-2.5 h-2.5 text-red-400" />
+                </div>
+              </div>
+            ) : (
+              <Badge className="bg-red-50 text-red-600 border-none text-[8px] font-black uppercase tracking-widest">
+                {debtPeriods.length} Periode
+              </Badge>
+            )}
           </div>
           
           <div className="space-y-3">
-            {userTransactions.length > 0 ? (
-              userTransactions.map((t, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
-                    }`}>
-                      {t.Tipe === 'TAMBAH' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownLeft className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <p className="text-xs font-black text-slate-900 uppercase tracking-tight mb-0.5">
-                        {t.Tipe === 'TAMBAH' ? 'KASBOS' : 'BAYAR'}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+            {activeTab === 'riwayat' ? (
+              filteredTransactions.length > 0 ? (
+                filteredTransactions.map((t, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all relative overflow-hidden"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                      }`}>
+                        {t.Tipe === 'TAMBAH' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownLeft className="w-5 h-5" />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="text-xs font-black text-slate-900 uppercase tracking-tight">
+                            {t.Tipe === 'TAMBAH' ? 'KASBON' : 'BAYAR'}
+                          </p>
+                          {t.Keterangan && t.Keterangan !== "-" && (
+                             <span className="bg-slate-100 text-slate-500 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-200/50 italic">
+                               {t.Keterangan}
+                             </span>
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{t.Tanggal}</p>
+                        </div>
                       </div>
                     </div>
+                    <div className="text-right shrink-0">
+                      <p className={`text-sm font-black ${
+                        t.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        {t.Tipe === 'TAMBAH' ? '+' : '-'}{formatCurrency(t.Jumlah)}
+                      </p>
+                    </div>
+
+                    {/* Final Balance Micro-Ribbon Refined */}
+                    <div className="absolute bottom-0 right-0 bg-slate-50/80 px-2.5 py-1 rounded-tl-2xl rounded-br-2xl border-t border-l border-slate-100 flex items-center justify-center min-w-[80px]">
+                       <span className="text-[6px] font-black text-slate-400 uppercase tracking-[0.1em] whitespace-nowrap">Sisa Rp {formatCurrency(t.SaldoAkhir)}</span>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100 border-dashed">
+                  <div className="flex flex-col items-center gap-3 opacity-20">
+                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                      <History className="w-8 h-8" />
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em]">Belum ada riwayat hutang</p>
                   </div>
-                  <div className="text-right">
-                    <p className={`text-sm font-black ${
-                      t.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {t.Tipe === 'TAMBAH' ? '+' : '-'}{formatCurrency(t.Jumlah)}
-                    </p>
-                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-0.5">
-                      {t.Keterangan}
-                    </p>
-                  </div>
-                </motion.div>
-              ))
-            ) : (
-              <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100 border-dashed">
-                <div className="flex flex-col items-center gap-3 opacity-20">
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
-                    <History className="w-8 h-8" />
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em]">Belum ada riwayat hutang</p>
                 </div>
-              </div>
+              )
+            ) : (
+              /* Statistics View (Periods) */
+              debtPeriods.length > 0 ? (
+                debtPeriods.map((period, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
+                  >
+                    <button 
+                      onClick={() => setExpandedPeriod(expandedPeriod === i ? null : i)}
+                      className="w-full p-5 text-left flex items-start gap-4 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                        period.status === 'Lunas' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                      }`}>
+                        {period.status === 'Lunas' ? <CheckCircle2 className="w-6 h-6" /> : <Timer className="w-6 h-6" />}
+                      </div>
+                      
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className={`text-[11px] font-black uppercase tracking-[0.2em] ${
+                            period.status === 'Lunas' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            Periode {period.id} ({period.status})
+                          </p>
+                          <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform ${expandedPeriod === i ? 'rotate-180' : ''}`} />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-0.5">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Kasbon</p>
+                            <p className="text-sm font-black text-slate-900">Rp {formatCurrency(period.totalBorrowed)}</p>
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Lama Kasbon</p>
+                            <p className="text-sm font-black text-slate-900">{period.durationDays} Hari</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-50">
+                           <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">
+                             {period.startDate} — {period.endDate}
+                           </p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <AnimatePresence>
+                      {expandedPeriod === i && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="px-5 pb-5 pt-2 border-t border-slate-50 space-y-2 bg-slate-50/30"
+                        >
+                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Detail Mutasi Periode Ini</p>
+                           {period.transactions.map((mt, j) => (
+                              <div key={j} className="flex items-center justify-between py-2 border-b border-white last:border-0">
+                                <div className="space-y-0.5">
+                                  <p className="text-[9px] font-black text-slate-700 uppercase">{mt.Tipe === 'TAMBAH' ? 'KASBON' : 'BAYAR'}</p>
+                                  <p className="text-[7px] font-bold text-slate-400">{mt.Tanggal}</p>
+                                </div>
+                                <p className={`text-[10px] font-black ${mt.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'}`}>
+                                  {mt.Tipe === 'TAMBAH' ? '+' : '-'}{formatCurrency(mt.Jumlah)}
+                                </p>
+                              </div>
+                           ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100 border-dashed">
+                  <p className="text-[10px] font-black opacity-20 uppercase tracking-[0.2em]">Belum ada periode tuntas</p>
+                </div>
+              )
             )}
           </div>
         </div>
       </motion.div>
     </ProtectedPage>
+
+    {/* Bottom Navbar for Debt Detail */}
+    {displayUser && (
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-8 py-2 z-50 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <button 
+          onClick={() => setActiveTab('riwayat')}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 ${
+            activeTab === 'riwayat' ? 'text-red-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <div className={`p-1.5 rounded-xl transition-all duration-300 ${activeTab === 'riwayat' ? 'bg-red-50' : 'bg-transparent'}`}>
+            <History className="w-5 h-5" />
+          </div>
+          <span className="text-[8px] font-black uppercase tracking-widest">Riwayat</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('statistik')}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 ${
+            activeTab === 'statistik' ? 'text-red-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <div className={`p-1.5 rounded-xl transition-all duration-300 ${activeTab === 'statistik' ? 'bg-red-50' : 'bg-transparent'}`}>
+            <BarChart3 className="w-5 h-5" />
+          </div>
+          <span className="text-[8px] font-black uppercase tracking-widest">Statistik</span>
+        </button>
+      </div>
+    )}
+    </>
   );
 };
 
@@ -2475,6 +2834,13 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
       return acc + estimate.total;
     }, 0);
 
+  const activeCount = userTransactions.filter(t => {
+    const s = t.Status.toLowerCase();
+    return s.includes("aktif") || s.includes("active");
+  }).length;
+
+  const completedCount = userTransactions.length - activeCount;
+
   return (
     <ProtectedPage user={displayUser} title="Investasi">
       <motion.div 
@@ -2506,6 +2872,21 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                     {formatCurrency(totalInvestasi)}
                   </h2>
                 </div>
+              </div>
+            </div>
+
+            {/* Stats Summary Section */}
+            <div className="mt-10 pt-6 border-t border-white/10 flex items-center">
+              <div className="flex-1 text-center">
+                <p className="text-[7px] font-black uppercase tracking-widest text-white/50 mb-1">Investasi Aktif</p>
+                <p className="text-sm font-black tracking-tight">{activeCount} <span className="text-[10px] font-bold opacity-50 uppercase">Item</span></p>
+              </div>
+              
+              <div className="w-px h-8 bg-white/10 mx-2" />
+              
+              <div className="flex-1 text-center">
+                <p className="text-[7px] font-black uppercase tracking-widest text-white/50 mb-1">Investasi Selesai</p>
+                <p className="text-sm font-black tracking-tight">{completedCount} <span className="text-[10px] font-bold opacity-50 uppercase">Item</span></p>
               </div>
             </div>
           </div>
