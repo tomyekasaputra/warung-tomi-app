@@ -359,7 +359,7 @@ const MAIN_SERVICES = [
   { id: 14, name: "Multi Finance", icon: <DollarSign className="w-6 h-6 text-emerald-600" />, bgColor: "bg-[#ECFDF5]" },
   { id: 15, name: "Tabungan", icon: <PiggyBank className="w-6 h-6 text-[#005E6A]" />, bgColor: "bg-[#E6F4F5]" },
   { id: 16, name: "Investasi", icon: <TrendingUp className="w-6 h-6 text-[#F15A24]" />, bgColor: "bg-[#FFF7ED]" },
-  { id: 17, name: "Poin Loyalitas", icon: <Star className="w-6 h-6 text-purple-600" />, bgColor: "bg-[#F3E8FF]" },
+  { id: 17, name: "Poin Loyalitas", icon: <Star className="w-6 h-6 text-amber-500" />, bgColor: "bg-amber-50" },
   { id: 2, name: "QRIS", icon: <QrCode className="w-6 h-6 text-purple-600" />, bgColor: "bg-[#F3E8FF]" },
 ];
 
@@ -1576,7 +1576,7 @@ const LoyaltyPointsPage = ({ user, transactions, redeemedPoints }: { user: Custo
         <div className="bg-[#005E6A] rounded-[2rem] p-8 text-white shadow-lg mb-4 relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
           <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-4">
-            <Star className="w-6 h-6 text-white fill-white" />
+            <Star className="w-6 h-6 text-amber-400 fill-amber-400" />
           </div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Total Poin Aktif</p>
           <h2 className="text-4xl font-black tracking-tighter">{activePoints} <span className="text-sm font-bold uppercase tracking-widest opacity-60">Poin</span></h2>
@@ -1586,7 +1586,7 @@ const LoyaltyPointsPage = ({ user, transactions, redeemedPoints }: { user: Custo
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-white p-5 rounded-lg border border-slate-100 shadow-sm">
             <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-3">
-              <Star className="w-4 h-4 text-[#F15A24]" />
+              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
             </div>
             <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Ditukar</p>
             <p className="text-sm font-black text-[#F15A24]">{totalRedeemed} Poin</p>
@@ -1610,7 +1610,7 @@ const LoyaltyPointsPage = ({ user, transactions, redeemedPoints }: { user: Custo
           >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                <Star className="w-6 h-6 text-white" />
+                <Star className="w-6 h-6 text-white fill-amber-400" />
               </div>
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest mb-0.5">Poin Anda Cukup!</p>
@@ -1655,7 +1655,7 @@ const LoyaltyPointsPage = ({ user, transactions, redeemedPoints }: { user: Custo
                   <div key={i} className="bg-white p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm relative overflow-hidden">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center">
-                        <Star className="w-5 h-5 text-[#005E6A] fill-[#005E6A]" />
+                        <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
                       </div>
                       <div>
                         <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">Dari transaksi {item.keterangan}</p>
@@ -1682,7 +1682,7 @@ const LoyaltyPointsPage = ({ user, transactions, redeemedPoints }: { user: Custo
                 <div key={i} className="bg-white p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center">
-                      <Star className="w-5 h-5 text-[#F15A24]" />
+                      <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
                     </div>
                     <div>
                       <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{item.Hadiah}</p>
@@ -1759,7 +1759,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Custo
             <p className="text-2xl font-black text-[#005E6A] tracking-tight">{activePoints} Poin</p>
           </div>
           <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center">
-            <Star className="w-6 h-6 text-[#005E6A] fill-[#005E6A]" />
+            <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
           </div>
         </div>
 
@@ -1787,7 +1787,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Custo
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] font-black text-black uppercase tracking-tight mb-1 truncate">{reward.name}</p>
                   <div className="flex items-center gap-1.5">
-                    <Star className="w-3 h-3 text-[#F15A24] fill-[#F15A24]" />
+                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
                     <p className="text-[10px] font-black text-[#F15A24]">{reward.points.toLocaleString('id-ID')} Poin</p>
                   </div>
                   
@@ -3668,7 +3668,7 @@ const AdminDashboard = ({ transactions, user, customers }: { transactions: Sales
             onClick={() => navigate("/level")}
             className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors"
           >
-            <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
               <Star className="w-5 h-5" />
             </div>
             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Hadiah</p>
@@ -5308,8 +5308,8 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
             onClick={() => navigate("/poin")}
             className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-teal-100 transition-colors cursor-pointer active:scale-95"
           >
-            <div className="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center mb-1">
-              <Star className="w-4 h-4 text-[#005E6A] fill-[#005E6A]" />
+            <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-1">
+              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
             </div>
             <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poin Loyalitas</p>
             <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{activePoints} Poin</p>
