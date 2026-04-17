@@ -449,6 +449,46 @@ const calculateActivePoints = (customerName: string, salesTransactions: SalesTra
   return Math.max(0, totalEarned - totalExpired - userRedeemed);
 };
 
+const calculateUserCollectability = (userTransactions: DebtTransaction[]) => {
+  const chronological = [...userTransactions].sort((a, b) => parseDate(a.Tanggal).getTime() - parseDate(b.Tanggal).getTime());
+  const periods: { durationDays: number }[] = [];
+  let currentGroup: DebtTransaction[] = [];
+  let isPeriodActive = false;
+  
+  chronological.forEach(t => {
+    if (!isPeriodActive && t.SaldoAkhir > 0) isPeriodActive = true;
+    if (isPeriodActive) currentGroup.push(t);
+    if (isPeriodActive && t.SaldoAkhir === 0) {
+      const start = parseDate(currentGroup[0].Tanggal);
+      const end = parseDate(t.Tanggal);
+      const diffDays = Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) || 1;
+      periods.push({ durationDays: diffDays });
+      currentGroup = [];
+      isPeriodActive = false;
+    }
+  });
+  
+  if (currentGroup.length > 0) {
+    const start = parseDate(currentGroup[0].Tanggal);
+    const diffDays = Math.ceil(Math.abs(new Date().getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) || 1;
+    periods.push({ durationDays: diffDays });
+  }
+  
+  const avgDuration = periods.length > 0 ? Math.round(periods.reduce((acc, p) => acc + p.durationDays, 0) / periods.length) : 0;
+  
+  if (periods.length === 0) {
+    return { label: "-", color: "text-white", avgDuration: 0, badgeColor: "bg-slate-50 text-slate-400", sortOrder: 3 };
+  }
+  
+  if (avgDuration <= 30) {
+    return { label: "Lancar", color: "text-green-300", avgDuration, badgeColor: "bg-teal-50 text-teal-600", sortOrder: 0 };
+  }
+  if (avgDuration <= 90) {
+    return { label: "Diragukan", color: "text-yellow-300", avgDuration, badgeColor: "bg-yellow-50 text-yellow-600", sortOrder: 1 };
+  }
+  return { label: "Macet", color: "text-red-300", avgDuration, badgeColor: "bg-red-50 text-red-600", sortOrder: 2 };
+};
+
 const calculateCustomerLevel = (transactions: SalesTransaction[], userName: string) => {
   if (!userName) return { ...LEVELS[0], total: 0 };
   
@@ -1166,6 +1206,7 @@ const ProtectedPage = ({
 
   const handleAdminSubmit = () => {
     if (adminCode === ADMIN_ACCESS_CODE) {
+      localStorage.setItem("admin_session", "true");
       setIsAdminPopupOpen(false);
       setAdminCode("");
       navigate("/admin");
@@ -1315,7 +1356,13 @@ const ProtectedPage = ({
           {/* Admin Access Link */}
           <div className="pt-8 flex justify-center">
             <button 
-              onClick={() => setIsAdminPopupOpen(true)}
+              onClick={() => {
+                if (localStorage.getItem("admin_session") === "true") {
+                  navigate("/admin");
+                } else {
+                  setIsAdminPopupOpen(true);
+                }
+              }}
               className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em] hover:text-slate-400 transition-colors"
             >
               Masuk Akses Admin
@@ -1854,7 +1901,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
               gradient: "from-green-500 to-emerald-600",
               icon: Wallet,
               clickable: true, 
-              path: "/detail-tabungan" 
+              path: "/tabungan" 
             },
             { 
               name: "Investasi", 
@@ -1862,7 +1909,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
               gradient: "from-indigo-500 to-violet-600",
               icon: TrendingUp,
               clickable: true, 
-              path: "/detail-investasi" 
+              path: "/investasi" 
             },
             { 
               name: "Lainnya", 
@@ -1870,7 +1917,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
               gradient: "from-teal-500 to-cyan-600",
               icon: Layers,
               clickable: true, 
-              path: "/detail-lainnya" 
+              path: "/lainnya" 
             },
             { 
               name: "Hutang", 
@@ -1878,7 +1925,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
               gradient: "from-rose-500 to-red-600",
               icon: CreditCard,
               clickable: true, 
-              path: "/detail-hutang" 
+              path: "/hutang" 
             },
           ].map((item, i) => (
             <div 
@@ -2447,11 +2494,8 @@ const DebtDetailPage = ({ user, transactions, customers }: { user: Customer | nu
   }, [debtPeriods]);
 
   const collectability = useMemo(() => {
-    if (debtPeriods.length === 0) return { label: "-", color: "text-white" };
-    if (avgDuration <= 30) return { label: "Lancar", color: "text-green-300" };
-    if (avgDuration <= 90) return { label: "Diragukan", color: "text-yellow-300" };
-    return { label: "Macet", color: "text-red-300" };
-  }, [avgDuration, debtPeriods.length]);
+    return calculateUserCollectability(userTransactions);
+  }, [userTransactions]);
 
   const formatCurrency = (val: number) => {
     return val.toLocaleString('id-ID');
@@ -2879,14 +2923,14 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
             <div className="mt-10 pt-6 border-t border-white/10 flex items-center">
               <div className="flex-1 text-center">
                 <p className="text-[7px] font-black uppercase tracking-widest text-white/50 mb-1">Investasi Aktif</p>
-                <p className="text-sm font-black tracking-tight">{activeCount} <span className="text-[10px] font-bold opacity-50 uppercase">Item</span></p>
+                <p className="text-sm font-black tracking-tight">{activeCount} <span className="text-[10px] font-bold opacity-50 uppercase">Kontrak</span></p>
               </div>
               
               <div className="w-px h-8 bg-white/10 mx-2" />
               
               <div className="flex-1 text-center">
                 <p className="text-[7px] font-black uppercase tracking-widest text-white/50 mb-1">Investasi Selesai</p>
-                <p className="text-sm font-black tracking-tight">{completedCount} <span className="text-[10px] font-bold opacity-50 uppercase">Item</span></p>
+                <p className="text-sm font-black tracking-tight">{completedCount} <span className="text-[10px] font-bold opacity-50 uppercase">Kontrak</span></p>
               </div>
             </div>
           </div>
@@ -3050,7 +3094,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                                         e.stopPropagation();
                                         const targetDate = parseDate(t.JatuhTempo);
                                         const monthVal = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
-                                        navigate(`/detail-tabungan?month=${monthVal}`);
+                                        navigate(`/tabungan?month=${monthVal}`);
                                       }}
                                       className="w-full bg-[#6D28D9] text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-[#5b21b6] transition-all flex items-center justify-center mt-4 active:scale-[0.98]"
                                     >
@@ -3098,6 +3142,8 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
   const navigate = useNavigate();
   const { customerName } = useParams();
   
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
   const decodedName = customerName ? decodeURIComponent(customerName) : "";
   const isGeneral = decodedName.toLowerCase() === "pelanggan umum";
   
@@ -3156,86 +3202,113 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="px-6 py-4"
       >
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-slate-500 mb-6 group"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
-        </button>
-
-        <div className="bg-gradient-to-br from-teal-600 to-emerald-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-          <div className="absolute -bottom-4 -right-4 opacity-10">
-            <Layers className="w-32 h-32" />
+        <div className="bg-[#005E6A] rounded-[2.5rem] p-8 text-white shadow-xl mb-8 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-24 -mt-24 blur-3xl group-hover:scale-110 transition-transform duration-700" />
+          <div className="absolute -bottom-10 -left-10 opacity-10 rotate-12">
+            <Layers className="w-48 h-48" />
           </div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Total Lainnya Belum Diambil</p>
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
-                <Layers className="w-5 h-5 text-white" />
-              </div>
+          
+          <div className="relative z-10 flex flex-col h-full">
+            <div className="mb-8">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-1">Pelanggan</p>
+              <h3 className="text-xl font-black tracking-tight uppercase">{displayUser?.Nama}</h3>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-bold opacity-80">Rp</span>
-              <h2 className="text-4xl font-black tracking-tight">{formatCurrency(totalBelumDiambil)}</h2>
+            
+            <div className="mt-auto">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#F15A24] mb-2">Total Lainnya</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-lg font-bold opacity-40">Rp</span>
+                <h2 className="text-5xl font-black tracking-tighter tabular-nums leading-none">
+                  {formatCurrency(totalBelumDiambil)}
+                </h2>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-50">
-            <h3 className="text-sm font-black text-teal-600 uppercase tracking-widest">Daftar Belum Diambil</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-[10px] font-black text-teal-600 uppercase tracking-widest leading-none">Daftar Belum Diambil</h3>
+            <Badge className="bg-teal-50 text-teal-600 border-none text-[8px] font-black uppercase tracking-widest">
+              {userTransactions.length} Transaksi
+            </Badge>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Waktu</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Keterangan</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Potongan</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Terima Bersih</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {userTransactions.length > 0 ? (
-                  userTransactions.map((t, i) => (
-                    <tr key={i} className="hover:bg-slate-50/30 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <p className="text-xs font-bold text-slate-600">{getWaktuLabel(t.Tanggal)}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <p className="text-xs font-bold text-[#005E6A]">{t.Jenis}</p>
-                        <p className="text-[9px] text-slate-400 uppercase tracking-tighter">Melalui {t.Melalui}</p>
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(t.Pemasukan)}</p>
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <p className="text-[10px] font-bold text-red-500">Admin: {formatCurrency(t.Pemasukan - t.HargaModal)}</p>
-                        {t.Sebagian > 0 && (
-                          <p className="text-[8px] font-medium text-orange-500 mt-0.5">Sudah Diambil {formatCurrency(t.Sebagian)}</p>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        <p className="text-xs font-black text-green-600">Rp {formatCurrency(t.HargaModal - t.Sebagian)}</p>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center gap-2 opacity-20">
-                        <History className="w-8 h-8" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Semua data sudah diambil</p>
+          <div className="space-y-3 pb-24">
+            {userTransactions.length > 0 ? (
+              userTransactions.map((t, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  onClick={() => setExpandedId(expandedId === i ? null : i)}
+                  className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
+                >
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-center">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-black text-[#005E6A] uppercase tracking-tight">{t.Jenis}</p>
+                          <span className="bg-slate-100 text-slate-500 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-200/50">
+                            {t.Melalui}
+                          </span>
+                        </div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{getWaktuLabel(t.Tanggal)} • {t.Tanggal}</p>
                       </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-[7px] font-black text-teal-600 uppercase tracking-widest mb-0.5">Sisa Bersih</p>
+                          <p className="text-md font-black text-teal-600 leading-none">Rp {formatCurrency(t.HargaModal - t.Sebagian)}</p>
+                        </div>
+                        <div className="opacity-20 group-hover:opacity-40 transition-opacity">
+                          {expandedId === i ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </div>
+                      </div>
+                    </div>
+
+                    <AnimatePresence>
+                      {expandedId === i && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                          animate={{ height: "auto", opacity: 1, marginTop: 16 }}
+                          exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="flex items-stretch gap-6 pt-4 border-t border-slate-50">
+                            <div className="flex-1">
+                              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nominal Transaksi</p>
+                              <p className="text-xs font-black text-slate-700">Rp {formatCurrency(t.Pemasukan)}</p>
+                            </div>
+                            
+                            <div className="w-px bg-slate-100 self-stretch" />
+                            
+                            <div className="flex-1">
+                              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Biaya & Potongan</p>
+                              <div className="space-y-1">
+                                <p className="text-[9px] font-bold text-red-500">Admin: Rp {formatCurrency(t.Pemasukan - t.HargaModal)}</p>
+                                {t.Sebagian > 0 && (
+                                  <p className="text-[9px] font-bold text-orange-500">Diambil: Rp {formatCurrency(t.Sebagian)}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              <div className="bg-white rounded-[2.5rem] p-12 text-center border border-slate-100 border-dashed">
+                <div className="flex flex-col items-center gap-3 opacity-20">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                    <History className="w-8 h-8" />
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest">Semua data sudah diambil</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </motion.div>
@@ -3246,6 +3319,13 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
 const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const navigate = useNavigate();
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+  }, [navigate]);
 
   // Convert ISO date (YYYY-MM-DD) to DD/MM/YYYY for matching
   const formattedFilterDate = filterDate.split('-').reverse().join('/');
@@ -3351,7 +3431,14 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
 const AdminDashboard = ({ transactions, user, customers }: { transactions: SalesTransaction[], user: Customer | null, customers: Customer[] }) => {
   const navigate = useNavigate();
   const [timeFilter, setTimeFilter] = useState("Bulan ini");
-  
+
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+  }, [navigate]);
+
   const totalTabungan = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
   const totalInvestasi = customers.reduce((acc, c) => acc + parseCurrency(c.Investasi), 0);
   const totalHutang = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
@@ -3370,10 +3457,10 @@ const AdminDashboard = ({ transactions, user, customers }: { transactions: Sales
   const totalLainnya = totalLainnyaFromCustomers + totalLainnyaFromGeneral;
 
   const assetData = [
-    { name: 'Tabungan', value: totalTabungan, color: '#10b981', path: '/admin/savings' },
-    { name: 'Investasi', value: totalInvestasi, color: '#8b5cf6', path: '/admin/investment' },
-    { name: 'Hutang', value: totalHutang, color: '#ef4444', path: '/admin/debt' },
-    { name: 'Lainnya', value: totalLainnya, color: '#14b8a6', path: '/admin/others' }
+    { name: 'Tabungan', value: totalTabungan, color: '#00FF00', path: '/admin/savings' },
+    { name: 'Investasi', value: totalInvestasi, color: '#7000FF', path: '/admin/investment' },
+    { name: 'Hutang', value: totalHutang, color: '#FF005C', path: '/admin/debt' },
+    { name: 'Lainnya', value: totalLainnya, color: '#0075FF', path: '/admin/others' }
   ].filter(d => d.value > 0);
 
   const totalAssets = totalTabungan + totalInvestasi + totalLainnya - totalHutang;
@@ -3416,6 +3503,11 @@ const AdminDashboard = ({ transactions, user, customers }: { transactions: Sales
     total: salesByDate[date]
   })).sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
 
+  const handleAdminLogout = () => {
+    localStorage.removeItem("admin_session");
+    navigate("/");
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -3428,13 +3520,22 @@ const AdminDashboard = ({ transactions, user, customers }: { transactions: Sales
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
         
         <div className="relative z-10">
-          <button 
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2 text-white/70 mb-6 group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Beranda</span>
-          </button>
+          <div className="flex justify-between items-center mb-6">
+            <button 
+              onClick={() => navigate("/")}
+              className="flex items-center gap-2 text-white/70 group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-xs font-bold uppercase tracking-widest">Beranda</span>
+            </button>
+            <button 
+              onClick={handleAdminLogout}
+              className="flex items-center gap-2 bg-red-500/20 hover:bg-red-500/40 px-4 py-2 rounded-xl border border-red-500/20 transition-colors"
+            >
+              <LogOut className="w-4 h-4 text-red-100" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-red-100">Keluar Admin</span>
+            </button>
+          </div>
           
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
@@ -3653,16 +3754,22 @@ const AdminManagementPage = ({
   items, 
   icon: Icon,
   colorClass,
-  onItemClick
+  onItemClick,
+  stats,
+  showLegend = true,
+  showBadges = true
 }: { 
   title: string, 
   subtitle: string, 
   totalLabel: string, 
   totalValue: number, 
-  items: { name: string, value: number, subtext?: string }[],
+  items: { name: string, value: number, subtext?: string, badge?: { label: string, colorClass: string, iconColorClass?: string, customIconColor?: string } }[],
   icon: any,
   colorClass: string,
-  onItemClick?: (name: string) => void
+  onItemClick?: (name: string) => void,
+  stats?: { label: string, value: number, count: number, color: string }[],
+  showLegend?: boolean,
+  showBadges?: boolean
 }) => {
   const navigate = useNavigate();
   return (
@@ -3680,19 +3787,88 @@ const AdminManagementPage = ({
             <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Dashboard</span>
           </button>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center flex-shrink-0">
               <Icon className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-2xl font-black tracking-tight uppercase">{title}</h1>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight uppercase leading-tight">{title}</h1>
           </div>
           <p className="text-xs font-medium text-white/60 uppercase tracking-widest">{subtitle}</p>
         </div>
       </div>
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
-        <div className="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-100 flex flex-col items-center justify-center text-center">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{totalLabel}</p>
-          <h3 className={`text-2xl font-black ${colorClass}`}>Rp {totalValue.toLocaleString('id-ID')}</h3>
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100">
+          {stats ? (
+            <div className="space-y-4">
+              <div className="flex justify-between items-start px-2 mt-2">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{totalLabel}</p>
+                  <h3 className="text-sm font-black text-[#005E6A]">Rp {totalValue.toLocaleString('id-ID')}</h3>
+                </div>
+                <div className="text-right space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Orang</p>
+                  <h3 className="text-sm font-black text-[#F15A24]">{items.length} Orang</h3>
+                </div>
+              </div>
+
+              <div className="h-48 w-full relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={stats}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {stats.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50">
+                              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">{data.label}</p>
+                              <p className="text-xs font-black text-[#005E6A]">Rp {data.value.toLocaleString('id-ID')}</p>
+                              <p className="text-[7px] font-bold text-slate-500">{data.count} Orang</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {showLegend && (
+                <div className="flex flex-col gap-3 border-t border-slate-50 pt-5 pr-4">
+                  {stats.map((s, idx) => (
+                    <div key={idx} className="flex items-center justify-between group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{s.label}</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <p className="text-[10px] font-black text-[#005E6A]"><span className="text-[7px] text-slate-400 font-bold mr-1">{s.count}</span> {s.count > 0 ? (s.label.includes("Pelanggan") || s.label.includes("Orang") ? "" : "Orang") : "Orang"}</p>
+                        <p className="text-[10px] font-black text-[#005E6A] min-w-[80px] text-right">Rp {s.value.toLocaleString('id-ID')}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center p-4">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{totalLabel}</p>
+              <h3 className={`text-2xl font-black ${colorClass}`}>Rp {totalValue.toLocaleString('id-ID')}</h3>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -3705,18 +3881,33 @@ const AdminManagementPage = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
                 onClick={() => onItemClick && onItemClick(item.name)}
-                className={`bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
+                className={`bg-white px-4 py-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center relative overflow-hidden ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-50 text-slate-400">
+                  <div 
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.badge?.iconColorClass ? item.badge.iconColorClass : 'bg-slate-50 text-slate-400 opacity-20'}`}
+                    style={item.badge?.customIconColor ? { backgroundColor: `${item.badge.customIconColor}15`, color: item.badge.customIconColor } : {}}
+                  >
                     <User className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-black text-[#005E6A] uppercase">{item.name}</p>
-                    {item.subtext && <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{item.subtext}</p>}
+                    <p className="text-[11px] font-black text-[#005E6A] uppercase leading-none">{item.name}</p>
+                    {item.subtext && <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1 leading-none">{item.subtext}</p>}
                   </div>
                 </div>
-                <p className={`text-[13px] font-black ${colorClass}`}>Rp {item.value.toLocaleString('id-ID')}</p>
+                
+                <p className={`text-[13px] font-black ${colorClass} leading-none`}>Rp {item.value.toLocaleString('id-ID')}</p>
+                
+                {item.badge && showBadges && (
+                  <div 
+                    className={`absolute bottom-0 right-0 ${item.badge.colorClass.includes('bg-[') ? '' : item.badge.colorClass.replace(/text-[\w-]+/, 'text-white')} w-[120px] py-1 rounded-tl-xl shadow-sm text-center px-2`}
+                    style={item.badge.colorClass.includes('bg-[') ? { backgroundColor: item.badge.customIconColor } : {}}
+                  >
+                    <p className="text-[5.5px] font-black uppercase tracking-wider text-white">
+                      {item.badge.label}
+                    </p>
+                  </div>
+                )}
               </motion.div>
             ))}
             {items.length === 0 && (
@@ -3733,45 +3924,120 @@ const AdminManagementPage = ({
 
 const AdminSavingsManagement = ({ customers }: { customers: Customer[] }) => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+  }, [navigate]);
+
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
+  
+  const CHART_COLORS = [
+    "#FF00ED", "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", 
+    "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
+  ];
+
   const items = customers
     .filter(c => parseCurrency(c.Tabungan) > 0)
-    .map(c => ({ name: c.Nama, value: parseCurrency(c.Tabungan) }))
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => parseCurrency(b.Tabungan) - parseCurrency(a.Tabungan))
+    .map((c, idx) => {
+      const val = parseCurrency(c.Tabungan);
+      const color = CHART_COLORS[idx % CHART_COLORS.length];
+
+      return { 
+        name: c.Nama, 
+        value: val,
+        color, // Added for chart calculation
+        badge: {
+          label: `Simpanan: Rp ${val.toLocaleString('id-ID')}`,
+          colorClass: `bg-slate-100 text-slate-600`,
+          iconColorClass: `bg-opacity-10`,
+          customIconColor: color
+        }
+      };
+    });
+
+  const stats = items.map(item => ({
+    label: item.name,
+    value: item.value,
+    count: 1,
+    color: item.color
+  }));
 
   const handleItemClick = (name: string) => {
-    navigate(`/admin/detail-tabungan/${encodeURIComponent(name)}`);
+    navigate(`/tabungan/${encodeURIComponent(name)}`);
   };
 
   return (
     <AdminManagementPage 
-      title="Management Tabungan"
+      title="Manajemen Tabungan"
       subtitle="Total Tabungan Seluruh Pelanggan"
       totalLabel="Total Tabungan"
       totalValue={total}
       items={items}
       icon={Wallet}
-      colorClass="text-[#005E6A]"
+      colorClass="text-[#F15A24]"
       onItemClick={handleItemClick}
+      stats={stats}
+      showLegend={false}
+      showBadges={false}
     />
   );
 };
 
 const AdminInvestmentManagement = ({ customers }: { customers: Customer[] }) => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+  }, [navigate]);
+
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Investasi), 0);
+  
+  const CHART_COLORS = [
+    "#FF00ED", "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", 
+    "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
+  ];
+
   const items = customers
     .filter(c => parseCurrency(c.Investasi) > 0)
-    .map(c => ({ name: c.Nama, value: parseCurrency(c.Investasi) }))
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => parseCurrency(b.Investasi) - parseCurrency(a.Investasi))
+    .map((c, idx) => {
+      const val = parseCurrency(c.Investasi);
+      const color = CHART_COLORS[idx % CHART_COLORS.length];
+
+      return { 
+        name: c.Nama, 
+        value: val,
+        color,
+        badge: {
+          label: `Investasi: Rp ${val.toLocaleString('id-ID')}`,
+          colorClass: `bg-slate-100 text-slate-600`,
+          iconColorClass: `bg-opacity-10`,
+          customIconColor: color
+        }
+      };
+    });
+
+  const stats = items.map(item => ({
+    label: item.name,
+    value: item.value,
+    count: 1,
+    color: item.color || "#ccc"
+  }));
 
   const handleItemClick = (name: string) => {
-    navigate(`/admin/detail-investasi/${encodeURIComponent(name)}`);
+    navigate(`/investasi/${encodeURIComponent(name)}`);
   };
 
   return (
     <AdminManagementPage 
-      title="Management Investasi"
+      title="Manajemen Investasi"
       subtitle="Total Investasi Seluruh Pelanggan"
       totalLabel="Total Investasi"
       totalValue={total}
@@ -3779,12 +4045,23 @@ const AdminInvestmentManagement = ({ customers }: { customers: Customer[] }) => 
       icon={TrendingUp}
       colorClass="text-[#F15A24]"
       onItemClick={handleItemClick}
+      stats={stats}
+      showLegend={false}
+      showBadges={false}
     />
   );
 };
 
 const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { customers: Customer[], transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+  }, [navigate]);
+
   const now = new Date();
   const startDate = new Date(2025, 10, 1); // 1 November 2025
 
@@ -3852,10 +4129,10 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
             <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Dashboard</span>
           </button>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center flex-shrink-0">
               <Users className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-2xl font-black tracking-tight uppercase">Management Pelanggan</h1>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight uppercase leading-tight">Manajemen Pelanggan</h1>
           </div>
           <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Daftar Poin dan Level Pelanggan</p>
         </div>
@@ -3927,44 +4204,97 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
 
 const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[], transactions: DebtTransaction[] }) => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+  }, [navigate]);
+
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
+  const CHART_COLORS = ["#22c55e", "#eab308", "#ef4444"]; // Updated to leaf green
+  const stats = [
+    { label: "Lancar", value: 0, count: 0, color: "#22c55e" }, // Leaf Green
+    { label: "Diragukan", value: 0, count: 0, color: "#FFE600" }, // Neon Yellow
+    { label: "Macet", value: 0, count: 0, color: "#FF005C" } // Neon Pink/Red
+  ];
+
   const items = customers
     .filter(c => parseCurrency(c.Hutang) > 0)
     .map(c => {
       const userTransactions = transactions.filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase());
+      const collectResult = calculateUserCollectability(userTransactions);
+      
+      const debtVal = parseCurrency(c.Hutang);
+      
+      // Update stats
+      if (collectResult.label === "Lancar") {
+        stats[0].value += debtVal;
+        stats[0].count += 1;
+      } else if (collectResult.label === "Diragukan") {
+        stats[1].value += debtVal;
+        stats[1].count += 1;
+      } else if (collectResult.label === "Macet") {
+        stats[2].value += debtVal;
+        stats[2].count += 1;
+      }
+
       const latestDateStr = userTransactions.length > 0 
         ? userTransactions.sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())[0].Tanggal
         : "-";
       
+      const tierColor = collectResult.label === "Lancar" ? "#22c55e" : collectResult.label === "Diragukan" ? "#FFE600" : "#FF005C";
+      
       return { 
         name: c.Nama, 
-        value: parseCurrency(c.Hutang),
+        value: debtVal,
         date: parseDate(latestDateStr),
-        subtext: latestDateStr !== "-" ? getRelativeTime(latestDateStr) : ""
+        subtext: latestDateStr !== "-" ? getRelativeTime(latestDateStr) : "",
+        badge: { 
+          label: `Kolektabilitas ${collectResult.label}`, 
+          colorClass: `bg-[${tierColor}] text-white`,
+          iconColorClass: `bg-opacity-10`,
+          customIconColor: tierColor
+        },
+        sortOrder: collectResult.sortOrder
       };
     })
-    .sort((a, b) => b.date.getTime() - a.date.getTime());
+    .sort((a, b) => {
+      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+      return b.date.getTime() - a.date.getTime();
+    });
 
   const handleItemClick = (name: string) => {
-    navigate(`/admin/detail-hutang/${encodeURIComponent(name)}`);
+    navigate(`/hutang/${encodeURIComponent(name)}`);
   };
 
   return (
     <AdminManagementPage 
-      title="Management Hutang"
+      title="Manajemen Hutang"
       subtitle="Total Hutang Seluruh Pelanggan"
       totalLabel="Total Hutang"
       totalValue={total}
       items={items}
       icon={Receipt}
-      colorClass="text-red-600"
+      colorClass="text-[#F15A24]"
       onItemClick={handleItemClick}
+      stats={stats.filter(s => s.count > 0)}
+      showBadges={true}
     />
   );
 };
 
 const AdminOthersManagement = ({ transactions, customers }: { transactions: SalesTransaction[], customers: Customer[] }) => {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+  }, [navigate]);
+
   const othersFromCustomers = customers
     .filter(c => parseCurrency(c.Lainnya) > 0)
     .map(c => {
@@ -4000,23 +4330,53 @@ const AdminOthersManagement = ({ transactions, customers }: { transactions: Sale
       subtext: `${t.Jenis} • ${getRelativeTime(t.Tanggal)}`
     }));
 
-  const items = [...othersFromCustomers, ...generalOthers].sort((a, b) => b.date.getTime() - a.date.getTime());
-  const total = items.reduce((acc, item) => acc + item.value, 0);
+  const itemsList = [...othersFromCustomers, ...generalOthers].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const total = itemsList.reduce((acc, item) => acc + item.value, 0);
+
+  const CHART_COLORS = [
+    "#FF00ED", "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", 
+    "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
+  ];
+
+  const items = itemsList.map((item, idx) => {
+    const color = CHART_COLORS[idx % CHART_COLORS.length];
+    
+    return {
+      ...item,
+      color,
+      badge: {
+        label: `Nominal: Rp ${item.value.toLocaleString('id-ID')}`,
+        colorClass: `bg-slate-100 text-slate-600`,
+        iconColorClass: `bg-opacity-10`,
+        customIconColor: color
+      }
+    };
+  });
+
+  const chartStats = items.map(item => ({
+    label: item.name,
+    value: item.value,
+    count: 1,
+    color: item.color || "#ccc"
+  }));
 
   const handleItemClick = (name: string) => {
-    navigate(`/admin/detail-lainnya/${encodeURIComponent(name)}`);
+    navigate(`/lainnya/${encodeURIComponent(name)}`);
   };
 
   return (
     <AdminManagementPage 
-      title="Management Lainnya"
+      title="Manajemen Lainnya"
       subtitle="Transaksi Status Belum Diambil"
       totalLabel="Total Lainnya"
       totalValue={total}
       items={items}
       icon={ShoppingBag}
-      colorClass="text-blue-600"
+      colorClass="text-[#F15A24]"
       onItemClick={handleItemClick}
+      stats={chartStats}
+      showLegend={false}
+      showBadges={false}
     />
   );
 };
@@ -4997,7 +5357,7 @@ const HomePage = ({
   onLogin: (user: Customer) => void,
   redeemedPoints: RedeemedPoint[]
 }) => {
-  const { customerName, subPage } = useParams();
+  const { subPage, customerName } = useParams();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -5007,13 +5367,13 @@ const HomePage = ({
         onLogin(user);
         
         if (subPage === 'tabungan') {
-          navigate('/detail-tabungan', { replace: true });
+          navigate('/tabungan', { replace: true });
         } else if (subPage === 'hutang') {
-          navigate('/detail-hutang', { replace: true });
+          navigate('/hutang', { replace: true });
         } else if (subPage === 'lainnya') {
-          navigate('/detail-lainnya', { replace: true });
+          navigate('/lainnya', { replace: true });
         } else if (subPage === 'investasi') {
-          navigate('/detail-investasi', { replace: true });
+          navigate('/investasi', { replace: true });
         } else {
           setActiveTab("aset");
         }
@@ -5572,7 +5932,7 @@ export default function App() {
             />
           </Layout>
         } />
-        <Route path="/:customerName/:subPage" element={
+        <Route path="/:subPage/:customerName" element={
           <Layout 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
@@ -5590,28 +5950,28 @@ export default function App() {
             />
           </Layout>
         } />
-        <Route path="/detail-tabungan" element={
+        <Route path="/tabungan" element={
           <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} />
         } />
-        <Route path="/admin/detail-tabungan/:customerName" element={
+        <Route path="/tabungan/:customerName" element={
           <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} customers={customers} />
         } />
-        <Route path="/detail-hutang" element={
+        <Route path="/hutang" element={
           <DebtDetailPage user={loggedInUser} transactions={debtTransactions} />
         } />
-        <Route path="/admin/detail-hutang/:customerName" element={
+        <Route path="/hutang/:customerName" element={
           <DebtDetailPage user={loggedInUser} transactions={debtTransactions} customers={customers} />
         } />
-        <Route path="/detail-lainnya" element={
+        <Route path="/lainnya" element={
           <LainnyaPage user={loggedInUser} transactions={salesTransactions} />
         } />
-        <Route path="/admin/detail-lainnya/:customerName" element={
+        <Route path="/lainnya/:customerName" element={
           <LainnyaPage user={loggedInUser} transactions={salesTransactions} customers={customers} />
         } />
-        <Route path="/detail-investasi" element={
+        <Route path="/investasi" element={
           <InvestasiPage user={loggedInUser} transactions={investmentTransactions} />
         } />
-        <Route path="/admin/detail-investasi/:customerName" element={
+        <Route path="/investasi/:customerName" element={
           <InvestasiPage user={loggedInUser} transactions={investmentTransactions} customers={customers} />
         } />
         <Route path="/poin" element={
