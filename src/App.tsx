@@ -77,6 +77,7 @@ import {
   LogOut,
   PiggyBank,
   Trophy,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -539,17 +540,27 @@ const Header = ({
     <>
       <header className="bg-white sticky top-0 z-50 border-b border-slate-100 transition-all duration-300">
         <div className="px-6 py-3 flex items-center justify-between">
-          <Link to="/" className="flex flex-col group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
-            <div className="flex items-center gap-1">
-              <span className="text-lg font-black tracking-tighter text-[#005E6A] group-hover:text-[#F15A24] transition-colors">WARUNG</span>
-              <span className="text-lg font-black tracking-tighter text-[#F15A24] group-hover:text-[#005E6A] transition-colors">TOMI</span>
+          <Link to="/" className="flex items-center gap-3 group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-slate-100 bg-slate-50 flex items-center justify-center shrink-0">
+              <img 
+                src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
+                alt="Warung Tomi Logo" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
             </div>
-            <div className="flex justify-between w-full px-0.5 mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-              {"Digital Solution".split("").map((char, i) => (
-                <span key={i} className="text-[6.5px] font-black text-muted-foreground tracking-widest uppercase leading-none">
-                  {char === " " ? "\u00A0" : char}
-                </span>
-              ))}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1">
+                <span className="text-lg font-black tracking-tighter text-[#005E6A] group-hover:text-[#F15A24] transition-colors">WARUNG</span>
+                <span className="text-lg font-black tracking-tighter text-[#F15A24] group-hover:text-[#005E6A] transition-colors">TOMI</span>
+              </div>
+              <div className="flex justify-between w-full px-0.5 mt-[-2px] opacity-60 group-hover:opacity-100 transition-opacity">
+                {"Digital Solution".split("").map((char, i) => (
+                  <span key={i} className="text-[6.5px] font-black text-muted-foreground tracking-widest uppercase leading-none">
+                    {char === " " ? "\u00A0" : char}
+                  </span>
+                ))}
+              </div>
             </div>
           </Link>
 
@@ -1226,7 +1237,7 @@ const ProtectedPage = ({
       >
         <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl shadow-slate-200/50 border-4 border-slate-50 overflow-hidden">
           <img 
-            src="https://lh3.googleusercontent.com/d/1VTlCXt_WlEUiF0s7fVHUM3JtjO3q4cqk" 
+            src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
             alt="Warung Tomi Logo" 
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
@@ -5613,52 +5624,63 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
         animate={{ opacity: 1, y: 0 }}
         className="px-6 py-4"
       >
-        {/* Profile Image Section */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-200 mb-4 relative group flex items-center justify-center">
-            <User className="w-12 h-12 text-slate-400" />
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Camera className="w-6 h-6 text-white" />
-            </div>
-          </div>
-          <h1 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">Halo, {user?.Nama}</h1>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Selamat datang kembali di portal Anda</p>
+      {/* Unified Profile Card */}
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden mb-8">
+        <div className="bg-slate-50/50 px-6 py-3 border-b border-slate-100">
+          <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-[0.2em]">Profil</p>
         </div>
-
-      {/* Level & Points Header */}
-      <div className="mb-8">
-        <div className="grid grid-cols-2 gap-3">
-          <div 
-            onClick={() => navigate("/level")}
-            className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-orange-100 transition-colors cursor-pointer active:scale-95"
-          >
-            <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-1">
-              <Trophy className="w-4 h-4 text-[#F15A24] fill-[#F15A24]" />
+        
+        <div className="p-8">
+          {/* Profile Header Section */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-200 mb-4 relative group flex items-center justify-center">
+              <User className="w-12 h-12 text-slate-400" />
+              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <Camera className="w-6 h-6 text-white" />
+              </div>
             </div>
-            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Level Pelanggan</p>
-            <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
+            <h1 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">{user?.Nama}</h1>
           </div>
-          <div 
-            onClick={() => navigate(`/poin/${encodeURIComponent(user?.Nama || '')}`)}
-            className="bg-white p-4 rounded-lg border border-slate-100 shadow-sm flex flex-col items-center gap-1 group hover:border-teal-100 transition-colors cursor-pointer active:scale-95"
-          >
-            <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-1">
-              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+
+          <div className="pt-6 border-t border-slate-100">
+            <div className="grid grid-cols-2 gap-0 divide-x divide-slate-100">
+              <div 
+                onClick={() => navigate(`/poin/${encodeURIComponent(user?.Nama || '')}`)}
+                className="flex flex-col items-center gap-1 group transition-colors cursor-pointer active:scale-95 px-2"
+              >
+                <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-1">
+                  <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                </div>
+                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poin Loyalitas</p>
+                <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{activePoints} Poin</p>
+              </div>
+              <div 
+                onClick={() => navigate("/level")}
+                className="flex flex-col items-center gap-1 group transition-colors cursor-pointer active:scale-95 px-2"
+              >
+                <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-1">
+                  <Trophy className="w-4 h-4 text-[#F15A24] fill-[#F15A24]" />
+                </div>
+                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Level Pelanggan</p>
+                <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
+              </div>
             </div>
-            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poin Loyalitas</p>
-            <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{activePoints} Poin</p>
           </div>
         </div>
       </div>
 
       <div className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm mb-6">
         {[
-          { icon: ShieldCheck, label: "Keamanan", color: "text-green-500" },
-          { icon: Bell, label: "Notifikasi", color: "text-orange-500" },
-          { icon: Globe, label: "Bahasa", color: "text-purple-500" },
-          { icon: Bot, label: "Bantuan AI", color: "text-[#005E6A]" },
+          { icon: ShieldCheck, label: "Keamanan", color: "text-green-500", action: () => {} },
+          { icon: Bell, label: "Notifikasi", color: "text-orange-500", action: () => {} },
+          { icon: Globe, label: "Bahasa", color: "text-purple-500", action: () => {} },
+          { icon: HelpCircle, label: "Bantuan", color: "text-[#005E6A]", action: () => navigate("/bantuan") },
         ].map((item, i) => (
-          <button key={i} className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0">
+          <button 
+            key={i} 
+            onClick={item.action}
+            className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
+          >
             <div className="flex items-center gap-3">
               <item.icon className={`w-5 h-5 ${item.color}`} />
               <span className="text-xs font-bold text-slate-700">{item.label}</span>
@@ -5723,6 +5745,154 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
   );
 };
 
+const HelpPage = () => {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      q: "Apa itu Kartu Loyalitas Warung Tomi?",
+      a: "Kartu Loyalitas digital ini adalah program eksklusif dari Warung Tomi untuk memberikan apresiasi kepada pelanggan setia kami. Dengan kartu ini, Anda dapat mengumpulkan poin dari setiap transaksi dan menikmat berbagai keuntungan eksklusif sesuai level keanggotaan Anda."
+    },
+    {
+      q: "Bagaimana cara mendapatkan poin?",
+      a: "Poin didapatkan secara otomatis setiap kali Anda melakukan pembelian barang atau layanan di Warung Tomi. Pastikan data transaksi Anda sudah dicatat oleh admin kami. Besaran poin biasanya dihitung berdasarkan total nominal belanja Anda."
+    },
+    {
+      q: "Bagaimana cara menukarkan poin?",
+      a: "Anda dapat menukarkan poin di halaman 'Poin Loyalitas'. Pilih hadiah yang Anda inginkan (seperti minyak goreng, deterjen, atau sembako lainnya), pastikan poin Anda cukup, lalu klik 'Tukarkan'. Setelah itu, sampaikan ke admin di toko untuk pengambilan barang."
+    },
+    {
+      q: "Apa itu Level Pelanggan?",
+      a: "Level Pelanggan ditentukan oleh total nilai belanja Anda selama 30 hari terakhir. Ada beberapa level: Bronze, Silver, Gold, Platinum, dan Diamond. Semakin tinggi level Anda, semakin besar gengsi dan potensi keuntungan yang bisa Anda dapatkan di masa mendatang."
+    },
+    {
+      q: "Layanan apa saja yang tersedia selain sembako?",
+      a: "Warung Tomi menyediakan berbagai layanan digital lengkap seperti: Top Up Pulsa & Data, Pembayaran Token Listrik, Pembayaran Tagihan (BPJS, PDAM, dll), hingga layanan Top Up Game dan E-Wallet (Dana/OVO/Gopay)."
+    },
+    {
+      q: "Apakah keamanan data saya terjamin?",
+      a: "Sangat terjamin. Anda memerlukan PIN rahasia untuk masuk ke profil pribadi Anda. Pastikan PIN Anda tidak diberitahukan kepada orang lain. Data riwayat belanja Anda hanya dapat dilihat oleh Anda dan sistem internal kami."
+    },
+    {
+      q: "Bagaimana jika saya menemui kendala di aplikasi?",
+      a: "Anda dapat langsung menghubungi layanan pelanggan kami melalui tombol WhatsApp di halaman utama, atau datang langsung ke lokasi Warung Tomi di Dusun Manis, Desa Wilanagara untuk bantuan teknis secara langsung."
+    }
+  ];
+
+  const filteredFaqs = faqs.filter(f => 
+    f.q.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    f.a.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      className="min-h-screen bg-white pb-24"
+    >
+      {/* Header */}
+      <div className="p-6 border-b border-slate-50 flex items-center gap-4">
+        <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full hover:bg-slate-50 flex items-center justify-center transition-colors">
+          <ArrowLeft className="w-5 h-5 text-slate-800" />
+        </button>
+        <div>
+          <h1 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Pusat Bantuan</h1>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Pertanyaan & Jawaban</p>
+        </div>
+      </div>
+
+      <div className="p-6">
+        {/* Search Bar */}
+        <div className="relative mb-8">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input 
+            type="text" 
+            placeholder="Cari solusi atau pertanyaan..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
+          />
+        </div>
+
+        {/* FAQ List */}
+        <div className="space-y-4">
+          {filteredFaqs.length > 0 ? filteredFaqs.map((faq, index) => {
+            const isExpanded = expandedIndex === index;
+            return (
+              <motion.div 
+                key={index}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className={`bg-white rounded-3xl border transition-all duration-300 ${isExpanded ? 'border-[#005E6A]/20 shadow-xl shadow-[#005E6A]/5' : 'border-slate-100 shadow-sm'}`}
+              >
+                <button 
+                  onClick={() => setExpandedIndex(isExpanded ? null : index)}
+                  className="w-full p-6 flex items-start gap-4 text-left"
+                >
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isExpanded ? 'bg-[#005E6A] text-white' : 'bg-slate-50 text-[#005E6A]'}`}>
+                    <span className="text-[10px] font-black">Q</span>
+                  </div>
+                  <div className="flex-1 pr-4">
+                    <h3 className={`text-[11px] font-black leading-relaxed uppercase tracking-tight transition-colors ${isExpanded ? 'text-[#005E6A]' : 'text-slate-800'}`}>
+                      {faq.q}
+                    </h3>
+                  </div>
+                  <div className={`mt-1 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
+                    <ChevronDown className={`w-4 h-4 ${isExpanded ? 'text-[#005E6A]' : 'text-slate-300'}`} />
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-6 pb-6 pt-0 flex gap-4">
+                        <div className="w-8 h-8 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
+                          <span className="text-[10px] font-black text-teal-600">A</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-bold leading-relaxed">
+                          {faq.a}
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          }) : (
+            <div className="py-20 text-center">
+              <HelpCircle className="w-12 h-12 text-slate-100 mx-auto mb-4" />
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Maaf, pertanyaan tidak ditemukan</p>
+            </div>
+          )}
+        </div>
+
+        {/* Contact Support Footer */}
+        <div className="mt-12 bg-[#005E6A] rounded-[2rem] p-8 text-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+          <h3 className="text-white font-black text-sm uppercase tracking-tight mb-2 relative z-10">Punya Pertanyaan Lain?</h3>
+          <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-relaxed mb-6 relative z-10">Tim kami siap membantu Anda secara langsung</p>
+          <button 
+            onClick={() => window.open('https://wa.me/6287774138090', '_blank')}
+            className="bg-white text-[#005E6A] px-8 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-transform"
+          >
+            Hubungi WhatsApp
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 const QRISPage = () => {
   const navigate = useNavigate();
   const [isFullScreen, setIsFullScreen] = useState(false);
@@ -5774,7 +5944,15 @@ const QRISPage = () => {
             />
           </div>
 
-          <div className="text-center mb-8">
+          <div className="text-center mb-8 flex flex-col items-center">
+            <div className="w-12 h-12 rounded-xl overflow-hidden mb-3 shadow-sm border border-slate-100">
+              <img 
+                src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
+                alt="Warung Tomi" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
             <h2 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">WARUNG TOMI</h2>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">NMID: ID102030405060</p>
           </div>
@@ -5997,7 +6175,7 @@ const InstallPrompt = ({ onInstall, onDismiss }: { onInstall: () => void, onDism
       <div className="flex items-center gap-4">
         <div className="w-14 h-14 bg-slate-50 rounded-2xl overflow-hidden flex-shrink-0 border border-slate-100">
           <img 
-            src="https://lh3.googleusercontent.com/d/1VTlCXt_WlEUiF0s7fVHUM3JtjO3q4cqk" 
+            src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
             alt="Warung Tomi Icon" 
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
@@ -6479,6 +6657,7 @@ export default function App() {
           <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
         } />
         <Route path="/qris" element={<QRISPage />} />
+        <Route path="/bantuan" element={<HelpPage />} />
         <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} />} />
         <Route path="/bansos" element={
           <Layout 
