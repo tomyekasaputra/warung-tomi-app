@@ -2414,7 +2414,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-wider mb-1">{displayUser?.Nama}</p>
+                    <h3 className="text-2xl font-black tracking-tight drop-shadow-sm truncate max-w-[200px] mb-0.5">{displayUser?.Nama}</h3>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Saldo Tabungan</p>
                   </div>
                   <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
@@ -6134,6 +6134,126 @@ const HomePage = ({
   );
 };
 
+const SplashScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => onComplete(), 2000); // Shortened from 3200ms
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
+  return (
+    <motion.div 
+      key="splash"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 1.05, filter: "blur(20px)" }}
+      transition={{ duration: 0.5, ease: [0.43, 0.13, 0.23, 0.96] }}
+      className="fixed inset-0 z-[200] bg-white flex items-center justify-center overflow-hidden"
+    >
+      <motion.div 
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: { opacity: 0 },
+          show: {
+            opacity: 1,
+            transition: {
+              staggerChildren: 0.08,
+              delayChildren: 0.1
+            }
+          }
+        }}
+        className="relative flex items-center gap-4"
+      >
+        {/* Animated Logo Container */}
+        <motion.div
+          variants={{
+            hidden: { scale: 0.8, opacity: 0, rotate: -5 },
+            show: { 
+              scale: 1, 
+              opacity: 1, 
+              rotate: 0,
+              transition: { 
+                type: "spring",
+                damping: 20,
+                stiffness: 120, // More responsive spring
+                mass: 1
+              } 
+            }
+          }}
+          className="w-16 h-16 rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#005E6A]/10 border-2 border-slate-50 relative z-20 bg-white shrink-0"
+        >
+          <img 
+            src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
+            alt="Logo" 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        </motion.div>
+
+        {/* Animated Text Block */}
+        <div className="flex flex-col justify-center">
+          <div className="flex items-center gap-1 overflow-hidden h-10">
+            <motion.div
+              variants={{
+                hidden: { x: -40, opacity: 0 },
+                show: { 
+                  x: 0, 
+                  opacity: 1,
+                  transition: { 
+                    duration: 0.6, // Faster movement
+                    ease: [0.16, 1, 0.3, 1] 
+                  } 
+                }
+              }}
+              className="flex items-center gap-1"
+            >
+              <span className="text-4xl font-black tracking-tighter text-[#005E6A]">WARUNG</span>
+              <span className="text-4xl font-black tracking-tighter text-[#F15A24]">TOMI</span>
+            </motion.div>
+          </div>
+          
+          <div className="overflow-hidden h-4 mt-1">
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 10 },
+                show: { 
+                  opacity: 0.5, 
+                  y: 0,
+                  transition: { 
+                    duration: 0.5,
+                    ease: "easeOut" 
+                  } 
+                }
+              }}
+              className="flex justify-between w-full px-1"
+            >
+              {"Digital Solution".split("").map((char, i) => (
+                <span key={i} className="text-[10px] font-black text-[#005E6A] tracking-[0.25em] uppercase leading-none">
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </motion.div>
+          </div>
+        </div>
+
+        {/* Decorative background element for added "smoothness" */}
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.1, 1],
+            opacity: [0.3, 0.5, 0.3]
+          }}
+          transition={{ 
+            duration: 3, // Faster pulse
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="absolute -inset-20 bg-[#005E6A]/5 rounded-full blur-[100px] -z-10"
+        />
+      </motion.div>
+    </motion.div>
+  );
+};
+
 const LoadingPopup = () => (
   <motion.div 
     initial={{ opacity: 0 }}
@@ -6215,6 +6335,7 @@ export default function App() {
   const [redeemedPoints, setRedeemedPoints] = useState<RedeemedPoint[]>([]);
   const [loggedInUser, setLoggedInUser] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
@@ -6545,28 +6666,39 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <AnimatePresence>
-        {isLoading && <LoadingPopup />}
-      </AnimatePresence>
-      <AnimatePresence>
-        {showInstallPrompt && (
-          <InstallPrompt 
-            onInstall={handleInstallClick} 
-            onDismiss={handleDismissInstall} 
-          />
-        )}
-      </AnimatePresence>
-      
-      <Header 
-        customers={customers} 
-        loggedInUser={loggedInUser} 
-        onLogin={handleLogin} 
-        onLogout={handleLogout} 
-        setActiveTab={setActiveTab}
-        isLoading={isLoading}
-        salesTransactions={salesTransactions}
-        redeemedPoints={redeemedPoints}
-      />
+      <AnimatePresence mode="wait">
+        {showSplash ? (
+          <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
+        ) : (
+          <motion.div
+            key="app-content"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <AnimatePresence>
+              {isLoading && <LoadingPopup />}
+            </AnimatePresence>
+            <AnimatePresence>
+              {showInstallPrompt && (
+                <InstallPrompt 
+                  onInstall={handleInstallClick} 
+                  onDismiss={handleDismissInstall} 
+                />
+              )}
+            </AnimatePresence>
+            
+            <Header 
+              customers={customers} 
+              loggedInUser={loggedInUser} 
+              onLogin={handleLogin} 
+              onLogout={handleLogout} 
+              setActiveTab={setActiveTab}
+              isLoading={isLoading}
+              salesTransactions={salesTransactions}
+              redeemedPoints={redeemedPoints}
+            />
+
 
       <Routes>
         <Route path="/" element={
@@ -6675,6 +6807,9 @@ export default function App() {
         <Route path="/admin/debt" element={<AdminDebtManagement customers={customers} transactions={debtTransactions} />} />
         <Route path="/admin/others" element={<AdminOthersManagement transactions={salesTransactions} customers={customers} />} />
       </Routes>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </BrowserRouter>
   );
 }
