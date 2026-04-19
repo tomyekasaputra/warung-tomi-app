@@ -47,6 +47,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   RefreshCw,
+  Copy,
   LayoutGrid,
   Settings,
   QrCode,
@@ -971,6 +972,7 @@ const MainServices = () => {
                 else if (service.name === "Tabungan") navigate("/tabungan");
                 else if (service.name === "Poin Loyalitas") navigate("/poin");
                 else if (service.name === "QRIS") navigate("/qris");
+                else if (service.name === "Tarik Tunai") navigate("/tariktunai");
                 else if (service.id === 1) navigate("/admin");
               }}
               className="flex flex-col items-center gap-2 group"
@@ -4518,8 +4520,222 @@ const AdminInvestmentManagement = ({ customers, investmentTransactions }: { cust
   );
 };
 
+const AdminCustomerDetailPage = ({ 
+  customers, 
+  salesTransactions, 
+  savingsTransactions, 
+  investmentTransactions, 
+  debtTransactions, 
+  redeemedPoints 
+}: { 
+  customers: Customer[], 
+  salesTransactions: SalesTransaction[], 
+  savingsTransactions: SavingTransaction[],
+  investmentTransactions: InvestmentTransaction[],
+  debtTransactions: DebtTransaction[],
+  redeemedPoints: RedeemedPoint[] 
+}) => {
+  const { customerName } = useParams();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+  }, [navigate]);
+
+  const customer = customers.find(c => c.Nama.toLowerCase() === customerName?.toLowerCase());
+  
+  if (!customer) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
+        <div className="bg-white p-12 rounded-[3rem] shadow-xl border border-slate-100">
+           <User className="w-16 h-16 text-slate-100 mx-auto mb-4" />
+           <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tighter">Pelanggan<br/>Tidak Ditemukan</h2>
+           <p className="text-xs font-bold text-slate-400 mt-2 mb-8 uppercase tracking-widest leading-relaxed">Data yang Anda cari tidak tersedia atau telah dihapus.</p>
+           <Button onClick={() => navigate("/admin/customers")} className="w-full bg-[#005E6A] hover:bg-[#004e58] text-white py-6 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-teal-100">Kembali</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const activePoints = calculateActivePoints(customer.Nama, salesTransactions, redeemedPoints);
+  const levelInfo = calculateCustomerLevel(salesTransactions, customer.Nama);
+  
+  const userSales = salesTransactions
+    .filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase())
+    .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+    
+  const userSavings = savingsTransactions.filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase());
+  const currentSavings = userSavings.length > 0 ? userSavings[userSavings.length - 1].SaldoAkhir : parseCurrency(customer.Tabungan);
+  
+  const userDebts = debtTransactions.filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase());
+  const currentDebt = parseCurrency(customer.Hutang);
+  
+  const userInvestments = investmentTransactions.filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase());
+  const totalInvestment = userInvestments.filter(t => t.Status !== "Selesai").reduce((acc, curr) => acc + curr.Nominal, 0);
+
+  const currentOthers = salesTransactions
+    .filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase() && (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL")
+    .reduce((acc, t) => acc + ((t.HargaModal || 0) - (t.Sebagian || 0)), 0);
+
+  const levelColorMap: Record<string, string> = {
+    Bronze: "text-orange-600",
+    Silver: "text-slate-500",
+    Gold: "text-yellow-600",
+    Platinum: "text-indigo-600",
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-screen bg-slate-50 pb-24"
+    >
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="relative z-10">
+          <button onClick={() => navigate("/admin/customers")} className="flex items-center gap-2 text-white/70 mb-6 group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs font-bold uppercase tracking-widest">Manajemen Pelanggan</span>
+          </button>
+          
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-[2rem] bg-white flex items-center justify-center shadow-lg transform rotate-3">
+               <User className="w-8 h-8 text-[#005E6A]" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black uppercase tracking-tight leading-none mb-1">{customer.Nama}</h1>
+              <div className="flex items-center gap-2">
+                 <Badge className="bg-[#F15A24] text-white border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                   PIN: {customer.PIN || "-"}
+                 </Badge>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 -mt-10 relative z-20 space-y-6">
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 flex items-center divide-x divide-slate-50">
+           <div className="flex-1 text-center">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Poin Aktif</p>
+              <h3 className="text-2xl font-black text-[#F15A24] tabular-nums leading-none">{activePoints}</h3>
+           </div>
+           <div className="flex-1 text-center">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Level Member</p>
+              <h3 className={`text-xs font-black uppercase tracking-tighter ${levelColorMap[levelInfo.name] || 'text-slate-600'}`}>
+                {levelInfo.name}
+              </h3>
+           </div>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-widest px-2">Data Keuangan & Aset</h3>
+          <div className="grid gap-3">
+             <div 
+               onClick={() => navigate(`/tabungan/${encodeURIComponent(customer.Nama)}`)}
+               className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
+             >
+                <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 rounded-[1.25rem] bg-teal-50 flex items-center justify-center group-hover:bg-teal-100 transition-colors">
+                      <PiggyBank className="w-6 h-6 text-teal-600" />
+                   </div>
+                   <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Saldo Tabungan</p>
+                      <p className="text-lg font-black text-[#005E6A] tabular-nums leading-none">Rp {currentSavings.toLocaleString('id-ID')}</p>
+                   </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
+                  <ChevronRight className="w-4 h-4 text-slate-300" />
+                </div>
+             </div>
+
+             <div 
+               onClick={() => navigate(`/investasi/${encodeURIComponent(customer.Nama)}`)}
+               className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
+             >
+                <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 rounded-[1.25rem] bg-orange-50 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
+                      <TrendingUp className="w-6 h-6 text-orange-600" />
+                   </div>
+                   <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Investasi Aktif</p>
+                      <p className="text-lg font-black text-[#F15A24] tabular-nums leading-none">Rp {totalInvestment.toLocaleString('id-ID')}</p>
+                   </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
+                  <ChevronRight className="w-4 h-4 text-slate-300" />
+                </div>
+             </div>
+
+             <div 
+               onClick={() => navigate(`/hutang/${encodeURIComponent(customer.Nama)}`)}
+               className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
+             >
+                <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 rounded-[1.25rem] bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                      <Receipt className="w-6 h-6 text-red-600" />
+                   </div>
+                   <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Hutang</p>
+                      <p className="text-lg font-black text-red-600 tabular-nums leading-none">Rp {currentDebt.toLocaleString('id-ID')}</p>
+                   </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
+                  <ChevronRight className="w-4 h-4 text-slate-300" />
+                </div>
+             </div>
+
+             <div 
+               onClick={() => navigate(`/lainnya/${encodeURIComponent(customer.Nama)}`)}
+               className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
+             >
+                <div className="flex items-center gap-4">
+                   <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                      <Layers className="w-6 h-6 text-indigo-600" />
+                   </div>
+                   <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Lainnya (Belum Ambil)</p>
+                      <p className="text-lg font-black text-indigo-600 tabular-nums leading-none">Rp {currentOthers.toLocaleString('id-ID')}</p>
+                   </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
+                  <ChevronRight className="w-4 h-4 text-slate-300" />
+                </div>
+             </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+           <div className="flex items-center justify-between px-2">
+             <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-widest">Riwayat Belanja</h3>
+             <Badge className="bg-slate-50 text-slate-400 border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+               {userSales.length} Transaksi
+             </Badge>
+           </div>
+           
+           <div className="space-y-3">
+             {userSales.map((t, i) => (
+                <TransactionCard key={i} t={t} index={i} isAdmin={true} />
+             ))}
+             {userSales.length === 0 && (
+               <div className="bg-white p-12 rounded-[2.5rem] border border-dashed border-slate-200 text-center">
+                 <ShoppingBag className="w-10 h-10 text-slate-200 mx-auto mb-3 opacity-20" />
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Belum ada riwayat transaksi</p>
+               </div>
+             )}
+           </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { customers: Customer[], transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -4559,7 +4775,7 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
     return { activePoints, totalEarned, totalExpired, userRedeemed };
   };
 
-  const customerList = customers.map(c => {
+  const allCustomers = customers.map(c => {
     const pointsInfo = calculatePoints(c.Nama);
     const levelInfo = calculateCustomerLevel(transactions, c.Nama);
     return {
@@ -4567,18 +4783,34 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
       activePoints: pointsInfo.activePoints,
       level: levelInfo.name
     };
-  }).sort((a, b) => a.Nama.localeCompare(b.Nama));
+  });
 
-  const levelCounts = customerList.reduce((acc: any, curr) => {
-    const level = curr.level.toLowerCase();
-    if (level.includes('bronze')) acc.bronze++;
-    else if (level.includes('silver')) acc.silver++;
-    else if (level.includes('gold')) acc.gold++;
-    else if (level.includes('platinum')) acc.platinum++;
+  const customerList = allCustomers
+    .filter(c => c.Nama.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => a.Nama.localeCompare(b.Nama));
+
+  const levelCounts = allCustomers.reduce((acc: any, curr) => {
+    const level = curr.level;
+    acc[level] = (acc[level] || 0) + 1;
     return acc;
-  }, { bronze: 0, silver: 0, gold: 0, platinum: 0 });
+  }, { Bronze: 0, Silver: 0, Gold: 0, Platinum: 0 });
 
   const activeCustomersCount = customers.length;
+
+  const levelColorMap: Record<string, { bg: string, text: string, chart: string, iconBg: string, iconColor: string }> = {
+    Bronze: { bg: "bg-orange-50", text: "text-orange-600", chart: "#f97316", iconBg: "bg-orange-50", iconColor: "text-orange-600" },
+    Silver: { bg: "bg-slate-100", text: "text-slate-600", chart: "#94a3b8", iconBg: "bg-slate-100", iconColor: "text-slate-500" },
+    Gold: { bg: "bg-yellow-50", text: "text-yellow-600", chart: "#f59e0b", iconBg: "bg-yellow-50", iconColor: "text-yellow-600" },
+    Platinum: { bg: "bg-indigo-50", text: "text-indigo-600", chart: "#4f46e5", iconBg: "bg-indigo-50", iconColor: "text-indigo-600" },
+  };
+
+  const chartData = Object.entries(levelCounts)
+    .filter(([_, count]) => (count as number) > 0)
+    .map(([level, count]) => ({
+      name: level,
+      value: count as number,
+      color: levelColorMap[level]?.chart || "#cbd5e1"
+    }));
 
   return (
     <motion.div 
@@ -4598,75 +4830,131 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center flex-shrink-0">
               <Users className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight uppercase leading-tight">Manajemen Pelanggan</h1>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight uppercase leading-tight whitespace-nowrap">Manajemen Pelanggan</h1>
           </div>
           <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Daftar Poin dan Level Pelanggan</p>
         </div>
       </div>
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
-        <div className="bg-white p-6 rounded-2xl shadow-lg border border-slate-100">
-          <div className="flex flex-col items-center justify-center text-center mb-6">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Pelanggan Aktif</p>
-            <h3 className="text-2xl font-black text-[#005E6A]">{activeCustomersCount} <span className="text-sm font-bold text-slate-400">Pelanggan</span></h3>
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100">
+          <div className="flex justify-between items-center px-2 mb-4">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Pelanggan</p>
+              <h3 className="text-sm font-black text-[#005E6A]">{activeCustomersCount} Orang</h3>
+            </div>
           </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Bronze</p>
-              <p className="text-sm font-black text-[#005E6A]">{levelCounts.bronze}</p>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1 text-slate-400">Silver</p>
-              <p className="text-sm font-black text-slate-500">{levelCounts.silver}</p>
-            </div>
-            <div className="bg-orange-50 p-3 rounded-xl border border-orange-100">
-              <p className="text-[7px] font-black text-orange-400 uppercase tracking-widest mb-1">Gold</p>
-              <p className="text-sm font-black text-orange-600">{levelCounts.gold}</p>
-            </div>
-            <div className="bg-teal-50 p-3 rounded-xl border border-teal-100">
-              <p className="text-[7px] font-black text-teal-400 uppercase tracking-widest mb-1">Platinum</p>
-              <p className="text-sm font-black text-teal-600">{levelCounts.platinum}</p>
-            </div>
+
+          <div className="h-44 w-full relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={45}
+                  outerRadius={65}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50">
+                          <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">{data.name}</p>
+                          <p className="text-xs font-black text-[#005E6A]">{data.value} Pelanggan</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="flex flex-col gap-y-3 mt-4 px-4 pb-2">
+            {chartData.map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.1em]">{item.name}</span>
+                </div>
+                <div className="flex items-center gap-1.5 font-black text-[#005E6A]">
+                  <span className="text-xs">{item.value}</span>
+                  <span className="text-[8px] text-slate-400 uppercase tracking-widest font-bold">Pelanggan</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
+        {/* Pencarian Nama */}
+        <div className="relative group px-2">
+          <Search className="w-4 h-4 absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#005E6A] transition-colors" />
+          <input 
+            type="text"
+            placeholder="Cari Nama Pelanggan..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-white border border-slate-200 rounded-3xl pl-12 pr-6 py-4 text-[13px] font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 focus:border-[#005E6A] transition-all w-full shadow-sm placeholder:text-slate-300"
+          />
+        </div>
+
         <div className="space-y-4">
-          <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider px-2">Daftar Pelanggan</h3>
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Pelanggan</h3>
+          </div>
+          
           <div className="grid gap-3">
-            {customerList.map((c, i) => (
-              <motion.div 
-                key={i}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 flex justify-between items-center"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-slate-50 text-slate-400">
-                    <User className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-black text-[#005E6A] uppercase">{c.Nama}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Badge className="bg-orange-50 text-[#F15A24] border-none text-[7px] font-black uppercase tracking-widest px-2 py-0.5">
-                        {c.level}
-                      </Badge>
+            {customerList.length > 0 ? (
+              customerList.map((c, i) => (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i * 0.03, 0.5) }}
+                  className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center group hover:border-[#005E6A]/20 transition-all cursor-pointer"
+                  onClick={() => navigate(`/admin/customers/${encodeURIComponent(c.Nama)}`)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${levelColorMap[c.level]?.iconBg || 'bg-slate-50'} ${levelColorMap[c.level]?.iconColor || 'text-slate-400'} transition-all`}>
+                      <User className="w-5 h-5 transition-transform group-hover:scale-110" />
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-black text-[#005E6A] uppercase tracking-tight">{c.Nama}</p>
+                      <div className="flex items-center gap-1.5 mt-0.5 font-black">
+                        <span className="text-[10px] text-[#F15A24] tabular-nums">{c.activePoints}</span>
+                        <span className="text-[7px] text-slate-400 uppercase tracking-widest font-bold">Poin Aktif</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[14px] font-black text-[#005E6A]">{c.activePoints}</p>
-                  <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poin Aktif</p>
-                </div>
-              </motion.div>
-            ))}
+                  <div className="text-right">
+                    <Badge className={`${levelColorMap[c.level]?.bg || "bg-slate-50"} ${levelColorMap[c.level]?.text || "text-slate-600"} border-none text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full`}>
+                      {c.level}
+                    </Badge>
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-200 text-center">
+                <Search className="w-8 h-8 text-slate-200 mx-auto mb-3" />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pelanggan tidak ditemukan</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </motion.div>
   );
 };
+
 
 const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[], transactions: DebtTransaction[] }) => {
   const navigate = useNavigate();
@@ -5912,64 +6200,63 @@ const QRISPage = () => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
-      // Fallback to opening in new tab if fetch fails (e.g. CORS)
       window.open(qrisUrl, '_blank');
     }
   };
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-white"
+      className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="p-6 flex flex-col items-center">
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col items-center w-full max-w-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <QrCode className="w-6 h-6 text-[#005E6A]" />
-            <span className="text-xl font-black text-[#005E6A]">QRIS</span>
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-24 rounded-b-[3.5rem] shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-400/10 rounded-full -ml-24 -mb-24 blur-2xl" />
+        
+        <div className="relative z-10 text-center flex flex-col items-center">
+          <div className="flex items-center gap-3 mb-2 mt-4">
+            <QrCode className="w-8 h-8 text-white" />
+            <h1 className="text-4xl font-black uppercase tracking-tighter leading-none">Qris</h1>
           </div>
-          
+          <p className="text-[8px] font-bold text-teal-100/60 uppercase tracking-[0.2em]">Scan QR Untuk Transaksi Cepat</p>
+        </div>
+      </div>
+
+      <div className="px-6 -mt-12 relative z-20 space-y-6">
+        <div className="bg-white p-4 rounded-[2.5rem] shadow-lg border border-slate-100 flex flex-col items-center">
           <div 
-            className="w-full aspect-square bg-slate-50 rounded-2xl overflow-hidden border-2 border-slate-100 mb-6 flex items-center justify-center cursor-pointer"
+            className="w-full aspect-square bg-white rounded-[3rem] overflow-hidden flex items-center justify-center cursor-pointer group mt-4 mb-2"
             onClick={() => setIsFullScreen(true)}
           >
-            <img 
-              src={qrisUrl} 
-              alt="QRIS Warung Tomi" 
-              className="w-full h-full object-contain p-4"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-
-          <div className="text-center mb-8 flex flex-col items-center">
-            <div className="w-12 h-12 rounded-xl overflow-hidden mb-3 shadow-sm border border-slate-100">
+            <div className="w-full h-full flex items-center justify-center">
               <img 
-                src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
-                alt="Warung Tomi" 
-                className="w-full h-full object-cover"
+                src={qrisUrl} 
+                alt="QRIS Warung Tomi" 
+                className="max-w-full max-h-full object-contain transform group-hover:scale-110 transition-transform duration-700"
                 referrerPolicy="no-referrer"
               />
             </div>
-            <h2 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">WARUNG TOMI</h2>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">NMID: ID102030405060</p>
+          </div>
+
+          <div className="text-center mt-6 mb-2 flex flex-col items-center">
+            <h2 className="text-lg font-black text-[#005E6A] uppercase tracking-tight">WARUNG TOMI</h2>
           </div>
 
           <button 
-            className="w-full bg-[#F15A24] text-white py-4 rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-orange-200 active:scale-95 transition-transform"
+            className="w-full bg-[#F15A24] text-white py-4 rounded-2xl flex items-center justify-center gap-3 shadow-lg shadow-orange-100 active:scale-95 transition-transform"
             onClick={handleDownload}
           >
-            <Download className="w-5 h-5" />
-            <span className="text-xs font-black uppercase tracking-widest">Download QRIS</span>
+            <Download className="w-4 h-4" />
+            <span className="text-[9px] font-black uppercase tracking-widest">Download Kode QR</span>
           </button>
         </div>
 
-        <div className="mt-10 w-full max-w-sm">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+          <div className="flex items-center gap-2 mb-6">
             <Info className="w-4 h-4 text-[#005E6A]" />
-            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Cara Pembayaran</h3>
+            <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Cara Menggunakan Qris</h3>
           </div>
           
           <div className="space-y-4">
@@ -5977,15 +6264,16 @@ const QRISPage = () => {
               "Buka aplikasi e-wallet atau mobile banking Anda.",
               "Pilih menu 'Scan' atau 'Bayar'.",
               "Arahkan kamera ke kode QR di atas.",
+              "Pastikan nama merchant adalah WARUNG TOMI.",
               "Masukkan nominal pembayaran yang sesuai.",
               "Konfirmasi pembayaran dan masukkan PIN Anda.",
               "Transaksi selesai! Simpan bukti pembayaran Anda."
             ].map((step, i) => (
               <div key={i} className="flex gap-4 items-start">
-                <div className="w-6 h-6 rounded-full bg-[#E6F4F5] flex items-center justify-center shrink-0">
-                  <span className="text-[10px] font-black text-[#005E6A]">{i + 1}</span>
+                <div className="w-5 h-5 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
+                  <span className="text-[8px] font-black text-[#005E6A]">{i + 1}</span>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">{step}</p>
+                <p className="text-[10px] text-slate-500 leading-relaxed font-medium">{step}</p>
               </div>
             ))}
           </div>
@@ -5998,17 +6286,17 @@ const QRISPage = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
             onClick={() => setIsFullScreen(false)}
           >
             <button 
-              className="absolute top-6 right-6 text-white p-2 hover:bg-white/10 rounded-full transition-colors"
+              className="absolute top-6 right-6 text-white p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsFullScreen(false);
               }}
             >
-              <X className="w-8 h-8" />
+              <X className="w-6 h-6" />
             </button>
             <motion.img
               initial={{ scale: 0.8 }}
@@ -6016,13 +6304,201 @@ const QRISPage = () => {
               exit={{ scale: 0.8 }}
               src={qrisUrl}
               alt="QRIS Full Screen"
-              className="max-w-full max-h-full object-contain"
+              className="max-w-full max-h-[80vh] object-contain rounded-3xl bg-white p-4"
               referrerPolicy="no-referrer"
               onClick={(e) => e.stopPropagation()}
             />
           </motion.div>
         )}
       </AnimatePresence>
+    </motion.div>
+  );
+};
+
+const TarikTunaiPage = () => {
+  const navigate = useNavigate();
+  const bankAccounts = [
+    { 
+      bank: "BNI", 
+      number: "0910073587", 
+      name: "Tomi Eka Saputra", 
+      color: "bg-white", 
+      textColor: "text-orange-600",
+      logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQPUlQraqG44DouUxZ7p34WInziOLr71_ALsQ9VnOhW0w-43H8vxP5XlK4&s=10"
+    },
+    { 
+      bank: "BCA", 
+      number: "2991060351", 
+      name: "Tomi Eka Saputra", 
+      color: "bg-white", 
+      textColor: "text-blue-600",
+      logo: "https://minang.geoparkrun.com/wp-content/uploads/2022/11/bca-logo.png"
+    },
+    { 
+      bank: "MANDIRI", 
+      number: "1340025750471", 
+      name: "Tomi Eka Saputra", 
+      color: "bg-white", 
+      textColor: "text-yellow-600",
+      logo: "https://iconlogovector.com/uploads/images/2023/04/lg-920c179a18fea792a882b0596ac14e8b58.jpg"
+    },
+    { 
+      bank: "BRI", 
+      number: "428001042098534", 
+      name: "Sri Ayu Rupnia", 
+      color: "bg-white", 
+      textColor: "text-blue-700",
+      logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0-vtFtJyluPYFuCRB0W_6h4PAO3Im9GtOPFGEb4YPbUviN-dhaHrTk-0&s=10"
+    },
+  ];
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="min-h-screen bg-slate-50 pb-24"
+    >
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-24 rounded-b-[3.5rem] shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-400/10 rounded-full -ml-24 -mb-24 blur-2xl" />
+        
+        <div className="relative z-10 text-center">
+          <h1 className="text-4xl font-black uppercase tracking-tighter leading-none mb-2 mt-4">Tarik Tunai</h1>
+          <p className="text-[8px] font-bold text-teal-100/60 uppercase tracking-[0.2em]">Pilihan Cara Pencairan Saldo Anda</p>
+        </div>
+      </div>
+
+      <div className="px-6 -mt-12 relative z-20 space-y-8">
+        {/* Helper Note */}
+        <div className="bg-white p-4 rounded-3xl shadow-sm flex items-center gap-4 border border-slate-100">
+           <div className="w-10 h-10 rounded-2xl bg-teal-50 flex items-center justify-center shrink-0">
+              <Info className="w-5 h-5 text-[#005E6A]" />
+           </div>
+           <p className="text-[10px] font-black uppercase tracking-wider leading-relaxed text-[#005E6A]">
+             Ada 3 Cara Tarik Tunai / Cairkan Saldo di Warung Tomi
+           </p>
+        </div>
+
+        {/* Option 1: Transfer */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-xs font-black text-[#005E6A] uppercase tracking-widest flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-[#005E6A] text-white flex items-center justify-center text-[10px]">1</span>
+              Transfer Bank / E-Wallet
+            </h2>
+          </div>
+          
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-6 leading-relaxed">
+              Transfer ke salah satu rekening di bawah ini, lalu tunjukkan bukti transfernya.
+            </p>
+            
+            <div className="space-y-3">
+              {bankAccounts.map((account, idx) => (
+                <div key={idx} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative group overflow-hidden">
+                  <div className="flex items-center gap-4 relative z-10">
+                    <div className="w-12 h-10 flex items-center justify-center shrink-0">
+                      <img 
+                        src={account.logo} 
+                        alt={account.bank} 
+                        className="w-full h-full object-contain"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-[#005E6A] tracking-wider tabular-nums leading-none mb-1">
+                        {account.number}
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-1 h-1 rounded-full bg-slate-200" />
+                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{account.name}</span>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(account.number);
+                        alert(`Nomor rekening ${account.bank} berhasil disalin!`);
+                      }}
+                      className="p-2 text-slate-300 hover:text-[#005E6A] transition-all active:scale-75"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Option 2: EDC */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-xs font-black text-[#005E6A] uppercase tracking-widest flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-[#005E6A] text-white flex items-center justify-center text-[10px]">2</span>
+              Kartu ATM (Mesin EDC)
+            </h2>
+          </div>
+          
+          <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-100">
+            <div className="relative aspect-[16/10] bg-slate-100">
+              <img 
+                src="https://www.bni.co.id/portals/1/BNI/ebanking/Images/edc-bni.jpg" 
+                alt="BNI EDC Machine" 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4">
+                 <Badge className="bg-orange-500 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 mb-2">
+                   Terima Semua Kartu
+                 </Badge>
+              </div>
+            </div>
+            <div className="p-6">
+              <p className="text-[10px] font-black text-slate-600 leading-relaxed uppercase tracking-wider text-center">
+                Gesek atau masukkan kartu ATM/Debet Anda ke mesin <span className="text-[#005E6A]">EDC BNI</span> di lokasi warung.
+              </p>
+              <div className="mt-4 flex flex-wrap justify-center gap-4 opacity-40 grayscale hover:grayscale-0 transition-all">
+                 <span className="text-[10px] font-black italic">VISA</span>
+                 <span className="text-[10px] font-black italic">MASTERCARD</span>
+                 <span className="text-[10px] font-black italic">GPN</span>
+                 <span className="text-[10px] font-black italic">JCB</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Option 3: QRIS */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-xs font-black text-[#005E6A] uppercase tracking-widest flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-[#005E6A] text-white flex items-center justify-center text-[10px]">3</span>
+              QRIS (E-Wallet)
+            </h2>
+          </div>
+          
+          <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 text-center">
+             <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-50 flex items-center justify-center mx-auto mb-4 border border-indigo-100">
+               <QrCode className="w-8 h-8 text-indigo-600" />
+             </div>
+             <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest mb-2 leading-none">Scan Kode QR</p>
+             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-6 leading-relaxed px-4">
+               Cairkan saldo E-Wallet (ShopeePay, Dana, OVO, dll) meskipun belum berstatus premium.
+             </p>
+             
+             <button 
+               onClick={() => navigate("/qris")}
+               className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[9px] shadow-lg shadow-indigo-100 active:scale-95 transition-all flex items-center justify-center gap-2"
+             >
+               Buka QRIS Warung Tomi
+               <ArrowRight className="w-4 h-4" />
+             </button>
+          </div>
+        </section>
+      </div>
     </motion.div>
   );
 };
@@ -6789,6 +7265,7 @@ export default function App() {
           <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
         } />
         <Route path="/qris" element={<QRISPage />} />
+        <Route path="/tariktunai" element={<TarikTunaiPage />} />
         <Route path="/bantuan" element={<HelpPage />} />
         <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} />} />
         <Route path="/bansos" element={
@@ -6802,6 +7279,16 @@ export default function App() {
         <Route path="/admin" element={<AdminDashboard transactions={salesTransactions} user={loggedInUser} customers={customers} investmentTransactions={investmentTransactions} />} />
         <Route path="/admin/report" element={<AdminReportPage transactions={salesTransactions} />} />
         <Route path="/admin/customers" element={<AdminCustomerManagement customers={customers} transactions={salesTransactions} redeemedPoints={redeemedPoints} />} />
+        <Route path="/admin/customers/:customerName" element={
+          <AdminCustomerDetailPage 
+            customers={customers} 
+            salesTransactions={salesTransactions} 
+            savingsTransactions={savingsTransactions}
+            investmentTransactions={investmentTransactions}
+            debtTransactions={debtTransactions}
+            redeemedPoints={redeemedPoints}
+          />
+        } />
         <Route path="/admin/savings" element={<AdminSavingsManagement customers={customers} transactions={savingsTransactions} />} />
         <Route path="/admin/investment" element={<AdminInvestmentManagement customers={customers} investmentTransactions={investmentTransactions} />} />
         <Route path="/admin/debt" element={<AdminDebtManagement customers={customers} transactions={debtTransactions} />} />
