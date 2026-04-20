@@ -79,6 +79,7 @@ import {
   PiggyBank,
   Trophy,
   HelpCircle,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -116,6 +117,8 @@ const parseCurrency = (val: string | number | undefined) => {
 const formatCurrency = (val: number) => {
   return val.toLocaleString('id-ID');
 };
+
+const qrisUrl = "https://lh3.googleusercontent.com/d/1P7Itn82Za-1G1a_4wpEa5BmarzCPvtn_";
 
 const parseDateForProgress = (dateStr: string) => {
   if (!dateStr || dateStr === "-") return new Date();
@@ -3713,6 +3716,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
 const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const navigate = useNavigate();
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -3724,9 +3728,22 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
   // Convert ISO date (YYYY-MM-DD) to DD/MM/YYYY for matching
   const formattedFilterDate = filterDate.split('-').reverse().join('/');
 
-  // Filter transactions for selected date and use spreadsheet order
+  // Filter transactions for selected date and search query
   const filteredTransactions = [...transactions]
-    .filter(t => t.Tanggal.startsWith(formattedFilterDate));
+    .filter(t => {
+      const matchDate = t.Tanggal.startsWith(formattedFilterDate);
+      if (!matchDate) return false;
+      
+      if (!searchQuery.trim()) return true;
+      
+      const q = searchQuery.toLowerCase();
+      const matchName = (t.Nama || "").toLowerCase().includes(q);
+      const matchJenis = (t.Jenis || "").toLowerCase().includes(q);
+      const matchMelalui = (t.Melalui || "").toLowerCase().includes(q);
+      const matchStatus = (t.Status || "").toLowerCase().includes(q);
+      
+      return matchName || matchJenis || matchMelalui || matchStatus;
+    });
 
   const totalPemasukan = filteredTransactions.reduce((acc, curr) => acc + curr.Pemasukan, 0);
   const totalModal = filteredTransactions.reduce((acc, curr) => acc + curr.HargaModal, 0);
@@ -3763,34 +3780,57 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
       </div>
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center min-h-[100px]">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Pemasukan</p>
-            <h3 className="text-[12px] font-black text-[#005E6A]">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
+        {/* Stats Card */}
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden relative">
+          <div className="text-center mb-8">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Total Pemasukan</p>
+            <h3 className="text-4xl font-black text-[#005E6A] tracking-tighter">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
           </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center min-h-[100px]">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Keuntungan</p>
-            <h3 className="text-[12px] font-black text-green-600">Rp {totalKeuntungan.toLocaleString('id-ID')}</h3>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center min-h-[100px]">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Total Transaksi</p>
-            <h3 className="text-[12px] font-black text-[#F15A24]">{totalTransaksi}</h3>
+          
+          <div className="grid grid-cols-2 border-t border-slate-50 pt-8 mt-2">
+            <div className="text-center border-r border-slate-100">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Total Transaksi</p>
+              <h4 className="text-xl font-black text-[#F15A24] tracking-tight">{totalTransaksi}</h4>
+            </div>
+            <div className="text-center">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Total Keuntungan</p>
+              <h4 className="text-xl font-black text-green-600 tracking-tight">Rp {totalKeuntungan.toLocaleString('id-ID')}</h4>
+            </div>
           </div>
         </div>
 
-        {/* Date Filter */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-slate-400" />
-            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Pilih Tanggal:</span>
+        {/* Unified Filter Card */}
+        <div className="bg-white px-2 py-3.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-2 min-h-[56px]">
+          {/* Search Section */}
+          <div className="flex-1 min-w-0 flex items-center gap-3 pl-3 pr-3 border-r border-slate-100">
+            <Search className="w-4 h-4 text-slate-400 shrink-0" />
+            <input 
+              type="text"
+              placeholder="Cari transaksi..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 w-full min-w-0 bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none placeholder:text-slate-300 placeholder:font-bold"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery("")}
+                className="p-1 px-2 hover:bg-slate-50 rounded-lg transition-colors group shrink-0"
+              >
+                <X className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500" />
+              </button>
+            )}
           </div>
-          <input 
-            type="date" 
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 text-[10px] font-bold text-[#005E6A] focus:outline-none focus:border-[#F15A24] appearance-none"
-          />
+
+          {/* Date Section */}
+          <div className="flex items-center gap-2 px-3 shrink-0">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <input 
+              type="date" 
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none appearance-none cursor-pointer p-0 w-24"
+            />
+          </div>
         </div>
 
         {/* Transaction List Cards */}
@@ -6184,7 +6224,6 @@ const HelpPage = () => {
 const QRISPage = () => {
   const navigate = useNavigate();
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const qrisUrl = "https://lh3.googleusercontent.com/d/1P7Itn82Za-1G1a_4wpEa5BmarzCPvtn_";
 
   const handleDownload = async () => {
     try {
@@ -6317,6 +6356,9 @@ const QRISPage = () => {
 
 const TarikTunaiPage = () => {
   const navigate = useNavigate();
+  const [activeTransferTab, setActiveTransferTab] = useState<'bank' | 'ewallet'>('bank');
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  
   const bankAccounts = [
     { 
       bank: "BNI", 
@@ -6352,6 +6394,39 @@ const TarikTunaiPage = () => {
     },
   ];
 
+  const ewalletAccounts = [
+    { 
+      provider: "DANA", 
+      logo: "https://iconlogovector.com/uploads/images/2024/11/lg-673fa21a3ad2c-DANA.webp",
+      accounts: [
+        { number: "087774138090", name: "TOMI EKA SAPUTRA" },
+        { number: "085946633008", name: "SRI AYU RUPNIA" }
+      ]
+    },
+    { 
+      provider: "GOPAY", 
+      logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQDMY-KG47ruPkCOvYBb7dw3MUkUVb74tZtuM17iGSStuxn728ZSXxXhWcv&s=10",
+      accounts: [
+        { number: "087774138090", name: "TOMI EKA SAPUTRA" },
+        { number: "085946633008", name: "SRI AYU RUPNIA" }
+      ]
+    },
+    { 
+      provider: "OVO", 
+      logo: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQuUZVdeiUB_55qfLVb7doFVTPt7kKWYdNFcQc881ZJztGnrWunQ16oXhg&s=10",
+      accounts: [
+        { number: "087774138090", name: "TOMI EKA SAPUTRA" }
+      ]
+    },
+    { 
+      provider: "SHOPEEPAY", 
+      logo: "https://storage.googleapis.com/flip-prod-mktg-strapi/media-library/45_0_cakapinterview_20d564f12f/45_0_cakapinterview_20d564f12f.jpg",
+      accounts: [
+        { number: "087774138090", name: "TOMI EKA SAPUTRA" }
+      ]
+    },
+  ];
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
@@ -6380,64 +6455,11 @@ const TarikTunaiPage = () => {
            </p>
         </div>
 
-        {/* Option 1: Transfer */}
+        {/* Option 1: EDC */}
         <section className="space-y-4">
           <div className="flex items-center justify-between px-2">
             <h2 className="text-xs font-black text-[#005E6A] uppercase tracking-widest flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-[#005E6A] text-white flex items-center justify-center text-[10px]">1</span>
-              Transfer Bank / E-Wallet
-            </h2>
-          </div>
-          
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-6 leading-relaxed">
-              Transfer ke salah satu rekening di bawah ini, lalu tunjukkan bukti transfernya.
-            </p>
-            
-            <div className="space-y-3">
-              {bankAccounts.map((account, idx) => (
-                <div key={idx} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative group overflow-hidden">
-                  <div className="flex items-center gap-4 relative z-10">
-                    <div className="w-12 h-10 flex items-center justify-center shrink-0">
-                      <img 
-                        src={account.logo} 
-                        alt={account.bank} 
-                        className="w-full h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-black text-[#005E6A] tracking-wider tabular-nums leading-none mb-1">
-                        {account.number}
-                      </p>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-1 h-1 rounded-full bg-slate-200" />
-                        <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{account.name}</span>
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(account.number);
-                        alert(`Nomor rekening ${account.bank} berhasil disalin!`);
-                      }}
-                      className="p-2 text-slate-300 hover:text-[#005E6A] transition-all active:scale-75"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Option 2: EDC */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h2 className="text-xs font-black text-[#005E6A] uppercase tracking-widest flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-[#005E6A] text-white flex items-center justify-center text-[10px]">2</span>
               Kartu ATM (Mesin EDC)
             </h2>
           </div>
@@ -6471,6 +6493,120 @@ const TarikTunaiPage = () => {
           </div>
         </section>
 
+        {/* Option 2: Transfer Bank / E-Wallet dengan Tab */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-xs font-black text-[#005E6A] uppercase tracking-widest flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-[#005E6A] text-white flex items-center justify-center text-[10px]">2</span>
+              Transfer Bank / E-Wallet
+            </h2>
+          </div>
+          
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-6 leading-relaxed">
+              {activeTransferTab === 'bank' 
+                ? "Transfer ke salah satu rekening di bawah ini, lalu tunjukkan bukti transfernya."
+                : "Transfer ke nomor E-Wallet di bawah ini, lalu tunjukkan bukti transfernya."}
+            </p>
+
+            <div className="flex p-1 bg-slate-50 rounded-2xl mb-6">
+              <button 
+                onClick={() => setActiveTransferTab('bank')}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTransferTab === 'bank' ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
+              >
+                Bank Transfer
+              </button>
+              <button 
+                onClick={() => setActiveTransferTab('ewallet')}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTransferTab === 'ewallet' ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
+              >
+                E-Wallet
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {activeTransferTab === 'bank' ? (
+                bankAccounts.map((account, idx) => (
+                  <div key={idx} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative group overflow-hidden">
+                    <div className="flex items-center gap-4 relative z-10">
+                      <div className="w-10 h-10 rounded-full border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-2">
+                        <img 
+                          src={account.logo} 
+                          alt={account.bank} 
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-black text-[#005E6A] tracking-wider tabular-nums leading-none mb-1">
+                          {account.number}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-1 h-1 rounded-full bg-slate-200" />
+                          <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{account.name}</span>
+                        </div>
+                      </div>
+
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(account.number);
+                          alert(`Nomor ${account.bank} berhasil disalin!`);
+                        }}
+                        className="p-2 text-slate-300 hover:text-[#005E6A] transition-all active:scale-75"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                ewalletAccounts.map((wallet, idx) => (
+                  <div key={idx} className="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden">
+                    <div className="flex items-start gap-4">
+                      {/* Logo Area */}
+                      <div className="w-10 h-10 rounded-full border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-2 mt-1">
+                        <img 
+                          src={wallet.logo} 
+                          alt={wallet.provider} 
+                          className="w-full h-full object-contain"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+
+                      {/* Numbers Area */}
+                      <div className="flex-1 space-y-4 pt-1">
+                        {wallet.accounts.map((acc, aIdx) => (
+                          <div key={aIdx} className="flex items-center justify-between group/item border-b border-slate-50 last:border-0 pb-3 last:pb-0">
+                            <div className="min-w-0">
+                              <p className="text-sm font-black text-[#005E6A] tracking-wider tabular-nums leading-none mb-1">
+                                {acc.number}
+                              </p>
+                              <div className="flex items-center gap-1.5">
+                                <div className="w-1 h-1 rounded-full bg-slate-100" />
+                                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{acc.name}</span>
+                              </div>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                navigator.clipboard.writeText(acc.number);
+                                alert(`Nomor ${wallet.provider} ${acc.name} berhasil disalin!`);
+                              }}
+                              className="p-2 text-slate-300 hover:text-[#005E6A] transition-all active:scale-75"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </section>
+
         {/* Option 3: QRIS */}
         <section className="space-y-4">
           <div className="flex items-center justify-between px-2">
@@ -6481,8 +6617,16 @@ const TarikTunaiPage = () => {
           </div>
           
           <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 text-center">
-             <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-50 flex items-center justify-center mx-auto mb-4 border border-indigo-100">
-               <QrCode className="w-8 h-8 text-indigo-600" />
+             <div 
+               className="w-48 h-48 rounded-[2.5rem] bg-indigo-50 flex items-center justify-center mx-auto mb-6 border border-indigo-100 overflow-hidden p-3 cursor-pointer group hover:scale-105 transition-transform"
+               onClick={() => setIsFullScreen(true)}
+             >
+               <img 
+                 src={qrisUrl} 
+                 alt="QRIS Warung Tomi" 
+                 className="w-full h-full object-contain rounded-2xl"
+                 referrerPolicy="no-referrer"
+               />
              </div>
              <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest mb-2 leading-none">Scan Kode QR</p>
              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-6 leading-relaxed px-4">
@@ -6491,14 +6635,46 @@ const TarikTunaiPage = () => {
              
              <button 
                onClick={() => navigate("/qris")}
-               className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[9px] shadow-lg shadow-indigo-100 active:scale-95 transition-all flex items-center justify-center gap-2"
+               className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-indigo-100 active:scale-95 transition-all flex items-center justify-center gap-2"
              >
-               Buka QRIS Warung Tomi
+               Cara Gunakan QRIS
                <ArrowRight className="w-4 h-4" />
              </button>
           </div>
         </section>
       </div>
+
+      <AnimatePresence>
+        {isFullScreen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={() => setIsFullScreen(false)}
+          >
+            <button 
+              className="absolute top-6 right-6 text-white p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsFullScreen(false);
+              }}
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              src={qrisUrl}
+              alt="QRIS Full Screen"
+              className="max-w-full max-h-[80vh] object-contain rounded-3xl bg-white p-4 shadow-2xl"
+              referrerPolicy="no-referrer"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
