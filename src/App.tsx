@@ -82,6 +82,7 @@ import {
   Calendar,
   AlertTriangle,
   PlusCircle,
+  MinusCircle,
   UserPlus,
   FileSpreadsheet,
   MessageCircle,
@@ -260,6 +261,18 @@ interface RedeemedPoint {
   Nama: string;
   Poin: number;
   Hadiah: string;
+}
+
+interface StockItem {
+  id: string;
+  Nama: string;
+  Kategori: string;
+  Stok: number;
+  Satuan: string;
+  MinStok: number;
+  HargaModal: number;
+  HargaJual: number;
+  UpdateTerakhir: string;
 }
 
 const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: boolean }> = ({ t, index, isAdmin }) => {
@@ -2911,10 +2924,6 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                             }`}>
                               {t.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(t.Nominal)}
                             </p>
-                            <button className="text-[7px] font-black text-[#F15A24] uppercase tracking-widest flex items-center gap-0.5 ml-auto hover:underline">
-                              <Download className="w-2.5 h-2.5" />
-                              Simpan Resi
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -4409,7 +4418,7 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Pelanggan</p>
           </button>
           <button 
-            onClick={() => navigate("/admin/report")}
+            onClick={() => navigate("/admin/stock")}
             className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors"
           >
             <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center text-[#F15A24] group-hover:scale-110 transition-transform">
@@ -4951,7 +4960,7 @@ const AdminManagementPage = ({
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between px-2">
+          <div className="flex items-center justify-between gap-4 px-2">
             <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider whitespace-nowrap">Daftar Rincian</h3>
             {rightHeaderContent}
           </div>
@@ -5488,9 +5497,209 @@ const AdminCustomerDetailPage = ({
   );
 };
 
+const AdminStockManagement = () => {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("Semua");
+  const [stock, setStock] = useState<StockItem[]>([
+    { id: '1', Nama: 'Beras Premium 5kg', Kategori: 'Sembako', Stok: 24, Satuan: 'Karung', MinStok: 5, HargaModal: 65000, HargaJual: 72000, UpdateTerakhir: '22/04/2026' },
+    { id: '2', Nama: 'Minyak Goreng 2L', Kategori: 'Sembako', Stok: 12, Satuan: 'Pouch', MinStok: 10, HargaModal: 32000, HargaJual: 35000, UpdateTerakhir: '22/04/2026' },
+    { id: '3', Nama: 'Gula Pasir 1kg', Kategori: 'Sembako', Stok: 50, Satuan: 'Bks', MinStok: 15, HargaModal: 14500, HargaJual: 16000, UpdateTerakhir: '22/04/2026' },
+    { id: '4', Nama: 'Telur Ayam', Kategori: 'Sembako', Stok: 8, Satuan: 'kg', MinStok: 5, HargaModal: 26000, HargaJual: 28000, UpdateTerakhir: '22/04/2026' },
+    { id: '5', Nama: 'Gas Elpiji 3kg', Kategori: 'LPG', Stok: 3, Satuan: 'Tabung', MinStok: 5, HargaModal: 18000, HargaJual: 22000, UpdateTerakhir: '22/04/2026' },
+    { id: '6', Nama: 'Indomie Goreng', Kategori: 'Sembako', Stok: 120, Satuan: 'Bks', MinStok: 40, HargaModal: 2800, HargaJual: 3500, UpdateTerakhir: '22/04/2026' },
+    { id: '7', Nama: 'Sabun Cuci Piring', Kategori: 'Peralatan', Stok: 15, Satuan: 'Pouch', MinStok: 10, HargaModal: 12000, HargaJual: 14000, UpdateTerakhir: '22/04/2026' },
+  ]);
+
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+  }, [navigate]);
+
+  const categories = ["Semua", ...Array.from(new Set(stock.map(item => item.Kategori)))];
+
+  const filteredItems = stock.filter(item => {
+    const matchesSearch = item.Nama.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = categoryFilter === "Semua" || item.Kategori === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  const lowStockItems = stock.filter(item => item.Stok <= item.MinStok);
+  const totalValue = stock.reduce((acc, item) => acc + (item.Stok * item.HargaModal), 0);
+
+  const stats = [
+    { label: "Total Barang", value: stock.length, icon: Package, color: "text-blue-500", bgColor: "bg-blue-50" },
+    { label: "Stok Menipis", value: lowStockItems.length, icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-50" },
+    { label: "Aset Stok", value: `Rp ${totalValue.toLocaleString('id-ID')}`, icon: DollarSign, color: "text-green-500", bgColor: "bg-green-50" },
+  ];
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="min-h-screen bg-slate-50 pb-24"
+    >
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="relative z-10">
+          <button onClick={() => navigate("/admin")} className="flex items-center gap-2 text-white/70 mb-6 group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Dashboard</span>
+          </button>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center flex-shrink-0">
+              <Package className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight uppercase leading-tight">Manajemen Stok</h1>
+          </div>
+          <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Kelola Stok Barang Fisik & Sembako</p>
+        </div>
+      </div>
+
+      <div className="px-6 -mt-12 relative z-20 space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-3 gap-3">
+          {stats.map((s, i) => (
+            <div key={i} className="bg-white p-3 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
+              <div className={`w-8 h-8 rounded-lg ${s.bgColor} flex items-center justify-center mb-2`}>
+                <s.icon className={`w-4 h-4 ${s.color}`} />
+              </div>
+              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{s.label}</p>
+              <p className="text-[10px] font-black text-[#005E6A]">{s.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Search and Filter */}
+        <div className="space-y-4">
+          <div className="relative group">
+            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#005E6A] transition-colors" />
+            <input 
+              type="text"
+              placeholder="Cari Barang..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-white border border-slate-200 rounded-2xl pl-12 pr-6 py-4 text-[13px] font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 focus:border-[#005E6A] transition-all w-full shadow-sm placeholder:text-slate-300"
+            />
+          </div>
+
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                  categoryFilter === cat 
+                    ? "bg-slate-900 text-white shadow-lg" 
+                    : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Stock List */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Barang</h3>
+            <button className="bg-[#005E6A] p-2 rounded-lg text-white shadow-md active:scale-95 transition-all">
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid gap-3">
+            {filteredItems.map((item, i) => {
+              const isLow = item.Stok <= item.MinStok;
+              const stockPercent = Math.min((item.Stok / (item.MinStok * 3)) * 100, 100);
+              
+              return (
+                <motion.div 
+                  key={item.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 group hover:border-[#005E6A]/20 transition-all cursor-pointer"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isLow ? 'bg-orange-50 text-orange-500' : 'bg-teal-50 text-[#005E6A]'}`}>
+                        <Package className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-black text-[#005E6A] uppercase tracking-tight">{item.Nama}</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{item.Kategori} • {item.Satuan}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[12px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Modal: Rp {item.HargaModal.toLocaleString('id-ID')}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-black tabular-nums ${isLow ? 'text-orange-500' : 'text-[#005E6A]'}`}>
+                          {item.Stok} {item.Satuan}
+                        </span>
+                        {isLow && (
+                          <Badge className="bg-orange-500 text-white border-none text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full flex items-center gap-0.5 animate-pulse">
+                            <AlertTriangle className="w-2 h-2" />
+                            Stok Menipis
+                          </Badge>
+                        )}
+                      </div>
+                      <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Target: {item.MinStok * 2}+</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${stockPercent}%` }}
+                        className={`h-full rounded-full ${isLow ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'bg-[#005E6A]'}`}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between pt-4 border-t border-slate-50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-200" />
+                      <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Update: {item.UpdateTerakhir}</p>
+                    </div>
+                    <div className="flex gap-2">
+                       <button className="p-1.5 border border-slate-100 rounded-lg text-slate-400 hover:bg-slate-50 transition-colors">
+                         <MinusCircle className="w-3.5 h-3.5" />
+                       </button>
+                       <button className="p-1.5 border border-slate-100 rounded-lg text-[#005E6A] hover:bg-slate-50 transition-colors">
+                         <PlusCircle className="w-3.5 h-3.5" />
+                       </button>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+
+            {filteredItems.length === 0 && (
+              <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-200 text-center">
+                <Search className="w-8 h-8 text-slate-200 mx-auto mb-3" />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Barang tidak ditemukan</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { customers: Customer[], transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [levelFilter, setLevelFilter] = useState("Semua");
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -5541,7 +5750,11 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
   });
 
   const customerList = allCustomers
-    .filter(c => c.Nama.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(c => {
+      const matchesSearch = c.Nama.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesFilter = levelFilter === "Semua" || c.level === levelFilter;
+      return matchesSearch && matchesFilter;
+    })
     .sort((a, b) => a.Nama.localeCompare(b.Nama));
 
   const levelCounts = allCustomers.reduce((acc: any, curr) => {
@@ -5663,8 +5876,23 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Pelanggan</h3>
+          <div className="flex items-center justify-between gap-4 px-2">
+            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider whitespace-nowrap">Daftar Pelanggan</h3>
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth -mr-2 pr-2">
+              {["Semua", "Bronze", "Silver", "Gold", "Platinum"].map(label => (
+                <button
+                  key={label}
+                  onClick={() => setLevelFilter(label)}
+                  className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                    levelFilter === label 
+                      ? "bg-slate-900 text-white shadow-lg" 
+                      : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           
           <div className="grid gap-3">
@@ -8635,6 +8863,7 @@ export default function App() {
         <Route path="/admin/investment" element={<AdminInvestmentManagement customers={customers} investmentTransactions={investmentTransactions} />} />
         <Route path="/admin/debt" element={<AdminDebtManagement customers={customers} transactions={debtTransactions} />} />
         <Route path="/admin/others" element={<AdminOthersManagement transactions={salesTransactions} customers={customers} />} />
+        <Route path="/admin/stock" element={<AdminStockManagement />} />
       </Routes>
           </motion.div>
         )}
