@@ -80,6 +80,12 @@ import {
   Trophy,
   HelpCircle,
   Calendar,
+  AlertTriangle,
+  PlusCircle,
+  UserPlus,
+  FileSpreadsheet,
+  MessageCircle,
+  Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -736,12 +742,34 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   }, [transactions]);
 
   const currentStageData = processedData[activeTahap] || [];
-  const filteredData = currentStageData.filter(k => 
-    k.nama.toLowerCase().includes(searchQuery.toLowerCase())
-  ).sort((a, b) => a.nama.localeCompare(b.nama));
+  const filteredData = currentStageData.filter(k => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    const words = k.nama.toLowerCase().split(/\s+/);
+    return words.some(word => word.startsWith(query)) || k.nama.toLowerCase().startsWith(query);
+  }).sort((a, b) => a.nama.localeCompare(b.nama));
 
   const totalDana = currentStageData.reduce((acc, k) => acc + k.pkh + k.bpnt, 0);
   const totalKPM = currentStageData.length;
+
+  const trendData = React.useMemo(() => {
+    return [1, 2, 3, 4].map(id => ({
+      stage: `Tahap ${id}`,
+      count: processedData[id]?.length || 0,
+      period: id === 1 ? "Jan-Mar" : id === 2 ? "Apr-Jun" : id === 3 ? "Jul-Sep" : "Okt-Des"
+    }));
+  }, [processedData]);
+
+  const [showPKHInfo, setShowPKHInfo] = useState(false);
+
+  const foundKPM = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    if (query.length < 3) return null;
+    return currentStageData.find(k => {
+      const words = k.nama.toLowerCase().split(/\s+/);
+      return words.some(word => word.startsWith(query)) || k.nama.toLowerCase().startsWith(query);
+    });
+  }, [searchQuery, currentStageData]);
 
   return (
     <motion.div 
@@ -771,8 +799,57 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
           </div>
         </div>
 
-        {/* Tahap Tabs */}
-        <div className="bg-slate-50 p-1 rounded-xl flex mb-8 border border-slate-100 overflow-x-auto no-scrollbar">
+        {/* Tren KPM Chart */}
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Tren Penerima (KPM)</h3>
+              <p className="text-[8px] font-bold text-slate-400 uppercase">Statistik Per Tahap {targetYear}</p>
+            </div>
+            <TrendingUp className="w-5 h-5 text-[#F15A24]" />
+          </div>
+          <div className="h-32 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trendData}>
+                <defs>
+                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F15A24" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#F15A24" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                <XAxis 
+                  dataKey="stage" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 8, fontWeight: 900, fill: '#64748B' }}
+                />
+                <Tooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-white p-2 rounded-lg shadow-xl border border-slate-100 text-[8px] font-black">
+                          <p className="text-[#F15A24]">{payload[0].value} ORANG</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="count" 
+                  stroke="#F15A24" 
+                  strokeWidth={3}
+                  fillOpacity={1} 
+                  fill="url(#colorCount)" 
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-[#005E6A] p-1 rounded-xl flex mb-6 border border-slate-100 overflow-x-auto no-scrollbar">
           {[
             { id: 1, label: "Tahap 1", period: "Jan - Mar" },
             { id: 2, label: "Tahap 2", period: "Apr - Jun" },
@@ -784,8 +861,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
               onClick={() => setActiveTahap(tahap.id)}
               className={`flex-1 min-w-[80px] py-2.5 rounded-lg transition-all flex flex-col items-center ${
                 activeTahap === tahap.id 
-                  ? "bg-[#005E6A] text-white shadow-md shadow-teal-100" 
-                  : "text-slate-400"
+                  ? "bg-white text-[#005E6A] shadow-sm" 
+                  : "text-white/60 hover:text-white"
               }`}
             >
               <span className="text-[9px] font-black uppercase tracking-widest">{tahap.label}</span>
@@ -814,27 +891,65 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative mb-6 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-300 group-focus-within:text-[#F15A24] transition-colors" />
-          <input 
-            type="text"
-            placeholder="Cari nama KPM di tahap ini..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-100 rounded-lg pl-10 pr-4 py-3 text-[9px] font-bold focus:outline-none focus:bg-white focus:border-[#F15A24] focus:ring-2 focus:ring-orange-50 transition-all shadow-inner"
-          />
+        {/* Search Widget "Cek Nama Anda" */}
+        <div className="bg-white rounded-[2rem] p-6 shadow-xl border border-orange-100 mb-8 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
+            <Search className="w-20 h-20 text-[#F15A24]" />
+          </div>
+          <h3 className="text-[10px] font-black text-[#F15A24] uppercase tracking-widest mb-4">Cek Nama Anda</h3>
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+            <input 
+              type="text"
+              placeholder="Masukan nama lengkap Anda..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-xs font-black uppercase tracking-tight focus:outline-none focus:border-[#F15A24]/20 transition-all shadow-inner"
+            />
+          </div>
+
+          <AnimatePresence>
+            {foundKPM && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                className="mt-4 p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-green-600 uppercase">Terdaftar Penerima</p>
+                    <p className="text-[11px] font-black text-[#005E6A] uppercase">{foundKPM.nama}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[8px] font-bold text-slate-400 uppercase">Total Bantuan</p>
+                  <p className="text-[11px] font-black text-green-600">Rp {(foundKPM.pkh + foundKPM.bpnt).toLocaleString('id-ID')}</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Table */}
-        <div className="border border-slate-100 rounded-lg overflow-x-auto shadow-sm no-scrollbar">
+        <div className="border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm no-scrollbar bg-white mb-8">
           <table className="w-full text-left border-collapse min-w-[320px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">No.</th>
-                <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Nama KPM</th>
-                <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">PKH</th>
-                <th className="px-3 py-3 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">BPNT</th>
+                <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">No.</th>
+                <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Nama KPM</th>
+                <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">
+                  <div className="flex items-center justify-center gap-1">
+                    PKH
+                    <button onClick={() => setShowPKHInfo(true)}>
+                      <HelpCircle className="w-2.5 h-2.5 text-[#005E6A]" />
+                    </button>
+                  </div>
+                </th>
+                <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">BPNT</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -859,7 +974,59 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
             </tbody>
           </table>
         </div>
+
+        {/* Bantuan Button */}
+        <a 
+          href={`https://wa.me/6281313433367?text=Halo%20Admin%20Warung%20Tomi,%20saya%20ingin%20menanyakan%20status%20bansos%20atas%20nama%20...`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full bg-[#25D366] text-white rounded-2xl p-4 flex items-center justify-center gap-3 shadow-lg shadow-green-100 active:scale-95 transition-transform"
+        >
+          <MessageCircle className="w-5 h-5" />
+          <span className="text-[10px] font-black uppercase tracking-widest">Lapor Kendala Bansos</span>
+        </a>
       </div>
+
+      {/* PKH Info Modal */}
+      <AnimatePresence>
+        {showPKHInfo && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100"
+            >
+              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-6">
+                <HelpCircle className="w-6 h-6 text-[#005E6A]" />
+              </div>
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-4">Informasi Dana PKH</h3>
+              <p className="text-[10px] text-slate-500 font-bold leading-relaxed mb-6">
+                Nominal PKH berbeda untuk setiap KPM karena bergantung pada komponen keluarga:
+              </p>
+              <ul className="space-y-2 mb-8">
+                {["Anak Sekolah (SD, SMP, SMA)", "Balita / Ibu Hamil", "Lansia / Disabilitas"].map((item, i) => (
+                  <li key={i} className="flex items-center gap-2 text-[9px] font-black text-slate-400 bg-slate-50 p-2 rounded-lg">
+                    <CheckCircle2 className="w-3 h-3 text-green-500" />
+                    {item.toUpperCase()}
+                  </li>
+                ))}
+              </ul>
+              <button 
+                onClick={() => setShowPKHInfo(false)}
+                className="w-full bg-[#005E6A] text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 transition-transform active:scale-95"
+              >
+                Mengerti
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
@@ -2135,12 +2302,33 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Custo
 
 const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, customers, onLogin, setActiveTab }: { user: Customer | null, transactions: SalesTransaction[], investmentTransactions: InvestmentTransaction[], redeemedPoints: RedeemedPoint[], customers: Customer[], onLogin: (user: Customer) => void, setActiveTab: (id: string) => void }) => {
   const navigate = useNavigate();
-  // Helper to parse currency string to number
-  const parseCurrency = (val: string | undefined) => {
-    if (!val) return 0;
-    // Remove dots, commas, and any non-digit characters except for the first minus sign
-    return parseInt(val.replace(/[^\d]/g, '')) || 0;
+  const [showBalances, setShowBalances] = useState(() => localStorage.getItem('aset_show_balance') !== 'false');
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [targetGoal, setTargetGoal] = useState(() => {
+    const saved = localStorage.getItem(`target_goal_${user?.Nama}`);
+    return saved ? parseInt(saved) : 10000000;
+  });
+  const [tempGoal, setTempGoal] = useState(targetGoal.toString());
+
+  const toggleBalance = () => {
+    setShowBalances(prev => {
+      const next = !prev;
+      localStorage.setItem('aset_show_balance', String(next));
+      return next;
+    });
   };
+
+  const handleSaveGoal = () => {
+    const val = parseInt(tempGoal.replace(/\D/g, ""));
+    if (!isNaN(val) && val > 0) {
+      setTargetGoal(val);
+      localStorage.setItem(`target_goal_${user?.Nama}`, val.toString());
+      setIsEditingGoal(false);
+    }
+  };
+
+  const mask = (val: string | number) => showBalances ? val : "••••••";
+
 
   const tabunganBalance = parseCurrency(user?.Tabungan);
   
@@ -2193,20 +2381,141 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
         animate={{ opacity: 1, y: 0 }}
         className="px-6 py-4"
       >
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6">
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 relative overflow-hidden">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-black uppercase tracking-wider">Total Aset</h2>
-            <Badge className="bg-[#E6F4F5] text-[#005E6A] border-none text-[8px] font-black uppercase tracking-widest">
-              Ringkasan Portofolio
-            </Badge>
+            <button 
+              onClick={toggleBalance}
+              className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 active:scale-90 transition-transform"
+            >
+              {showBalances ? <History className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5 text-[#005E6A]" />}
+            </button>
           </div>
           <div className="flex items-baseline gap-2 mb-2">
             <span className="text-sm font-bold text-slate-400">Rp</span>
-            <span className="text-3xl font-black text-[#005E6A]">{formatCurrency(totalAset)}</span>
+            <span className="text-3xl font-black text-[#005E6A]">{mask(formatCurrency(totalAset))}</span>
           </div>
           
           <AssetPieChart data={assetData} />
         </div>
+
+        {/* Target Impian Section */}
+        <div className="bg-[#005E6A] rounded-[2rem] p-6 shadow-xl mb-6 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/10 transition-colors" />
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <Trophy className="w-4 h-4 text-white" />
+              </div>
+              <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Target Impian</h3>
+            </div>
+            <button 
+              onClick={() => {
+                setTempGoal(targetGoal.toLocaleString('id-ID'));
+                setIsEditingGoal(true);
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">
+                Goal: {targetGoal >= 1000000 ? `${(targetGoal / 1000000).toFixed(0)}jt` : formatCurrency(targetGoal)}
+              </span>
+              <Settings className="w-3 h-3 text-white/60" />
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex justify-between items-end">
+              <p className="text-[9px] font-black text-white/70 uppercase tracking-widest">Progres Tabungan</p>
+              <p className="text-xs font-black text-white">{Math.min(Math.round((tabunganBalance / targetGoal) * 100), 100)}%</p>
+            </div>
+            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min((tabunganBalance / targetGoal) * 100, 100)}%` }}
+                transition={{ duration: 1, delay: 0.5 }}
+                className="h-full bg-gradient-to-r from-orange-400 to-yellow-300 shadow-[0_0_10px_rgba(251,146,60,0.5)]"
+              />
+            </div>
+            <p className="text-[8px] font-bold text-white/50 uppercase tracking-tight">Kumpulkan aset untuk mencapai kebebasan finansial</p>
+          </div>
+        </div>
+
+        {/* Goal Edit Modal */}
+        <AnimatePresence>
+          {isEditingGoal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsEditingGoal(false)}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-sm bg-white rounded-[2.5rem] overflow-hidden shadow-2xl"
+              >
+                <div className="p-8">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center">
+                      <Trophy className="w-6 h-6 text-[#F15A24]" />
+                    </div>
+                    <div>
+                      <h3 className="text-[#005E6A] font-black text-sm uppercase tracking-widest">Set Target Goal</h3>
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-tight">Tentukan nominal impian Anda</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 mb-8">
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-[#005E6A]">Rp</span>
+                      <input 
+                        type="text"
+                        value={tempGoal}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "");
+                          setTempGoal(val ? parseInt(val).toLocaleString('id-ID') : "");
+                        }}
+                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-6 py-4 text-xl font-black text-[#005E6A] focus:outline-none focus:border-[#F15A24] transition-all"
+                        placeholder="Contoh: 10.000.000"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[5000000, 10000000, 25000000, 50000000].map(val => (
+                        <button
+                          key={val}
+                          onClick={() => setTempGoal(val.toLocaleString('id-ID'))}
+                          className="py-2.5 rounded-xl border border-slate-100 text-[10px] font-black text-[#005E6A] hover:bg-slate-50 transition-colors uppercase tracking-widest"
+                        >
+                          {(val / 1000000).toFixed(0)} Juta
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline"
+                      onClick={() => setIsEditingGoal(false)}
+                      className="flex-1 py-6 rounded-2xl font-black uppercase tracking-widest"
+                    >
+                      Batal
+                    </Button>
+                    <Button 
+                      onClick={handleSaveGoal}
+                      className="flex-1 bg-[#F15A24] hover:bg-[#d94e1f] text-white font-black uppercase tracking-widest py-6 rounded-2xl shadow-lg shadow-[#F15A24]/20"
+                    >
+                      Simpan
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
         
         <div className="grid grid-cols-2 gap-4">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest col-span-2">Rincian Saldo</h3>
@@ -2263,7 +2572,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
 
               <div className="relative z-10 mt-4">
                 <p className="text-[8px] font-black text-white/70 uppercase tracking-widest leading-none mb-1.5">{item.name}</p>
-                <p className="text-[13px] font-black text-white tracking-tight">Rp {item.balance}</p>
+                <p className="text-[13px] font-black text-white tracking-tight">Rp {mask(item.balance)}</p>
               </div>
             </div>
           ))}
@@ -2335,6 +2644,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
 
   const selectedMonthLabel = months.find(m => m.value === selectedMonth)?.label.split(' ')[0] || "";
   const [activeTab, setActiveTab] = useState<'riwayat' | 'statistik'>('riwayat');
+  const [typeFilter, setTypeFilter] = useState<'SEMUA' | 'SETOR' | 'TARIK'>('SEMUA');
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const chartScrollRef = useRef<HTMLDivElement>(null);
 
@@ -2361,7 +2671,9 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
     .filter(t => {
       const tDate = parseDate(t.Tanggal);
       const tMonthYear = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
-      return tMonthYear === selectedMonth;
+      const matchesMonth = tMonthYear === selectedMonth;
+      const matchesType = typeFilter === 'SEMUA' || t.Tipe.toUpperCase() === typeFilter;
+      return matchesMonth && matchesType;
     })
     .reverse();
 
@@ -2526,22 +2838,45 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
         {/* Removed old tabs from here */}
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h3 className="text-[10px] font-black text-green-600 uppercase tracking-widest">
+          <div className="px-2">
+            <h3 className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-4">
               {activeTab === 'riwayat' ? 'Riwayat Mutasi' : 'Statistik Bulanan'}
             </h3>
+            
             {activeTab === 'riwayat' && (
-              <div className="relative">
-                <select 
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="appearance-none bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 pr-8 text-[10px] font-black text-slate-600 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                >
-                  {months.map(m => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
+              <div className="flex flex-col gap-4">
+                {/* Quick Filters */}
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {(['SEMUA', 'SETOR', 'TARIK'] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setTypeFilter(f)}
+                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 ${
+                        typeFilter === f 
+                          ? 'bg-[#005E6A] text-white shadow-md shadow-teal-100' 
+                          : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'
+                      }`}
+                    >
+                      {f}
+                    </button>
                   ))}
-                </select>
-                <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <p className="text-[9px] font-bold text-slate-400">Menampilkan {filteredTransactions.length} transaksi</p>
+                  <div className="relative">
+                    <select 
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      className="appearance-none bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 pr-8 text-[10px] font-black text-slate-600 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                    >
+                      {months.map(m => (
+                        <option key={m.value} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -2565,16 +2900,22 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div className="space-y-1">
                             <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-widest leading-none">{t.Berita || t.Tipe}</p>
                             <p className="text-[9px] font-bold text-slate-400 leading-none">{t.Tanggal}</p>
                           </div>
-                          <p className={`text-sm font-black leading-none whitespace-nowrap ${
-                            t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {t.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(t.Nominal)}
-                          </p>
+                          <div className="text-right">
+                            <p className={`text-sm font-black leading-none mb-1 ${
+                              t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'
+                            }`}>
+                              {t.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(t.Nominal)}
+                            </p>
+                            <button className="text-[7px] font-black text-[#F15A24] uppercase tracking-widest flex items-center gap-0.5 ml-auto hover:underline">
+                              <Download className="w-2.5 h-2.5" />
+                              Simpan Resi
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -3897,14 +4238,18 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
   
   const totalLainnya = totalLainnyaFromCustomers + totalLainnyaFromGeneral;
 
-  const assetData = [
-    { name: 'Tabungan', value: totalTabungan, color: '#00FF00', path: '/admin/savings' },
-    { name: 'Investasi', value: totalInvestasi, color: '#7000FF', path: '/admin/investment' },
-    { name: 'Hutang', value: totalHutang, color: '#FF005C', path: '/admin/debt' },
-    { name: 'Lainnya', value: totalLainnya, color: '#0075FF', path: '/admin/others' }
-  ].filter(d => d.value > 0);
-
   const totalAssets = totalTabungan + totalInvestasi + totalLainnya - totalHutang;
+  const grossAssets = totalTabungan + totalInvestasi + totalLainnya;
+
+  const assetData = [
+    { name: 'Tabungan', value: totalTabungan, color: '#22c55e', path: '/admin/savings' },
+    { name: 'Investasi', value: totalInvestasi, color: '#8b5cf6', path: '/admin/investment' },
+    { name: 'Hutang', value: totalHutang, color: '#f43f5e', path: '/admin/debt' },
+    { name: 'Lainnya', value: totalLainnya, color: '#3b82f6', path: '/admin/others' }
+  ].filter(d => d.value > 0).map(d => ({
+    ...d,
+    percentage: grossAssets > 0 ? (d.value / grossAssets) * 100 : 0
+  }));
 
   // Filter transactions based on timeFilter
   const filteredSales = transactions.filter(t => {
@@ -3930,19 +4275,83 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
   const totalPemasukan = filteredSales.reduce((acc, curr) => acc + curr.Pemasukan, 0);
   const totalKeuntungan = filteredSales.reduce((acc, curr) => acc + (curr.Pemasukan - (curr.HargaModal || 0)), 0);
   const totalTransaksi = filteredSales.length;
+  
+  // 1. Calculate Growth (MTD: Month-to-Date comparison)
+  const growth = useMemo(() => {
+    const now = new Date();
+    const todayDay = now.getDate();
+    const thisMonth = now.getMonth();
+    const thisYear = now.getFullYear();
+    const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
+    const lastYear = thisMonth === 0 ? thisYear - 1 : thisYear;
 
-  // Group by date for chart
-  const salesByDate = filteredSales.reduce((acc: any, curr) => {
+    const thisMonthRevenue = transactions.filter(t => {
+      const d = parseDate(t.Tanggal);
+      return d.getMonth() === thisMonth && d.getFullYear() === thisYear && d.getDate() <= todayDay;
+    }).reduce((acc, curr) => acc + curr.Pemasukan, 0);
+
+    const lastMonthRevenue = transactions.filter(t => {
+      const d = parseDate(t.Tanggal);
+      return d.getMonth() === lastMonth && d.getFullYear() === lastYear && d.getDate() <= todayDay;
+    }).reduce((acc, curr) => acc + curr.Pemasukan, 0);
+
+    if (lastMonthRevenue === 0) return thisMonthRevenue > 0 ? 100 : 0;
+    return Math.round(((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100);
+  }, [transactions]);
+
+  // 2. Calculate Top Products
+  const topProducts = useMemo(() => {
+    const counts: Record<string, { count: number, revenue: number }> = {};
+    filteredSales.forEach(t => {
+      const key = t.Jenis || "Lainnya";
+      if (!counts[key]) counts[key] = { count: 0, revenue: 0 };
+      counts[key].count += 1;
+      counts[key].revenue += t.Pemasukan;
+    });
+
+    return Object.entries(counts)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
+  }, [filteredSales]);
+
+  // 3. Mock Stock Alerts (since stock isn't built yet)
+  const lowStockAlerts = [
+    { name: "Minyak Goreng 2L", stok: 2 },
+    { name: "Gas Elpiji 3kg", stok: 1 }
+  ];
+
+  // Group by date for chart (Sales and Profit)
+  const statsByDate = filteredSales.reduce((acc: any, curr) => {
     const dateStr = curr.Tanggal.split(' ')[0];
-    if (!acc[dateStr]) acc[dateStr] = 0;
-    acc[dateStr] += curr.Pemasukan;
+    if (!acc[dateStr]) {
+      acc[dateStr] = { sales: 0, profit: 0 };
+    }
+    acc[dateStr].sales += curr.Pemasukan;
+    acc[dateStr].profit += (curr.Pemasukan - (curr.HargaModal || 0));
     return acc;
   }, {});
 
-  const chartData = Object.keys(salesByDate).map(date => ({
+  const chartData = Object.keys(statsByDate).map(date => ({
     date,
-    total: salesByDate[date]
+    total: statsByDate[date].sales,
+    profit: statsByDate[date].profit
   })).sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
+
+  // Calculate statistics for the chartData
+  const stats = useMemo(() => {
+    if (chartData.length === 0) return null;
+    
+    const maxSales = [...chartData].sort((a, b) => b.total - a.total)[0];
+    const minSales = [...chartData].sort((a, b) => a.total - b.total)[0];
+    const maxProfit = [...chartData].sort((a, b) => b.profit - a.profit)[0];
+    const minProfit = [...chartData].sort((a, b) => a.profit - b.profit)[0];
+    
+    const avgSales = chartData.reduce((acc, curr) => acc + curr.total, 0) / chartData.length;
+    const avgProfit = chartData.reduce((acc, curr) => acc + curr.profit, 0) / chartData.length;
+    
+    return { maxSales, minSales, maxProfit, minProfit, avgSales, avgProfit };
+  }, [chartData]);
 
   const handleAdminLogout = () => {
     localStorage.removeItem("admin_session");
@@ -4024,7 +4433,19 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Distribusi Aset</h3>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Total: Rp {totalAssets.toLocaleString('id-ID')}</p>
+              <div className="flex flex-col gap-0.5 mt-0.5">
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Bruto: Rp {grossAssets.toLocaleString('id-ID')}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest">Neto: Rp {totalAssets.toLocaleString('id-ID')}</p>
+                  {grossAssets > 0 && (
+                    <div className={`px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter ${
+                      (totalHutang / grossAssets) > 0.3 ? 'bg-red-100 text-red-600' : 'bg-teal-100 text-[#005E6A]'
+                    }`}>
+                      Rasio Hutang: {Math.round((totalHutang / grossAssets) * 100)}%
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="w-8 h-8 bg-teal-50 rounded-full flex items-center justify-center">
               <Wallet className="w-4 h-4 text-[#005E6A]" />
@@ -4069,8 +4490,13 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
                 >
                   <div className="w-2 h-2 rounded-full group-hover:scale-125 transition-transform" style={{ backgroundColor: item.color }} />
                   <div className="flex flex-col">
-                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest group-hover:text-[#F15A24] transition-colors">{item.name}</span>
-                    <span className="text-[10px] font-black text-slate-700">Rp {item.value.toLocaleString('id-ID')}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest group-hover:text-[#F15A24] transition-colors">{item.name}</span>
+                      <span className="text-[8px] font-black text-slate-300">({Math.round(item.percentage)}%)</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-black text-slate-700">Rp {item.value.toLocaleString('id-ID')}</span>
+                    </div>
                   </div>
                 </button>
               ))}
@@ -4086,12 +4512,21 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Grafik Laporan</h3>
-              <div className="flex items-center gap-2 mt-0.5" onClick={(e) => e.stopPropagation()}>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Penjualan</p>
+              <div className="flex flex-col gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#F15A24]" />
+                    <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Penjualan</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Keuntungan</p>
+                  </div>
+                </div>
                 <select 
                   value={timeFilter}
                   onChange={(e) => setTimeFilter(e.target.value)}
-                  className="bg-slate-50 border-none text-slate-600 text-[9px] font-black uppercase tracking-widest rounded-lg px-2 py-0.5 focus:ring-0 cursor-pointer hover:bg-slate-100 transition-colors"
+                  className="bg-slate-50 border-none text-slate-600 text-[8px] font-black uppercase tracking-widest rounded-lg px-2 py-0.5 focus:ring-0 cursor-pointer hover:bg-slate-100 transition-colors w-fit mt-1"
                 >
                   <option value="Hari ini">Hari ini</option>
                   <option value="Minggu ini">Minggu ini</option>
@@ -4105,6 +4540,17 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
             </div>
           </div>
 
+          {/* Growth Indicator - NEW */}
+          <div className="mb-6 flex items-center gap-2">
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${growth >= 0 ? "bg-green-50 text-green-600" : "bg-rose-50 text-rose-600"}`}>
+              {growth >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              <span className="text-[10px] font-black">{Math.abs(growth)}%</span>
+            </div>
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+              {growth >= 0 ? "Pertumbuhan Omzet" : "Penurunan Omzet"} bln ini
+            </p>
+          </div>
+
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
@@ -4112,6 +4558,10 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
                   <linearGradient id="barGradientDashboard" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#F15A24" stopOpacity={1} />
                     <stop offset="100%" stopColor="#F15A24" stopOpacity={0.4} />
+                  </linearGradient>
+                  <linearGradient id="profitGradientDashboard" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#22c55e" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.4} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -4130,19 +4580,33 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
                 />
                 <Tooltip 
                   contentStyle={{ 
-                    borderRadius: '1rem', 
+                    borderRadius: '1.2rem', 
                     border: 'none', 
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)',
                     fontSize: '10px',
-                    fontWeight: 'bold'
+                    fontWeight: 'bold',
+                    padding: '12px'
                   }}
-                  formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Penjualan']}
+                  itemStyle={{ padding: '2px 0' }}
+                  formatter={(value: number, name: string) => [
+                    `Rp ${value.toLocaleString('id-ID')}`, 
+                    name === 'total' ? 'Penjualan' : 'Keuntungan'
+                  ]}
                 />
                 <Bar 
                   dataKey="total" 
+                  name="total"
                   fill="url(#barGradientDashboard)" 
-                  radius={[6, 6, 6, 6]} 
-                  barSize={12}
+                  radius={[4, 4, 0, 0]} 
+                  barSize={10}
+                  animationDuration={1500}
+                />
+                <Bar 
+                  dataKey="profit" 
+                  name="profit"
+                  fill="url(#profitGradientDashboard)" 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={10}
                   animationDuration={1500}
                 />
               </BarChart>
@@ -4161,6 +4625,162 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
             <div className="flex items-center justify-between">
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Transaksi</p>
               <p className="text-[11px] font-black text-[#F15A24]">{totalTransaksi} Order</p>
+            </div>
+
+            {/* Detailed Stats Analysis */}
+            {stats && (
+              <div className="mt-8 pt-8 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#005E6A]" />
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Snapshot Performa</p>
+                    </div>
+                    <h4 className="text-[11px] font-black text-[#005E6A] uppercase tracking-wider pl-3.5">Ikhtisar Periode</h4>
+                  </div>
+                  <div className="bg-teal-50 px-3 py-2 rounded-xl border border-teal-100/50 text-right">
+                    <p className="text-[7px] font-black text-teal-600/60 uppercase tracking-widest mb-0.5">Avg. Penjualan</p>
+                    <p className="text-[11px] font-black text-[#005E6A]">Rp {Math.round(stats.avgSales).toLocaleString('id-ID')}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-8">
+                  {/* Penjualan Segment */}
+                  <div className="relative pl-4 border-l-2 border-teal-500/10">
+                    <div className="absolute top-0 left-[-2px] w-[2px] h-3 bg-teal-500 rounded-full" />
+                    <p className="text-[8px] font-black text-teal-600 uppercase tracking-[0.15em] mb-3">Metrik Penjualan</p>
+                    
+                    <div className="flex justify-between items-end">
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-black text-[#005E6A] leading-none tracking-tight">Rp {stats.maxSales.total.toLocaleString('id-ID')}</p>
+                        <div className="flex items-center gap-1.5 grayscale opacity-60">
+                          <TrendingUp className="w-2.5 h-2.5 text-teal-600" />
+                          <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Terbesar • {stats.maxSales.date}</p>
+                        </div>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 leading-none">Rp {stats.minSales.total.toLocaleString('id-ID')}</p>
+                        <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest leading-none">Terendah</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Keuntungan Segment */}
+                  <div className="relative pl-4 border-l-2 border-green-500/10">
+                    <div className="absolute top-0 left-[-2px] w-[2px] h-3 bg-green-500 rounded-full" />
+                    <p className="text-[8px] font-black text-green-600 uppercase tracking-[0.15em] mb-3">Metrik Keuntungan</p>
+                    
+                    <div className="flex justify-between items-end">
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-black text-green-600 leading-none tracking-tight">Rp {stats.maxProfit.profit.toLocaleString('id-ID')}</p>
+                        <div className="flex items-center gap-1.5 grayscale opacity-60">
+                          <TrendingUp className="w-2.5 h-2.5 text-green-600" />
+                          <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Terbesar • {stats.maxProfit.date}</p>
+                        </div>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 leading-none">Rp {stats.minProfit.profit.toLocaleString('id-ID')}</p>
+                        <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest leading-none">Terendah</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom Summary Bar */}
+                  <div className="mt-8 bg-slate-900 rounded-2xl p-4 flex items-center justify-between overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mr-12 -mt-12 blur-2xl" />
+                    <div className="relative z-10">
+                      <p className="text-[7px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Rata-rata Laba</p>
+                      <p className="text-[12px] font-black text-green-400 italic">Rp {Math.round(stats.avgProfit).toLocaleString('id-ID')}</p>
+                    </div>
+                    <div className="h-8 w-px bg-white/10" />
+                    <div className="relative z-10 text-right">
+                       <p className="text-[7px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Total Efisiensi</p>
+                       <p className="text-[9px] font-black text-white uppercase tracking-widest">
+                         {Math.round((stats.avgProfit / stats.avgSales) * 100)}% Margin
+                       </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Business Health & Top Products - NEW */}
+        <div className="grid grid-cols-1 gap-6">
+          {/* Top Selling Products Card */}
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Produk Terlaris</h3>
+              <div className="w-8 h-8 bg-amber-50 rounded-full flex items-center justify-center">
+                <Trophy className="w-4 h-4 text-amber-500" />
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {topProducts.length > 0 ? topProducts.map((p, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center text-[10px] font-black text-[#005E6A]">
+                      #{i+1}
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{p.name}</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{p.count} Transaksi</p>
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black text-[#F15A24]">Rp {p.revenue.toLocaleString('id-ID')}</p>
+                </div>
+              )) : (
+                <p className="text-center text-[9px] text-slate-400 font-bold uppercase py-4">Belum ada data transaksi</p>
+              )}
+            </div>
+          </div>
+
+          {/* Health Alerts Card */}
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Peringatan Bisnis</h3>
+              <div className="w-8 h-8 bg-rose-50 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-rose-500" />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Debt Alert */}
+              {totalHutang > 0 && (
+                <div className="bg-rose-50/50 p-4 rounded-3xl border border-rose-100/50 flex items-center gap-4">
+                  <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                    <History className="w-5 h-5 text-rose-500" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[7px] font-black text-rose-600 uppercase tracking-[0.2em] mb-1">Piutang Pelanggan</p>
+                    <p className="text-[12px] font-black text-slate-800">Rp {totalHutang.toLocaleString('id-ID')}</p>
+                  </div>
+                  <button 
+                    onClick={() => navigate("/admin/debt")}
+                    className="text-[8px] font-black text-rose-600 uppercase tracking-widest bg-white px-3 py-1.5 rounded-full shadow-sm"
+                  >
+                    Tagih
+                  </button>
+                </div>
+              )}
+
+              {/* Mock Stock Alerts */}
+              {lowStockAlerts.map((item, i) => (
+                <div key={i} className="flex items-center justify-between p-3 bg-amber-50/30 rounded-2xl border border-amber-100/30">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">
+                      <Package className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-700 uppercase tracking-tight">{item.name}</p>
+                      <p className="text-[7px] font-bold text-amber-600 uppercase tracking-widest">Stok menipis: {item.stok}</p>
+                    </div>
+                  </div>
+                  <button className="text-[7px] font-black text-teal-600 uppercase tracking-widest">Stok +</button>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -4199,7 +4819,8 @@ const AdminManagementPage = ({
   stats,
   showLegend = true,
   showBadges = true,
-  extraContent
+  extraContent,
+  rightHeaderContent
 }: { 
   title: string, 
   subtitle: string, 
@@ -4220,7 +4841,8 @@ const AdminManagementPage = ({
   stats?: { label: string, value: number, count: number, color: string }[],
   showLegend?: boolean,
   showBadges?: boolean,
-  extraContent?: React.ReactNode
+  extraContent?: React.ReactNode,
+  rightHeaderContent?: React.ReactNode
 }) => {
   const navigate = useNavigate();
   return (
@@ -4329,7 +4951,10 @@ const AdminManagementPage = ({
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider px-2">Daftar Rincian</h3>
+          <div className="flex items-center justify-between px-2">
+            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider whitespace-nowrap">Daftar Rincian</h3>
+            {rightHeaderContent}
+          </div>
           <div className="grid gap-3">
             {items.map((item, i) => (
               <React.Fragment key={i}>
@@ -4410,6 +5035,46 @@ const AdminSavingsManagement = ({ customers, transactions }: { customers: Custom
 
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
   
+  // 1. Calculate Monthly Cash Flow (MTD)
+  const cashFlow = useMemo(() => {
+    const now = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear = now.getFullYear();
+
+    const monthlyTxs = transactions.filter(t => {
+      const d = parseDate(t.Tanggal);
+      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    });
+
+    const totalSetor = monthlyTxs.filter(t => t.Tipe === "SETOR").reduce((acc, curr) => acc + curr.Nominal, 0);
+    const totalTarik = monthlyTxs.filter(t => t.Tipe === "TARIK").reduce((acc, curr) => acc + curr.Nominal, 0);
+    
+    return { setor: totalSetor, tarik: totalTarik };
+  }, [transactions]);
+
+  // 2. Calculate Active Member Rate (last 30 days)
+  const activeRate = useMemo(() => {
+    if (customers.length === 0) return 0;
+    const now = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(now.getDate() - 30);
+
+    const activeCustomerNames = new Set(
+      transactions
+        .filter(t => parseDate(t.Tanggal) >= thirtyDaysAgo)
+        .map(t => t.Nama.toLowerCase())
+    );
+
+    return Math.round((activeCustomerNames.size / customers.length) * 100);
+  }, [transactions, customers]);
+
+  // 3. Global Recent Transactions
+  const recentGlobalTransactions = useMemo(() => {
+    return [...transactions]
+      .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())
+      .slice(0, 5);
+  }, [transactions]);
+
   const CHART_COLORS = [
     "#FF00ED", "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", 
     "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
@@ -4422,34 +5087,10 @@ const AdminSavingsManagement = ({ customers, transactions }: { customers: Custom
       const val = parseCurrency(c.Tabungan);
       const color = CHART_COLORS[idx % CHART_COLORS.length];
 
-      // Find latest transaction for this customer
-      const userTransactions = transactions
-        .filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase())
-        .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
-      
-      const latestTx = userTransactions[0];
-      let badgeLabel = `Simpanan: Rp ${val.toLocaleString('id-ID')}`;
-      let ribbonColor = color;
-      let isDefaultBadge = true;
-      
-      if (latestTx) {
-        const timeStr = getRelativeTime(latestTx.Tanggal);
-        const actionStr = latestTx.Tipe.toLowerCase();
-        badgeLabel = `${timeStr} ${actionStr} Rp ${latestTx.Nominal.toLocaleString('id-ID')}`;
-        ribbonColor = actionStr === 'setor' ? "#22c55e" : "#ef4444";
-        isDefaultBadge = false;
-      }
-
       return { 
         name: c.Nama, 
         value: val,
-        color,
-        badge: {
-          label: badgeLabel,
-          colorClass: isDefaultBadge ? "bg-slate-100 text-slate-600" : `bg-[${ribbonColor}] text-white`,
-          iconColorClass: `bg-opacity-10`,
-          customIconColor: isDefaultBadge ? color : ribbonColor
-        }
+        color
       };
     });
 
@@ -4464,20 +5105,94 @@ const AdminSavingsManagement = ({ customers, transactions }: { customers: Custom
     navigate(`/tabungan/${encodeURIComponent(name)}`);
   };
 
+  const extraContent = (
+    <div className="w-full space-y-4">
+      {/* Cash Flow Summary */}
+      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 pt-4 mt-2">
+        <div className="text-center flex-1">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Setoran Bulan Ini</p>
+          <p className="text-xs font-black text-green-600">+ Rp {cashFlow.setor.toLocaleString('id-ID')}</p>
+        </div>
+        <div className="w-[1px] h-8 bg-slate-100 flex-shrink-0 mx-2" />
+        <div className="text-center flex-1">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Tarikan Bulan Ini</p>
+          <p className="text-xs font-black text-red-600">- Rp {cashFlow.tarik.toLocaleString('id-ID')}</p>
+        </div>
+      </div>
+
+      {/* Active Rate Indicator */}
+      <div className="px-4 pb-2">
+        <div className="bg-slate-50 rounded-2xl p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Keaktifan Menabung</span>
+          </div>
+          <span className="text-[10px] font-black text-[#005E6A]">{activeRate}% Aktif (30hr)</span>
+        </div>
+      </div>
+
+      {/* Export & Other Tools Placeholder */}
+      <div className="px-4 grid grid-cols-2 gap-3">
+        <button className="bg-slate-900 text-white p-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-black transition-colors group">
+          <FileSpreadsheet className="w-3.5 h-3.5 text-green-400" />
+          <span className="text-[9px] font-black uppercase tracking-widest">Excel</span>
+        </button>
+        <button className="bg-white border border-slate-200 text-slate-700 p-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors group">
+          <Download className="w-3.5 h-3.5" />
+          <span className="text-[9px] font-black uppercase tracking-widest">Laporan</span>
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <AdminManagementPage 
-      title="Manajemen Tabungan"
-      subtitle="Total Tabungan Seluruh Pelanggan"
-      totalLabel="Total Tabungan"
-      totalValue={total}
-      items={items}
-      icon={Wallet}
-      colorClass="text-[#F15A24]"
-      onItemClick={handleItemClick}
-      stats={stats}
-      showLegend={false}
-      showBadges={true}
-    />
+    <div className="space-y-6">
+      <AdminManagementPage 
+        title="Manajemen Tabungan"
+        subtitle="Total Tabungan Seluruh Pelanggan"
+        totalLabel="Total Tabungan"
+        totalValue={total}
+        items={items}
+        icon={Wallet}
+        colorClass="text-[#F15A24]"
+        onItemClick={handleItemClick}
+        stats={stats}
+        showLegend={false}
+        showBadges={false}
+        extraContent={extraContent}
+      />
+
+      {/* NEW: Global Recent Transactions */}
+      <div className="px-6 pb-12 space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Aktivitas Terakhir</h3>
+          <History className="w-4 h-4 text-slate-400" />
+        </div>
+        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+          <div className="divide-y divide-slate-50">
+            {recentGlobalTransactions.map((t, i) => (
+              <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.Tipe === 'SETOR' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                    {t.Tipe === 'SETOR' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownLeft className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama}</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`text-xs font-black ${t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'}`}>
+                    {t.Tipe === 'SETOR' ? '+' : '-'}{t.Nominal.toLocaleString('id-ID')}
+                  </p>
+                  <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">{t.Berita || t.Tipe}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -4998,6 +5713,7 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
 
 const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[], transactions: DebtTransaction[] }) => {
   const navigate = useNavigate();
+  const [statusFilter, setStatusFilter] = useState<string>("Semua");
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -5007,22 +5723,45 @@ const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[
   }, [navigate]);
 
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
-  const CHART_COLORS = ["#22c55e", "#eab308", "#ef4444"]; // Updated to leaf green
+  
+  // 1. Calculate Monthly Debt Flow (MTD)
+  const debtFlow = useMemo(() => {
+    const now = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear = now.getFullYear();
+
+    const monthlyTxs = transactions.filter(t => {
+      const d = parseDate(t.Tanggal);
+      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    });
+
+    const totalKasbon = monthlyTxs.filter(t => t.Tipe === "TAMBAH").reduce((acc, curr) => acc + curr.Jumlah, 0);
+    const totalBayar = monthlyTxs.filter(t => t.Tipe === "BAYAR").reduce((acc, curr) => acc + curr.Jumlah, 0);
+    
+    return { kasbon: totalKasbon, bayar: totalBayar };
+  }, [transactions]);
+
+  // 2. Global Recent Debt Activity
+  const recentGlobalDebts = useMemo(() => {
+    return [...transactions]
+      .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())
+      .slice(0, 5);
+  }, [transactions]);
+
+  const CHART_COLORS = ["#22c55e", "#eab308", "#ef4444"];
   const stats = [
-    { label: "Lancar", value: 0, count: 0, color: "#22c55e" }, // Leaf Green
-    { label: "Diragukan", value: 0, count: 0, color: "#FFE600" }, // Neon Yellow
-    { label: "Macet", value: 0, count: 0, color: "#FF005C" } // Neon Pink/Red
+    { label: "Lancar", value: 0, count: 0, color: "#22c55e" },
+    { label: "Diragukan", value: 0, count: 0, color: "#FFE600" },
+    { label: "Macet", value: 0, count: 0, color: "#FF005C" }
   ];
 
-  const items = customers
+  const allItems = customers
     .filter(c => parseCurrency(c.Hutang) > 0)
     .map(c => {
       const userTransactions = transactions.filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase());
       const collectResult = calculateUserCollectability(userTransactions);
-      
       const debtVal = parseCurrency(c.Hutang);
       
-      // Update stats
       if (collectResult.label === "Lancar") {
         stats[0].value += debtVal;
         stats[0].count += 1;
@@ -5034,58 +5773,120 @@ const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[
         stats[2].count += 1;
       }
 
-      const lastTx = userTransactions.length > 0 
-        ? [...userTransactions].sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())[0]
-        : null;
-      
-      const latestDateStr = lastTx ? lastTx.Tanggal : "-";
-      const relativeTime = latestDateStr !== "-" ? getRelativeTime(latestDateStr).toLowerCase() : "";
-      const txType = lastTx ? (lastTx.Tipe === 'TAMBAH' ? 'kasbon' : 'bayar') : "";
-      const txAmount = lastTx ? `Rp ${lastTx.Jumlah.toLocaleString('id-ID')}` : "";
-      const ribbonText = lastTx ? `${relativeTime} ${txType} ${txAmount}` : "";
-      const ribbonColor = lastTx ? (lastTx.Tipe === 'TAMBAH' ? '#ef4444' : '#22c55e') : "#94a3b8";
-      
       const tierColor = collectResult.label === "Lancar" ? "#22c55e" : collectResult.label === "Diragukan" ? "#FFE600" : "#FF005C";
       
       return { 
         name: c.Nama, 
         value: debtVal,
         color: tierColor,
-        date: parseDate(latestDateStr),
+        statusLabel: collectResult.label,
         statusBadge: {
           label: collectResult.label,
           color: tierColor
         },
-        badge: { 
-          label: ribbonText, 
-          colorClass: `bg-[${ribbonColor}] text-white`,
-          customIconColor: ribbonColor
-        },
-        sortOrder: collectResult.sortOrder
+        sortOrder: collectResult.sortOrder,
+        latestDate: userTransactions.length > 0 
+          ? [...userTransactions].sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())[0].Tanggal
+          : "-"
       };
-    })
+    });
+
+  const filteredItems = allItems
+    .filter(item => statusFilter === "Semua" || item.statusLabel === statusFilter)
     .sort((a, b) => {
       if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-      return b.date.getTime() - a.date.getTime();
+      return parseDate(b.latestDate).getTime() - parseDate(a.latestDate).getTime();
     });
 
   const handleItemClick = (name: string) => {
     navigate(`/hutang/${encodeURIComponent(name)}`);
   };
 
+  const extraContent = (
+    <div className="w-full space-y-4">
+      {/* Debt Flow Summary */}
+      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 pt-4 mt-2">
+        <div className="text-center flex-1">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Kasbon Bulan Ini</p>
+          <p className="text-xs font-black text-red-600">+ Rp {debtFlow.kasbon.toLocaleString('id-ID')}</p>
+        </div>
+        <div className="w-[1px] h-8 bg-slate-100 flex-shrink-0 mx-2" />
+        <div className="text-center flex-1">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1 whitespace-nowrap">Bayar Bulan Ini</p>
+          <p className="text-xs font-black text-green-600">- Rp {debtFlow.bayar.toLocaleString('id-ID')}</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const filterContent = (
+    <div className="flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth -mr-2 pr-2">
+      {["Semua", "Lancar", "Diragukan", "Macet"].map(label => (
+        <button
+          key={label}
+          onClick={() => setStatusFilter(label)}
+          className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+            statusFilter === label 
+              ? "bg-slate-900 text-white shadow-lg" 
+              : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <AdminManagementPage 
-      title="Manajemen Hutang"
-      subtitle="Total Hutang Seluruh Pelanggan"
-      totalLabel="Total Hutang"
-      totalValue={total}
-      items={items}
-      icon={Receipt}
-      colorClass="text-[#F15A24]"
-      onItemClick={handleItemClick}
-      stats={stats.filter(s => s.count > 0)}
-      showBadges={true}
-    />
+    <div className="space-y-6">
+      <AdminManagementPage 
+        title="Manajemen Hutang"
+        subtitle="Total Hutang Seluruh Pelanggan"
+        totalLabel="Total Hutang"
+        totalValue={total}
+        items={filteredItems}
+        icon={Receipt}
+        colorClass="text-[#F15A24]"
+        onItemClick={handleItemClick}
+        stats={stats.filter(s => s.count > 0)}
+        showBadges={false}
+        extraContent={extraContent}
+        rightHeaderContent={filterContent}
+      />
+
+      {/* Global Recent Activity */}
+      <div className="px-6 pb-12 space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Aktivitas Terakhir</h3>
+          <History className="w-4 h-4 text-slate-400" />
+        </div>
+        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+          <div className="divide-y divide-slate-50">
+            {recentGlobalDebts.length > 0 ? recentGlobalDebts.map((t, i) => (
+              <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                    {t.Tipe === 'TAMBAH' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama}</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className={`text-xs font-black ${t.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'}`}>
+                    {t.Tipe === 'TAMBAH' ? '+' : '-'}{t.Jumlah.toLocaleString('id-ID')}
+                  </p>
+                  <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">{t.Tipe === 'TAMBAH' ? 'Kasbon' : 'Pelunasan'}</p>
+                </div>
+              </div>
+            )) : (
+              <p className="p-12 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">Belum ada aktivitas</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -5460,25 +6261,52 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
     return val.toLocaleString('id-ID');
   };
 
-  // Process data for the chart (last 12 months)
+  // Process data for the chart (from first transaction to now)
   const chartData = React.useMemo(() => {
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    
-    const last12Months: { month: number, year: number, label: string, total: number }[] = [];
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(currentYear, currentMonth - i, 1);
-      last12Months.push({
-        month: d.getMonth(),
-        year: d.getFullYear(),
-        label: d.toLocaleString('id-ID', { month: 'short' }),
-        total: 0
-      });
-    }
-
     const allUserTransactions = transactions.filter(t => 
       t.Nama.toLowerCase() === user?.Nama?.toLowerCase()
     );
+
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    
+    // Find earliest transaction
+    let earliestDate = new Date(currentYear, currentMonth, 1);
+    allUserTransactions.forEach(t => {
+      const tDate = parseDate(t.Tanggal);
+      if (tDate.getTime() > 0 && tDate < earliestDate) {
+        earliestDate = new Date(tDate.getFullYear(), tDate.getMonth(), 1);
+      }
+    });
+
+    // Generate list of months from earliest to now
+    const labels: { month: number, year: number, label: string, total: number }[] = [];
+    let iterateDate = new Date(earliestDate);
+    
+    while (iterateDate <= new Date(currentYear, currentMonth, 1)) {
+      labels.push({
+        month: iterateDate.getMonth(),
+        year: iterateDate.getFullYear(),
+        label: iterateDate.toLocaleString('id-ID', { month: 'short' }),
+        total: 0
+      });
+      iterateDate.setMonth(iterateDate.getMonth() + 1);
+    }
+
+    // Ensure at least 6 months if range is too small for better chart visual
+    if (labels.length < 6) {
+      const extraNeeded = 6 - labels.length;
+      const firstLabel = labels[0];
+      for (let i = 1; i <= extraNeeded; i++) {
+        const d = new Date(firstLabel.year, firstLabel.month - i, 1);
+        labels.unshift({
+          month: d.getMonth(),
+          year: d.getFullYear(),
+          label: d.toLocaleString('id-ID', { month: 'short' }),
+          total: 0
+        });
+      }
+    }
     
     allUserTransactions.forEach(t => {
       const tDate = parseDate(t.Tanggal);
@@ -5487,13 +6315,13 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
       const tMonth = tDate.getMonth();
       const tYear = tDate.getFullYear();
 
-      const bucket = last12Months.find(m => m.month === tMonth && m.year === tYear);
+      const bucket = labels.find(m => m.month === tMonth && m.year === tYear);
       if (bucket) {
         bucket.total += t.Pemasukan;
       }
     });
 
-    return last12Months;
+    return labels;
   }, [transactions, user]);
 
   const filteredTransactions = React.useMemo(() => {
@@ -5529,6 +6357,11 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
     });
     return groups;
   }, [filteredTransactions]);
+
+  const totalSixMonths = (chartData as any[]).reduce((acc, curr) => acc + curr.total, 0);
+  const selectedMonthData = (chartData as any[]).find(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
+  const totalSelectedMonth = selectedMonthData?.total || 0;
+  const selectedMonthLabel = selectedMonthData?.label || "";
 
   const pieData = React.useMemo(() => {
     return Object.entries(groupedTransactions).map(([name, data]: [string, any]) => {
@@ -5569,9 +6402,10 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
       return {
         name,
         value: data.total,
-        color
+        color,
+        percentage: totalSelectedMonth > 0 ? (data.total / totalSelectedMonth) * 100 : 0
       };
-    });
+    }).sort((a, b) => b.value - a.value);
   }, [groupedTransactions]);
 
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
@@ -5581,11 +6415,6 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
       prev.includes(jenis) ? prev.filter(g => g !== jenis) : [...prev, jenis]
     );
   };
-
-  const totalSixMonths = (chartData as any[]).reduce((acc, curr) => acc + curr.total, 0);
-  const selectedMonthData = (chartData as any[]).find(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
-  const totalSelectedMonth = selectedMonthData?.total || 0;
-  const selectedMonthLabel = selectedMonthData?.label || "";
 
   const COLORS = ['#005E6A', '#F15A24', '#22C55E', '#3B82F6', '#A855F7', '#EAB308', '#EC4899'];
 
@@ -5611,7 +6440,7 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
               }}
               className="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-widest text-[#005E6A] appearance-none focus:outline-none focus:border-[#005E6A]/20 transition-all shadow-sm"
             >
-              {chartData.map((m, i) => (
+              {[...chartData].reverse().map((m, i) => (
                 <option key={i} value={`${m.month}-${m.year}`}>
                   {m.label} {m.year}
                 </option>
@@ -5788,9 +6617,9 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
           <div className="mb-8">
             {/* Pie Chart Section with Integrated Total */}
             <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-slate-100 mb-6 relative overflow-hidden">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Transaksi {selectedMonthLabel}</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Belanja {selectedMonthLabel}</p>
                   <h4 className="text-xl font-black text-[#005E6A]">
                     Rp {formatCurrency(totalSelectedMonth)}
                   </h4>
@@ -5799,16 +6628,27 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
                   <PieChart className="w-5 h-5 text-[#005E6A]" />
                 </div>
               </div>
+
+              {pieData.length > 0 && (
+                <div className="mb-4 bg-orange-50/50 p-3 rounded-2xl border border-orange-100/50">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-3 h-3 text-[#F15A24]" />
+                    <p className="text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
+                      Terpopuler: {pieData[0].name} ({Math.round(pieData[0].percentage)}%)
+                    </p>
+                  </div>
+                </div>
+              )}
               
-              <div className="h-64 w-full">
+              <div className="h-48 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={pieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
+                      innerRadius={50}
+                      outerRadius={70}
                       paddingAngle={5}
                       dataKey="value"
                       animationDuration={1500}
@@ -5834,11 +6674,14 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
                 </ResponsiveContainer>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mt-4">
-                {pieData.map((item: any, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                    <p className="text-[8px] font-black text-slate-500 uppercase truncate">{item.name}</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-4 px-2">
+                {pieData.sort((a,b) => b.value - a.value).map((item: any, i) => (
+                  <div key={i} className="flex items-center justify-between border-b border-slate-50 pb-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                      <p className="text-[8px] font-black text-slate-500 uppercase truncate">{item.name}</p>
+                    </div>
+                    <p className="text-[8px] font-black text-slate-400">{Math.round(item.percentage)}%</p>
                   </div>
                 ))}
               </div>
@@ -5847,7 +6690,9 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
             {/* Expandable Categorized List */}
             <div className="space-y-3">
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Kategori Transaksi</h3>
-              {Object.entries(groupedTransactions).map(([jenis, data]: [string, any], idx) => {
+              {Object.entries(groupedTransactions)
+                .sort(([, a], [, b]) => (b as any).total - (a as any).total)
+                .map(([jenis, data]: [string, any], idx) => {
                 // Find matching service for icon and color
                 let service = MAIN_SERVICES.find(s => 
                   jenis.toLowerCase().includes(s.name.toLowerCase()) || 
@@ -5942,6 +6787,9 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
 const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, onLogin, setActiveTab }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[], onLogout: () => void, customers: Customer[], onLogin: (user: Customer) => void, setActiveTab: (id: string) => void }) => {
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [showLevelBenefits, setShowLevelBenefits] = useState(false);
+  
   const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
   const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
 
@@ -5954,20 +6802,33 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
       >
       {/* Unified Profile Card */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden mb-8">
-        <div className="bg-slate-50/50 px-6 py-3 border-b border-slate-100">
+        <div className="bg-slate-50/50 px-6 py-3 border-b border-slate-100 flex items-center justify-between">
           <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-[0.2em]">Profil</p>
+          <div className="flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-blue-500 fill-blue-500/10" />
+            <span className="text-[8px] font-black text-blue-500 uppercase">Terverifikasi</span>
+          </div>
         </div>
         
         <div className="p-8">
           {/* Profile Header Section */}
-          <div className="flex flex-col items-center mb-8">
+          <div className="flex flex-col items-center mb-8 relative">
             <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-200 mb-4 relative group flex items-center justify-center">
               <User className="w-12 h-12 text-slate-400" />
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <Camera className="w-6 h-6 text-white" />
               </div>
             </div>
+            
+            <button 
+              onClick={() => setShowQR(true)}
+              className="absolute top-0 right-0 w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-[#005E6A] shadow-sm border border-slate-100 active:scale-90 transition-transform"
+            >
+              <QrCode className="w-5 h-5" />
+            </button>
+
             <h1 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">{user?.Nama}</h1>
+            <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">ID: WT-{Math.abs(user?.Nama?.length || 0)}-{user?.Nama?.substring(0,2).toUpperCase()}</p>
           </div>
 
           <div className="pt-6 border-t border-slate-100">
@@ -5979,17 +6840,17 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
                 <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-1">
                   <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                 </div>
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Poin Loyalitas</p>
+                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Loyalitas</p>
                 <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{activePoints} Poin</p>
               </div>
               <div 
-                onClick={() => navigate("/level")}
+                onClick={() => setShowLevelBenefits(true)}
                 className="flex flex-col items-center gap-1 group transition-colors cursor-pointer active:scale-95 px-2"
               >
                 <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-1">
                   <Trophy className="w-4 h-4 text-[#F15A24] fill-[#F15A24]" />
                 </div>
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Level Pelanggan</p>
+                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Level</p>
                 <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
               </div>
             </div>
@@ -6028,6 +6889,101 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
       </button>
 
       {/* Logout Confirmation Popup */}
+      <AnimatePresence>
+        {showQR && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 text-center relative"
+            >
+              <button 
+                onClick={() => setShowQR(false)}
+                className="absolute top-6 right-6 text-slate-300 hover:text-slate-500"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <div className="w-16 h-16 bg-[#005E6A]/5 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <QrCode className="w-8 h-8 text-[#005E6A]" />
+              </div>
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-1">ID Digital Pelanggan</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6">Pindai di kasir Warung Tomi</p>
+              
+              <div className="bg-white p-4 rounded-3xl border-4 border-slate-50 shadow-inner mb-6 flex items-center justify-center">
+                <div className="w-48 h-48 bg-slate-50 rounded-2xl flex items-center justify-center relative overflow-hidden">
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=WARUNGTOMI-${user?.Nama}`}
+                    alt="Customer QR Code"
+                    className="w-40 h-40 object-contain mix-blend-multiply"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-md">
+                    <img src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" alt="Logo" className="w-6 h-6 object-contain" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-slate-50 p-4 rounded-2xl">
+                <p className="text-[11px] font-black text-[#005E6A] tracking-tighter uppercase">{user?.Nama}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">WT-{Math.abs(user?.Nama?.length || 0)}-{user?.Nama?.substring(0,2).toUpperCase()}</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Level Benefits Modal */}
+      <AnimatePresence>
+        {showLevelBenefits && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col relative"
+            >
+              <button 
+                onClick={() => setShowLevelBenefits(false)}
+                className="absolute top-6 right-6 text-slate-300 hover:text-slate-500"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <div className={`w-16 h-16 bg-gradient-to-br ${customerLevel.color} rounded-2xl flex items-center justify-center mb-6`}>
+                <Trophy className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-1">Keuntungan Level {customerLevel.name}</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-8">Nikmati benefit eksklusif Anda</p>
+              
+              <div className="space-y-4 mb-8">
+                {customerLevel.benefits?.map((benefit: string, i: number) => (
+                  <div key={i} className="flex items-start gap-3 bg-slate-50 p-4 rounded-2xl">
+                    <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                      <CheckCircle2 className="w-3 h-3 text-white" />
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-600 leading-relaxed uppercase tracking-tight">{benefit}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-4 rounded-2xl border border-slate-100 text-center">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Belanja 3 Bulan</p>
+                <p className="text-sm font-black text-[#F15A24]">Rp {customerLevel.total.toLocaleString('id-ID')}</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {showLogoutConfirm && (
           <motion.div 
@@ -6358,7 +7314,26 @@ const TarikTunaiPage = () => {
   const navigate = useNavigate();
   const [activeTransferTab, setActiveTransferTab] = useState<'bank' | 'ewallet'>('bank');
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [calcAmount, setCalcAmount] = useState<string>("");
+  const [showFeeTable, setShowFeeTable] = useState(false);
   
+  const calculateFee = (amount: number) => {
+    if (amount <= 0) return 0;
+    if (amount < 100000) return 3000;
+    if (amount <= 999999) return 5000;
+    if (amount <= 1999999) return 10000;
+    if (amount <= 2999999) return 15000;
+    if (amount <= 3999999) return 20000;
+    if (amount <= 4999999) return 25000;
+    return Math.round(amount * 0.005);
+  };
+
+  const amountNum = parseInt(calcAmount.replace(/\D/g, "")) || 0;
+  const adminFee = calculateFee(amountNum);
+  const totalReceived = Math.max(0, amountNum - adminFee);
+
+  const formatIDR = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
+
   const bankAccounts = [
     { 
       bank: "BNI", 
@@ -6445,15 +7420,105 @@ const TarikTunaiPage = () => {
       </div>
 
       <div className="px-6 -mt-12 relative z-20 space-y-8">
-        {/* Helper Note */}
-        <div className="bg-white p-4 rounded-3xl shadow-sm flex items-center gap-4 border border-slate-100">
-           <div className="w-10 h-10 rounded-2xl bg-teal-50 flex items-center justify-center shrink-0">
-              <Info className="w-5 h-5 text-[#005E6A]" />
-           </div>
-           <p className="text-[10px] font-black uppercase tracking-wider leading-relaxed text-[#005E6A]">
-             Ada 3 Cara Tarik Tunai / Cairkan Saldo di Warung Tomi
-           </p>
+        {/* Status & Directions */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[10px] font-black text-[#005E6A] uppercase">Uang Tunai</span>
+            </div>
+            <p className="text-[9px] font-bold text-slate-400 uppercase">Tersedia di Kasir</p>
+          </div>
+          <a 
+            href="https://maps.app.goo.gl/bnUitCFdP5sgqiw49" 
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center active:scale-95 transition-transform"
+          >
+            <MapPin className="w-4 h-4 text-[#F15A24] mb-1" />
+            <span className="text-[9px] font-black text-[#005E6A] uppercase leading-tight">Petunjuk Arah</span>
+          </a>
         </div>
+
+        {/* Option 2: Transfer Bank / E-Wallet dengan Tab */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-xs font-black text-[#005E6A] uppercase tracking-widest flex items-center gap-2">
+              <Calculator className="w-4 h-4 text-[#F15A24]" />
+              Kalkulator Biaya
+            </h2>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-6 opacity-5">
+              <Calculator className="w-24 h-24 text-[#005E6A]" />
+            </div>
+            
+            <div className="relative z-10">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Masukan Nominal Tarik</p>
+              <div className="relative mb-6">
+                 <span className="absolute left-0 bottom-3 text-2xl font-black text-[#005E6A]">Rp</span>
+                 <input 
+                   type="text"
+                   inputMode="numeric"
+                   value={calcAmount}
+                   onChange={(e) => {
+                     const val = e.target.value.replace(/\D/g, "");
+                     setCalcAmount(val ? parseInt(val).toLocaleString('id-ID') : "");
+                   }}
+                   placeholder="0"
+                   className="w-full bg-transparent border-b-2 border-slate-100 pb-2 pl-10 text-3xl font-black text-[#005E6A] focus:outline-none focus:border-[#F15A24] transition-colors placeholder:text-slate-100"
+                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-slate-50 p-4 rounded-2xl">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Potongan Admin</p>
+                  <p className="text-xs font-black text-rose-500">-{formatIDR(adminFee)}</p>
+                </div>
+                <div className="bg-[#005E6A] p-4 rounded-2xl text-white">
+                  <p className="text-[8px] font-black opacity-60 uppercase tracking-widest mb-1">Diterima Tunai</p>
+                  <p className="text-xs font-black whitespace-nowrap">{formatIDR(totalReceived)}</p>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowFeeTable(!showFeeTable)}
+                className="w-full py-3 rounded-xl border border-slate-100 text-[9px] font-black text-slate-400 uppercase tracking-widest active:bg-slate-50 transition-colors"
+              >
+                {showFeeTable ? "Tutup Tabel Biaya" : "Lihat Rincian Biaya Admin"}
+              </button>
+
+              <AnimatePresence>
+                {showFeeTable && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="pt-6 space-y-2">
+                       {[
+                         { range: "< 100.000", fee: "3.000" },
+                         { range: "101.000 - 999.999", fee: "5.000" },
+                         { range: "1.000.000 - 1.999.999", fee: "10.000" },
+                         { range: "2.000.000 - 2.999.999", fee: "15.000" },
+                         { range: "3.000.000 - 3.999.999", fee: "20.000" },
+                         { range: "4.000.000 - 4.999.999", fee: "25.000" },
+                         { range: "> 5.000.000", fee: "0,5% Dari Nominal" },
+                       ].map((item, i) => (
+                         <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                           <span className="text-[9px] font-bold text-slate-500 uppercase">{item.range}</span>
+                           <span className="text-[10px] font-black text-[#005E6A]">Rp {item.fee}</span>
+                         </div>
+                       ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </section>
 
         {/* Option 1: EDC */}
         <section className="space-y-4">
@@ -6473,17 +7538,59 @@ const TarikTunaiPage = () => {
                 referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4">
-                 <Badge className="bg-orange-500 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 mb-2">
+              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+                 <Badge className="bg-orange-500 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1">
                    Terima Semua Kartu
                  </Badge>
+                 <div className="bg-[#005E6A] text-white rounded-lg p-3 py-2 flex flex-col items-center shadow-lg border border-white/10">
+                    <p className="text-[7px] font-black uppercase tracking-tighter opacity-60">Admin EDC</p>
+                    <p className="text-[10px] font-black">Rp 3.000*</p>
+                 </div>
               </div>
             </div>
             <div className="p-6">
-              <p className="text-[10px] font-black text-slate-600 leading-relaxed uppercase tracking-wider text-center">
+              <p className="text-[10px] font-black text-slate-600 leading-relaxed uppercase tracking-wider text-center mb-6">
                 Gesek atau masukkan kartu ATM/Debet Anda ke mesin <span className="text-[#005E6A]">EDC BNI</span> di lokasi warung.
               </p>
-              <div className="mt-4 flex flex-wrap justify-center gap-4 opacity-40 grayscale hover:grayscale-0 transition-all">
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-4 rounded-none border border-slate-100">
+                  <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-widest mb-3 border-b border-slate-200 pb-2">Cek Saldo</p>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">BNI/PKH</span>
+                      <span className="text-[9px] font-black text-green-600">GRATIS</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">BANK LAIN</span>
+                      <span className="text-[9px] font-black text-[#005E6A]">Rp 4.000</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-none border border-slate-100">
+                  <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-widest mb-3 border-b border-slate-200 pb-2">Tarik Tunai</p>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">BNI/PKH</span>
+                      <span className="text-[9px] font-black text-[#005E6A]">Rp 3.000</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase">BANK LAIN</span>
+                      <span className="text-[9px] font-black text-[#005E6A]">Rp 9.500</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-start gap-3 bg-rose-50 p-4 rounded-none border border-rose-100">
+                <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <p className="text-[8px] font-black text-rose-600 uppercase tracking-wider leading-relaxed text-left italic">
+                  * Biaya di atas adalah biaya layanan EDC yang dipotong langsung dari saldo ATM oleh Bank, belum termasuk biaya administrasi warung.
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-wrap justify-center gap-4 opacity-40 grayscale hover:grayscale-0 transition-all">
                  <span className="text-[10px] font-black italic">VISA</span>
                  <span className="text-[10px] font-black italic">MASTERCARD</span>
                  <span className="text-[10px] font-black italic">GPN</span>
@@ -6493,20 +7600,20 @@ const TarikTunaiPage = () => {
           </div>
         </section>
 
-        {/* Option 2: Transfer Bank / E-Wallet dengan Tab */}
+        {/* Option 2: Bank / E-Wallet dengan Tab */}
         <section className="space-y-4">
           <div className="flex items-center justify-between px-2">
             <h2 className="text-xs font-black text-[#005E6A] uppercase tracking-widest flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-[#005E6A] text-white flex items-center justify-center text-[10px]">2</span>
-              Transfer Bank / E-Wallet
+              Bank / E-Wallet
             </h2>
           </div>
           
           <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-6 leading-relaxed">
               {activeTransferTab === 'bank' 
-                ? "Transfer ke salah satu rekening di bawah ini, lalu tunjukkan bukti transfernya."
-                : "Transfer ke nomor E-Wallet di bawah ini, lalu tunjukkan bukti transfernya."}
+                ? "Kirim ke salah satu rekening di bawah ini, lalu tunjukkan bukti kirimnya."
+                : "Kirim ke nomor E-Wallet di bawah ini, lalu tunjukkan bukti kirimnya."}
             </p>
 
             <div className="flex p-1 bg-slate-50 rounded-2xl mb-6">
@@ -6514,7 +7621,7 @@ const TarikTunaiPage = () => {
                 onClick={() => setActiveTransferTab('bank')}
                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTransferTab === 'bank' ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
               >
-                Bank Transfer
+                Bank
               </button>
               <button 
                 onClick={() => setActiveTransferTab('ewallet')}
@@ -6987,6 +8094,7 @@ export default function App() {
   const [redeemedPoints, setRedeemedPoints] = useState<RedeemedPoint[]>([]);
   const [loggedInUser, setLoggedInUser] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
@@ -7041,28 +8149,60 @@ export default function App() {
   useEffect(() => {
     const savedUser = localStorage.getItem("warung_tomi_user");
     if (savedUser) setLoggedInUser(JSON.parse(savedUser));
+  }, []);
 
-    const fetchData = async (showLoading = true) => {
-      if (abortControllerRef.current) abortControllerRef.current.abort();
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
+  const fetchData = async (showLoading = true) => {
+    if (isFetching.current && !showLoading) return;
+    
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
-      isFetching.current = true;
-      if (showLoading) setIsLoading(true);
+    isFetching.current = true;
+    if (showLoading) {
+      setIsLoading(true);
+      setDataError(null);
+    }
 
       try {
         const urls = [
-          "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv",
-          "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv",
-          "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBQ5kUdqwv5bBsJcaiponYzqU_JxO0g7qQb6DQ1ujJ9bzTkY5GlI5XQQXL9BVr22gdmM7V7eEIDMH9/pub?gid=799157484&single=true&output=csv",
-          "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv",
-          "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv",
-          "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv"
+          { name: "Pelanggan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv" },
+          { name: "Tabungan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv" },
+          { name: "Investasi", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBQ5kUdqwv5bBsJcaiponYzqU_JxO0g7qQb6DQ1ujJ9bzTkY5GlI5XQQXL9BVr22gdmM7V7eEIDMH9/pub?gid=799157484&single=true&output=csv" },
+          { name: "Hutang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv" },
+          { name: "Penjualan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv" },
+          { name: "Poin", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv" }
         ];
         
         const cacheBuster = `&t=${Date.now()}`;
-        const responses = await Promise.all(urls.map(url => fetch(url + cacheBuster, { signal: controller.signal })));
-        const csvs = await Promise.all(responses.map(res => res.text()));
+        
+        // Fetch individually to better pinpoint failures
+        const fetchWithRetry = async (label: string, url: string, signal: AbortSignal) => {
+          try {
+            const res = await fetch(url + cacheBuster, { 
+              signal,
+              cache: 'no-store',
+              referrerPolicy: 'no-referrer'
+            });
+            if (!res.ok) throw new Error(`Status ${res.status}`);
+            return await res.text();
+          } catch (e: any) {
+            if (e.name === 'AbortError') throw e;
+            
+            console.error(`Failed to fetch ${label}:`, e);
+            // Retry once without cache buster if it's a network error
+            try {
+              const res = await fetch(url, { signal, cache: 'no-store' });
+              if (!res.ok) throw new Error(`Status ${res.status}`);
+              return await res.text();
+            } catch (retryError: any) {
+              if (retryError.name === 'AbortError') throw retryError;
+              throw new Error(`Gagal memuat data ${label}`);
+            }
+          }
+        };
+
+        const csvs = await Promise.all(urls.map(u => fetchWithRetry(u.name, u.url, controller.signal)));
         
         if (controller.signal.aborted) return;
 
@@ -7289,14 +8429,17 @@ export default function App() {
       } catch (error: any) {
         if (error.name !== 'AbortError') {
           console.error("Fetch Data Error:", error);
+          setDataError(error.message || "Gagal menghubungkan ke server data");
         }
-      } finally {
-        if (abortControllerRef.current === controller) {
-          setIsLoading(false);
-          isFetching.current = false;
-        }
+    } finally {
+      if (abortControllerRef.current === controller) {
+        setIsLoading(false);
+        isFetching.current = false;
       }
-    };
+    }
+  };
+
+  useEffect(() => {
     fetchData();
     const interval = setInterval(() => fetchData(false), 10000); // Poll every 10 seconds
     return () => {
@@ -7330,6 +8473,29 @@ export default function App() {
           >
             <AnimatePresence>
               {isLoading && <LoadingPopup />}
+            </AnimatePresence>
+            <AnimatePresence>
+              {dataError && (
+                <div className="fixed top-20 left-6 right-6 z-[110]">
+                  <motion.div 
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 shadow-xl"
+                  >
+                    <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-[10px] font-black text-red-600 uppercase tracking-widest leading-none mb-1">Gangguan Koneksi</p>
+                      <p className="text-[9px] font-bold text-red-400 uppercase tracking-tight leading-tight">{dataError}</p>
+                    </div>
+                    <button 
+                      onClick={() => fetchData(true)}
+                      className="bg-red-500 text-white p-2 rounded-xl shadow-lg active:scale-95 transition-transform"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                  </motion.div>
+                </div>
+              )}
             </AnimatePresence>
             <AnimatePresence>
               {showInstallPrompt && (
