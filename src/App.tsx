@@ -5081,8 +5081,8 @@ const TransactionModal = ({
       setIsSaving(true);
       try {
         const nominal = parseInt(amount.replace(/\./g, ''));
-        // Send to Spreadsheet if URL is configured
-        const scriptUrl = (import.meta as any).env.VITE_SAVINGS_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbz_nvD6ANhj9qTFpv_DPeog6msTIR3LhvaRAgBN_NFJltKzfEeW6xeECNrG2uw2DT9Q4Q/exec";
+        // Hardcoded Script URL for Tabungan
+        const scriptUrl = "https://script.google.com/macros/s/AKfycbz_nvD6ANhj9qTFpv_DPeog6msTIR3LhvaRAgBN_NFJltKzfEeW6xeECNrG2uw2DT9Q4Q/exec";
         
         if (scriptUrl) {
           // Send Data to Google Sheets
@@ -5103,9 +5103,6 @@ const TransactionModal = ({
           } catch (e) {
             console.error("Fetch error:", e);
           }
-        } else {
-          console.warn("VITE_SAVINGS_SCRIPT_URL is not defined. Data not sent to spreadsheet.");
-          // Optional: Add a subtle notification for the user
         }
 
         onSave(selected, nominal, note);
@@ -6132,7 +6129,8 @@ const AdminStockManagement = () => {
 
                     setIsSaving(true);
                     try {
-                      const scriptUrl = (import.meta as any).env.VITE_ADD_PRODUCT_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbwp5CARj8HYiMRj-aLIAPc7S5t4f6uWWsOga0wfteA-WBNRKy40CW-n0jxaHu0RlKPq/exec";
+                      // Hardcoded Script URL for Add Product
+                      const scriptUrl = "https://script.google.com/macros/s/AKfycbwp5CARj8HYiMRj-aLIAPc7S5t4f6uWWsOga0wfteA-WBNRKy40CW-n0jxaHu0RlKPq/exec";
                       if (scriptUrl) {
                         try {
                           await fetch(scriptUrl, {
@@ -6155,9 +6153,6 @@ const AdminStockManagement = () => {
                         } catch (e) {
                           console.error("Fetch error saving product:", e);
                         }
-                      } else {
-                        console.warn("VITE_ADD_PRODUCT_SCRIPT_URL is not defined.");
-                        alert("URL Apps Script untuk tambah produk belum dikonfigurasi di Settings!");
                       }
 
                       // Update local state too
@@ -8930,12 +8925,12 @@ export default function App() {
 
       try {
         const urls = [
-          { name: "Pelanggan", url: (import.meta as any).env.VITE_CSV_PELANGGAN || "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv" },
-          { name: "Tabungan", url: (import.meta as any).env.VITE_CSV_TABUNGAN || "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv" },
-          { name: "Investasi", url: (import.meta as any).env.VITE_CSV_INVESTASI || "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBQ5kUdqwv5bBsJcaiponYzqU_JxO0g7qQb6DQ1ujJ9bzTkY5GlI5XQQXL9BVr22gdmM7V7eEIDMH9/pub?gid=799157484&single=true&output=csv" },
-          { name: "Hutang", url: (import.meta as any).env.VITE_CSV_HUTANG || "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv" },
-          { name: "Penjualan", url: (import.meta as any).env.VITE_CSV_PENJUALAN || "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv" },
-          { name: "Poin", url: (import.meta as any).env.VITE_CSV_POIN || "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv" }
+          { name: "Pelanggan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv" },
+          { name: "Tabungan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv" },
+          { name: "Investasi", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBQ5kUdqwv5bBsJcaiponYzqU_JxO0g7qQb6DQ1ujJ9bzTkY5GlI5XQQXL9BVr22gdmM7V7eEIDMH9/pub?gid=799157484&single=true&output=csv" },
+          { name: "Hutang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv" },
+          { name: "Penjualan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv" },
+          { name: "Poin", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv" }
         ];
         
         // Fetch individually to better pinpoint failures
