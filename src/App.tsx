@@ -5082,7 +5082,7 @@ const TransactionModal = ({
       try {
         const nominal = parseInt(amount.replace(/\./g, ''));
         // Send to Spreadsheet if URL is configured
-        const scriptUrl = (import.meta as any).env.VITE_SAVINGS_SCRIPT_URL;
+        const scriptUrl = (import.meta as any).env.VITE_SAVINGS_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbz_nvD6ANhj9qTFpv_DPeog6msTIR3LhvaRAgBN_NFJltKzfEeW6xeECNrG2uw2DT9Q4Q/exec";
         
         if (scriptUrl) {
           // Send Data to Google Sheets
@@ -6132,7 +6132,7 @@ const AdminStockManagement = () => {
 
                     setIsSaving(true);
                     try {
-                      const scriptUrl = (import.meta as any).env.VITE_ADD_PRODUCT_SCRIPT_URL;
+                      const scriptUrl = (import.meta as any).env.VITE_ADD_PRODUCT_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbwp5CARj8HYiMRj-aLIAPc7S5t4f6uWWsOga0wfteA-WBNRKy40CW-n0jxaHu0RlKPq/exec";
                       if (scriptUrl) {
                         try {
                           await fetch(scriptUrl, {
