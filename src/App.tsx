@@ -5086,18 +5086,26 @@ const TransactionModal = ({
         
         if (scriptUrl) {
           // Send Data to Google Sheets
-          await fetch(scriptUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            referrerPolicy: 'no-referrer',
-            body: JSON.stringify({
-              Nama: selected.Nama,
-              Tanggal: new Date().toLocaleDateString('id-ID'),
-              Tipe: type,
-              Nominal: nominal,
-              Keterangan: note || "-"
-            })
-          });
+          try {
+            const resp = await fetch(scriptUrl, {
+              method: 'POST',
+              mode: 'no-cors',
+              referrerPolicy: 'no-referrer',
+              body: JSON.stringify({
+                Nama: selected.Nama,
+                Tanggal: new Date().toLocaleDateString('id-ID'),
+                Tipe: type,
+                Nominal: nominal,
+                Keterangan: note || "-"
+              })
+            });
+            console.log("Saving request sent to:", scriptUrl);
+          } catch (e) {
+            console.error("Fetch error:", e);
+          }
+        } else {
+          console.warn("VITE_SAVINGS_SCRIPT_URL is not defined. Data not sent to spreadsheet.");
+          // Optional: Add a subtle notification for the user
         }
 
         onSave(selected, nominal, note);
@@ -6126,22 +6134,30 @@ const AdminStockManagement = () => {
                     try {
                       const scriptUrl = (import.meta as any).env.VITE_ADD_PRODUCT_SCRIPT_URL;
                       if (scriptUrl) {
-                        await fetch(scriptUrl, {
-                          method: 'POST',
-                          mode: 'no-cors',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            id,
-                            nama: name,
-                            kategori: category,
-                            harga: parseInt(price),
-                            modal: parseInt(cost),
-                            stok: parseInt(stockVal),
-                            timestamp: new Date().toISOString()
-                          })
-                        });
+                        try {
+                          await fetch(scriptUrl, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              id,
+                              nama: name,
+                              kategori: category,
+                              harga: parseInt(price),
+                              modal: parseInt(cost),
+                              stok: parseInt(stockVal),
+                              timestamp: new Date().toISOString()
+                            })
+                          });
+                          console.log("Add product request sent to:", scriptUrl);
+                        } catch (e) {
+                          console.error("Fetch error saving product:", e);
+                        }
+                      } else {
+                        console.warn("VITE_ADD_PRODUCT_SCRIPT_URL is not defined.");
+                        alert("URL Apps Script untuk tambah produk belum dikonfigurasi di Settings!");
                       }
 
                       // Update local state too
