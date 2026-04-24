@@ -49,6 +49,7 @@ import {
   RefreshCw,
   Copy,
   LayoutGrid,
+  Save,
   Settings,
   QrCode,
   Send,
@@ -91,6 +92,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+import { Html5QrcodeScanner } from "html5-qrcode";
 
 // --- Types ---
 
@@ -4817,6 +4820,7 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
 };
 
 const AdminManagementPage = ({ 
+  listTitle,
   title, 
   subtitle, 
   totalLabel, 
@@ -4831,6 +4835,7 @@ const AdminManagementPage = ({
   extraContent,
   rightHeaderContent
 }: { 
+  listTitle?: string,
   title: string, 
   subtitle: string, 
   totalLabel: string, 
@@ -4961,7 +4966,7 @@ const AdminManagementPage = ({
 
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-4 px-2">
-            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider whitespace-nowrap">Daftar Rincian</h3>
+            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider whitespace-nowrap">{listTitle || "Daftar Rincian"}</h3>
             {rightHeaderContent}
           </div>
           <div className="grid gap-3">
@@ -5032,8 +5037,226 @@ const AdminManagementPage = ({
   );
 };
 
-const AdminSavingsManagement = ({ customers, transactions }: { customers: Customer[], transactions: SavingTransaction[] }) => {
+const TransactionModal = ({ 
+  isOpen, 
+  onClose, 
+  title, 
+  type, 
+  customers, 
+  onSave 
+}: { 
+  isOpen: boolean, 
+  onClose: () => void, 
+  title: string, 
+  type: 'SETOR' | 'TARIK',
+  customers: Customer[],
+  onSave: (customer: Customer, amount: number, note: string) => void
+}) => {
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Customer | null>(null);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const filtered = useMemo(() => {
+    if (!search) return [];
+    return customers.filter(c => {
+      const matchesSearch = c.Nama.toLowerCase().includes(search.toLowerCase());
+      const hasBalance = parseCurrency(c.Tabungan) > 0;
+      return matchesSearch && (type === 'SETOR' ? true : hasBalance);
+    }).slice(0, 5);
+  }, [search, customers, type]);
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^\d]/g, '');
+    if (val === "") {
+      setAmount("");
+      return;
+    }
+    setAmount(parseInt(val).toLocaleString('id-ID'));
+  };
+
+  const handleSave = async () => {
+    if (selected && amount) {
+      setIsSaving(true);
+      try {
+        const nominal = parseInt(amount.replace(/\./g, ''));
+        // Send to Spreadsheet if URL is configured
+        const scriptUrl = (import.meta as any).env.VITE_SAVINGS_SCRIPT_URL;
+        
+        if (scriptUrl) {
+          // Send Data to Google Sheets
+          await fetch(scriptUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            referrerPolicy: 'no-referrer',
+            body: JSON.stringify({
+              Nama: selected.Nama,
+              Tanggal: new Date().toLocaleDateString('id-ID'),
+              Tipe: type,
+              Nominal: nominal,
+              Keterangan: note || "-"
+            })
+          });
+        }
+
+        onSave(selected, nominal, note);
+        // Reset
+        setSearch("");
+        setSelected(null);
+        setAmount("");
+        setNote("");
+        onClose();
+      } catch (err) {
+        console.error("Error saving to sheet:", err);
+        // We still save locally even if sheet fails
+        onSave(selected, parseInt(amount.replace(/\./g, '')), note);
+        onClose();
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden"
+      >
+        <div className={`p-6 ${type === 'SETOR' ? 'bg-green-600' : 'bg-red-600'} text-white`}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-black uppercase tracking-tighter">{title}</h3>
+            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="space-y-2 relative">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nama Nasabah</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                <Search className="w-4 h-4 text-slate-300" />
+              </div>
+              <input 
+                type="text"
+                placeholder="Cari nama..."
+                value={selected ? selected.Nama : search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setSelected(null);
+                }}
+                disabled={!!selected}
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all"
+              />
+              {selected && (
+                <button 
+                  onClick={() => {setSelected(null); setSearch("");}}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-red-500"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            {/* Auto-suggestions */}
+            {!selected && search.length > 0 && (
+              <div className="absolute z-10 w-full left-0 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden mt-1 max-h-[200px] overflow-y-auto">
+                {filtered.length > 0 ? (
+                  filtered.map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setSelected(c);
+                        setSearch("");
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 last:border-0 group"
+                    >
+                      <div>
+                        <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama}</p>
+                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
+                      </div>
+                      <div className="text-right">
+                         <p className="text-[10px] font-black text-[#005E6A]">Rp {parseCurrency(c.Tabungan).toLocaleString('id-ID')}</p>
+                         <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">Saldo</p>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="p-4 text-center">
+                    <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Nasabah tidak ditemukan</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {selected && (
+              <div className="px-1 flex justify-between items-center bg-teal-50/50 p-3 rounded-xl border border-teal-100/50">
+                <p className="text-[9px] font-bold text-teal-600 uppercase tracking-widest leading-none">Saldo Saat Ini</p>
+                <p className="text-xs font-black text-[#005E6A]">Rp {parseCurrency(selected.Tabungan).toLocaleString('id-ID')}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nominal</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                <span className="text-sm font-black text-slate-300">Rp</span>
+              </div>
+              <input 
+                type="text"
+                placeholder="0"
+                value={amount}
+                onChange={handleAmountChange}
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-black text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Keterangan (Opsional)</label>
+            <input 
+              type="text"
+              placeholder="Berita acara..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-4 text-sm font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200"
+            />
+          </div>
+
+          <div className="pt-4 flex gap-3">
+            <button 
+              onClick={onClose}
+              disabled={isSaving}
+              className="flex-1 bg-slate-50 text-slate-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-colors disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button 
+              onClick={handleSave}
+              disabled={!selected || !amount || isSaving}
+              className={`flex-1 ${type === 'SETOR' ? 'bg-green-600' : 'bg-red-600'} text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2`}
+            >
+              {isSaving && <RefreshCw className="w-3 h-3 animate-spin" />}
+              {isSaving ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const AdminSavingsManagement = ({ customers, transactions, setTransactions }: { customers: Customer[], transactions: SavingTransaction[], setTransactions: React.Dispatch<React.SetStateAction<SavingTransaction[]>> }) => {
   const navigate = useNavigate();
+  const [showSetorModal, setShowSetorModal] = useState(false);
+  const [showTarikModal, setShowTarikModal] = useState(false);
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -5041,6 +5264,22 @@ const AdminSavingsManagement = ({ customers, transactions }: { customers: Custom
       navigate("/");
     }
   }, [navigate]);
+
+  const handleSaveTransaction = (customer: Customer, amount: number, note: string, type: 'SETOR' | 'TARIK') => {
+    const newTransaction: SavingTransaction = {
+      Tanggal: new Date().toLocaleDateString('id-ID'),
+      Nama: customer.Nama,
+      Tipe: type,
+      Nominal: amount,
+      SaldoAkhir: type === 'SETOR' 
+        ? parseCurrency(customer.Tabungan) + amount 
+        : parseCurrency(customer.Tabungan) - amount,
+      Berita: note
+    };
+
+    setTransactions(prev => [newTransaction, ...prev]);
+    // Optional: show a success indicator
+  };
 
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
   
@@ -5140,15 +5379,21 @@ const AdminSavingsManagement = ({ customers, transactions }: { customers: Custom
         </div>
       </div>
 
-      {/* Export & Other Tools Placeholder */}
+      {/* Action Buttons */}
       <div className="px-4 grid grid-cols-2 gap-3">
-        <button className="bg-slate-900 text-white p-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-black transition-colors group">
-          <FileSpreadsheet className="w-3.5 h-3.5 text-green-400" />
-          <span className="text-[9px] font-black uppercase tracking-widest">Excel</span>
+        <button 
+          onClick={() => setShowSetorModal(true)}
+          className="bg-green-600 text-white p-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-green-700 transition-colors group"
+        >
+          <PlusCircle className="w-3.5 h-3.5" />
+          <span className="text-[9px] font-black uppercase tracking-widest">Setor</span>
         </button>
-        <button className="bg-white border border-slate-200 text-slate-700 p-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors group">
-          <Download className="w-3.5 h-3.5" />
-          <span className="text-[9px] font-black uppercase tracking-widest">Laporan</span>
+        <button 
+          onClick={() => setShowTarikModal(true)}
+          className="bg-red-600 text-white p-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-red-700 transition-colors group"
+        >
+          <MinusCircle className="w-3.5 h-3.5" />
+          <span className="text-[9px] font-black uppercase tracking-widest">Tarik</span>
         </button>
       </div>
     </div>
@@ -5157,6 +5402,7 @@ const AdminSavingsManagement = ({ customers, transactions }: { customers: Custom
   return (
     <div className="space-y-6">
       <AdminManagementPage 
+        listTitle="Daftar Tabungan"
         title="Manajemen Tabungan"
         subtitle="Total Tabungan Seluruh Pelanggan"
         totalLabel="Total Tabungan"
@@ -5169,6 +5415,24 @@ const AdminSavingsManagement = ({ customers, transactions }: { customers: Custom
         showLegend={false}
         showBadges={false}
         extraContent={extraContent}
+      />
+
+      <TransactionModal 
+        isOpen={showSetorModal} 
+        onClose={() => setShowSetorModal(false)}
+        title="Setor Tabungan"
+        type="SETOR"
+        customers={customers}
+        onSave={(c, amt, n) => handleSaveTransaction(c, amt, n, 'SETOR')}
+      />
+
+      <TransactionModal 
+        isOpen={showTarikModal} 
+        onClose={() => setShowTarikModal(false)}
+        title="Tarik Tabungan"
+        type="TARIK"
+        customers={customers}
+        onSave={(c, amt, n) => handleSaveTransaction(c, amt, n, 'TARIK')}
       />
 
       {/* NEW: Global Recent Transactions */}
@@ -5501,6 +5765,9 @@ const AdminStockManagement = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Semua");
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [stock, setStock] = useState<StockItem[]>([
     { id: '1', Nama: 'Beras Premium 5kg', Kategori: 'Sembako', Stok: 24, Satuan: 'Karung', MinStok: 5, HargaModal: 65000, HargaJual: 72000, UpdateTerakhir: '22/04/2026' },
     { id: '2', Nama: 'Minyak Goreng 2L', Kategori: 'Sembako', Stok: 12, Satuan: 'Pouch', MinStok: 10, HargaModal: 32000, HargaJual: 35000, UpdateTerakhir: '22/04/2026' },
@@ -5560,17 +5827,33 @@ const AdminStockManagement = () => {
       </div>
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3">
-          {stats.map((s, i) => (
-            <div key={i} className="bg-white p-3 rounded-2xl shadow-lg border border-slate-100 flex flex-col items-center text-center">
-              <div className={`w-8 h-8 rounded-lg ${s.bgColor} flex items-center justify-center mb-2`}>
-                <s.icon className={`w-4 h-4 ${s.color}`} />
-              </div>
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{s.label}</p>
-              <p className="text-[10px] font-black text-[#005E6A]">{s.value}</p>
+        {/* Restructured Stats Card */}
+        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+          <div className="p-6 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-3">
+              <DollarSign className="w-6 h-6 text-green-500" />
             </div>
-          ))}
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Aset Stok</p>
+            <h2 className="text-3xl font-black text-[#005E6A]">Rp {totalValue.toLocaleString('id-ID')}</h2>
+          </div>
+          
+          <div className="flex items-center border-t border-slate-50">
+            <div className="flex-1 p-4 text-center">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Barang</p>
+              <div className="flex items-center justify-center gap-2 text-[#005E6A]">
+                <Package className="w-3.5 h-3.5" />
+                <span className="text-sm font-black">{stock.length}</span>
+              </div>
+            </div>
+            <div className="w-[1px] h-12 bg-slate-50" />
+            <div className="flex-1 p-4 text-center">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Stok Menipis</p>
+              <div className="flex items-center justify-center gap-2 text-orange-500">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span className="text-sm font-black">{lowStockItems.length}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Search and Filter */}
@@ -5607,7 +5890,10 @@ const AdminStockManagement = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between px-2">
             <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Barang</h3>
-            <button className="bg-[#005E6A] p-2 rounded-lg text-white shadow-md active:scale-95 transition-all">
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="bg-[#005E6A] p-2 rounded-lg text-white shadow-md active:scale-95 transition-all"
+            >
               <Plus className="w-4 h-4" />
             </button>
           </div>
@@ -5692,8 +5978,241 @@ const AdminStockManagement = () => {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="bg-[#005E6A] p-6 text-white shrink-0">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                      <Plus className="w-4 h-4" />
+                    </div>
+                    <h3 className="text-lg font-black uppercase tracking-tight">Tambah Produk</h3>
+                  </div>
+                  <button 
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center hover:bg-black/30 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest">Input Data Barang Baru</p>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-6 scrollbar-hide">
+                {/* Scanner Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID / Barcode</label>
+                    <button 
+                      onClick={() => setIsScanning(!isScanning)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
+                        isScanning ? "bg-red-500 text-white" : "bg-[#005E6A] text-white"
+                      }`}
+                    >
+                      <Camera className="w-3 h-3" />
+                      {isScanning ? "Stop Scan" : "Scan Barcode"}
+                    </button>
+                  </div>
+                  
+                  {isScanning && (
+                    <div className="relative rounded-2xl overflow-hidden bg-slate-100 border-2 border-[#005E6A]/20">
+                      <BarcodeScannerComponent 
+                        onResult={(decodedText) => {
+                          const idInput = document.getElementById('new-product-id') as HTMLInputElement;
+                          if (idInput) idInput.value = decodedText;
+                          setIsScanning(false);
+                        }} 
+                      />
+                    </div>
+                  )}
+
+                  <input 
+                    id="new-product-id"
+                    type="text" 
+                    placeholder="Masukkan atau Scan ID Barang"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Barang</label>
+                    <input 
+                      id="new-product-name"
+                      type="text" 
+                      placeholder="Contoh: Indomie Goreng"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kategori</label>
+                    <select 
+                      id="new-product-category"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 appearance-none"
+                    >
+                      <option value="Sembako">Sembako</option>
+                      <option value="Mie instan">Mie instan</option>
+                      <option value="Kopi">Kopi</option>
+                      <option value="Makanan ringan">Makanan ringan</option>
+                      <option value="Minuman">Minuman</option>
+                      <option value="Sabun">Sabun</option>
+                      <option value="Mainan">Mainan</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Harga Jual</label>
+                    <input 
+                      id="new-product-price"
+                      type="number" 
+                      placeholder="0"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">modal</label>
+                    <input 
+                      id="new-product-cost"
+                      type="number" 
+                      placeholder="0"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stok</label>
+                    <input 
+                      id="new-product-stock"
+                      type="number" 
+                      placeholder="0"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 bg-slate-50 border-t border-slate-100 shrink-0">
+                <button 
+                  onClick={async () => {
+                    const id = (document.getElementById('new-product-id') as HTMLInputElement).value;
+                    const name = (document.getElementById('new-product-name') as HTMLInputElement).value;
+                    const category = (document.getElementById('new-product-category') as HTMLSelectElement).value;
+                    const price = (document.getElementById('new-product-price') as HTMLInputElement).value;
+                    const cost = (document.getElementById('new-product-cost') as HTMLInputElement).value;
+                    const stockVal = (document.getElementById('new-product-stock') as HTMLInputElement).value;
+
+                    if (!id || !name || !price || !cost || !stockVal) {
+                      alert("Mohon isi semua data!");
+                      return;
+                    }
+
+                    setIsSaving(true);
+                    try {
+                      const scriptUrl = (import.meta as any).env.VITE_ADD_PRODUCT_SCRIPT_URL;
+                      if (scriptUrl) {
+                        await fetch(scriptUrl, {
+                          method: 'POST',
+                          mode: 'no-cors',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            id,
+                            nama: name,
+                            kategori: category,
+                            harga: parseInt(price),
+                            modal: parseInt(cost),
+                            stok: parseInt(stockVal),
+                            timestamp: new Date().toISOString()
+                          })
+                        });
+                      }
+
+                      // Update local state too
+                      const newItem: StockItem = {
+                        id,
+                        Nama: name,
+                        Kategori: category,
+                        Stok: parseInt(stockVal),
+                        Satuan: 'Unit',
+                        MinStok: 5,
+                        HargaModal: parseInt(cost),
+                        HargaJual: parseInt(price),
+                        UpdateTerakhir: new Date().toLocaleDateString('id-ID')
+                      };
+                      setStock(prev => [newItem, ...prev]);
+                      setIsAddModalOpen(false);
+                      setIsScanning(false);
+                      // Reset values
+                      (document.getElementById('new-product-id') as HTMLInputElement).value = '';
+                      (document.getElementById('new-product-name') as HTMLInputElement).value = '';
+                      (document.getElementById('new-product-price') as HTMLInputElement).value = '';
+                      (document.getElementById('new-product-cost') as HTMLInputElement).value = '';
+                      (document.getElementById('new-product-stock') as HTMLInputElement).value = '';
+                    } catch (error) {
+                      console.error("Error saving product:", error);
+                      alert("Gagal menyimpan data ke Spreadsheet. Pastikan URL Script benar.");
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  disabled={isSaving}
+                  className="w-full bg-[#005E6A] text-white py-4 rounded-2xl text-sm font-black uppercase tracking-[0.2em] shadow-lg shadow-[#005E6A]/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSaving ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {isSaving ? "Menyimpan..." : "Simpan Produk"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
+};
+
+const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => void }) => {
+  useEffect(() => {
+    const scanner = new Html5QrcodeScanner("reader", {
+      fps: 10,
+      qrbox: { width: 250, height: 250 },
+      rememberLastUsedCamera: true,
+      supportedScanTypes: [0] // 0 means only barcode/qr
+    }, false);
+
+    scanner.render((decodedText) => {
+      onResult(decodedText);
+      scanner.clear();
+    }, (error) => {
+      // console.log(error);
+    });
+
+    return () => {
+      scanner.clear().catch(e => console.log("Scanner clear error", e));
+    };
+  }, [onResult]);
+
+  return <div id="reader" className="w-full" />;
 };
 
 const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { customers: Customer[], transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
@@ -6068,6 +6587,7 @@ const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[
   return (
     <div className="space-y-6">
       <AdminManagementPage 
+        listTitle="Daftar Hutang"
         title="Manajemen Hutang"
         subtitle="Total Hutang Seluruh Pelanggan"
         totalLabel="Total Hutang"
@@ -8394,23 +8914,21 @@ export default function App() {
 
       try {
         const urls = [
-          { name: "Pelanggan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv" },
-          { name: "Tabungan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv" },
-          { name: "Investasi", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBQ5kUdqwv5bBsJcaiponYzqU_JxO0g7qQb6DQ1ujJ9bzTkY5GlI5XQQXL9BVr22gdmM7V7eEIDMH9/pub?gid=799157484&single=true&output=csv" },
-          { name: "Hutang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv" },
-          { name: "Penjualan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv" },
-          { name: "Poin", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv" }
+          { name: "Pelanggan", url: (import.meta as any).env.VITE_CSV_PELANGGAN || "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv" },
+          { name: "Tabungan", url: (import.meta as any).env.VITE_CSV_TABUNGAN || "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv" },
+          { name: "Investasi", url: (import.meta as any).env.VITE_CSV_INVESTASI || "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBQ5kUdqwv5bBsJcaiponYzqU_JxO0g7qQb6DQ1ujJ9bzTkY5GlI5XQQXL9BVr22gdmM7V7eEIDMH9/pub?gid=799157484&single=true&output=csv" },
+          { name: "Hutang", url: (import.meta as any).env.VITE_CSV_HUTANG || "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv" },
+          { name: "Penjualan", url: (import.meta as any).env.VITE_CSV_PENJUALAN || "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv" },
+          { name: "Poin", url: (import.meta as any).env.VITE_CSV_POIN || "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv" }
         ];
-        
-        const cacheBuster = `&t=${Date.now()}`;
         
         // Fetch individually to better pinpoint failures
         const fetchWithRetry = async (label: string, url: string, signal: AbortSignal) => {
           try {
+            const cacheBuster = (url.includes('?') ? '&' : '?') + `t=${Date.now()}`;
             const res = await fetch(url + cacheBuster, { 
               signal,
-              cache: 'no-store',
-              referrerPolicy: 'no-referrer'
+              cache: 'no-store'
             });
             if (!res.ok) throw new Error(`Status ${res.status}`);
             return await res.text();
@@ -8425,7 +8943,7 @@ export default function App() {
               return await res.text();
             } catch (retryError: any) {
               if (retryError.name === 'AbortError') throw retryError;
-              throw new Error(`Gagal memuat data ${label}`);
+              throw new Error(`Gagal memuat data ${label}: ${retryError.message}`);
             }
           }
         };
@@ -8859,7 +9377,7 @@ export default function App() {
             redeemedPoints={redeemedPoints}
           />
         } />
-        <Route path="/admin/savings" element={<AdminSavingsManagement customers={customers} transactions={savingsTransactions} />} />
+        <Route path="/admin/savings" element={<AdminSavingsManagement customers={customers} transactions={savingsTransactions} setTransactions={setSavingsTransactions} />} />
         <Route path="/admin/investment" element={<AdminInvestmentManagement customers={customers} investmentTransactions={investmentTransactions} />} />
         <Route path="/admin/debt" element={<AdminDebtManagement customers={customers} transactions={debtTransactions} />} />
         <Route path="/admin/others" element={<AdminOthersManagement transactions={salesTransactions} customers={customers} />} />
