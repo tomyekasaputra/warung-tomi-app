@@ -1,5 +1,7 @@
 {
   "name": "Warung Tomi",
   "description": "Aplikasi yang di desain khusus untuk para pelanggan warung tomi untuk bisa melihat riwayat transaksi belanja, tabungan, investasi, hutang dan poin loyalitas ",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

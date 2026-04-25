@@ -44,6 +44,7 @@ import {
   Bell,
   Search,
   Plus,
+  Minus,
   ArrowUpRight,
   ArrowDownLeft,
   RefreshCw,
@@ -76,6 +77,7 @@ import {
   ChevronUp,
   Share2,
   Camera,
+  CameraOff,
   LogOut,
   PiggyBank,
   Trophy,
@@ -93,7 +95,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-import { Html5QrcodeScanner } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode";
 
 // --- Types ---
 
@@ -276,6 +278,7 @@ interface StockItem {
   HargaModal: number;
   HargaJual: number;
   UpdateTerakhir: string;
+  Image?: string;
 }
 
 const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: boolean }> = ({ t, index, isAdmin }) => {
@@ -5774,13 +5777,13 @@ const AdminStockManagement = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [stock, setStock] = useState<StockItem[]>([
-    { id: '1', Nama: 'Beras Premium 5kg', Kategori: 'Sembako', Stok: 24, Satuan: 'Karung', MinStok: 5, HargaModal: 65000, HargaJual: 72000, UpdateTerakhir: '22/04/2026' },
-    { id: '2', Nama: 'Minyak Goreng 2L', Kategori: 'Sembako', Stok: 12, Satuan: 'Pouch', MinStok: 10, HargaModal: 32000, HargaJual: 35000, UpdateTerakhir: '22/04/2026' },
-    { id: '3', Nama: 'Gula Pasir 1kg', Kategori: 'Sembako', Stok: 50, Satuan: 'Bks', MinStok: 15, HargaModal: 14500, HargaJual: 16000, UpdateTerakhir: '22/04/2026' },
-    { id: '4', Nama: 'Telur Ayam', Kategori: 'Sembako', Stok: 8, Satuan: 'kg', MinStok: 5, HargaModal: 26000, HargaJual: 28000, UpdateTerakhir: '22/04/2026' },
-    { id: '5', Nama: 'Gas Elpiji 3kg', Kategori: 'LPG', Stok: 3, Satuan: 'Tabung', MinStok: 5, HargaModal: 18000, HargaJual: 22000, UpdateTerakhir: '22/04/2026' },
-    { id: '6', Nama: 'Indomie Goreng', Kategori: 'Sembako', Stok: 120, Satuan: 'Bks', MinStok: 40, HargaModal: 2800, HargaJual: 3500, UpdateTerakhir: '22/04/2026' },
-    { id: '7', Nama: 'Sabun Cuci Piring', Kategori: 'Peralatan', Stok: 15, Satuan: 'Pouch', MinStok: 10, HargaModal: 12000, HargaJual: 14000, UpdateTerakhir: '22/04/2026' },
+    { id: '1', Nama: 'Beras Premium 5kg', Kategori: 'Sembako', Stok: 24, Satuan: 'Karung', MinStok: 5, HargaModal: 65000, HargaJual: 72000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=200&auto=format&fit=crop' },
+    { id: '2', Nama: 'Minyak Goreng 2L', Kategori: 'Sembako', Stok: 12, Satuan: 'Pouch', MinStok: 10, HargaModal: 32000, HargaJual: 35000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?q=80&w=200&auto=format&fit=crop' },
+    { id: '3', Nama: 'Gula Pasir 1kg', Kategori: 'Sembako', Stok: 50, Satuan: 'Bks', MinStok: 15, HargaModal: 14500, HargaJual: 16000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1622484211148-716598e04144?q=80&w=200&auto=format&fit=crop' },
+    { id: '4', Nama: 'Telur Ayam', Kategori: 'Sembako', Stok: 8, Satuan: 'kg', MinStok: 5, HargaModal: 26000, HargaJual: 28000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1582722872445-44c59ebc41dd?q=80&w=200&auto=format&fit=crop' },
+    { id: '5', Nama: 'Gas Elpiji 3kg', Kategori: 'LPG', Stok: 3, Satuan: 'Tabung', MinStok: 5, HargaModal: 18000, HargaJual: 22000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1536640989011-78972e9a5efd?q=80&w=200&auto=format&fit=crop' },
+    { id: '6', Nama: 'Indomie Goreng', Kategori: 'Sembako', Stok: 120, Satuan: 'Bks', MinStok: 40, HargaModal: 2800, HargaJual: 3500, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?q=80&w=200&auto=format&fit=crop' },
+    { id: '7', Nama: 'Sabun Cuci Piring', Kategori: 'Peralatan', Stok: 15, Satuan: 'Pouch', MinStok: 10, HargaModal: 12000, HargaJual: 14000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1584622781564-1d9876a13d00?q=80&w=200&auto=format&fit=crop' },
   ]);
 
   useEffect(() => {
@@ -5906,7 +5909,6 @@ const AdminStockManagement = () => {
           <div className="grid gap-3">
             {filteredItems.map((item, i) => {
               const isLow = item.Stok <= item.MinStok;
-              const stockPercent = Math.min((item.Stok / (item.MinStok * 3)) * 100, 100);
               
               return (
                 <motion.div 
@@ -5914,61 +5916,69 @@ const AdminStockManagement = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 group hover:border-[#005E6A]/20 transition-all cursor-pointer"
+                  className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex gap-4 items-center group hover:shadow-md hover:border-[#005E6A]/10 transition-all cursor-pointer"
                 >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isLow ? 'bg-orange-50 text-orange-500' : 'bg-teal-50 text-[#005E6A]'}`}>
-                        <Package className="w-5 h-5" />
+                  <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-50 flex-shrink-0 shadow-inner">
+                    {item.Image ? (
+                      <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-300">
+                        <Package className="w-6 h-6" />
                       </div>
-                      <div>
-                        <p className="text-[12px] font-black text-[#005E6A] uppercase tracking-tight">{item.Nama}</p>
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{item.Kategori} • {item.Satuan}</p>
+                    )}
+                    {isLow && (
+                      <div className="absolute top-0 right-0 p-1">
+                        <div className="w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white animate-pulse" />
                       </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h4 className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate">{item.Nama}</h4>
+                      <span className="text-[7px] font-black px-1.5 py-0.5 bg-slate-50 text-slate-400 rounded-md border border-slate-100 uppercase tracking-widest whitespace-nowrap">{item.Kategori}</span>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[12px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Modal: Rp {item.HargaModal.toLocaleString('id-ID')}</p>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-[13px] font-black tabular-nums ${isLow ? 'text-orange-600' : 'text-[#005E6A]'}`}>{item.Stok}</span>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.Satuan}</span>
+                      </div>
+                      <div className="w-[1px] h-3 bg-slate-100" />
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-[#F15A24]">Jual: Rp {item.HargaJual.toLocaleString('id-ID')}</span>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">Modal: Rp {item.HargaModal.toLocaleString('id-ID')}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-[10px] font-black tabular-nums ${isLow ? 'text-orange-500' : 'text-[#005E6A]'}`}>
-                          {item.Stok} {item.Satuan}
-                        </span>
-                        {isLow && (
-                          <Badge className="bg-orange-500 text-white border-none text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full flex items-center gap-0.5 animate-pulse">
-                            <AlertTriangle className="w-2 h-2" />
-                            Stok Menipis
-                          </Badge>
-                        )}
-                      </div>
-                      <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Target: {item.MinStok * 2}+</span>
-                    </div>
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <motion.div 
-                        initial={{ width: 0 }}
-                        animate={{ width: `${stockPercent}%` }}
-                        className={`h-full rounded-full ${isLow ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'bg-[#005E6A]'}`}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between pt-4 border-t border-slate-50">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-200" />
-                      <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Update: {item.UpdateTerakhir}</p>
-                    </div>
-                    <div className="flex gap-2">
-                       <button className="p-1.5 border border-slate-100 rounded-lg text-slate-400 hover:bg-slate-50 transition-colors">
-                         <MinusCircle className="w-3.5 h-3.5" />
-                       </button>
-                       <button className="p-1.5 border border-slate-100 rounded-lg text-[#005E6A] hover:bg-slate-50 transition-colors">
-                         <PlusCircle className="w-3.5 h-3.5" />
-                       </button>
-                    </div>
+                  <div className="flex flex-col gap-1 pr-1">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newStock = [...stock];
+                        const idx = newStock.findIndex(s => s.id === item.id);
+                        newStock[idx].Stok += 1;
+                        setStock(newStock);
+                      }}
+                      className="p-2 bg-[#005E6A]/5 rounded-xl text-[#005E6A] hover:bg-[#005E6A] hover:text-white transition-all active:scale-95"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newStock = [...stock];
+                        const idx = newStock.findIndex(s => s.id === item.id);
+                        if(newStock[idx].Stok > 0) {
+                          newStock[idx].Stok -= 1;
+                          setStock(newStock);
+                        }
+                      }}
+                      className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:bg-slate-100 transition-all active:scale-95"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </motion.div>
               );
@@ -6081,7 +6091,17 @@ const AdminStockManagement = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">URL Gambar Barang (Opsional)</label>
+                  <input 
+                    id="new-product-image"
+                    type="text" 
+                    placeholder="https://..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Harga Jual</label>
                     <input 
@@ -6100,6 +6120,9 @@ const AdminStockManagement = () => {
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stok</label>
                     <input 
@@ -6108,6 +6131,21 @@ const AdminStockManagement = () => {
                       placeholder="0"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Satuan</label>
+                    <select 
+                      id="new-product-unit"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 appearance-none"
+                    >
+                      <option value="pcs">pcs</option>
+                      <option value="bks">bks</option>
+                      <option value="kg">kg</option>
+                      <option value="botol">botol</option>
+                      <option value="tabung">tabung</option>
+                      <option value="karung">karung</option>
+                      <option value="pouch">pouch</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -6121,6 +6159,8 @@ const AdminStockManagement = () => {
                     const price = (document.getElementById('new-product-price') as HTMLInputElement).value;
                     const cost = (document.getElementById('new-product-cost') as HTMLInputElement).value;
                     const stockVal = (document.getElementById('new-product-stock') as HTMLInputElement).value;
+                    const imageUrl = (document.getElementById('new-product-image') as HTMLInputElement).value;
+                    const unit = (document.getElementById('new-product-unit') as HTMLSelectElement).value;
 
                     if (!id || !name || !price || !cost || !stockVal) {
                       alert("Mohon isi semua data!");
@@ -6146,6 +6186,8 @@ const AdminStockManagement = () => {
                               harga: parseInt(price),
                               modal: parseInt(cost),
                               stok: parseInt(stockVal),
+                              satuan: unit,
+                              gambar: imageUrl,
                               timestamp: new Date().toISOString()
                             })
                           });
@@ -6161,11 +6203,12 @@ const AdminStockManagement = () => {
                         Nama: name,
                         Kategori: category,
                         Stok: parseInt(stockVal),
-                        Satuan: 'Unit',
+                        Satuan: unit,
                         MinStok: 5,
                         HargaModal: parseInt(cost),
                         HargaJual: parseInt(price),
-                        UpdateTerakhir: new Date().toLocaleDateString('id-ID')
+                        UpdateTerakhir: new Date().toLocaleDateString('id-ID'),
+                        Image: imageUrl || undefined
                       };
                       setStock(prev => [newItem, ...prev]);
                       setIsAddModalOpen(false);
@@ -6203,27 +6246,97 @@ const AdminStockManagement = () => {
 };
 
 const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => void }) => {
-  useEffect(() => {
-    const scanner = new Html5QrcodeScanner("reader", {
-      fps: 10,
-      qrbox: { width: 250, height: 250 },
-      rememberLastUsedCamera: true,
-      supportedScanTypes: [0] // 0 means only barcode/qr
-    }, false);
+  const [error, setError] = useState<string | null>(null);
 
-    scanner.render((decodedText) => {
-      onResult(decodedText);
-      scanner.clear();
-    }, (error) => {
-      // console.log(error);
-    });
+  useEffect(() => {
+    let isMounted = true;
+    const html5QrCode = new Html5Qrcode("reader");
+    
+    const config = { 
+      fps: 25, 
+      qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+        // Minimum 150px to ensure it's well above the 50px requirement
+        const qrboxSize = Math.max(Math.floor(minEdge * 0.7), 150);
+        return {
+          width: qrboxSize,
+          height: qrboxSize
+        };
+      },
+      aspectRatio: 1.0
+    };
+
+    const startScanner = async () => {
+      try {
+        await html5QrCode.start(
+          { facingMode: "environment" }, 
+          config, 
+          (decodedText) => {
+            if (!isMounted) return;
+            onResult(decodedText);
+            if (html5QrCode.isScanning) {
+              html5QrCode.stop().catch(err => console.error("Error stopping scanner after scan", err));
+            }
+          },
+          undefined
+        );
+      } catch (err: any) {
+        if (!isMounted) return;
+        const errStr = err.toString();
+        console.warn("Camera access failed, trying fallback:", errStr);
+        
+        if (errStr.includes("NotAllowedError") || errStr.includes("Permission denied")) {
+          setError("Izin kamera ditolak. Mohon aktifkan izin kamera di browser Anda.");
+        } else {
+          try {
+            await html5QrCode.start({ facingMode: "user" }, config, (decodedText) => {
+              if (!isMounted) return;
+              onResult(decodedText);
+              if (html5QrCode.isScanning) {
+                html5QrCode.stop().catch(e => console.error("Error stopping fallback after scan", e));
+              }
+            }, undefined);
+          } catch (e: any) {
+             if (!isMounted) return;
+             console.error("Scanner fallback failed", e);
+             setError("Gagal mengakses kamera. Pastikan perangkat Anda memiliki kamera yang aktif.");
+          }
+        }
+      }
+    };
+
+    startScanner();
 
     return () => {
-      scanner.clear().catch(e => console.log("Scanner clear error", e));
+      isMounted = false;
+      if (html5QrCode.isScanning) {
+        html5QrCode.stop().catch(err => console.log("Successfullly managed concurrent scanner instances"));
+      }
     };
   }, [onResult]);
 
-  return <div id="reader" className="w-full" />;
+  if (error) {
+    return (
+      <div className="w-full aspect-square bg-slate-900 rounded-2xl flex flex-col items-center justify-center p-6 text-center">
+        <CameraOff className="w-12 h-12 text-slate-500 mb-4" />
+        <p className="text-white text-xs font-bold leading-relaxed">{error}</p>
+        <p className="text-slate-400 text-[10px] mt-2 font-medium uppercase tracking-widest">Muat ulang halaman setelah mengizinkan akses</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full aspect-square bg-black overflow-hidden rounded-2xl">
+      <div id="reader" className="w-full h-full" />
+      <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+        <div className="w-3/4 h-3/4 border-2 border-dashed border-[#005E6A] opacity-50 rounded-xl" />
+        <div className="mt-4 px-3 py-1 bg-black/50 backdrop-blur-sm rounded-full">
+           <p className="text-[10px] font-black text-white uppercase tracking-widest animate-pulse">Scanning...</p>
+        </div>
+      </div>
+      <div className="absolute inset-0 pointer-events-none border-[6px] border-[#005E6A]/10" />
+    </div>
+  );
 };
 
 const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { customers: Customer[], transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
