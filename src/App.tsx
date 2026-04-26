@@ -6784,9 +6784,10 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
   );
 };
 
-const CatalogPage = ({ stock }: { stock: StockItem[] }) => {
+const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | null }) => {
   const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
   
   const filteredStock = stock.filter(item => 
     item.Nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -6826,18 +6827,51 @@ const CatalogPage = ({ stock }: { stock: StockItem[] }) => {
           <motion.div 
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white p-4 rounded-lg shadow-xl border border-slate-100 w-full md:w-64"
+            className="bg-white p-4 rounded-lg shadow-xl border border-slate-100 w-full md:w-80"
           >
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex justify-between items-center mb-4">
               <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Keranjang Saya</span>
               <span className="text-[10px] font-bold text-slate-400">{cart.length} Item</span>
             </div>
-            <div className="text-lg font-black text-[#F15A24] mb-3">Rp {total.toLocaleString('id-ID')}</div>
+            
+            <div className="max-h-48 overflow-y-auto mb-4 space-y-3 pr-2 scrollbar-thin">
+              {cart.map((item) => (
+                <div key={item.product.id} className="flex items-center justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black text-[#005E6A] uppercase truncate">{item.product.Nama}</p>
+                    <p className="text-[9px] font-bold text-[#F15A24]">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-1 border border-slate-100">
+                    <button 
+                      onClick={() => updateQty(item.product.id, -1)}
+                      className="w-5 h-5 flex items-center justify-center bg-white rounded shadow-sm text-[#005E6A] active:scale-90"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="text-[10px] font-black text-[#005E6A] w-4 text-center">{item.qty}</span>
+                    <button 
+                      onClick={() => updateQty(item.product.id, 1)}
+                      className="w-5 h-5 flex items-center justify-center bg-white rounded shadow-sm text-[#005E6A] active:scale-90"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-t border-slate-100 pt-3 mb-4">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[8px] font-bold text-slate-400 uppercase">Total Pesanan</span>
+                <span className="text-lg font-black text-[#F15A24]">Rp {total.toLocaleString('id-ID')}</span>
+              </div>
+            </div>
+
             <button 
-              onClick={() => alert("Silahkan hubungi kasir untuk memproses pesanan Anda.")}
-              className="w-full py-2 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-widest rounded-md"
+              onClick={() => setShowConfirm(true)}
+              className="w-full py-3 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-[#005E6A]/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
             >
-              PESAN SEKARANG
+              <ShoppingCart className="w-4 h-4" /> PESAN VIA WHATSAPP
             </button>
           </motion.div>
         )}
@@ -6888,30 +6922,100 @@ const CatalogPage = ({ stock }: { stock: StockItem[] }) => {
                 </div>
 
                 <div className="mt-auto">
-                  {!inCart ? (
-                    <button 
-                      onClick={() => addToCart(item)}
-                      className="w-full py-2 bg-slate-50 text-[#005E6A] text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-[#005E6A] hover:text-white transition-colors flex items-center justify-center gap-2"
-                    >
-                      <ShoppingCart className="w-3 h-3" /> BELI
-                    </button>
-                  ) : (
-                    <div className="flex items-center justify-between bg-[#005E6A]/5 rounded-md p-1">
-                      <button onClick={() => updateQty(item.id, -1)} className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-[#005E6A]">
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="text-[10px] font-black text-[#005E6A]">{inCart.qty}</span>
-                      <button onClick={() => updateQty(item.id, 1)} className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-[#005E6A]">
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
+                  <button 
+                    onClick={() => addToCart(item)}
+                    className="w-full py-2 bg-slate-50 text-[#005E6A] text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-[#005E6A] hover:text-white transition-colors flex items-center justify-center gap-2 relative overflow-hidden group"
+                  >
+                    <ShoppingCart className="w-3 h-3" /> 
+                    {inCart ? `BELI (${inCart.qty})` : "BELI"}
+                    {inCart && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="absolute top-0 right-0 w-3 h-3 bg-[#F15A24] rounded-full"
+                      />
+                    )}
+                  </button>
                 </div>
               </motion.div>
             );
           })}
         </div>
       </div>
+
+      <AnimatePresence>
+        {showConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowConfirm(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100"
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Konfirmasi Pesanan</h2>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Detail Belanjaan Anda</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowConfirm(false)}
+                    className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin mb-8">
+                  {cart.map((item) => (
+                    <div key={item.product.id} className="flex justify-between items-start gap-4">
+                      <div className="flex-1">
+                        <p className="text-xs font-black text-[#005E6A] uppercase leading-tight mb-1">{item.product.Nama}</p>
+                        <p className="text-[10px] font-bold text-slate-400">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
+                      </div>
+                      <p className="text-xs font-black text-[#F15A24] whitespace-nowrap">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
+                    </div>
+                  ))}
+                  <div className="pt-4 border-t border-dashed border-slate-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Total Pembayaran</span>
+                      <span className="text-lg font-black text-[#F15A24]">Rp {total.toLocaleString('id-ID')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => setShowConfirm(false)}
+                    className="py-3 px-4 rounded-xl border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const userGreeting = user ? `Nama Pelanggan: *${user.Nama}*\n\n` : "";
+                      const message = `Halo Warung Tomi, saya ingin pesan:\n\n${userGreeting}${cart.map(item => `- ${item.product.Nama} (${item.qty}x) = Rp ${(item.product.HargaJual * item.qty).toLocaleString('id-ID')}`).join('\n')}\n\n*Total: Rp ${total.toLocaleString('id-ID')}*`;
+                      window.open(`https://wa.me/6287774138090?text=${encodeURIComponent(message)}`, '_blank');
+                      setShowConfirm(false);
+                      setCart([]);
+                    }}
+                    className="py-3 px-4 rounded-xl bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-[#005E6A]/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                  >
+                    <MessageCircle className="w-4 h-4" /> Kirim WA
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -9330,63 +9434,109 @@ const HomePage = ({
                   </button>
                 </div>
 
-                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                  {[
-                    { 
-                      name: "Tabungan", 
-                      value: parseCurrency(loggedInUser.Tabungan), 
-                      gradient: "from-green-500 to-emerald-600",
-                      icon: Wallet,
-                      path: "/tabungan" 
-                    },
-                    { 
-                      name: "Investasi", 
-                      value: investmentTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && t.Status.toLowerCase() !== "sukses dicairkan").reduce((acc, curr) => acc + calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo).total, 0), 
-                      gradient: "from-indigo-500 to-violet-600",
-                      icon: TrendingUp,
-                      path: "/investasi" 
-                    },
-                    { 
-                      name: "Lainnya", 
-                      value: salesTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && ((t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL" || (t.Status || "").toUpperCase().trim() === "DIPROSES")).reduce((acc, curr) => {
-                        if ((curr.Status || "").toUpperCase().trim() === "DIPROSES") return acc + (curr.Pemasukan || 0);
-                        const net = curr.HargaModal - curr.Sebagian;
-                        return acc + (net > 0 ? net : 0);
-                      }, 0), 
-                      gradient: "from-teal-500 to-cyan-600",
-                      icon: Layers,
-                      path: "/lainnya" 
-                    },
-                    { 
-                      name: "Hutang", 
-                      value: parseCurrency(loggedInUser.Hutang), 
-                      gradient: "from-rose-500 to-red-600",
-                      icon: CreditCard,
-                      path: "/hutang" 
-                    },
-                  ].map((item, i) => (
-                    <div 
-                      key={i} 
-                      onClick={() => navigate(item.path)}
-                      className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-lg flex flex-col justify-between shadow-md shadow-slate-200/30 min-w-[140px] min-h-[110px] cursor-pointer active:scale-95 transition-transform shrink-0`}
-                    >
-                      <div className="absolute -right-4 -bottom-4 w-12 h-12 bg-white/10 rounded-full blur-xl" />
-                      
-                      <div className="flex justify-between items-start relative z-10">
-                        <div className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20">
-                          <item.icon className="w-3.5 h-3.5 text-white" />
-                        </div>
-                        <div className="w-4 h-4 bg-white/10 rounded-full flex items-center justify-center">
-                          <ChevronRight className="w-2 h-2 text-white" />
-                        </div>
-                      </div>
+                <div className="flex flex-col gap-2">
+                  {(() => {
+                    const assets = [
+                      { 
+                        name: "Tabungan", 
+                        value: parseCurrency(loggedInUser.Tabungan), 
+                        gradient: "from-green-500 to-emerald-600",
+                        icon: Wallet,
+                        path: "/tabungan" 
+                      },
+                      { 
+                        name: "Investasi", 
+                        value: investmentTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && t.Status.toLowerCase() !== "sukses dicairkan").reduce((acc, curr) => acc + calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo).total, 0), 
+                        gradient: "from-indigo-500 to-violet-600",
+                        icon: TrendingUp,
+                        path: "/investasi" 
+                      },
+                      { 
+                        name: "Lainnya", 
+                        value: salesTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && ((t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL" || (t.Status || "").toUpperCase().trim() === "DIPROSES")).reduce((acc, curr) => {
+                          if ((curr.Status || "").toUpperCase().trim() === "DIPROSES") return acc + (curr.Pemasukan || 0);
+                          const net = curr.HargaModal - curr.Sebagian;
+                          return acc + (net > 0 ? net : 0);
+                        }, 0), 
+                        gradient: "from-teal-500 to-cyan-600",
+                        icon: Layers,
+                        path: "/lainnya" 
+                      },
+                      { 
+                        name: "Hutang", 
+                        value: parseCurrency(loggedInUser.Hutang), 
+                        gradient: "from-rose-500 to-red-600",
+                        icon: CreditCard,
+                        path: "/hutang" 
+                      },
+                    ].filter(item => item.value > 0);
 
-                      <div className="relative z-10 mt-3">
-                        <p className="text-[6px] font-black text-white/70 uppercase tracking-widest leading-none mb-1">{item.name}</p>
-                        <p className="text-[11px] font-black text-white tracking-tight">Rp {formatCurrency(item.value)}</p>
+                    if (assets.length === 0) {
+                      return (
+                        <div className="py-8 px-4 flex flex-col items-center text-center">
+                          <div className="w-24 h-24 bg-[#E6F4F5] rounded-full flex items-center justify-center mb-4 relative overflow-hidden group">
+                            <motion.div
+                              animate={{ 
+                                scale: [1, 1.1, 1],
+                                rotate: [0, 5, -5, 0]
+                              }}
+                              transition={{ 
+                                duration: 4,
+                                repeat: Infinity,
+                                ease: "easeInOut"
+                              }}
+                            >
+                              <Wallet className="w-10 h-10 text-[#005E6A] relative z-10" />
+                            </motion.div>
+                            <div className="absolute top-0 right-0 w-8 h-8 bg-[#F15A24]/20 rounded-full -mr-2 -mt-2 group-hover:scale-150 transition-transform duration-700" />
+                            <div className="absolute bottom-0 left-0 w-12 h-12 bg-[#005E6A]/5 rounded-full -ml-4 -mb-4 group-hover:scale-150 transition-transform duration-700" />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-800 mb-2">Mulai Langkah Finansialmu</h4>
+                          <p className="text-[11px] text-slate-500 leading-relaxed max-w-[200px] mb-6">
+                            Wujudkan impianmu bersama Warung Tomi. Ayo mulai menabung dan berinvestasi sekarang!
+                          </p>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => navigate('/tabungan')}
+                              className="px-4 py-2 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-md shadow-[#005E6A]/20 active:scale-95 transition-transform"
+                            >
+                              Menabung
+                            </button>
+                            <button 
+                              onClick={() => navigate('/investasi')}
+                              className="px-4 py-2 bg-white text-[#005E6A] border border-[#005E6A]/20 text-[10px] font-black uppercase tracking-widest rounded-lg active:scale-95 transition-transform"
+                            >
+                              Investasi
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return assets.map((item, i) => (
+                      <div 
+                        key={i} 
+                        onClick={() => navigate(item.path)}
+                        className={`relative overflow-hidden bg-gradient-to-r ${item.gradient} p-3 rounded-xl flex items-center justify-between shadow-sm border border-white/10 cursor-pointer active:scale-[0.98] transition-transform`}
+                      >
+                        <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-xl" />
+                        
+                        <div className="flex items-center gap-3 relative z-10">
+                          <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20">
+                            <item.icon className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-[8px] font-black text-white/70 uppercase tracking-[0.2em] leading-none mb-1">{item.name}</p>
+                            <p className="text-sm font-black text-white tracking-tight">Rp {formatCurrency(item.value)}</p>
+                          </div>
+                        </div>
+
+                        <div className="w-7 h-7 bg-white/10 rounded-full flex items-center justify-center relative z-10">
+                          <ChevronRight className="w-4 h-4 text-white" />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
               </div>
             </section>
@@ -9458,7 +9608,7 @@ const HomePage = ({
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
-          <CatalogPage stock={stock} />
+          <CatalogPage stock={stock} user={loggedInUser} />
         </motion.div>
       )}
       {activeTab === "riwayat" && (
@@ -9765,38 +9915,55 @@ export default function App() {
         ];
         
         // Fetch individually to better pinpoint failures
-        const fetchWithRetry = async (label: string, url: string, signal: AbortSignal) => {
-          try {
-            const cacheBuster = (url.includes('?') ? '&' : '?') + `t=${Date.now()}`;
-            const res = await fetch(url + cacheBuster, { 
-              signal,
-              cache: 'no-store'
-            });
-            if (!res.ok) throw new Error(`Status ${res.status}`);
-            return await res.text();
-          } catch (e: any) {
-            if (e.name === 'AbortError') throw e;
-            
-            // For known errors like 400/410/500, we'll try one more time without cache buster
+        const fetchWithRetry = async (label: string, url: string, signal: AbortSignal, retries = 2) => {
+          let lastError;
+          for (let i = 0; i <= retries; i++) {
             try {
-              const res = await fetch(url, { signal, cache: 'no-store' });
+              if (signal.aborted) throw new Error('Aborted');
+              
+              // Only add cache buster on retries or after some time to avoid excessive params
+              const useCacheBuster = i > 0;
+              const finalUrl = useCacheBuster 
+                ? url + (url.includes('?') ? '&' : '?') + `t=${Date.now()}`
+                : url;
+
+              const res = await fetch(finalUrl, { 
+                signal,
+                cache: 'no-cache', // Use no-cache instead of no-store for better compatibility
+                mode: 'cors',
+                credentials: 'omit'
+              });
+              
               if (!res.ok) throw new Error(`Status ${res.status}`);
               return await res.text();
-            } catch (retryError: any) {
-              if (retryError.name === 'AbortError') throw retryError;
+            } catch (e: any) {
+              lastError = e;
+              if (e.name === 'AbortError') throw e;
               
-              if (label === "Pelanggan" || label === "Tabungan") {
-                console.error(`Gagal memuat data vital ${label}:`, retryError);
-              } else {
-                console.warn(`Melewatkan data sekunder ${label} karena error:`, retryError);
+              if (i < retries) {
+                // Wait before retrying (exponential backoff)
+                await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                continue;
               }
-              
-              if (label !== "Pelanggan") {
-                return "";
-              }
-              throw new Error(`Koneksi ke data ${label} terputus. Pastikan link Google Sheet masih aktif dan dibagikan secara publik.`);
             }
           }
+
+          if (label === "Pelanggan" || label === "Tabungan") {
+            console.error(`Gagal memuat data vital ${label}:`, lastError);
+          } else {
+            console.warn(`Melewatkan data sekunder ${label} karena error:`, lastError);
+          }
+          
+          if (label !== "Pelanggan") {
+            return "";
+          }
+          
+          const isNetworkError = lastError?.message === 'Failed to fetch' || lastError?.name === 'TypeError';
+          const errorMsg = isNetworkError 
+            ? `Koneksi ke data ${label} terputus. Hal ini biasanya disebabkan oleh isu jaringan, pemblokiran (AdBlock), atau link Google Sheet yang tidak aktif/publik.`
+            : `Gagal memuat data ${label}: ${lastError?.message || 'Error tidak diketahui'}`;
+            
+          throw new Error(errorMsg);
         };
 
         const csvResults = await Promise.all(urls.map(u => fetchWithRetry(u.name, u.url, controller.signal)));
@@ -10066,7 +10233,7 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(() => fetchData(false), 10000); // Poll every 10 seconds
+    const interval = setInterval(() => fetchData(false), 30000); // Poll every 30 seconds instead of 10
     return () => {
       clearInterval(interval);
       if (abortControllerRef.current) abortControllerRef.current.abort();
