@@ -74,6 +74,10 @@ import {
   Download,
   Layers,
   ChevronLeft,
+  Printer,
+  ShoppingCart,
+  ScanLine,
+  AlertCircle,
   ChevronUp,
   Share2,
   Camera,
@@ -227,7 +231,7 @@ interface Customer {
   Nama: string;
   PIN?: string;
   Saldo?: string;
-  ID?: string;
+  id?: string;
   Tabungan?: string;
   [key: string]: any;
 }
@@ -560,6 +564,7 @@ const Header = ({
   redeemedPoints: RedeemedPoint[]
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isAdminPage = location.pathname.startsWith('/admin');
   const [isAgenInfoOpen, setIsAgenInfoOpen] = useState(false);
 
@@ -571,21 +576,40 @@ const Header = ({
         <div className="px-6 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
             <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-slate-100 bg-slate-50 flex items-center justify-center shrink-0">
-              <img 
-                src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
-                alt="Warung Tomi Logo" 
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
+              {loggedInUser ? (
+                loggedInUser.Image ? (
+                  <img 
+                    src={loggedInUser.Image} 
+                    alt={loggedInUser.Nama} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#005E6A]/10 flex items-center justify-center">
+                    <User className="w-5 h-5 text-[#005E6A]" />
+                  </div>
+                )
+              ) : (
+                <img 
+                  src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
+                  alt="Warung Tomi Logo" 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              )}
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1">
-                <span className="text-lg font-black tracking-tighter text-[#005E6A] group-hover:text-[#F15A24] transition-colors">WARUNG</span>
-                <span className="text-lg font-black tracking-tighter text-[#F15A24] group-hover:text-[#005E6A] transition-colors">TOMI</span>
+                <span className="text-[15px] font-black tracking-tighter text-[#005E6A] group-hover:text-[#F15A24] transition-colors uppercase">
+                  {loggedInUser ? "Halo," : "WARUNG"}
+                </span>
+                <span className="text-[15px] font-black tracking-tighter text-[#F15A24] group-hover:text-[#005E6A] transition-colors uppercase truncate max-w-[100px]">
+                  {loggedInUser ? loggedInUser.Nama.split(' ')[0] : "TOMI"}
+                </span>
               </div>
               <div className="flex justify-between w-full px-0.5 mt-[-2px] opacity-60 group-hover:opacity-100 transition-opacity">
-                {"Digital Solution".split("").map((char, i) => (
-                  <span key={i} className="text-[6.5px] font-black text-muted-foreground tracking-widest uppercase leading-none">
+                {(!loggedInUser ? "Digital Solution" : "Selamat Datang").split("").map((char, i) => (
+                  <span key={i} className="text-[6px] font-black text-muted-foreground tracking-[0.15em] uppercase leading-none">
                     {char === " " ? "\u00A0" : char}
                   </span>
                 ))}
@@ -593,15 +617,27 @@ const Header = ({
             </div>
           </Link>
 
-          {/* BNI 46 Badge */}
+          {/* BNI 46 Badge or Points Badge */}
           <motion.div 
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => setIsAgenInfoOpen(true)}
-            className="bg-[#E6F4F5] px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm border border-[#005E6A]/5 cursor-pointer"
+            onClick={() => loggedInUser ? navigate('/poin') : setIsAgenInfoOpen(true)}
+            className={`${loggedInUser ? "bg-[#E6F4F5] border-[#005E6A]/20" : "bg-[#E6F4F5] border-[#005E6A]/5"} px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm border cursor-pointer`}
           >
-            <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
-            <span className="text-[10px] font-black text-[#F15A24]">46</span>
+            {loggedInUser ? (
+              <>
+                <Star className="w-3.5 h-3.5 text-yellow-500 fill-current shrink-0" />
+                <span className="text-[10px] font-black tabular-nums tracking-widest flex items-center gap-1">
+                  <span className="text-[#005E6A]">{calculateActivePoints(loggedInUser.Nama, salesTransactions, redeemedPoints)}</span>
+                  <span className="text-[#F15A24]">POIN</span>
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
+                <span className="text-[10px] font-black text-[#F15A24]">46</span>
+              </>
+            )}
           </motion.div>
         </div>
       </header>
@@ -1078,59 +1114,61 @@ const PromoSection = () => {
 
   return (
     <section className="px-6 py-2">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-bold text-black uppercase tracking-wider">Promo & Info</h2>
-        <div className="flex gap-1">
-          {PROMO_SLIDES.map((_, index) => (
-            <motion.div
-              key={index}
-              animate={{ 
-                width: currentSlide === index ? 16 : 4,
-                backgroundColor: currentSlide === index ? "#F15A24" : "#E2E8F0"
-              }}
-              className="h-1 rounded-full cursor-pointer"
-              onClick={() => {
-                setCurrentSlide(index);
-                setImageError(false);
-              }}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="relative rounded-[2rem] overflow-hidden aspect-[16/9] shadow-sm border-2 border-white bg-slate-100 touch-none">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentSlide}
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            onDragEnd={handleDragEnd}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.5 }}
-            className="w-full h-full cursor-pointer"
-            onClick={() => {
-              if (currentSlide === 2) navigate("/poin");
-              if (currentSlide === 4) navigate("/bansos");
-            }}
-          >
-            {!imageError ? (
-              <img
-                src={PROMO_SLIDES[currentSlide].image}
-                alt={PROMO_SLIDES[currentSlide].title}
-                className="w-full h-full object-cover pointer-events-none"
-                onError={() => setImageError(true)}
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-black uppercase tracking-wider">Promo & Info</h2>
+          <div className="flex gap-1">
+            {PROMO_SLIDES.map((_, index) => (
+              <motion.div
+                key={index}
+                animate={{ 
+                  width: currentSlide === index ? 16 : 4,
+                  backgroundColor: currentSlide === index ? "#F15A24" : "#E2E8F0"
+                }}
+                className="h-1 rounded-full cursor-pointer"
+                onClick={() => {
+                  setCurrentSlide(index);
+                  setImageError(false);
+                }}
               />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-slate-200 text-slate-400 p-8 text-center">
-                <Bot className="w-12 h-12 mb-2 opacity-20" />
-                <p className="text-[10px] font-bold uppercase tracking-widest leading-tight">
-                  Gambar tidak dapat dimuat.<br/>Pastikan file Drive dibagikan ke "Siapa saja yang memiliki link".
-                </p>
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
+            ))}
+          </div>
+        </div>
+        <div className="relative rounded-md overflow-hidden aspect-[16/9] shadow-sm bg-slate-50 touch-none">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentSlide}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              onDragEnd={handleDragEnd}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.5 }}
+              className="w-full h-full cursor-pointer"
+              onClick={() => {
+                if (currentSlide === 2) navigate("/poin");
+                if (currentSlide === 4) navigate("/bansos");
+              }}
+            >
+              {!imageError ? (
+                <img
+                  src={PROMO_SLIDES[currentSlide].image}
+                  alt={PROMO_SLIDES[currentSlide].title}
+                  className="w-full h-full object-cover pointer-events-none"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-200 text-slate-400 p-8 text-center">
+                  <Bot className="w-12 h-12 mb-2 opacity-20" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest leading-tight">
+                    Gambar tidak dapat dimuat.
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
     </section>
   );
@@ -1139,7 +1177,7 @@ const PromoSection = () => {
 const MainServices = () => {
   const navigate = useNavigate();
   return (
-    <section className="px-6 py-1 space-y-6">
+    <section className="px-6 py-1">
       <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 relative z-10">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-base font-bold text-black uppercase tracking-wider">Layanan</h2>
@@ -1174,21 +1212,26 @@ const MainServices = () => {
           ))}
         </div>
       </div>
+    </section>
+  );
+};
 
-      {/* Contact & Location Section - Redesigned for Simplicity & Elegance */}
-      <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 relative overflow-hidden">
+const KontakSection = () => {
+  return (
+    <section className="px-6 py-4">
+      <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-100">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-tight">Kunjungi Kami</h3>
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Layanan Offline Warung Tomi</p>
           </div>
-          <div className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center border border-slate-100">
+          <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center border border-slate-100">
             <MapPin className="w-5 h-5 text-[#005E6A]" />
           </div>
         </div>
 
         <div className="flex flex-col gap-1">
-          <div className="flex items-start gap-4 p-4 rounded-3xl hover:bg-slate-50 transition-colors group">
+          <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors group">
             <div className="w-8 h-8 rounded-xl bg-[#E6F4F5] flex items-center justify-center shrink-0 border border-[#005E6A]/10">
               <MapPin className="w-4 h-4 text-[#005E6A]" />
             </div>
@@ -1200,7 +1243,7 @@ const MainServices = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 p-4 rounded-3xl hover:bg-slate-50 transition-colors group">
+          <div className="flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors group">
             <div className="w-8 h-8 rounded-xl bg-[#FFF0E6] flex items-center justify-center shrink-0 border border-[#F15A24]/10">
               <Phone className="w-4 h-4 text-[#F15A24]" />
             </div>
@@ -1210,7 +1253,7 @@ const MainServices = () => {
             </div>
           </div>
           
-          <div className="flex items-center gap-4 p-4 rounded-3xl hover:bg-slate-50 transition-colors group">
+          <div className="flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors group">
             <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100">
               <Clock className="w-4 h-4 text-slate-400" />
             </div>
@@ -1222,7 +1265,7 @@ const MainServices = () => {
         </div>
 
         <button 
-          className="w-full mt-8 bg-[#005E6A] text-white font-black uppercase tracking-widest h-14 rounded-2xl shadow-lg shadow-[#005E6A]/10 flex items-center justify-center gap-2 transition-all active:scale-95 group"
+          className="w-full mt-8 bg-[#005E6A] text-white font-black uppercase tracking-widest h-14 rounded-lg shadow-lg shadow-[#005E6A]/10 flex items-center justify-center gap-2 transition-all active:scale-95 group"
           onClick={() => window.open('https://maps.app.goo.gl/bnUitCFdP5sgqiw49', '_blank')}
         >
           <MapPin className="w-4 h-4 group-hover:animate-bounce" />
@@ -1234,13 +1277,15 @@ const MainServices = () => {
   );
 };
 
-const BottomNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (id: string) => void }) => {
-  const navItems = [
+const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setActiveTab: (id: string) => void, user: Customer | null }) => {
+  const allNavItems = [
     { id: "beranda", label: "Beranda", icon: Home },
-    { id: "aset", label: "Aset", icon: Wallet },
-    { id: "riwayat", label: "Riwayat", icon: History },
+    { id: "belanja", label: "Belanja", icon: ShoppingCart },
+    { id: "riwayat", label: "Riwayat", icon: History, protected: true },
     { id: "settings", label: "Profil", icon: User },
   ];
+
+  const navItems = allNavItems.filter(item => !item.protected || user);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-4 py-2 z-50 flex items-center justify-around">
@@ -1386,7 +1431,7 @@ const ProtectedPage = ({
       } else {
         onLogin(user);
         setCustomerName("");
-        setActiveTab("aset");
+        setActiveTab("beranda");
       }
     } else {
       setError("Nama tidak ditemukan");
@@ -1401,7 +1446,7 @@ const ProtectedPage = ({
       setShowPinInput(false);
       setSelectedCustomer(null);
       setError("");
-      setActiveTab("aset");
+      setActiveTab("beranda");
     } else {
       setError("PIN Salah");
     }
@@ -1479,7 +1524,7 @@ const ProtectedPage = ({
                             } else if (onLogin && setActiveTab) {
                               onLogin(s);
                               setCustomerName("");
-                              setActiveTab("aset");
+                              setActiveTab("beranda");
                             }
                           }}
                           className="w-full px-5 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between group"
@@ -2418,8 +2463,70 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
           <AssetPieChart data={assetData} />
         </div>
 
-        {/* Target Impian Section */}
-        <div className="bg-[#005E6A] rounded-[2rem] p-6 shadow-xl mb-6 relative overflow-hidden group">
+        {/* Rincian Saldo Section */}
+        <div className="grid grid-cols-2 gap-4">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest col-span-2">Rincian Saldo</h3>
+          {[
+            { 
+              name: "Tabungan", 
+              balance: formatCurrency(tabunganBalance), 
+              gradient: "from-green-500 to-emerald-600",
+              icon: Wallet,
+              clickable: true, 
+              path: "/tabungan" 
+            },
+            { 
+              name: "Investasi", 
+              balance: formatCurrency(investasiBalance), 
+              gradient: "from-indigo-500 to-violet-600",
+              icon: TrendingUp,
+              clickable: true, 
+              path: "/investasi" 
+            },
+            { 
+              name: "Lainnya", 
+              balance: formatCurrency(lainnyaBalance), 
+              gradient: "from-teal-500 to-cyan-600",
+              icon: Layers,
+              clickable: true, 
+              path: "/lainnya" 
+            },
+            { 
+              name: "Hutang", 
+              balance: formatCurrency(hutangBalance), 
+              gradient: "from-rose-500 to-red-600",
+              icon: CreditCard,
+              clickable: true, 
+              path: "/hutang" 
+            },
+          ].map((item, i) => (
+            <div 
+              key={i} 
+              onClick={() => item.clickable && item.path && navigate(item.path)}
+              className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-[2rem] flex flex-col justify-between shadow-lg shadow-slate-200/50 min-h-[120px] ${item.clickable ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+            >
+              {/* Decorative Circle */}
+              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-2xl" />
+              
+              <div className="flex justify-between items-start relative z-10">
+                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
+                  <item.icon className="w-5 h-5 text-white" />
+                </div>
+                <div className="w-6 h-6 bg-white/10 rounded-full flex items-center justify-center">
+                  <ChevronRight className="w-3 h-3 text-white" />
+                </div>
+              </div>
+
+              <div className="relative z-10 mt-4">
+                <p className="text-[8px] font-black text-white/70 uppercase tracking-widest leading-none mb-1.5">{item.name}</p>
+                <p className="text-[13px] font-black text-white tracking-tight">Rp {mask(item.balance)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Target Impian Section - Moved to Bottom */}
+        <div className="bg-[#005E6A] rounded-[2rem] p-6 shadow-xl mt-8 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/10 transition-colors" />
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -2459,7 +2566,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
           </div>
         </div>
 
-        {/* Goal Edit Modal */}
+        {/* Goal Edit Modal - Restored */}
         <AnimatePresence>
           {isEditingGoal && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
@@ -2535,67 +2642,6 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
             </div>
           )}
         </AnimatePresence>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest col-span-2">Rincian Saldo</h3>
-          {[
-            { 
-              name: "Tabungan", 
-              balance: formatCurrency(tabunganBalance), 
-              gradient: "from-green-500 to-emerald-600",
-              icon: Wallet,
-              clickable: true, 
-              path: "/tabungan" 
-            },
-            { 
-              name: "Investasi", 
-              balance: formatCurrency(investasiBalance), 
-              gradient: "from-indigo-500 to-violet-600",
-              icon: TrendingUp,
-              clickable: true, 
-              path: "/investasi" 
-            },
-            { 
-              name: "Lainnya", 
-              balance: formatCurrency(lainnyaBalance), 
-              gradient: "from-teal-500 to-cyan-600",
-              icon: Layers,
-              clickable: true, 
-              path: "/lainnya" 
-            },
-            { 
-              name: "Hutang", 
-              balance: formatCurrency(hutangBalance), 
-              gradient: "from-rose-500 to-red-600",
-              icon: CreditCard,
-              clickable: true, 
-              path: "/hutang" 
-            },
-          ].map((item, i) => (
-            <div 
-              key={i} 
-              onClick={() => item.clickable && item.path && navigate(item.path)}
-              className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-[2rem] flex flex-col justify-between shadow-lg shadow-slate-200/50 min-h-[120px] ${item.clickable ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
-            >
-              {/* Decorative Circle */}
-              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-2xl" />
-              
-              <div className="flex justify-between items-start relative z-10">
-                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
-                  <item.icon className="w-5 h-5 text-white" />
-                </div>
-                <div className="w-6 h-6 bg-white/10 rounded-full flex items-center justify-center">
-                  <ChevronRight className="w-3 h-3 text-white" />
-                </div>
-              </div>
-
-              <div className="relative z-10 mt-4">
-                <p className="text-[8px] font-black text-white/70 uppercase tracking-widest leading-none mb-1.5">{item.name}</p>
-                <p className="text-[13px] font-black text-white tracking-tight">Rp {mask(item.balance)}</p>
-              </div>
-            </div>
-          ))}
-        </div>
       </motion.div>
     </ProtectedPage>
   );
@@ -4413,7 +4459,16 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
         {/* Stats Cards - Now Menu Buttons */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <button 
+            onClick={() => navigate("/admin/cashier")}
+            className="bg-[#005E6A] p-4 rounded-lg shadow-lg shadow-teal-100 flex flex-col items-center gap-2 group hover:bg-[#004e58] transition-colors"
+          >
+            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+              <ShoppingCart className="w-5 h-5" />
+            </div>
+            <p className="text-[8px] font-black text-teal-50 uppercase tracking-widest text-center">Kasir</p>
+          </button>
           <button 
             onClick={() => navigate("/admin/customers")}
             className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors"
@@ -5769,22 +5824,441 @@ const AdminCustomerDetailPage = ({
   );
 };
 
-const AdminStockManagement = () => {
+const AdminCashier = ({ 
+  stock, 
+  customers, 
+  savings, 
+  onTransactionComplete 
+}: { 
+  stock: StockItem[], 
+  customers: Customer[], 
+  savings: any[],
+  onTransactionComplete: (data: any) => void 
+}) => {
+  const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<string>("Tunai");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [lastTransaction, setLastTransaction] = useState<any>(null);
+  const [checkoutStep, setCheckoutStep] = useState(1); // 1: Cart, 2: Payment
+
+  const onScanResult = (decodedText: string) => {
+    const product = stock.find(item => item.id === decodedText || item.Nama.toLowerCase() === decodedText.toLowerCase());
+    if (product) {
+      addToCart(product);
+      setIsScanning(false);
+    }
+  };
+
+  const filteredStock = stock.filter(item => 
+    item.Nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.Kategori.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const addToCart = (product: StockItem) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id);
+      if (existing) {
+        return prev.map(item => item.product.id === product.id ? { ...item, qty: item.qty + 1 } : item);
+      }
+      return [...prev, { product, qty: 1 }];
+    });
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCart(prev => prev.filter(item => item.product.id !== productId));
+  };
+
+  const updateQty = (productId: string, val: number) => {
+    if (val <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+    setCart(prev => prev.map(item => item.product.id === productId ? { ...item, qty: val } : item));
+  };
+
+  const total = cart.reduce((acc, item) => acc + (item.product.HargaJual * item.qty), 0);
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    if ((paymentMethod === "Kasbon" || paymentMethod === "Tabungan") && !selectedCustomer) {
+      alert("Pilih pelanggan terlebih dahulu!");
+      return;
+    }
+
+    setIsProcessing(true);
+    const transaction = {
+      id: Math.random().toString(36).substr(2, 9).toUpperCase(),
+      date: new Date().toLocaleString('id-ID'),
+      items: cart,
+      total,
+      paymentMethod,
+      customer: selectedCustomer,
+      timestamp: new Date().toISOString()
+    };
+
+    // Simulate delay
+    setTimeout(() => {
+      setLastTransaction(transaction);
+      setIsProcessing(false);
+      setShowReceipt(true);
+      onTransactionComplete(transaction);
+      setCart([]);
+      setSelectedCustomer(null);
+      setCheckoutStep(1);
+    }, 1000);
+  };
+
+  const printReceipt = () => {
+    window.print();
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)]">
+      {/* Product Selection */}
+      <div className={`flex-1 space-y-6 ${checkoutStep === 2 ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Kasir Pintar</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pilih barang untuk transaksi</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsScanning(!isScanning)}
+                className={`p-2.5 rounded-lg border transition-all ${isScanning ? 'bg-red-500 border-red-500 text-white' : 'bg-white border-slate-100 text-[#005E6A] hover:bg-slate-50'}`}
+              >
+                <ScanLine className="w-5 h-5" />
+              </button>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="Cari atau scan..."
+                  className="w-full bg-slate-50 border border-slate-100 rounded-lg pl-10 pr-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {isScanning && (
+            <div className="mb-6">
+              <BarcodeScannerComponent onResult={onScanResult} />
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredStock.map((item) => (
+              <motion.div 
+                key={item.id}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => addToCart(item)}
+                className="bg-white border border-slate-100 rounded-lg p-3 cursor-pointer hover:border-[#005E6A]/20 transition-all shadow-sm group"
+              >
+                <div className="aspect-square rounded-md bg-slate-50 mb-3 overflow-hidden">
+                  {item.Image ? (
+                    <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                      <Package className="w-8 h-8" />
+                    </div>
+                  )}
+                </div>
+                <h4 className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight truncate mb-1">{item.Nama}</h4>
+                <div className="flex justify-between items-end">
+                  <p className="text-[10px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Stok: {item.Stok}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Cart & Payment */}
+      <div className="w-full lg:w-96 space-y-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 sticky top-6">
+          {checkoutStep === 1 ? (
+            <>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-[#005E6A]/10 flex items-center justify-center text-[#005E6A]">
+                  <ShoppingCart className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-tight">Keranjang Belanja</h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{cart.length} item unik</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {cart.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-3">
+                      <ShoppingCart className="w-6 h-6" />
+                    </div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Keranjang Kosong</p>
+                  </div>
+                ) : (
+                  cart.map((item) => (
+                    <div key={item.product.id} className="flex gap-3 items-center">
+                      <div className="w-10 h-10 rounded-md bg-slate-50 overflow-hidden flex-shrink-0">
+                        {item.product.Image ? <img src={item.product.Image} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 m-3 text-slate-300" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black text-[#005E6A] uppercase truncate">{item.product.Nama}</p>
+                        <p className="text-[8px] font-bold text-[#F15A24]">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => updateQty(item.product.id, item.qty - 1)} className="w-5 h-5 rounded-md border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50">
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="text-[10px] font-black text-[#005E6A] tabular-nums">{item.qty}</span>
+                        <button onClick={() => updateQty(item.product.id, item.qty + 1)} className="w-5 h-5 rounded-md border border-slate-100 flex items-center justify-center text-[#005E6A] hover:bg-slate-50">
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="pt-6 border-t border-slate-50">
+                 <div className="bg-[#005E6A] p-4 rounded-lg text-white shadow-xl shadow-[#005E6A]/20 mb-4">
+                  <div className="flex justify-between items-center mb-1 opacity-60">
+                    <span className="text-[9px] font-black uppercase tracking-widest">Total Belanja</span>
+                  </div>
+                  <p className="text-2xl font-black tabular-nums">Rp {total.toLocaleString('id-ID')}</p>
+                </div>
+
+                <button
+                  onClick={() => cart.length > 0 && setCheckoutStep(2)}
+                  disabled={cart.length === 0}
+                  className={`w-full py-4 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                    cart.length === 0 
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : 'bg-[#F15A24] text-white shadow-lg shadow-[#F15A24]/30 hover:scale-[1.02] active:scale-98'
+                  } flex items-center justify-center gap-2`}
+                >
+                  LANJUT PEMBAYARAN <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-6">
+                <button onClick={() => setCheckoutStep(1)} className="w-8 h-8 rounded-lg border border-slate-100 flex items-center justify-center text-[#005E6A] hover:bg-slate-50">
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+                <div>
+                  <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-tight">Metode Pembayaran</h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total: Rp {total.toLocaleString('id-ID')}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Pilih Pelanggan</label>
+                  <select 
+                    className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none"
+                    value={selectedCustomer?.id || ""}
+                    onChange={(e) => {
+                      const c = customers.find(u => u.id === e.target.value);
+                      setSelectedCustomer(c || null);
+                    }}
+                  >
+                    <option value="">Umum (Tanpa Nama)</option>
+                    {customers && customers.map((c, idx) => {
+                      const safeId = c.id || `cust-${idx}`;
+                      const safeName = c.Nama || "Tanpa Nama";
+                      return (
+                        <option key={safeId} value={safeId}>
+                          {safeName}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { id: "Tunai", icon: Wallet, label: "Tunai" },
+                    { id: "QRIS", icon: ScanLine, label: "QRIS" },
+                    { id: "Transfer", icon: CreditCard, label: "Transfer" },
+                    { id: "Kasbon", icon: AlertCircle, label: "Kasbon" },
+                    { id: "Tabungan", icon: PiggyBank, label: "Tabungan" }
+                  ].map((m) => {
+                    const balance = selectedCustomer ? parseCurrency(selectedCustomer.Tabungan) : 0;
+                    const hasSavings = balance > 0;
+                    const isDisabled = m.id === "Tabungan" && !hasSavings;
+                    
+                    return (
+                      <button
+                        key={m.id}
+                        disabled={isDisabled}
+                        onClick={() => setPaymentMethod(m.id)}
+                        className={`flex items-center justify-between p-4 rounded-lg border text-[10px] font-black uppercase tracking-tight transition-all ${
+                          paymentMethod === m.id 
+                            ? 'border-[#005E6A] bg-[#005E6A] text-white shadow-lg shadow-[#005E6A]/20' 
+                            : isDisabled 
+                              ? 'border-slate-50 bg-slate-50 text-slate-300 cursor-not-allowed opacity-50'
+                              : 'border-slate-100 bg-white text-slate-400 hover:border-[#005E6A]/30'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <m.icon className="w-4 h-4 flex-shrink-0" />
+                          <span>{m.label}</span>
+                        </div>
+                        {m.id === "Tabungan" && selectedCustomer && (
+                          <span className={`text-[8px] ${paymentMethod === m.id ? 'text-white/60' : 'text-slate-400'}`}>
+                            Saldo: Rp {balance.toLocaleString('id-ID')}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={handleCheckout}
+                  disabled={isProcessing}
+                  className={`w-full py-4 rounded-lg text-xs font-black uppercase tracking-widest transition-all bg-[#F15A24] text-white shadow-lg shadow-[#F15A24]/30 hover:scale-[1.02] active:scale-98 flex items-center justify-center gap-2`}
+                >
+                  {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : "KONFIRMASI & CETAK"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Receipt Modal */}
+      <AnimatePresence>
+        {showReceipt && lastTransaction && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm print:p-0 print:bg-white">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl relative overflow-hidden print:shadow-none print:p-4"
+            >
+              <div className="absolute top-0 left-0 w-full h-1 bg-[#005E6A] opacity-20" />
+              
+              <div className="text-center space-y-1 mb-8 print:mb-4">
+                <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center text-[#005E6A] mx-auto mb-3">
+                  <Receipt className="w-6 h-6" />
+                </div>
+                <h2 className="text-sm font-black text-[#005E6A] uppercase tracking-[0.2em]">WARUNG TOMI</h2>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                  Dusun Manis, RT009/RW005<br/>Desa Wilanagara, Kuningan
+                </p>
+                <p className="text-[7px] font-medium text-slate-300 tabular-nums">{lastTransaction.date}</p>
+              </div>
+
+              <div className="space-y-3 mb-6 print:mb-4">
+                <div className="flex justify-between text-[10px] font-black text-slate-300 uppercase tracking-widest border-b border-slate-50 pb-2">
+                  <span>Nama Barang</span>
+                  <span>Total</span>
+                </div>
+                {lastTransaction.items.map((item: any) => (
+                  <div key={item.product.id} className="flex justify-between items-baseline gap-2">
+                    <div className="flex-1">
+                      <p className="text-[11px] font-black text-[#005E6A] uppercase">{item.product.Nama}</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
+                    </div>
+                    <span className="text-[11px] font-black text-[#005E6A] tabular-nums">Rp {(item.qty * item.product.HargaJual).toLocaleString('id-ID')}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-1.5 py-4 border-y border-dashed border-slate-200 print:py-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Metode Bayar</span>
+                  <span className="text-[10px] font-black text-[#005E6A] uppercase">{lastTransaction.paymentMethod}</span>
+                </div>
+                {lastTransaction.customer && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pelanggan</span>
+                    <span className="text-[10px] font-black text-[#005E6A] uppercase">{lastTransaction.customer.Nama}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">TOTAL</span>
+                  <span className="text-xl font-black text-[#F15A24] tabular-nums">Rp {lastTransaction.total.toLocaleString('id-ID')}</span>
+                </div>
+              </div>
+
+              {lastTransaction.paymentMethod === "QRIS" && (
+                <div className="mt-6 text-center space-y-3 print:mt-4">
+                  <div className="w-32 h-32 bg-slate-50 border border-slate-100 rounded-2xl mx-auto flex items-center justify-center p-2 relative overflow-hidden">
+                    <img 
+                      src="https://iconlogovector.com/uploads/images/2023/10/lg-594c94fa1be2e68065275e7a9b0c6198816.jpg" 
+                      className="w-full h-full object-contain grayscale opacity-60" 
+                      alt="QRIS Logo Placeholder"
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                       <ScanLine className="w-8 h-8 text-[#005E6A] opacity-30" />
+                    </div>
+                  </div>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">Scan QRIS "Warung Tomi"<br/>untuk pembayaran nontunai</p>
+                </div>
+              )}
+
+              <div className="mt-8 text-center space-y-2 print:mt-4">
+                <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-[0.2em]">TERIMA KASIH</p>
+                <div className="flex items-center justify-center gap-1.5 grayscale opacity-30">
+                  <Package className="w-3 h-3" />
+                  <span className="text-[8px] font-bold uppercase tracking-tighter">BELANJA HEMAT SETIAP HARI</span>
+                  <Package className="w-3 h-3" />
+                </div>
+              </div>
+
+              <div className="mt-8 flex gap-3 print:hidden">
+                <button 
+                  onClick={printReceipt}
+                  className="flex-1 py-3 bg-[#005E6A] text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform active:scale-98"
+                >
+                  <Printer className="w-4 h-4" /> CETAK STRUK
+                </button>
+                <button 
+                  onClick={() => setShowReceipt(false)}
+                  className="flex-1 py-3 bg-slate-50 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-100"
+                >
+                  TUTUP
+                </button>
+              </div>
+
+              {/* Print Only Footer Mark */}
+              <div className="hidden print:block text-center mt-12 opacity-30">
+                <p className="text-[6px] italic">Ditransaksikan oleh: Admin Warung Tomi • {lastTransaction.id}</p>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          .print-receipt-modal, .print-receipt-modal * { visibility: visible !important; }
+          .print-receipt-modal { position: fixed; left: 0; top: 0; width: 100%; height: 100%; background: white !important; z-index: 9999; }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStock: React.Dispatch<React.SetStateAction<StockItem[]>> }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("Semua");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [stock, setStock] = useState<StockItem[]>([
-    { id: '1', Nama: 'Beras Premium 5kg', Kategori: 'Sembako', Stok: 24, Satuan: 'Karung', MinStok: 5, HargaModal: 65000, HargaJual: 72000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?q=80&w=200&auto=format&fit=crop' },
-    { id: '2', Nama: 'Minyak Goreng 2L', Kategori: 'Sembako', Stok: 12, Satuan: 'Pouch', MinStok: 10, HargaModal: 32000, HargaJual: 35000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?q=80&w=200&auto=format&fit=crop' },
-    { id: '3', Nama: 'Gula Pasir 1kg', Kategori: 'Sembako', Stok: 50, Satuan: 'Bks', MinStok: 15, HargaModal: 14500, HargaJual: 16000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1622484211148-716598e04144?q=80&w=200&auto=format&fit=crop' },
-    { id: '4', Nama: 'Telur Ayam', Kategori: 'Sembako', Stok: 8, Satuan: 'kg', MinStok: 5, HargaModal: 26000, HargaJual: 28000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1582722872445-44c59ebc41dd?q=80&w=200&auto=format&fit=crop' },
-    { id: '5', Nama: 'Gas Elpiji 3kg', Kategori: 'LPG', Stok: 3, Satuan: 'Tabung', MinStok: 5, HargaModal: 18000, HargaJual: 22000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1536640989011-78972e9a5efd?q=80&w=200&auto=format&fit=crop' },
-    { id: '6', Nama: 'Indomie Goreng', Kategori: 'Sembako', Stok: 120, Satuan: 'Bks', MinStok: 40, HargaModal: 2800, HargaJual: 3500, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?q=80&w=200&auto=format&fit=crop' },
-    { id: '7', Nama: 'Sabun Cuci Piring', Kategori: 'Peralatan', Stok: 15, Satuan: 'Pouch', MinStok: 10, HargaModal: 12000, HargaJual: 14000, UpdateTerakhir: '22/04/2026', Image: 'https://images.unsplash.com/photo-1584622781564-1d9876a13d00?q=80&w=200&auto=format&fit=crop' },
-  ]);
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -5916,9 +6390,9 @@ const AdminStockManagement = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex gap-4 items-center group hover:shadow-md hover:border-[#005E6A]/10 transition-all cursor-pointer"
+                  className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 flex gap-4 items-center group hover:shadow-md hover:border-[#005E6A]/10 transition-all cursor-pointer"
                 >
-                  <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-slate-50 flex-shrink-0 shadow-inner">
+                  <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-slate-50 flex-shrink-0 shadow-inner">
                     {item.Image ? (
                       <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -5945,40 +6419,12 @@ const AdminStockManagement = () => {
                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.Satuan}</span>
                       </div>
                       <div className="w-[1px] h-3 bg-slate-100" />
-                      <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black text-[#F15A24]">Jual: Rp {item.HargaJual.toLocaleString('id-ID')}</span>
+                        <div className="w-1 h-1 rounded-full bg-slate-200" />
                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">Modal: Rp {item.HargaModal.toLocaleString('id-ID')}</span>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1 pr-1">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const newStock = [...stock];
-                        const idx = newStock.findIndex(s => s.id === item.id);
-                        newStock[idx].Stok += 1;
-                        setStock(newStock);
-                      }}
-                      className="p-2 bg-[#005E6A]/5 rounded-xl text-[#005E6A] hover:bg-[#005E6A] hover:text-white transition-all active:scale-95"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const newStock = [...stock];
-                        const idx = newStock.findIndex(s => s.id === item.id);
-                        if(newStock[idx].Stok > 0) {
-                          newStock[idx].Stok -= 1;
-                          setStock(newStock);
-                        }
-                      }}
-                      className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:bg-slate-100 transition-all active:scale-95"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
                   </div>
                 </motion.div>
               );
@@ -6256,7 +6702,6 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
       fps: 25, 
       qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
         const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-        // Minimum 150px to ensure it's well above the 50px requirement
         const qrboxSize = Math.max(Math.floor(minEdge * 0.7), 150);
         return {
           width: qrboxSize,
@@ -6317,7 +6762,7 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
 
   if (error) {
     return (
-      <div className="w-full aspect-square bg-slate-900 rounded-2xl flex flex-col items-center justify-center p-6 text-center">
+      <div className="w-full aspect-square bg-slate-900 rounded-lg flex flex-col items-center justify-center p-6 text-center">
         <CameraOff className="w-12 h-12 text-slate-500 mb-4" />
         <p className="text-white text-xs font-bold leading-relaxed">{error}</p>
         <p className="text-slate-400 text-[10px] mt-2 font-medium uppercase tracking-widest">Muat ulang halaman setelah mengizinkan akses</p>
@@ -6326,15 +6771,147 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
   }
 
   return (
-    <div className="relative w-full aspect-square bg-black overflow-hidden rounded-2xl">
+    <div className="relative w-full aspect-square bg-black overflow-hidden rounded-lg">
       <div id="reader" className="w-full h-full" />
       <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-        <div className="w-3/4 h-3/4 border-2 border-dashed border-[#005E6A] opacity-50 rounded-xl" />
+        <div className="w-3/4 h-3/4 border-2 border-dashed border-[#005E6A] opacity-50 rounded-lg" />
         <div className="mt-4 px-3 py-1 bg-black/50 backdrop-blur-sm rounded-full">
            <p className="text-[10px] font-black text-white uppercase tracking-widest animate-pulse">Scanning...</p>
         </div>
       </div>
       <div className="absolute inset-0 pointer-events-none border-[6px] border-[#005E6A]/10" />
+    </div>
+  );
+};
+
+const CatalogPage = ({ stock }: { stock: StockItem[] }) => {
+  const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const filteredStock = stock.filter(item => 
+    item.Nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.Kategori.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const addToCart = (product: StockItem) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id);
+      if (existing) {
+        return prev.map(item => item.product.id === product.id ? { ...item, qty: item.qty + 1 } : item);
+      }
+      return [...prev, { product, qty: 1 }];
+    });
+  };
+
+  const updateQty = (id: string, delta: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.product.id === id) {
+        const newQty = Math.max(0, item.qty + delta);
+        return { ...item, qty: newQty };
+      }
+      return item;
+    }).filter(item => item.qty > 0));
+  };
+
+  const total = cart.reduce((acc, item) => acc + (item.product.HargaJual * item.qty), 0);
+
+  return (
+    <div className="min-h-screen bg-slate-50 pb-24">
+      <div className="pt-8 pb-6 px-6 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+          <p className="text-[#F15A24] text-[10px] font-black uppercase tracking-[0.2em] mb-1">Katalog Produk</p>
+          <h1 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">Daftar Barang</h1>
+        </div>
+        {cart.length > 0 && (
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white p-4 rounded-lg shadow-xl border border-slate-100 w-full md:w-64"
+          >
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Keranjang Saya</span>
+              <span className="text-[10px] font-bold text-slate-400">{cart.length} Item</span>
+            </div>
+            <div className="text-lg font-black text-[#F15A24] mb-3">Rp {total.toLocaleString('id-ID')}</div>
+            <button 
+              onClick={() => alert("Silahkan hubungi kasir untuk memproses pesanan Anda.")}
+              className="w-full py-2 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-widest rounded-md"
+            >
+              PESAN SEKARANG
+            </button>
+          </motion.div>
+        )}
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 relative z-20">
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 mb-6 flex items-center gap-3">
+          <Search className="w-5 h-5 text-slate-300" />
+          <input 
+            type="text" 
+            placeholder="Cari barang..." 
+            className="flex-1 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {filteredStock.map((item) => {
+            const inCart = cart.find(c => c.product.id === item.id);
+            return (
+              <motion.div
+                layout
+                key={item.id}
+                className="bg-white border border-slate-100 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow group flex flex-col"
+              >
+                <div className="aspect-square rounded-md bg-slate-50 overflow-hidden mb-3 relative shrink-0">
+                  {item.Image ? (
+                    <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-200">
+                      <Package className="w-10 h-10" />
+                    </div>
+                  )}
+                  <div className="absolute top-2 left-2">
+                    <Badge className="bg-white/90 backdrop-blur-sm text-[#005E6A] text-[7px] font-black uppercase border-none">
+                      {item.Kategori}
+                    </Badge>
+                  </div>
+                </div>
+                <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight line-clamp-1 mb-1">{item.Nama}</h3>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-[11px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</span>
+                  <div className="flex items-center gap-1">
+                    <div className={`w-1.5 h-1.5 rounded-full ${item.Stok > 5 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                    <span className="text-[8px] font-bold text-slate-400">{item.Stok} {item.Satuan}</span>
+                  </div>
+                </div>
+
+                <div className="mt-auto">
+                  {!inCart ? (
+                    <button 
+                      onClick={() => addToCart(item)}
+                      className="w-full py-2 bg-slate-50 text-[#005E6A] text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-[#005E6A] hover:text-white transition-colors flex items-center justify-center gap-2"
+                    >
+                      <ShoppingCart className="w-3 h-3" /> BELI
+                    </button>
+                  ) : (
+                    <div className="flex items-center justify-between bg-[#005E6A]/5 rounded-md p-1">
+                      <button onClick={() => updateQty(item.id, -1)} className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-[#005E6A]">
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="text-[10px] font-black text-[#005E6A]">{inCart.qty}</span>
+                      <button onClick={() => updateQty(item.id, 1)} className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-[#005E6A]">
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };
@@ -8662,16 +9239,19 @@ const Layout = ({
   children, 
   activeTab, 
   setActiveTab,
+  user,
 }: { 
   children: React.ReactNode, 
   activeTab: string, 
   setActiveTab: (id: string) => void,
+  user: Customer | null,
 }) => (
   <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans pb-24">
     <main className="container mx-auto max-w-lg">
       {children}
+      {activeTab === "beranda" && <KontakSection />}
     </main>
-    <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+    <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
   </div>
 );
 
@@ -8683,6 +9263,7 @@ const HomePage = ({
   salesTransactions,
   investmentTransactions,
   customers,
+  stock,
   onLogin,
   redeemedPoints
 }: { 
@@ -8693,6 +9274,7 @@ const HomePage = ({
   salesTransactions: SalesTransaction[],
   investmentTransactions: InvestmentTransaction[],
   customers: Customer[],
+  stock: StockItem[],
   onLogin: (user: Customer) => void,
   redeemedPoints: RedeemedPoint[]
 }) => {
@@ -8714,11 +9296,13 @@ const HomePage = ({
         } else if (subPage === 'investasi') {
           navigate('/investasi', { replace: true });
         } else {
-          setActiveTab("aset");
+          setActiveTab("beranda");
         }
       }
     }
   }, [customerName, subPage, customers, loggedInUser, onLogin, setActiveTab, navigate]);
+
+  const activePoints = calculateActivePoints(loggedInUser?.Nama || "", salesTransactions, redeemedPoints);
 
   return (
     <AnimatePresence mode="wait">
@@ -8729,9 +9313,130 @@ const HomePage = ({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
+          className="space-y-4"
         >
-          <PromoSection />
+          {!loggedInUser && <div className="h-6" />}
+          {loggedInUser && (
+            <section className="px-6 pt-4">
+              <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-bold text-black uppercase tracking-wider">Aset</h3>
+                  <button 
+                    onClick={() => setActiveTab("aset")}
+                    className="flex items-center gap-1 text-[10px] font-black text-[#F15A24] uppercase tracking-widest active:scale-95 transition-transform"
+                  >
+                    Lihat Semua
+                    <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                  {[
+                    { 
+                      name: "Tabungan", 
+                      value: parseCurrency(loggedInUser.Tabungan), 
+                      gradient: "from-green-500 to-emerald-600",
+                      icon: Wallet,
+                      path: "/tabungan" 
+                    },
+                    { 
+                      name: "Investasi", 
+                      value: investmentTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && t.Status.toLowerCase() !== "sukses dicairkan").reduce((acc, curr) => acc + calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo).total, 0), 
+                      gradient: "from-indigo-500 to-violet-600",
+                      icon: TrendingUp,
+                      path: "/investasi" 
+                    },
+                    { 
+                      name: "Lainnya", 
+                      value: salesTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && ((t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL" || (t.Status || "").toUpperCase().trim() === "DIPROSES")).reduce((acc, curr) => {
+                        if ((curr.Status || "").toUpperCase().trim() === "DIPROSES") return acc + (curr.Pemasukan || 0);
+                        const net = curr.HargaModal - curr.Sebagian;
+                        return acc + (net > 0 ? net : 0);
+                      }, 0), 
+                      gradient: "from-teal-500 to-cyan-600",
+                      icon: Layers,
+                      path: "/lainnya" 
+                    },
+                    { 
+                      name: "Hutang", 
+                      value: parseCurrency(loggedInUser.Hutang), 
+                      gradient: "from-rose-500 to-red-600",
+                      icon: CreditCard,
+                      path: "/hutang" 
+                    },
+                  ].map((item, i) => (
+                    <div 
+                      key={i} 
+                      onClick={() => navigate(item.path)}
+                      className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-lg flex flex-col justify-between shadow-md shadow-slate-200/30 min-w-[140px] min-h-[110px] cursor-pointer active:scale-95 transition-transform shrink-0`}
+                    >
+                      <div className="absolute -right-4 -bottom-4 w-12 h-12 bg-white/10 rounded-full blur-xl" />
+                      
+                      <div className="flex justify-between items-start relative z-10">
+                        <div className="w-7 h-7 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20">
+                          <item.icon className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <div className="w-4 h-4 bg-white/10 rounded-full flex items-center justify-center">
+                          <ChevronRight className="w-2 h-2 text-white" />
+                        </div>
+                      </div>
+
+                      <div className="relative z-10 mt-3">
+                        <p className="text-[6px] font-black text-white/70 uppercase tracking-widest leading-none mb-1">{item.name}</p>
+                        <p className="text-[11px] font-black text-white tracking-tight">Rp {formatCurrency(item.value)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
           <MainServices />
+          <PromoSection />
+
+          {/* Highlight Belanja Section */}
+          <section className="px-6 pb-6">
+            <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-bold text-black uppercase tracking-wider">Belanja Pilihan</h2>
+                <button 
+                  onClick={() => setActiveTab("belanja")}
+                  className="text-[10px] font-black text-[#F15A24] uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform"
+                >
+                  Lihat Semua
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                {stock.slice(0, 4).map((item, idx) => (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
+                    onClick={() => setActiveTab("belanja")}
+                    className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col gap-2 cursor-pointer active:scale-95 transition-transform hover:shadow-md transition-shadow"
+                  >
+                    <div className="aspect-square bg-white rounded-md overflow-hidden mb-1 relative">
+                      {item.Image ? (
+                        <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ShoppingCart className="w-6 h-6 text-slate-200" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest truncate">{item.Kategori}</p>
+                      <p className="text-[10px] font-bold text-slate-800 truncate">{item.Nama}</p>
+                      <p className="text-[11px] font-black text-[#005E6A] tabular-nums mt-0.5">Rp {formatCurrency(item.HargaJual)}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
         </motion.div>
       )}
       {activeTab === "aset" && (
@@ -8743,6 +9448,17 @@ const HomePage = ({
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
           <AsetPage user={loggedInUser} transactions={salesTransactions} investmentTransactions={investmentTransactions} redeemedPoints={redeemedPoints} customers={customers} onLogin={onLogin} setActiveTab={setActiveTab} />
+        </motion.div>
+      )}
+      {activeTab === "belanja" && (
+        <motion.div
+          key="belanja"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+        >
+          <CatalogPage stock={stock} />
         </motion.div>
       )}
       {activeTab === "riwayat" && (
@@ -8895,7 +9611,7 @@ const LoadingPopup = () => (
     <motion.div 
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className="bg-white rounded-[1.5rem] p-5 w-full max-w-[160px] flex flex-col items-center shadow-2xl"
+      className="bg-white rounded-2xl p-5 w-full max-w-[160px] flex flex-col items-center shadow-2xl"
     >
       <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mb-3">
         <RefreshCw className="w-5 h-5 text-orange-500 animate-spin" />
@@ -8922,7 +9638,7 @@ const InstallPrompt = ({ onInstall, onDismiss }: { onInstall: () => void, onDism
     exit={{ opacity: 0, y: 100 }}
     className="fixed bottom-6 left-6 right-6 z-[90] flex items-center justify-center"
   >
-    <div className="bg-white rounded-[2rem] p-6 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col gap-5">
+    <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col gap-5">
       <div className="flex items-center gap-4">
         <div className="w-14 h-14 bg-slate-50 rounded-2xl overflow-hidden flex-shrink-0 border border-slate-100">
           <img 
@@ -8964,6 +9680,7 @@ export default function App() {
   const [salesTransactions, setSalesTransactions] = useState<SalesTransaction[]>([]);
   const [investmentTransactions, setInvestmentTransactions] = useState<InvestmentTransaction[]>([]);
   const [redeemedPoints, setRedeemedPoints] = useState<RedeemedPoint[]>([]);
+  const [stock, setStock] = useState<StockItem[]>([]);
   const [loggedInUser, setLoggedInUser] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
@@ -9043,7 +9760,8 @@ export default function App() {
           { name: "Investasi", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBQ5kUdqwv5bBsJcaiponYzqU_JxO0g7qQb6DQ1ujJ9bzTkY5GlI5XQQXL9BVr22gdmM7V7eEIDMH9/pub?gid=799157484&single=true&output=csv" },
           { name: "Hutang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv" },
           { name: "Penjualan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv" },
-          { name: "Poin", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv" }
+          { name: "Poin", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv" },
+          { name: "Stok", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRe7VfqXToI8v15JzJmX2-9IQO0RQFmJPVlMuf3GYyYaa1grUAombFNk9Zt78ZTKJb1NWQFi5QdmPRm/pub?gid=0&single=true&output=csv" }
         ];
         
         // Fetch individually to better pinpoint failures
@@ -9059,30 +9777,66 @@ export default function App() {
           } catch (e: any) {
             if (e.name === 'AbortError') throw e;
             
-            console.error(`Failed to fetch ${label}:`, e);
-            // Retry once without cache buster if it's a network error
+            // For known errors like 400/410/500, we'll try one more time without cache buster
             try {
               const res = await fetch(url, { signal, cache: 'no-store' });
               if (!res.ok) throw new Error(`Status ${res.status}`);
               return await res.text();
             } catch (retryError: any) {
               if (retryError.name === 'AbortError') throw retryError;
-              throw new Error(`Gagal memuat data ${label}: ${retryError.message}`);
+              
+              if (label === "Pelanggan" || label === "Tabungan") {
+                console.error(`Gagal memuat data vital ${label}:`, retryError);
+              } else {
+                console.warn(`Melewatkan data sekunder ${label} karena error:`, retryError);
+              }
+              
+              if (label !== "Pelanggan") {
+                return "";
+              }
+              throw new Error(`Koneksi ke data ${label} terputus. Pastikan link Google Sheet masih aktif dan dibagikan secara publik.`);
             }
           }
         };
 
-        const csvs = await Promise.all(urls.map(u => fetchWithRetry(u.name, u.url, controller.signal)));
+        const csvResults = await Promise.all(urls.map(u => fetchWithRetry(u.name, u.url, controller.signal)));
         
         if (controller.signal.aborted) return;
 
         const parseCsv = (csv: string): Promise<any[]> => new Promise(resolve => {
+          if (!csv) return resolve([]);
           Papa.parse(csv, { header: true, skipEmptyLines: true, complete: results => resolve(results.data), error: () => resolve([]) });
         });
         
-        const [cData, sData, iData, hData, salesData, rData] = await Promise.all(csvs.map(parseCsv));
+        const [cData, sData, iData, hData, salesData, rData, stockData] = await Promise.all(csvResults.map(parseCsv));
         
         if (controller.signal.aborted) return;
+        
+        // Process Stock Data
+        const processedStock: StockItem[] = stockData.map(s => {
+          const sIdKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('id barang'));
+          const sNamaKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('nama barang'));
+          const sKategoriKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('kategori'));
+          const sHjKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga jual'));
+          const sHmKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga modal'));
+          const sStokKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('stok'));
+          const sSatuanKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('satuan'));
+          const sGambarKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('gambar'));
+          const sTanggalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('tanggal'));
+
+          return {
+            id: sIdKey ? String(s[sIdKey]).trim() : Math.random().toString(36).substr(2, 9),
+            Nama: sNamaKey ? String(s[sNamaKey]).trim() : "Unknown",
+            Kategori: sKategoriKey ? String(s[sKategoriKey]).trim() : "Lainnya",
+            Stok: sStokKey ? parseInt(String(s[sStokKey]).replace(/\D/g, '')) || 0 : 0,
+            Satuan: sSatuanKey ? String(s[sSatuanKey]).trim() : "Unit",
+            MinStok: 5,
+            HargaModal: sHmKey ? parseCurrency(s[sHmKey]) : 0,
+            HargaJual: sHjKey ? parseCurrency(s[sHjKey]) : 0,
+            UpdateTerakhir: sTanggalKey ? String(s[sTanggalKey]).trim() : new Date().toLocaleDateString('id-ID'),
+            Image: sGambarKey ? String(s[sGambarKey]).trim() : undefined
+          };
+        });
 
         // Process Redeemed Points
         const processedRedeemedPoints: RedeemedPoint[] = rData.map(r => {
@@ -9270,7 +10024,7 @@ export default function App() {
                   Nama: name,
                   PIN: pinKey ? String(c[pinKey]).trim() : "",
                   Saldo: saldoKey ? String(c[saldoKey]).trim() : "0",
-                  ID: idKey ? String(c[idKey]).trim() : "",
+                  id: idKey ? String(c[idKey]).trim() : Math.random().toString(36).substr(2, 9),
                   Tabungan: runningBalance.toLocaleString('id-ID'),
                   Investasi: totalInvestasiValue.toLocaleString('id-ID'),
                   Hutang: runningHutang.toLocaleString('id-ID'),
@@ -9279,6 +10033,7 @@ export default function App() {
               });
 
             setRedeemedPoints(processedRedeemedPoints);
+        setStock(processedStock);
             setCustomers(validCustomers);
             setSavingsTransactions(allSavingsTransactions);
             setDebtTransactions(allDebtTransactions);
@@ -9393,6 +10148,7 @@ export default function App() {
           <Layout 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
+            user={loggedInUser}
           >
             <HomePage 
               activeTab={activeTab} 
@@ -9402,6 +10158,7 @@ export default function App() {
               salesTransactions={salesTransactions}
               investmentTransactions={investmentTransactions}
               customers={customers}
+              stock={stock}
               onLogin={handleLogin}
               redeemedPoints={redeemedPoints}
             />
@@ -9411,6 +10168,7 @@ export default function App() {
           <Layout 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
+            user={loggedInUser}
           >
             <HomePage 
               activeTab={activeTab} 
@@ -9420,6 +10178,7 @@ export default function App() {
               salesTransactions={salesTransactions}
               investmentTransactions={investmentTransactions}
               customers={customers}
+              stock={stock}
               onLogin={handleLogin}
               redeemedPoints={redeemedPoints}
             />
@@ -9429,6 +10188,7 @@ export default function App() {
           <Layout 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
+            user={loggedInUser}
           >
             <HomePage 
               activeTab={activeTab} 
@@ -9438,6 +10198,7 @@ export default function App() {
               salesTransactions={salesTransactions}
               investmentTransactions={investmentTransactions}
               customers={customers}
+              stock={stock}
               onLogin={handleLogin}
               redeemedPoints={redeemedPoints}
             />
@@ -9484,6 +10245,7 @@ export default function App() {
           <Layout 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
+            user={loggedInUser}
           >
             <BansosPage transactions={salesTransactions} />
           </Layout>
@@ -9505,7 +10267,8 @@ export default function App() {
         <Route path="/admin/investment" element={<AdminInvestmentManagement customers={customers} investmentTransactions={investmentTransactions} />} />
         <Route path="/admin/debt" element={<AdminDebtManagement customers={customers} transactions={debtTransactions} />} />
         <Route path="/admin/others" element={<AdminOthersManagement transactions={salesTransactions} customers={customers} />} />
-        <Route path="/admin/stock" element={<AdminStockManagement />} />
+        <Route path="/admin/cashier" element={<AdminCashier stock={stock} customers={customers} savings={savingsTransactions} onTransactionComplete={() => fetchData(false)} />} />
+        <Route path="/admin/stock" element={<AdminStockManagement stock={stock} setStock={setStock} />} />
       </Routes>
           </motion.div>
         )}
