@@ -2441,13 +2441,21 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
   return (
     <ProtectedPage user={user} title="Aset" customers={customers} onLogin={onLogin} setActiveTab={setActiveTab}>
       <motion.div 
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.2}
+        onDragEnd={(e, info) => {
+          if (info.offset.x > 100) {
+            setActiveTab("beranda");
+          }
+        }}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="px-6 py-4"
+        className="px-6 py-4 cursor-grab active:cursor-grabbing"
       >
         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 relative overflow-hidden">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-black uppercase tracking-wider">Total Aset</h2>
+            <h2 className="text-lg font-bold text-black uppercase tracking-wider">Saldo Bersih</h2>
             <button 
               onClick={toggleBalance}
               className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 active:scale-90 transition-transform"
@@ -2526,7 +2534,9 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
         </div>
 
         {/* Target Impian Section - Moved to Bottom */}
-        <div className="bg-[#005E6A] rounded-[2rem] p-6 shadow-xl mt-8 relative overflow-hidden group">
+        <div className="mt-10">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Target Impian</h3>
+          <div className="bg-[#005E6A] rounded-[2rem] p-6 shadow-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/10 transition-colors" />
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -2565,6 +2575,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
             <p className="text-[8px] font-bold text-white/50 uppercase tracking-tight">Kumpulkan aset untuk mencapai kebebasan finansial</p>
           </div>
         </div>
+      </div>
 
         {/* Goal Edit Modal - Restored */}
         <AnimatePresence>
@@ -6785,6 +6796,10 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
 };
 
 const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | null }) => {
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
   const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua");
@@ -9542,6 +9557,12 @@ const HomePage = ({
 
   const activePoints = calculateActivePoints(loggedInUser?.Nama || "", salesTransactions, redeemedPoints);
 
+  useEffect(() => {
+    if (activeTab === "beranda" || activeTab === "belanja") {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [activeTab]);
+
   return (
     <AnimatePresence mode="wait">
       {activeTab === "beranda" && (
@@ -9558,7 +9579,7 @@ const HomePage = ({
             <section className="px-6 pt-4">
               <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-base font-bold text-black uppercase tracking-wider">Aset</h3>
+                  <h3 className="text-base font-bold text-black uppercase tracking-wider">Portofolio</h3>
                   <button 
                     onClick={() => setActiveTab("aset")}
                     className="flex items-center gap-1 text-[10px] font-black text-[#F15A24] uppercase tracking-widest active:scale-95 transition-transform"
@@ -9570,35 +9591,43 @@ const HomePage = ({
 
                 <div className="flex flex-col gap-2">
                   {(() => {
+                    const tabVal = parseCurrency(loggedInUser.Tabungan);
+                    const invVal = investmentTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && t.Status.toLowerCase() !== "sukses dicairkan").reduce((acc, curr) => acc + calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo).total, 0);
+                    const lainVal = salesTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && ((t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL" || (t.Status || "").toUpperCase().trim() === "DIPROSES")).reduce((acc, curr) => {
+                      if ((curr.Status || "").toUpperCase().trim() === "DIPROSES") return acc + (curr.Pemasukan || 0);
+                      const net = curr.HargaModal - curr.Sebagian;
+                      return acc + (net > 0 ? net : 0);
+                    }, 0);
+                    const hutVal = parseCurrency(loggedInUser.Hutang);
+                    
+                    const saldoBersih = tabVal + invVal + lainVal - hutVal;
+                    const hasAssets = tabVal > 0 || invVal > 0 || lainVal > 0 || hutVal > 0;
+
                     const assets = [
                       { 
                         name: "Tabungan", 
-                        value: parseCurrency(loggedInUser.Tabungan), 
+                        value: tabVal, 
                         gradient: "from-green-500 to-emerald-600",
                         icon: Wallet,
                         path: "/tabungan" 
                       },
                       { 
                         name: "Investasi", 
-                        value: investmentTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && t.Status.toLowerCase() !== "sukses dicairkan").reduce((acc, curr) => acc + calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo).total, 0), 
+                        value: invVal, 
                         gradient: "from-indigo-500 to-violet-600",
                         icon: TrendingUp,
                         path: "/investasi" 
                       },
                       { 
                         name: "Lainnya", 
-                        value: salesTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && ((t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL" || (t.Status || "").toUpperCase().trim() === "DIPROSES")).reduce((acc, curr) => {
-                          if ((curr.Status || "").toUpperCase().trim() === "DIPROSES") return acc + (curr.Pemasukan || 0);
-                          const net = curr.HargaModal - curr.Sebagian;
-                          return acc + (net > 0 ? net : 0);
-                        }, 0), 
+                        value: lainVal, 
                         gradient: "from-teal-500 to-cyan-600",
                         icon: Layers,
                         path: "/lainnya" 
                       },
                       { 
                         name: "Hutang", 
-                        value: parseCurrency(loggedInUser.Hutang), 
+                        value: hutVal, 
                         gradient: "from-rose-500 to-red-600",
                         icon: CreditCard,
                         path: "/hutang" 
@@ -9647,7 +9676,20 @@ const HomePage = ({
                       );
                     }
 
-                    return assets.map((item, i) => (
+                    return (
+                      <>
+                        {hasAssets && (
+                          <div className="mb-2 px-3 py-2 bg-[#005E6A]/5 rounded-xl border border-[#005E6A]/10 flex justify-between items-center group hover:bg-[#005E6A]/10 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#005E6A]" />
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Bersih</span>
+                            </div>
+                            <span className="text-sm font-black text-[#005E6A]">
+                              Rp {saldoBersih.toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                        )}
+                        {assets.map((item, i) => (
                       <div 
                         key={i} 
                         onClick={() => navigate(item.path)}
@@ -9669,7 +9711,9 @@ const HomePage = ({
                           <ChevronRight className="w-4 h-4 text-white" />
                         </div>
                       </div>
-                    ));
+                        ))}
+                      </>
+                    );
                   })()}
                 </div>
               </div>
