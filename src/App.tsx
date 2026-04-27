@@ -6787,12 +6787,23 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
 const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | null }) => {
   const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showCart, setShowCart] = useState(false);
+  const [tick, setTick] = useState(0);
+  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
+
+  const categories = useMemo(() => {
+    const cats = Array.from(new Set(stock.map(s => s.Kategori)));
+    return ["Semua", ...cats];
+  }, [stock]);
   
-  const filteredStock = stock.filter(item => 
-    item.Nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.Kategori.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredStock = stock.filter(item => {
+    const matchesSearch = item.Nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         item.Kategori.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === "Semua" || item.Kategori === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const addToCart = (product: StockItem) => {
     setCart(prev => {
@@ -6802,6 +6813,8 @@ const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | nul
       }
       return [...prev, { product, qty: 1 }];
     });
+    setLastAddedId(product.id);
+    setTick(t => t + 1);
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -6818,77 +6831,75 @@ const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | nul
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      <div className="pt-8 pb-6 px-6 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <div>
-          <p className="text-[#F15A24] text-[10px] font-black uppercase tracking-[0.2em] mb-1">Katalog Produk</p>
-          <h1 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">Daftar Barang</h1>
-        </div>
-        {cart.length > 0 && (
-          <motion.div 
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-white p-4 rounded-lg shadow-xl border border-slate-100 w-full md:w-80"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Keranjang Saya</span>
-              <span className="text-[10px] font-bold text-slate-400">{cart.length} Item</span>
-            </div>
-            
-            <div className="max-h-48 overflow-y-auto mb-4 space-y-3 pr-2 scrollbar-thin">
-              {cart.map((item) => (
-                <div key={item.product.id} className="flex items-center justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-black text-[#005E6A] uppercase truncate">{item.product.Nama}</p>
-                    <p className="text-[9px] font-bold text-[#F15A24]">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
-                  </div>
-                  <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-1 border border-slate-100">
-                    <button 
-                      onClick={() => updateQty(item.product.id, -1)}
-                      className="w-5 h-5 flex items-center justify-center bg-white rounded shadow-sm text-[#005E6A] active:scale-90"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="text-[10px] font-black text-[#005E6A] w-4 text-center">{item.qty}</span>
-                    <button 
-                      onClick={() => updateQty(item.product.id, 1)}
-                      className="w-5 h-5 flex items-center justify-center bg-white rounded shadow-sm text-[#005E6A] active:scale-90"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="border-t border-slate-100 pt-3 mb-4">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[8px] font-bold text-slate-400 uppercase">Total Pesanan</span>
-                <span className="text-lg font-black text-[#F15A24]">Rp {total.toLocaleString('id-ID')}</span>
+      {/* Sticky Header Section */}
+      <div className="sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md border-b border-slate-200">
+        <div className="pt-3.5 pb-3.5 px-6 max-w-7xl mx-auto">
+          <div className="flex flex-col gap-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-[#F15A24] text-[10px] font-black uppercase tracking-[0.2em] mb-0.5">Katalog Produk</p>
+                <h1 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Daftar Barang</h1>
               </div>
             </div>
 
-            <button 
-              onClick={() => setShowConfirm(true)}
-              className="w-full py-3 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-[#005E6A]/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-            >
-              <ShoppingCart className="w-4 h-4" /> PESAN VIA WHATSAPP
-            </button>
-          </motion.div>
-        )}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0 bg-white p-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2 sm:gap-3">
+                <Search className="w-5 h-5 text-slate-300 shrink-0" />
+                <input 
+                  type="text" 
+                  placeholder="Cari barang..." 
+                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <div className="w-[1px] h-4 bg-slate-200 mx-0.5 shrink-0" />
+                <div className="relative shrink-0 max-w-[80px] sm:max-w-none">
+                  <select 
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="appearance-none bg-transparent border-none outline-none text-[10px] font-black text-[#005E6A] uppercase tracking-tight cursor-pointer pr-4 w-full truncate"
+                  >
+                    {categories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3 h-3 absolute right-0 top-1/2 -translate-y-1/2 text-[#005E6A] pointer-events-none" />
+                </div>
+              </div>
+              
+              <motion.button 
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowCart(true)}
+                className="relative p-3 bg-[#005E6A] rounded-xl shadow-lg shadow-[#005E6A]/20 text-white flex items-center justify-center shrink-0"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                <AnimatePresence>
+                  {cart.length > 0 && (
+                    <motion.div 
+                      key="cart-count"
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#F15A24] text-white text-[10px] font-black flex items-center justify-center rounded-full shadow-lg border-2 border-white"
+                    >
+                      <motion.span
+                        key={cart.reduce((acc, item) => acc + item.qty, 0)}
+                        initial={{ y: -10, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        className="absolute"
+                      >
+                        {cart.reduce((acc, item) => acc + item.qty, 0)}
+                      </motion.span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 relative z-20">
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 mb-6 flex items-center gap-3">
-          <Search className="w-5 h-5 text-slate-300" />
-          <input 
-            type="text" 
-            placeholder="Cari barang..." 
-            className="flex-1 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-
+      <div className="max-w-7xl mx-auto px-6 pt-6 relative z-20">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredStock.map((item) => {
             const inCart = cart.find(c => c.product.id === item.id);
@@ -6922,20 +6933,48 @@ const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | nul
                 </div>
 
                 <div className="mt-auto">
-                  <button 
+                  <motion.button 
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => addToCart(item)}
                     className="w-full py-2 bg-slate-50 text-[#005E6A] text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-[#005E6A] hover:text-white transition-colors flex items-center justify-center gap-2 relative overflow-hidden group"
                   >
                     <ShoppingCart className="w-3 h-3" /> 
                     {inCart ? `BELI (${inCart.qty})` : "BELI"}
-                    {inCart && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="absolute top-0 right-0 w-3 h-3 bg-[#F15A24] rounded-full"
-                      />
-                    )}
-                  </button>
+                    <AnimatePresence>
+                      {inCart && (
+                        <motion.div
+                          initial={{ scale: 0, x: 20, y: -20 }}
+                          animate={{ scale: 1, x: 0, y: 0 }}
+                          className="absolute top-0 right-0 w-3 h-3 bg-[#F15A24] rounded-full border border-white"
+                        />
+                      )}
+                    </AnimatePresence>
+                    
+                    {/* Add to cart burst animation */}
+                    <AnimatePresence>
+                      {lastAddedId === item.id && (
+                        <motion.div
+                          key={tick}
+                          className="absolute inset-0 pointer-events-none flex items-center justify-center"
+                        >
+                          {[...Array(6)].map((_, i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{
+                                scale: [0, 1, 0],
+                                opacity: [0, 1, 0],
+                                x: (Math.random() - 0.5) * 120,
+                                y: (Math.random() - 0.5) * 120 - 60,
+                              }}
+                              transition={{ duration: 0.6, ease: "easeOut" }}
+                              className="absolute w-2 h-2 bg-[#F15A24] rounded-full shadow-sm"
+                            />
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.button>
                 </div>
               </motion.div>
             );
@@ -6944,6 +6983,101 @@ const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | nul
       </div>
 
       <AnimatePresence>
+        {showCart && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCart(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              className="relative w-full max-w-lg bg-white rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl overflow-hidden px-6 py-5"
+            >
+              <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6 sm:hidden" />
+              
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-tight">Keranjang Saya</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{cart.length} Item Terpilih</p>
+                </div>
+                <button 
+                  onClick={() => setShowCart(false)}
+                  className="p-2 bg-slate-50 rounded-full text-slate-400"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {cart.length === 0 ? (
+                <div className="py-12 flex flex-col items-center text-center">
+                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                    <ShoppingCart className="w-8 h-8 text-slate-200" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-400">Keranjang Anda kosong</p>
+                </div>
+              ) : (
+                <>
+                  <div className="max-h-[60vh] overflow-y-auto mb-4 pr-2 scrollbar-thin divide-y divide-slate-100">
+                    {cart.map((item) => (
+                      <div key={item.product.id} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                        <div className="w-12 h-12 rounded-lg bg-slate-50 overflow-hidden shadow-sm flex-shrink-0">
+                          {item.product.Image ? (
+                            <img src={item.product.Image} alt={item.product.Nama} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-200">
+                              <Package className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-black text-[#005E6A] uppercase truncate">{item.product.Nama}</p>
+                          <p className="text-[10px] font-bold text-[#F15A24]">Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => updateQty(item.product.id, -1)}
+                            className="w-8 h-8 flex items-center justify-center text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                          <span className="text-[12px] font-black text-[#005E6A] w-6 text-center">{item.qty}</span>
+                          <button 
+                            onClick={() => updateQty(item.product.id, 1)}
+                            className="w-8 h-8 flex items-center justify-center text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Bayar</span>
+                      <span className="text-xl font-black text-[#F15A24]">Rp {total.toLocaleString('id-ID')}</span>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setShowCart(false);
+                        setShowConfirm(true);
+                      }}
+                      className="w-full py-3.5 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-[#005E6A]/20 flex items-center justify-center gap-3 active:scale-95 transition-transform"
+                    >
+                      <ShoppingCart className="w-4 h-4" /> PESAN SEKARANG
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+
         {showConfirm && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-4">
             <motion.div
