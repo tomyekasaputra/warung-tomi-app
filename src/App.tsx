@@ -1,49 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { doc, getDoc, setDoc, Timestamp, getDocFromServer } from 'firebase/firestore';
-import { db } from './lib/firebase';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: null
-    },
-    operationType,
-    path
-  }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
-
-// Test connection on boot
-const testConnection = async () => {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
-  }
-};
-testConnection();
 import { motion, AnimatePresence } from "motion/react";
 import { BrowserRouter, Routes, Route, useNavigate, Link, useParams, useLocation, useSearchParams } from "react-router-dom";
 import Papa from "papaparse";
@@ -8595,75 +8550,34 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
   );
 };
 
-const compressImage = (file: File, maxWidth: number = 800, maxHeight: number = 800, quality: number = 0.7): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > maxWidth) {
-            height *= maxWidth / width;
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width *= maxHeight / height;
-            height = maxHeight;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = (err) => reject(err);
-    };
-    reader.onerror = (err) => reject(err);
-  });
-};
-
-const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, onLogin, setActiveTab, onUpdatePhoto }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[], onLogout: () => void, customers: Customer[], onLogin: (user: Customer) => void, setActiveTab: (id: string) => void, onUpdatePhoto: (nama: string, base64: string) => Promise<void> }) => {
+const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, onLogin, setActiveTab, onUpdatePhoto }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[], onLogout: () => void, customers: Customer[], onLogin: (user: Customer) => void, setActiveTab: (id: string) => void, onUpdatePhoto: (nama: string, base64: string) => void }) => {
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [showLevelBenefits, setShowLevelBenefits] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
   const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
 
   const handlePhotoClick = () => {
-    if (uploadStatus === 'uploading') return;
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && user) {
-      setUploadStatus('uploading');
-
-      try {
-        const compressedBase64 = await compressImage(file);
-        await onUpdatePhoto(user.Nama, compressedBase64);
-        setUploadStatus('success');
-        // Hide success message after 3 seconds
-        setTimeout(() => setUploadStatus('idle'), 3000);
-      } catch (error) {
-        console.error("Upload failed:", error);
-        setUploadStatus('error');
-        // Hide error message after 3 seconds
-        setTimeout(() => setUploadStatus('idle'), 3000);
+      if (file.size > 2 * 1024 * 1024) {
+        alert("Ukuran foto terlalu besar. Maksimal 2MB.");
+        return;
       }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        onUpdatePhoto(user.Nama, base64);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -8674,50 +8588,6 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
         animate={{ opacity: 1, y: 0 }}
         className="px-6 py-4"
       >
-      {/* Upload Progress Popup */}
-      <AnimatePresence>
-        {uploadStatus !== 'idle' && (
-          <motion.div 
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="fixed bottom-24 left-6 right-6 z-50 flex justify-center pointer-events-none"
-          >
-            <div className={`px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-4 border backdrop-blur-md ${
-              uploadStatus === 'uploading' ? 'bg-[#005E6A] border-[#005E6A]/20 text-white' :
-              uploadStatus === 'success' ? 'bg-emerald-500 border-emerald-400/20 text-white' :
-              'bg-rose-500 border-rose-400/20 text-white'
-            }`}>
-              {uploadStatus === 'uploading' && (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              )}
-              {uploadStatus === 'success' && (
-                <motion.div 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", damping: 10 }}
-                >
-                  <ShieldCheck className="w-6 h-6 text-white" />
-                </motion.div>
-              )}
-              {uploadStatus === 'error' && (
-                <motion.div 
-                  initial={{ rotate: 90, scale: 0 }}
-                  animate={{ rotate: 0, scale: 1 }}
-                >
-                  <AlertCircle className="w-6 h-6 text-white" />
-                </motion.div>
-              )}
-              <span className="text-xs font-black uppercase tracking-wider">
-                {uploadStatus === 'uploading' ? 'Mengunggah Foto...' : 
-                 uploadStatus === 'success' ? 'Foto Berhasil Disimpan' : 
-                 'Gagal Mengunggah Foto'}
-              </span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Hidden File Input */}
       <input 
         type="file" 
@@ -9763,7 +9633,7 @@ const HomePage = ({
   stock: StockItem[],
   onLogin: (user: Customer) => void,
   redeemedPoints: RedeemedPoint[],
-  onUpdatePhoto: (nama: string, base64: string) => Promise<void>
+  onUpdatePhoto: (nama: string, base64: string) => void
 }) => {
   const { subPage, customerName } = useParams();
   const navigate = useNavigate();
@@ -10666,22 +10536,10 @@ export default function App() {
     };
   }, []);
 
-  const handleUpdatePhoto = async (nama: string, base64: string) => {
+  const handleUpdatePhoto = (nama: string, base64: string) => {
     const newPhotos = { ...userPhotos, [nama]: base64 };
     setUserPhotos(newPhotos);
     localStorage.setItem("warung_tomi_photos", JSON.stringify(newPhotos));
-    
-    // Save to Firebase
-    try {
-      const photoRef = doc(db, 'userPhotos', nama);
-      await setDoc(photoRef, {
-        nama,
-        photo: base64,
-        updatedAt: Timestamp.now()
-      });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `userPhotos/${nama}`);
-    }
     
     // Update loggedInUser if it's the current user
     if (loggedInUser && loggedInUser.Nama === nama) {
@@ -10691,30 +10549,8 @@ export default function App() {
     }
   };
 
-  const handleLogin = async (user: Customer) => {
-    let finalPhoto = userPhotos[user.Nama] || user.Foto;
-    
-    // Try to fetch from Firebase if not in local storage
-    if (!userPhotos[user.Nama]) {
-      try {
-        const photoRef = doc(db, 'userPhotos', user.Nama);
-        const photoDoc = await getDoc(photoRef);
-        if (photoDoc.exists()) {
-          const data = photoDoc.data();
-          finalPhoto = data.photo;
-          
-          // Update local storage for next time
-          const newPhotos = { ...userPhotos, [user.Nama]: finalPhoto };
-          setUserPhotos(newPhotos);
-          localStorage.setItem("warung_tomi_photos", JSON.stringify(newPhotos));
-        }
-      } catch (error) {
-        // Silently fail or log, don't block login
-        console.error("Failed to fetch photo from Firebase:", error);
-      }
-    }
-
-    const userWithPhoto = { ...user, Foto: finalPhoto };
+  const handleLogin = (user: Customer) => {
+    const userWithPhoto = { ...user, Foto: userPhotos[user.Nama] || user.Foto };
     setLoggedInUser(userWithPhoto);
     localStorage.setItem("warung_tomi_user", JSON.stringify(userWithPhoto));
   };
