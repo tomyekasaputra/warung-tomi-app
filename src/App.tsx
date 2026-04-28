@@ -483,7 +483,7 @@ const calculateActivePoints = (customerName: string, salesTransactions: SalesTra
     }
   });
 
-  return Math.max(0, totalEarned - totalExpired - userRedeemed);
+  return totalEarned - totalExpired - userRedeemed;
 };
 
 const calculateUserCollectability = (userTransactions: DebtTransaction[]) => {
@@ -657,8 +657,15 @@ const Header = ({
             {loggedInUser ? (
               <>
                 <span className="text-[10px] font-black tabular-nums tracking-widest flex items-center gap-1">
-                  <span className="text-[#005E6A]">{calculateActivePoints(loggedInUser.Nama, salesTransactions, redeemedPoints)}</span>
-                  <span className="text-[#F15A24]">POIN</span>
+                  {(() => {
+                    const points = calculateActivePoints(loggedInUser.Nama, salesTransactions, redeemedPoints);
+                    return (
+                      <>
+                        <span className={points < 0 ? "text-red-500" : "text-[#005E6A]"}>{points}</span>
+                        <span className="text-[#F15A24]">POIN</span>
+                      </>
+                    );
+                  })()}
                 </span>
               </>
             ) : (
@@ -1842,12 +1849,20 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
               <div className="relative z-10 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Poin Aktif Anda</p>
-                  <h3 className="text-2xl font-black tracking-tight">{activePoints} Poin</h3>
+                  <h3 className={`text-2xl font-black tracking-tight ${activePoints < 0 ? 'text-red-200' : 'text-white'}`}>{activePoints} Poin</h3>
                 </div>
                 <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
-                  <Star className="w-6 h-6 text-amber-400 fill-amber-400" />
+                  <Star className={`w-6 h-6 ${activePoints < 0 ? 'text-red-400 fill-red-400' : 'text-amber-400 fill-amber-400'}`} />
                 </div>
               </div>
+              {activePoints < 0 && (
+                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-xl flex items-start gap-3 backdrop-blur-sm">
+                  <Info className="w-4 h-4 text-red-200 shrink-0 mt-0.5" />
+                  <p className="text-[8px] font-bold text-red-50 text-left uppercase tracking-wider leading-relaxed">
+                    Poin Anda minus karena pernah menukar poin melebihi poin yang didapat.
+                  </p>
+                </div>
+              )}
               <div className="mt-4 flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-white/40">
                 <span>Klik untuk detail riwayat</span>
                 <ArrowRight className="w-3 h-3" />
@@ -2096,7 +2111,7 @@ const LoyaltyPointsDetailPage = ({ user, transactions, redeemedPoints, customers
   }, [userSales]);
 
   const totalRedeemed = userRedeemed.reduce((acc, curr) => acc + curr.Poin, 0);
-  const activePoints = Math.max(0, totalEarned - totalExpired - totalRedeemed);
+  const activePoints = totalEarned - totalExpired - totalRedeemed;
 
   const getExpiryInfo = (dateStr: string) => {
     const d = parseDate(dateStr);
@@ -2128,11 +2143,20 @@ const LoyaltyPointsDetailPage = ({ user, transactions, redeemedPoints, customers
         {/* Main Card */}
         <div className="bg-[#005E6A] rounded-[2.5rem] p-8 pb-6 text-white shadow-lg mb-6 relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-          <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center mb-4">
-            <Star className="w-6 h-6 text-amber-400 fill-amber-400" />
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${activePoints < 0 ? 'bg-red-500/20' : 'bg-white/10'}`}>
+            <Star className={`w-6 h-6 ${activePoints < 0 ? 'text-red-400 fill-red-400' : 'text-amber-400 fill-amber-400'}`} />
           </div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Total Poin Aktif</p>
-          <h2 className="text-4xl font-black tracking-tighter mb-8">{activePoints} <span className="text-sm font-bold uppercase tracking-widest opacity-60">Poin</span></h2>
+          <h2 className={`text-4xl font-black tracking-tighter mb-8 ${activePoints < 0 ? 'text-red-300' : 'text-white'}`}>{activePoints} <span className="text-sm font-bold uppercase tracking-widest opacity-60">Poin</span></h2>
+          
+          {activePoints < 0 && (
+            <div className="mb-8 p-4 bg-red-500/20 border border-red-500/30 rounded-2xl flex items-start gap-4">
+              <Info className="w-5 h-5 text-red-200 shrink-0 mt-0.5" />
+              <p className="text-[10px] font-bold text-red-50 uppercase tracking-[0.1em] leading-relaxed">
+                Poin Anda minus karena pernah menukar poin melebihi poin yang didapat.
+              </p>
+            </div>
+          )}
           
           {/* Internal Stats */}
           <div className="pt-6 border-t border-white/10 flex items-center">
@@ -2288,7 +2312,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Custo
   });
 
   const totalRedeemed = userRedeemed.reduce((acc, curr) => acc + curr.Poin, 0);
-  const activePoints = Math.max(0, totalEarned - totalExpired - totalRedeemed);
+  const activePoints = totalEarned - totalExpired - totalRedeemed;
 
   return (
     <ProtectedPage user={user} title="Tukar Hadiah">
@@ -2309,7 +2333,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Custo
         <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm mb-8 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Aktif Anda</p>
-            <p className="text-2xl font-black text-[#005E6A] tracking-tight">{activePoints} Poin</p>
+            <p className={`text-2xl font-black tracking-tight ${activePoints < 0 ? 'text-red-600' : 'text-[#005E6A]'}`}>{activePoints} Poin</p>
           </div>
           <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center">
             <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
@@ -4343,6 +4367,42 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
   const navigate = useNavigate();
   const [timeFilter, setTimeFilter] = useState("Bulan ini");
 
+  const filterOptions = useMemo(() => {
+    if (transactions.length === 0) return { days: [], weeks: [], months: [], years: [] };
+    
+    const sorted = [...transactions].sort((a,b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+    const daySet = new Set<string>();
+    const weekSet = new Set<string>();
+    const monthSet = new Set<string>();
+    const yearSet = new Set<string>();
+    
+    sorted.forEach(t => {
+      const d = parseDate(t.Tanggal);
+      if (d.getTime() > 0) {
+        const y = d.getFullYear();
+        const m = d.getMonth() + 1;
+        const dt = d.getDate();
+        
+        yearSet.add(String(y));
+        monthSet.add(`${y}-${String(m).padStart(2, '0')}`);
+        daySet.add(`${y}-${String(m).padStart(2, '0')}-${String(dt).padStart(2, '0')}`);
+        
+        const monday = new Date(d);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        monday.setDate(diff);
+        weekSet.add(monday.toISOString().split('T')[0]);
+      }
+    });
+
+    return {
+      days: Array.from(daySet),
+      weeks: Array.from(weekSet),
+      months: Array.from(monthSet),
+      years: Array.from(yearSet)
+    };
+  }, [transactions]);
+
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
     if (!isAdmin) {
@@ -4404,6 +4464,23 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     } else if (timeFilter === "Tahun ini") {
       return d.getFullYear() === now.getFullYear();
+    } else if (timeFilter.startsWith("day:")) {
+      const val = timeFilter.split(":")[1];
+      const [y, m, dt] = val.split("-").map(Number);
+      return d.getFullYear() === y && d.getMonth() === m - 1 && d.getDate() === dt;
+    } else if (timeFilter.startsWith("week:")) {
+      const val = timeFilter.split(":")[1];
+      const startOfFilterWeek = new Date(val);
+      const endOfFilterWeek = new Date(startOfFilterWeek);
+      endOfFilterWeek.setDate(startOfFilterWeek.getDate() + 6);
+      return targetDate >= startOfFilterWeek && targetDate <= endOfFilterWeek;
+    } else if (timeFilter.startsWith("month:")) {
+      const val = timeFilter.split(":")[1];
+      const [y, m] = val.split("-").map(Number);
+      return d.getFullYear() === y && d.getMonth() === m - 1;
+    } else if (timeFilter.startsWith("year:")) {
+      const val = timeFilter.split(":")[1];
+      return d.getFullYear() === parseInt(val);
     }
     return true;
   });
@@ -4671,12 +4748,44 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
                 <select 
                   value={timeFilter}
                   onChange={(e) => setTimeFilter(e.target.value)}
-                  className="bg-slate-50 border-none text-slate-600 text-[8px] font-black uppercase tracking-widest rounded-lg px-2 py-0.5 focus:ring-0 cursor-pointer hover:bg-slate-100 transition-colors w-fit mt-1"
+                  className="bg-slate-50 border-none text-slate-600 text-[8px] font-black uppercase tracking-widest rounded-lg px-2 py-0.5 focus:ring-0 cursor-pointer hover:bg-slate-100 transition-colors w-fit mt-1 max-w-[120px]"
                 >
-                  <option value="Hari ini">Hari ini</option>
-                  <option value="Minggu ini">Minggu ini</option>
-                  <option value="Bulan ini">Bulan ini</option>
-                  <option value="Tahun ini">Tahun ini</option>
+                  <optgroup label="Cepat">
+                    <option value="Hari ini">Hari ini</option>
+                    <option value="Minggu ini">Minggu ini</option>
+                    <option value="Bulan ini">Bulan ini</option>
+                    <option value="Tahun ini">Tahun ini</option>
+                    <option value="Semua">Semua Waktu</option>
+                  </optgroup>
+                  <optgroup label="Hari">
+                    {filterOptions.days.map(d => {
+                      const date = new Date(d);
+                      const label = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+                      return <option key={d} value={`day:${d}`}>{label}</option>;
+                    })}
+                  </optgroup>
+                  <optgroup label="Minggu">
+                    {filterOptions.weeks.map(w => {
+                      const start = new Date(w);
+                      const end = new Date(start);
+                      end.setDate(start.getDate() + 6);
+                      const label = `${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`;
+                      return <option key={w} value={`week:${w}`}>{label}</option>;
+                    })}
+                  </optgroup>
+                  <optgroup label="Bulan">
+                    {filterOptions.months.map(m => {
+                      const [y, mon] = m.split("-");
+                      const date = new Date(parseInt(y), parseInt(mon) - 1);
+                      const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                      return <option key={m} value={`month:${m}`}>{label}</option>;
+                    })}
+                  </optgroup>
+                  <optgroup label="Tahun">
+                    {filterOptions.years.map(y => (
+                      <option key={y} value={`year:${y}`}>{y}</option>
+                    ))}
+                  </optgroup>
                 </select>
               </div>
             </div>
@@ -5787,7 +5896,10 @@ const AdminCustomerDetailPage = ({
         <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 flex items-center divide-x divide-slate-50">
            <div className="flex-1 text-center">
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Poin Aktif</p>
-              <h3 className="text-2xl font-black text-[#F15A24] tabular-nums leading-none">{activePoints}</h3>
+              <h3 className={`text-2xl font-black tabular-nums leading-none ${activePoints < 0 ? 'text-red-600' : 'text-[#F15A24]'}`}>{activePoints}</h3>
+              {activePoints < 0 && (
+                 <p className="text-[6px] font-bold text-red-500 uppercase tracking-tighter mt-1 leading-tight max-w-[80px] mx-auto">Tukar melebihi dapat</p>
+              )}
            </div>
            <div className="flex-1 text-center">
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Level Member</p>
@@ -7272,7 +7384,7 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
       }
     });
 
-    const activePoints = Math.max(0, totalEarned - totalExpired - userRedeemed);
+    const activePoints = totalEarned - totalExpired - userRedeemed;
     return { activePoints, totalEarned, totalExpired, userRedeemed };
   };
 
@@ -7450,7 +7562,7 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
                     <div>
                       <p className="text-[12px] font-black text-[#005E6A] uppercase tracking-tight">{c.Nama}</p>
                       <div className="flex items-center gap-1.5 mt-0.5 font-black">
-                        <span className="text-[10px] text-[#F15A24] tabular-nums">{c.activePoints}</span>
+                        <span className={`text-[10px] tabular-nums ${c.activePoints < 0 ? 'text-red-600' : 'text-[#F15A24]'}`}>{c.activePoints}</span>
                         <span className="text-[7px] text-slate-400 uppercase tracking-widest font-bold">Poin Aktif</span>
                       </div>
                     </div>
@@ -8645,7 +8757,7 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
                   <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                 </div>
                 <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Loyalitas</p>
-                <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">{activePoints} Poin</p>
+                <p className={`text-[10px] font-black uppercase tracking-tight ${activePoints < 0 ? 'text-red-500' : 'text-[#005E6A]'}`}>{activePoints} Poin</p>
               </div>
               <div 
                 onClick={() => setShowLevelBenefits(true)}
