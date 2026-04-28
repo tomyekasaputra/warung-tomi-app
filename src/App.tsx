@@ -1,4 +1,49 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { doc, getDoc, setDoc, Timestamp, getDocFromServer } from 'firebase/firestore';
+import { db } from './lib/firebase';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: null
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+// Test connection on boot
+const testConnection = async () => {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if(error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration.");
+    }
+  }
+};
+testConnection();
 import { motion, AnimatePresence } from "motion/react";
 import { BrowserRouter, Routes, Route, useNavigate, Link, useParams, useLocation, useSearchParams } from "react-router-dom";
 import Papa from "papaparse";
@@ -233,6 +278,7 @@ interface Customer {
   Saldo?: string;
   id?: string;
   Tabungan?: string;
+  Foto?: string;
   [key: string]: any;
 }
 
@@ -577,7 +623,14 @@ const Header = ({
           <Link to="/" className="flex items-center gap-3 group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
             <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-slate-100 bg-slate-50 flex items-center justify-center shrink-0">
               {loggedInUser ? (
-                loggedInUser.Image ? (
+                loggedInUser.Foto ? (
+                  <img 
+                    src={loggedInUser.Foto} 
+                    alt={loggedInUser.Nama} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : loggedInUser.Image ? (
                   <img 
                     src={loggedInUser.Image} 
                     alt={loggedInUser.Nama} 
@@ -600,19 +653,41 @@ const Header = ({
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1">
-                <span className="text-[15px] font-black tracking-tighter text-[#005E6A] group-hover:text-[#F15A24] transition-colors uppercase">
-                  {loggedInUser ? "Halo," : "WARUNG"}
-                </span>
-                <span className="text-[15px] font-black tracking-tighter text-[#F15A24] group-hover:text-[#005E6A] transition-colors uppercase truncate max-w-[100px]">
-                  {loggedInUser ? loggedInUser.Nama.split(' ')[0] : "TOMI"}
-                </span>
+                {loggedInUser ? (() => {
+                  const words = loggedInUser.Nama.trim().split(/\s+/);
+                  if (words.length === 1) {
+                    return (
+                      <span className="text-[18px] font-black tracking-tighter text-[#F15A24] uppercase truncate max-w-[180px]">
+                        {words[0]}
+                      </span>
+                    );
+                  }
+                  return (
+                    <div className="flex items-center gap-1 truncate max-w-[180px]">
+                      <span className="text-[18px] font-black tracking-tighter text-[#005E6A] uppercase shrink-0">
+                        {words[0]}
+                      </span>
+                      <span className="text-[18px] font-black tracking-tighter text-[#F15A24] uppercase truncate">
+                        {words.slice(1).join(" ")}
+                      </span>
+                    </div>
+                  );
+                })() : (
+                  <>
+                    <span className="text-[18px] font-black tracking-tighter text-[#005E6A] transition-colors uppercase">WARUNG</span>
+                    <span className="text-[18px] font-black tracking-tighter text-[#F15A24] transition-colors uppercase">TOMI</span>
+                  </>
+                )}
               </div>
               <div className="flex justify-between w-full px-0.5 mt-[-2px] opacity-60 group-hover:opacity-100 transition-opacity">
-                {(!loggedInUser ? "Digital Solution" : "Selamat Datang").split("").map((char, i) => (
-                  <span key={i} className="text-[6px] font-black text-muted-foreground tracking-[0.15em] uppercase leading-none">
-                    {char === " " ? "\u00A0" : char}
-                  </span>
-                ))}
+                {(() => {
+                  const levelName = loggedInUser ? `Level ${calculateCustomerLevel(salesTransactions, loggedInUser.Nama).name}` : "Digital Solution";
+                  return levelName.split("").map((char, i) => (
+                    <span key={i} className="text-[6px] font-black text-muted-foreground tracking-[0.15em] uppercase leading-none">
+                      {char === " " ? "\u00A0" : char}
+                    </span>
+                  ));
+                })()}
               </div>
             </div>
           </Link>
@@ -626,7 +701,6 @@ const Header = ({
           >
             {loggedInUser ? (
               <>
-                <Star className="w-3.5 h-3.5 text-yellow-500 fill-current shrink-0" />
                 <span className="text-[10px] font-black tabular-nums tracking-widest flex items-center gap-1">
                   <span className="text-[#005E6A]">{calculateActivePoints(loggedInUser.Nama, salesTransactions, redeemedPoints)}</span>
                   <span className="text-[#F15A24]">POIN</span>
@@ -1179,14 +1253,23 @@ const MainServices = () => {
   return (
     <section className="px-6 py-1">
       <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 relative z-10">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="text-base font-bold text-black uppercase tracking-wider">Layanan</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col w-fit">
+            <h2 className="text-base font-black text-black uppercase tracking-[0.2em] leading-none">Layanan</h2>
+            <div className="flex justify-between w-full mt-1">
+              {"produk virtual".split("").map((char, i) => (
+                <span key={i} className="text-[6px] font-bold text-slate-400 uppercase leading-none">
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </div>
+          </div>
           <div className="bg-[#E6F4F5] px-3 py-1 rounded-full flex items-center gap-1">
             <span className="text-[8px] font-extrabold text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
             <span className="text-[8px] font-extrabold text-[#F15A24]">46</span>
           </div>
         </div>
-        <p className="text-[10px] text-muted-foreground mb-6 uppercase tracking-widest font-medium">Transaksi cepat & aman</p>
+        <div className="h-px bg-slate-100 w-full mb-6" />
         
         <div className="grid grid-cols-4 gap-y-8 gap-x-2">
           {MAIN_SERVICES.map((service) => (
@@ -1220,15 +1303,22 @@ const KontakSection = () => {
   return (
     <section className="px-6 py-4">
       <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-tight">Kunjungi Kami</h3>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Layanan Offline Warung Tomi</p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col w-fit">
+            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-[0.2em] leading-none">Kunjungi Kami</h3>
+            <div className="flex justify-between w-full mt-1">
+              {"warung tomi offline".split("").map((char, i) => (
+                <span key={i} className="text-[6px] font-bold text-slate-400 uppercase leading-none">
+                  {char === " " ? "\u00A0" : char}
+                </span>
+              ))}
+            </div>
           </div>
           <div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center border border-slate-100">
             <MapPin className="w-5 h-5 text-[#005E6A]" />
           </div>
         </div>
+        <div className="h-px bg-slate-100 w-full mb-6" />
 
         <div className="flex flex-col gap-1">
           <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors group">
@@ -2453,22 +2543,41 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
         animate={{ opacity: 1, y: 0 }}
         className="px-6 py-4 cursor-grab active:cursor-grabbing"
       >
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-black uppercase tracking-wider">Saldo Bersih</h2>
+        <div className="bg-gradient-to-br from-[#005E6A] via-[#004d57] to-[#003b42] rounded-[3rem] p-8 shadow-2xl shadow-[#005E6A]/30 mb-10 relative overflow-hidden group border border-white/10">
+          {/* Decorative shapes for attention */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#F15A24]/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-[#F15A24]/20 transition-all duration-1000" />
+          <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
+          
+          <div className="flex items-center justify-between mb-8 relative z-10">
+            <div className="flex flex-col">
+              <h2 className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-1">Total Aset</h2>
+              <div className="h-1 w-8 bg-[#F15A24] rounded-full" />
+            </div>
             <button 
               onClick={toggleBalance}
-              className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 active:scale-90 transition-transform"
+              className="w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white active:scale-90 transition-all border border-white/20 shadow-lg"
             >
-              {showBalances ? <History className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5 text-[#005E6A]" />}
+              {showBalances ? <History className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
             </button>
           </div>
-          <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-sm font-bold text-slate-400">Rp</span>
-            <span className="text-3xl font-black text-[#005E6A]">{mask(formatCurrency(totalAset))}</span>
+
+          <div className="flex items-baseline gap-3 mb-10 relative z-10">
+            <span className="text-xl font-bold text-white/30 italic">Rp</span>
+            <span className="text-5xl font-black text-white tracking-tighter leading-none drop-shadow-md">
+              {mask(formatCurrency(totalAset))}
+            </span>
           </div>
           
-          <AssetPieChart data={assetData} />
+          <div className="relative z-10 bg-white/5 backdrop-blur-md rounded-[2rem] p-6 border border-white/10 shadow-inner">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[9px] font-black text-white/60 uppercase tracking-widest">Alokasi Portofolio</span>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-[#F15A24] animate-pulse" />
+                <span className="text-[8px] font-bold text-[#F15A24] uppercase tracking-tighter">Live</span>
+              </div>
+            </div>
+            <AssetPieChart data={assetData} />
+          </div>
         </div>
 
         {/* Rincian Saldo Section */}
@@ -8486,14 +8595,77 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
   );
 };
 
-const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, onLogin, setActiveTab }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[], onLogout: () => void, customers: Customer[], onLogin: (user: Customer) => void, setActiveTab: (id: string) => void }) => {
+const compressImage = (file: File, maxWidth: number = 800, maxHeight: number = 800, quality: number = 0.7): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};
+
+const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, onLogin, setActiveTab, onUpdatePhoto }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[], onLogout: () => void, customers: Customer[], onLogin: (user: Customer) => void, setActiveTab: (id: string) => void, onUpdatePhoto: (nama: string, base64: string) => Promise<void> }) => {
   const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [showLevelBenefits, setShowLevelBenefits] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
   const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
+
+  const handlePhotoClick = () => {
+    if (uploadStatus === 'uploading') return;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && user) {
+      setUploadStatus('uploading');
+
+      try {
+        const compressedBase64 = await compressImage(file);
+        await onUpdatePhoto(user.Nama, compressedBase64);
+        setUploadStatus('success');
+        // Hide success message after 3 seconds
+        setTimeout(() => setUploadStatus('idle'), 3000);
+      } catch (error) {
+        console.error("Upload failed:", error);
+        setUploadStatus('error');
+        // Hide error message after 3 seconds
+        setTimeout(() => setUploadStatus('idle'), 3000);
+      }
+    }
+  };
 
   return (
     <ProtectedPage user={user} title="Profil" customers={customers} onLogin={onLogin} setActiveTab={setActiveTab}>
@@ -8502,6 +8674,59 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
         animate={{ opacity: 1, y: 0 }}
         className="px-6 py-4"
       >
+      {/* Upload Progress Popup */}
+      <AnimatePresence>
+        {uploadStatus !== 'idle' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="fixed bottom-24 left-6 right-6 z-50 flex justify-center pointer-events-none"
+          >
+            <div className={`px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-4 border backdrop-blur-md ${
+              uploadStatus === 'uploading' ? 'bg-[#005E6A] border-[#005E6A]/20 text-white' :
+              uploadStatus === 'success' ? 'bg-emerald-500 border-emerald-400/20 text-white' :
+              'bg-rose-500 border-rose-400/20 text-white'
+            }`}>
+              {uploadStatus === 'uploading' && (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              )}
+              {uploadStatus === 'success' && (
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", damping: 10 }}
+                >
+                  <ShieldCheck className="w-6 h-6 text-white" />
+                </motion.div>
+              )}
+              {uploadStatus === 'error' && (
+                <motion.div 
+                  initial={{ rotate: 90, scale: 0 }}
+                  animate={{ rotate: 0, scale: 1 }}
+                >
+                  <AlertCircle className="w-6 h-6 text-white" />
+                </motion.div>
+              )}
+              <span className="text-xs font-black uppercase tracking-wider">
+                {uploadStatus === 'uploading' ? 'Mengunggah Foto...' : 
+                 uploadStatus === 'success' ? 'Foto Berhasil Disimpan' : 
+                 'Gagal Mengunggah Foto'}
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        accept="image/*" 
+        className="hidden" 
+      />
+
       {/* Unified Profile Card */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden mb-8">
         <div className="bg-slate-50/50 px-6 py-3 border-b border-slate-100 flex items-center justify-between">
@@ -8515,8 +8740,15 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
         <div className="p-8">
           {/* Profile Header Section */}
           <div className="flex flex-col items-center mb-8 relative">
-            <div className="w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-200 mb-4 relative group flex items-center justify-center">
-              <User className="w-12 h-12 text-slate-400" />
+            <div 
+              onClick={handlePhotoClick}
+              className="w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-200 mb-4 relative group flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+            >
+              {user?.Foto ? (
+                <img src={user.Foto} alt={user.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <User className="w-12 h-12 text-slate-400" />
+              )}
               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <Camera className="w-6 h-6 text-white" />
               </div>
@@ -9518,7 +9750,8 @@ const HomePage = ({
   customers,
   stock,
   onLogin,
-  redeemedPoints
+  redeemedPoints,
+  onUpdatePhoto
 }: { 
   activeTab: string, 
   setActiveTab: (id: string) => void,
@@ -9529,7 +9762,8 @@ const HomePage = ({
   customers: Customer[],
   stock: StockItem[],
   onLogin: (user: Customer) => void,
-  redeemedPoints: RedeemedPoint[]
+  redeemedPoints: RedeemedPoint[],
+  onUpdatePhoto: (nama: string, base64: string) => Promise<void>
 }) => {
   const { subPage, customerName } = useParams();
   const navigate = useNavigate();
@@ -9719,14 +9953,23 @@ const HomePage = ({
               </div>
             </section>
           )}
-          <MainServices />
           <PromoSection />
+          <MainServices />
 
           {/* Highlight Belanja Section */}
           <section className="px-6 pb-6">
             <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-100">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold text-black uppercase tracking-wider">Belanja Pilihan</h2>
+                <div className="flex flex-col w-fit">
+                  <h2 className="text-sm font-black text-black uppercase tracking-[0.2em] leading-none">Belanja</h2>
+                  <div className="flex justify-between w-full mt-1">
+                    {"produk fisik".split("").map((char, i) => (
+                      <span key={i} className="text-[6px] font-bold text-slate-400 uppercase leading-none">
+                        {char === " " ? "\u00A0" : char}
+                      </span>
+                    ))}
+                  </div>
+                </div>
                 <button 
                   onClick={() => setActiveTab("belanja")}
                   className="text-[10px] font-black text-[#F15A24] uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform"
@@ -9735,6 +9978,7 @@ const HomePage = ({
                   <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
+              <div className="h-px bg-slate-100 w-full mb-6" />
               
               <div className="grid grid-cols-2 gap-4">
                 {stock.slice(0, 4).map((item, idx) => (
@@ -9802,7 +10046,7 @@ const HomePage = ({
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
-          <ProfilPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} onLogout={onLogout} customers={customers} onLogin={onLogin} setActiveTab={setActiveTab} />
+          <ProfilPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} onLogout={onLogout} customers={customers} onLogin={onLogin} setActiveTab={setActiveTab} onUpdatePhoto={onUpdatePhoto} />
         </motion.div>
       )}
     </AnimatePresence>
@@ -10009,6 +10253,10 @@ export default function App() {
   const [investmentTransactions, setInvestmentTransactions] = useState<InvestmentTransaction[]>([]);
   const [redeemedPoints, setRedeemedPoints] = useState<RedeemedPoint[]>([]);
   const [stock, setStock] = useState<StockItem[]>([]);
+  const [userPhotos, setUserPhotos] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem("warung_tomi_photos");
+    return saved ? JSON.parse(saved) : {};
+  });
   const [loggedInUser, setLoggedInUser] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
@@ -10418,9 +10666,57 @@ export default function App() {
     };
   }, []);
 
-  const handleLogin = (user: Customer) => {
-    setLoggedInUser(user);
-    localStorage.setItem("warung_tomi_user", JSON.stringify(user));
+  const handleUpdatePhoto = async (nama: string, base64: string) => {
+    const newPhotos = { ...userPhotos, [nama]: base64 };
+    setUserPhotos(newPhotos);
+    localStorage.setItem("warung_tomi_photos", JSON.stringify(newPhotos));
+    
+    // Save to Firebase
+    try {
+      const photoRef = doc(db, 'userPhotos', nama);
+      await setDoc(photoRef, {
+        nama,
+        photo: base64,
+        updatedAt: Timestamp.now()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `userPhotos/${nama}`);
+    }
+    
+    // Update loggedInUser if it's the current user
+    if (loggedInUser && loggedInUser.Nama === nama) {
+      const updatedUser = { ...loggedInUser, Foto: base64 };
+      setLoggedInUser(updatedUser);
+      localStorage.setItem("warung_tomi_user", JSON.stringify(updatedUser));
+    }
+  };
+
+  const handleLogin = async (user: Customer) => {
+    let finalPhoto = userPhotos[user.Nama] || user.Foto;
+    
+    // Try to fetch from Firebase if not in local storage
+    if (!userPhotos[user.Nama]) {
+      try {
+        const photoRef = doc(db, 'userPhotos', user.Nama);
+        const photoDoc = await getDoc(photoRef);
+        if (photoDoc.exists()) {
+          const data = photoDoc.data();
+          finalPhoto = data.photo;
+          
+          // Update local storage for next time
+          const newPhotos = { ...userPhotos, [user.Nama]: finalPhoto };
+          setUserPhotos(newPhotos);
+          localStorage.setItem("warung_tomi_photos", JSON.stringify(newPhotos));
+        }
+      } catch (error) {
+        // Silently fail or log, don't block login
+        console.error("Failed to fetch photo from Firebase:", error);
+      }
+    }
+
+    const userWithPhoto = { ...user, Foto: finalPhoto };
+    setLoggedInUser(userWithPhoto);
+    localStorage.setItem("warung_tomi_user", JSON.stringify(userWithPhoto));
   };
 
   const handleLogout = () => {
@@ -10506,6 +10802,7 @@ export default function App() {
               stock={stock}
               onLogin={handleLogin}
               redeemedPoints={redeemedPoints}
+              onUpdatePhoto={handleUpdatePhoto}
             />
           </Layout>
         } />
@@ -10526,6 +10823,7 @@ export default function App() {
               stock={stock}
               onLogin={handleLogin}
               redeemedPoints={redeemedPoints}
+              onUpdatePhoto={handleUpdatePhoto}
             />
           </Layout>
         } />
@@ -10546,6 +10844,7 @@ export default function App() {
               stock={stock}
               onLogin={handleLogin}
               redeemedPoints={redeemedPoints}
+              onUpdatePhoto={handleUpdatePhoto}
             />
           </Layout>
         } />
