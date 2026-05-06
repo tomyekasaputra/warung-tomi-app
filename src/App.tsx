@@ -60,6 +60,7 @@ import {
   BarChart3,
   CheckCircle2,
   Timer,
+  Check,
   TrendingUp,
   TrendingDown,
   ArrowLeft,
@@ -93,11 +94,22 @@ import {
   UserPlus,
   FileSpreadsheet,
   MessageCircle,
+  MessageSquare,
   Calculator,
+  Database,
+  CloudUpload,
+  Trash2,
+  Edit3,
+  Ticket,
+  Image as ImageIcon,
+  Palette,
+  Type,
+  Layout as LayoutIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
 
 import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode";
 
@@ -238,6 +250,7 @@ interface Customer {
 }
 
 interface SavingTransaction {
+  id?: string;
   Tanggal: string;
   Nama: string;
   Tipe: string;
@@ -247,6 +260,7 @@ interface SavingTransaction {
 }
 
 interface DebtTransaction {
+  id?: string;
   Tanggal: string;
   Nama: string;
   Tipe: string;
@@ -256,6 +270,7 @@ interface DebtTransaction {
 }
 
 interface SalesTransaction {
+  id?: string;
   Tanggal: string;
   Nama: string;
   Jenis: string;
@@ -267,6 +282,7 @@ interface SalesTransaction {
 }
 
 interface RedeemedPoint {
+  id?: string;
   Tanggal: string;
   Nama: string;
   Poin: number;
@@ -287,6 +303,7 @@ interface StockItem {
 }
 
 const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: boolean }> = ({ t, index, isAdmin }) => {
+  const navigate = useNavigate();
   const jenisLower = t.Jenis.toLowerCase().trim();
   const service = MAIN_SERVICES.find(s => 
     s.name.toLowerCase().trim() === jenisLower ||
@@ -311,12 +328,19 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: 
   else if (statusLower.includes('proses')) ribbonColor = 'bg-yellow-500/5 text-yellow-600';
   else if (statusLower.includes('belum') || statusLower.includes('ambil')) ribbonColor = 'bg-blue-500/5 text-blue-600';
 
+  const handleClick = () => {
+    if (displayName === "Pelanggan Umum") return;
+    const path = `/lainnya/${encodeURIComponent(displayName)}`;
+    navigate(path);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative"
+      onClick={handleClick}
+      className={`bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative transition-all active:scale-[0.98] ${displayName !== "Pelanggan Umum" ? 'cursor-pointer hover:shadow-md hover:border-[#005E6A]/20' : ''}`}
     >
       <div className="p-4 flex items-center gap-4">
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${service?.bgColor || 'bg-slate-50'}`}>
@@ -367,6 +391,7 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: 
 };
 
 interface InvestmentTransaction {
+  id?: string;
   Tanggal: string;
   Nama: string;
   Nominal: number;
@@ -573,10 +598,10 @@ const Header = ({
 
   return (
     <>
-      <header className="bg-white sticky top-0 z-50 border-b border-slate-100 transition-all duration-300">
-        <div className="px-6 py-3 flex items-center justify-between">
+      <header className="bg-white/80 backdrop-blur-xl sticky top-0 z-50 border-b border-slate-100 shadow-sm transition-all duration-300">
+        <div className="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
           <Link to="/" className="flex items-center gap-3 group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
-            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-slate-100 bg-slate-50 flex items-center justify-center shrink-0">
+            <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg border border-white bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-95 shadow-slate-200/50">
               {loggedInUser ? (
                 loggedInUser.Foto ? (
                   <img 
@@ -1233,7 +1258,7 @@ const MainServices = () => {
         </div>
         <div className="h-px bg-slate-100 w-full mb-6" />
         
-        <div className="grid grid-cols-4 gap-y-8 gap-x-2">
+        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-y-8 gap-x-2">
           {MAIN_SERVICES.map((service) => (
             <motion.button
               key={service.id}
@@ -1332,15 +1357,16 @@ const KontakSection = () => {
 const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setActiveTab: (id: string) => void, user: Customer | null }) => {
   const allNavItems = [
     { id: "beranda", label: "Beranda", icon: Home },
-    { id: "belanja", label: "Belanja", icon: ShoppingCart },
     { id: "riwayat", label: "Riwayat", icon: History, protected: true },
+    { id: "belanja", label: "Belanja", icon: ShoppingCart },
+    { id: "aset", label: "Aset", icon: Wallet, protected: true },
     { id: "settings", label: "Profil", icon: User },
   ];
 
   const navItems = allNavItems.filter(item => !item.protected || user);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-4 py-2 z-50 flex items-center justify-around">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 px-6 py-4 z-50 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
       {navItems.map((item) => {
         const isActive = activeTab === item.id;
         const Icon = item.icon;
@@ -1349,48 +1375,47 @@ const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setAc
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className="relative flex flex-col items-center justify-center py-1 px-2 min-w-[70px] transition-colors duration-300"
+            className={`relative flex items-center justify-center h-12 transition-all duration-500 rounded-full group ${
+              isActive ? "flex-[2] bg-[#005E6A]/5 px-6" : "flex-1 px-2"
+            }`}
           >
-            {/* Floating Indicator Background */}
+            {/* Active Indicator Background */}
             {isActive && (
               <motion.div
                 layoutId="navIndicator"
-                className="absolute inset-0 bg-[#005E6A]/5 rounded-2xl -z-10"
-                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                className="absolute inset-0 bg-gradient-to-br from-[#F15A24] to-[#ff8c42] rounded-full shadow-lg shadow-[#F15A24]/30"
+                transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
               />
             )}
 
-            {/* Icon with Micro-interaction */}
-            <motion.div
-              animate={{
-                y: isActive ? -4 : 0,
-                scale: isActive ? 1.1 : 1,
-              }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Icon 
-                className={`w-5 h-5 transition-colors duration-300 ${
-                  isActive ? "text-[#F15A24]" : "text-slate-400"
-                }`} 
-                strokeWidth={isActive ? 2.5 : 2}
-              />
-            </motion.div>
-
-            {/* Label with Active State Animation */}
-            <div className="mt-1 relative h-4 flex items-center justify-center">
-              <span className={`text-[8px] font-black uppercase tracking-widest transition-all duration-300 ${
-                isActive ? "text-[#005E6A] opacity-100 scale-100" : "text-slate-400 opacity-70 scale-95"
-              }`}>
-                {item.label}
-              </span>
-              
-              {isActive && (
-                <motion.div
-                  layoutId="activeDot"
-                  className="absolute -bottom-1 w-1 h-1 bg-[#F15A24] rounded-full"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+            {/* Content Container */}
+            <div className="flex items-center gap-2 relative z-10">
+              <motion.div
+                animate={{
+                  scale: isActive ? 1.05 : 1,
+                }}
+                transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              >
+                <Icon 
+                  className={`w-5 h-5 transition-all duration-500 ${
+                    isActive ? "text-white" : "text-slate-400 group-hover:text-[#005E6A]"
+                  }`} 
+                  strokeWidth={isActive ? 2.5 : 2}
                 />
-              )}
+              </motion.div>
+              
+              <AnimatePresence mode="wait">
+                {isActive && (
+                  <motion.span 
+                    initial={{ width: 0, opacity: 0, x: -5 }}
+                    animate={{ width: "auto", opacity: 1, x: 0 }}
+                    exit={{ width: 0, opacity: 0, x: -5 }}
+                    className="text-[10px] font-black uppercase tracking-[0.1em] text-white whitespace-nowrap overflow-hidden"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </div>
           </button>
         );
@@ -2141,7 +2166,7 @@ const LoyaltyPointsDetailPage = ({ user, transactions, redeemedPoints, customers
         className="px-6 py-4"
       >
         {/* Main Card */}
-        <div className="bg-[#005E6A] rounded-[2.5rem] p-8 pb-6 text-white shadow-lg mb-6 relative overflow-hidden group">
+        <div className="bg-[#005E6A] rounded-none p-8 pb-6 text-white shadow-lg mb-6 relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${activePoints < 0 ? 'bg-red-500/20' : 'bg-white/10'}`}>
             <Star className={`w-6 h-6 ${activePoints < 0 ? 'text-red-400 fill-red-400' : 'text-amber-400 fill-amber-400'}`} />
@@ -2522,10 +2547,11 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
         animate={{ opacity: 1, y: 0 }}
         className="px-6 py-4 cursor-grab active:cursor-grabbing"
       >
-        <div className="bg-gradient-to-br from-[#005E6A] via-[#004d57] to-[#003b42] rounded-[3rem] p-8 shadow-2xl shadow-[#005E6A]/30 mb-10 relative overflow-hidden group border border-white/10">
+        <div className="bg-gradient-to-br from-[#00B4C4] via-[#005E6A] to-[#012E35] rounded-[3rem] p-8 shadow-2xl shadow-[#005E6A]/40 mb-10 relative overflow-hidden group border border-white/20">
           {/* Decorative shapes for attention */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#F15A24]/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:bg-[#F15A24]/20 transition-all duration-1000" />
-          <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-white/5 rounded-full blur-2xl" />
+          <div className="absolute top-0 right-0 w-72 h-72 bg-[#00F2FF]/20 rounded-full -mr-32 -mt-32 blur-[100px] group-hover:bg-[#00F2FF]/30 transition-all duration-1000" />
+          <div className="absolute -bottom-8 -left-8 w-48 h-48 bg-[#F15A24]/20 rounded-full blur-[80px]" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1)_0%,transparent_70%)] opacity-50" />
           
           <div className="flex items-center justify-between mb-8 relative z-10">
             <div className="flex flex-col">
@@ -2624,7 +2650,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
         {/* Target Impian Section - Moved to Bottom */}
         <div className="mt-10">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Target Impian</h3>
-          <div className="bg-[#005E6A] rounded-[2rem] p-6 shadow-xl relative overflow-hidden group">
+          <div className="bg-[#005E6A] rounded-none p-6 shadow-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/10 transition-colors" />
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -3201,12 +3227,25 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
   );
 };
 
-const DebtDetailPage = ({ user, transactions, customers }: { user: Customer | null, transactions: DebtTransaction[], customers?: Customer[] }) => {
+const DebtDetailPage = ({ 
+  user, 
+  transactions, 
+  customers, 
+  fetchData, 
+  dataSource 
+}: { 
+  user: Customer | null, 
+  transactions: DebtTransaction[], 
+  customers?: Customer[],
+  fetchData?: (showLoading?: boolean) => void,
+  dataSource?: string
+}) => {
   const navigate = useNavigate();
   const { customerName } = useParams();
   const [activeTab, setActiveTab] = useState<'riwayat' | 'statistik'>('riwayat');
   const [expandedPeriod, setExpandedPeriod] = useState<number | null>(null);
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState<string>('all');
+  const isAdmin = localStorage.getItem("admin_session") === "true";
 
   const displayUser = customerName && customers 
     ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
@@ -4258,7 +4297,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         
         <div className="relative z-10">
@@ -4343,7 +4382,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
             </Badge>
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
             {filteredTransactions.length > 0 ? (
               filteredTransactions.map((t, i) => (
                 <TransactionCard key={i} t={t} index={i} isAdmin={true} />
@@ -4363,7 +4402,25 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
   );
 };
 
-const AdminDashboard = ({ transactions, user, customers, investmentTransactions }: { transactions: SalesTransaction[], user: Customer | null, customers: Customer[], investmentTransactions: InvestmentTransaction[] }) => {
+const AdminDashboard = ({ 
+  transactions, 
+  user, 
+  customers, 
+  investmentTransactions,
+  savingsTransactions,
+  debtTransactions,
+  redeemedPoints,
+  stock
+}: { 
+  transactions: SalesTransaction[], 
+  user: Customer | null, 
+  customers: Customer[], 
+  investmentTransactions: InvestmentTransaction[],
+  savingsTransactions: SavingTransaction[],
+  debtTransactions: DebtTransaction[],
+  redeemedPoints: RedeemedPoint[],
+  stock: StockItem[]
+}) => {
   const navigate = useNavigate();
   const [timeFilter, setTimeFilter] = useState("Bulan ini");
 
@@ -4441,7 +4498,7 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
     { name: 'Tabungan', value: totalTabungan, color: '#22c55e', path: '/admin/savings' },
     { name: 'Investasi', value: totalInvestasi, color: '#8b5cf6', path: '/admin/investment' },
     { name: 'Hutang', value: totalHutang, color: '#f43f5e', path: '/admin/debt' },
-    { name: 'Lainnya', value: totalLainnya, color: '#3b82f6', path: '/admin/others' }
+    { name: 'Lainnya', value: totalLainnya, color: '#3b82f6', path: '/admin/management-lainnya' }
   ].filter(d => d.value > 0).map(d => ({
     ...d,
     percentage: grossAssets > 0 ? (d.value / grossAssets) * 100 : 0
@@ -4515,17 +4572,30 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
   // 2. Calculate Top Products
   const topProducts = useMemo(() => {
     const counts: Record<string, { count: number, revenue: number }> = {};
+    
+    // Add physical products from sales
     filteredSales.forEach(t => {
-      const key = t.Jenis || "Lainnya";
-      if (!counts[key]) counts[key] = { count: 0, revenue: 0 };
-      counts[key].count += 1;
-      counts[key].revenue += t.Pemasukan;
+      const items = (t.Jenis || "").split(",").map(i => i.trim()).filter(Boolean);
+      const valPerItem = items.length > 0 ? t.Pemasukan / items.length : t.Pemasukan;
+      
+      if (items.length > 0) {
+        items.forEach(item => {
+          if (!counts[item]) counts[item] = { count: 0, revenue: 0 };
+          counts[item].count += 1;
+          counts[item].revenue += valPerItem;
+        });
+      } else {
+        const key = "Lainnya";
+        if (!counts[key]) counts[key] = { count: 0, revenue: 0 };
+        counts[key].count += 1;
+        counts[key].revenue += t.Pemasukan;
+      }
     });
 
     return Object.entries(counts)
       .map(([name, data]) => ({ name, ...data }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 3);
+      .slice(0, 5);
   }, [filteredSales]);
 
   // 3. Mock Stock Alerts (since stock isn't built yet)
@@ -4578,7 +4648,7 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
         
@@ -4591,13 +4661,6 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               <span className="text-xs font-bold uppercase tracking-widest">Beranda</span>
             </button>
-            <button 
-              onClick={handleAdminLogout}
-              className="flex items-center gap-2 bg-red-500/20 hover:bg-red-500/40 px-4 py-2 rounded-xl border border-red-500/20 transition-colors"
-            >
-              <LogOut className="w-4 h-4 text-red-100" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-red-100">Keluar Admin</span>
-            </button>
           </div>
           
           <div className="flex items-center gap-3 mb-2">
@@ -4609,49 +4672,41 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
         </div>
       </div>
 
-      <div className="px-6 -mt-12 relative z-20 space-y-6">
+      <div className="px-6 -mt-12 relative z-20 space-y-6 max-w-full">
         {/* Stats Cards - Now Menu Buttons */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <button 
-            onClick={() => navigate("/admin/cashier")}
-            className="bg-[#005E6A] p-4 rounded-lg shadow-lg shadow-teal-100 flex flex-col items-center gap-2 group hover:bg-[#004e58] transition-colors"
-          >
-            <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center text-white group-hover:scale-110 transition-transform">
-              <ShoppingCart className="w-5 h-5" />
-            </div>
-            <p className="text-[8px] font-black text-teal-50 uppercase tracking-widest text-center">Kasir</p>
-          </button>
-          <button 
-            onClick={() => navigate("/admin/customers")}
-            className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors"
-          >
-            <div className="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center text-[#005E6A] group-hover:scale-110 transition-transform">
-              <Users className="w-5 h-5" />
-            </div>
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Pelanggan</p>
-          </button>
+        <div className="flex items-center gap-2 lg:gap-4 overflow-x-auto no-scrollbar pb-1">
           <button 
             onClick={() => navigate("/admin/stock")}
-            className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors"
+            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-[#F15A24]/10"
           >
-            <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center text-[#F15A24] group-hover:scale-110 transition-transform">
-              <Package className="w-5 h-5" />
+            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-orange-50 rounded-xl flex items-center justify-center text-[#F15A24] group-hover:scale-110 transition-transform">
+              <Package className="w-5 h-5 lg:w-6 lg:h-6" />
             </div>
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Stok</p>
+            <p className="text-[9px] lg:text-[10px] font-black text-[#005E6A] uppercase tracking-widest text-center">Stok</p>
+          </button>
+          <button 
+            onClick={() => navigate("/admin/vouchers")}
+            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-purple-100"
+          >
+            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
+              <Ticket className="w-5 h-5 lg:w-6 lg:h-6" />
+            </div>
+            <p className="text-[9px] lg:text-[10px] font-black text-[#005E6A] uppercase tracking-widest text-center">Voucher</p>
           </button>
           <button 
             onClick={() => navigate("/level")}
-            className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors"
+            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-amber-100"
           >
-            <div className="w-10 h-10 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
-              <Star className="w-5 h-5" />
+            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+              <Star className="w-5 h-5 lg:w-6 lg:h-6" />
             </div>
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Hadiah</p>
+            <p className="text-[9px] lg:text-[10px] font-black text-[#005E6A] uppercase tracking-widest text-center">Hadiah</p>
           </button>
         </div>
 
-        {/* Asset Distribution Chart */}
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,400px),1fr))] gap-6">
+          {/* Asset Distribution Chart */}
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 h-full">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Distribusi Aset</h3>
@@ -4703,21 +4758,21 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
               </PieChart>
             </ResponsiveContainer>
             
-            <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-4">
+            <div className="grid grid-cols-2 lg:flex lg:flex-row lg:flex-wrap lg:justify-center gap-x-4 lg:gap-x-8 gap-y-4 mt-6 w-full">
               {assetData.map((item, i) => (
                 <button 
                   key={i} 
                   onClick={() => navigate(item.path)}
-                  className="flex items-center gap-2 text-left hover:bg-slate-50 p-1.5 rounded-xl transition-colors group"
+                  className="flex items-center gap-2 text-left hover:bg-slate-50 p-2 rounded-xl transition-colors group border border-transparent hover:border-slate-100 min-w-0"
                 >
-                  <div className="w-2 h-2 rounded-full group-hover:scale-125 transition-transform" style={{ backgroundColor: item.color }} />
-                  <div className="flex flex-col">
+                  <div className="w-2 h-2 rounded-full group-hover:scale-125 transition-transform shrink-0" style={{ backgroundColor: item.color }} />
+                  <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest group-hover:text-[#F15A24] transition-colors">{item.name}</span>
-                      <span className="text-[8px] font-black text-slate-300">({Math.round(item.percentage)}%)</span>
+                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest group-hover:text-[#F15A24] transition-colors truncate">{item.name}</span>
+                      <span className="text-[8px] font-black text-slate-300 shrink-0">({Math.round(item.percentage)}%)</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-black text-slate-700">Rp {item.value.toLocaleString('id-ID')}</span>
+                      <span className="text-[10px] font-black text-slate-700 truncate">Rp {item.value.toLocaleString('id-ID')}</span>
                     </div>
                   </div>
                 </button>
@@ -4959,11 +5014,11 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
             )}
           </div>
         </div>
+      </div>
 
-        {/* Business Health & Top Products - NEW */}
         <div className="grid grid-cols-1 gap-6">
           {/* Top Selling Products Card */}
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col h-full">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Produk Terlaris</h3>
               <div className="w-8 h-8 bg-amber-50 rounded-full flex items-center justify-center">
@@ -4971,70 +5026,37 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
               </div>
             </div>
             
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1">
               {topProducts.length > 0 ? topProducts.map((p, i) => (
-                <div key={i} className="flex items-center justify-between">
+                <button 
+                  key={i} 
+                  onClick={() => {
+                    const routes: Record<string, string> = {
+                      "Tabungan": "/admin/master-data",
+                      "Investasi": "/admin/master-data",
+                      "Hutang": "/admin/master-data",
+                      "Tukar Poin": "/admin/master-data",
+                      "Lainnya": "/admin/management-lainnya"
+                    };
+                    const path = routes[p.name] || "/admin/stock";
+                    navigate(path);
+                  }}
+                  className="flex items-center justify-between w-full hover:bg-slate-50 p-2 -mx-2 rounded-xl transition-colors group cursor-pointer"
+                >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center text-[10px] font-black text-[#005E6A]">
+                    <div className="w-8 h-8 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center text-[10px] font-black text-[#005E6A] group-hover:bg-white transition-colors">
                       #{i+1}
                     </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{p.name}</p>
+                    <div className="space-y-0.5 text-left">
+                      <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight line-clamp-1">{p.name}</p>
                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{p.count} Transaksi</p>
                     </div>
                   </div>
                   <p className="text-[10px] font-black text-[#F15A24]">Rp {p.revenue.toLocaleString('id-ID')}</p>
-                </div>
+                </button>
               )) : (
                 <p className="text-center text-[9px] text-slate-400 font-bold uppercase py-4">Belum ada data transaksi</p>
               )}
-            </div>
-          </div>
-
-          {/* Health Alerts Card */}
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Peringatan Bisnis</h3>
-              <div className="w-8 h-8 bg-rose-50 rounded-full flex items-center justify-center">
-                <AlertTriangle className="w-4 h-4 text-rose-500" />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {/* Debt Alert */}
-              {totalHutang > 0 && (
-                <div className="bg-rose-50/50 p-4 rounded-3xl border border-rose-100/50 flex items-center gap-4">
-                  <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-                    <History className="w-5 h-5 text-rose-500" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[7px] font-black text-rose-600 uppercase tracking-[0.2em] mb-1">Piutang Pelanggan</p>
-                    <p className="text-[12px] font-black text-slate-800">Rp {totalHutang.toLocaleString('id-ID')}</p>
-                  </div>
-                  <button 
-                    onClick={() => navigate("/admin/debt")}
-                    className="text-[8px] font-black text-rose-600 uppercase tracking-widest bg-white px-3 py-1.5 rounded-full shadow-sm"
-                  >
-                    Tagih
-                  </button>
-                </div>
-              )}
-
-              {/* Mock Stock Alerts */}
-              {lowStockAlerts.map((item, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-amber-50/30 rounded-2xl border border-amber-100/30">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                      <Package className="w-4 h-4 text-amber-500" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-black text-slate-700 uppercase tracking-tight">{item.name}</p>
-                      <p className="text-[7px] font-bold text-amber-600 uppercase tracking-widest">Stok menipis: {item.stok}</p>
-                    </div>
-                  </div>
-                  <button className="text-[7px] font-black text-teal-600 uppercase tracking-widest">Stok +</button>
-                </div>
-              ))}
             </div>
           </div>
         </div>
@@ -5045,13 +5067,14 @@ const AdminDashboard = ({ transactions, user, customers, investmentTransactions 
             <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Transaksi Terakhir</h3>
             <button 
               onClick={() => navigate("/admin/report")}
-              className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:text-[#F15A24] hover:bg-orange-50 transition-all"
+              className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:text-[#F15A24] hover:bg-orange-50 transition-all font-black text-[10px] uppercase tracking-widest gap-2 min-w-max px-4"
             >
+              <span>Lihat Semua</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
-          <div className="grid gap-4">
-            {filteredSales.slice(0, 5).map((t, i) => (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
+            {filteredSales.slice(0, 6).map((t, i) => (
               <TransactionCard key={i} t={t} index={i} isAdmin={true} />
             ))}
           </div>
@@ -5075,9 +5098,10 @@ const AdminManagementPage = ({
   showLegend = true,
   showBadges = true,
   extraContent,
-  rightHeaderContent
+  rightHeaderContent,
+  actions
 }: { 
-  listTitle?: string,
+  listTitle?: React.ReactNode,
   title: string, 
   subtitle: string, 
   totalLabel: string, 
@@ -5098,7 +5122,8 @@ const AdminManagementPage = ({
   showLegend?: boolean,
   showBadges?: boolean,
   extraContent?: React.ReactNode,
-  rightHeaderContent?: React.ReactNode
+  rightHeaderContent?: React.ReactNode,
+  actions?: React.ReactNode
 }) => {
   const navigate = useNavigate();
   return (
@@ -5108,7 +5133,7 @@ const AdminManagementPage = ({
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10">
           <button onClick={() => navigate("/admin")} className="flex items-center gap-2 text-white/70 mb-6 group">
@@ -5206,16 +5231,28 @@ const AdminManagementPage = ({
           )}
         </div>
 
-        <div className="space-y-4">
+        {actions && (
+          <div className="w-full">
+            {actions}
+          </div>
+        )}
+
+        <div className="space-y-4 max-w-full">
           <div className="flex items-center justify-between gap-4 px-2">
-            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider whitespace-nowrap">{listTitle || "Daftar Rincian"}</h3>
+            <div className="flex-1">
+              {typeof listTitle === 'string' ? (
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider whitespace-nowrap">{listTitle}</h3>
+              ) : (
+                listTitle || <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider whitespace-nowrap">Daftar Rincian</h3>
+              )}
+            </div>
             {rightHeaderContent}
           </div>
-          <div className="grid gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
             {items.map((item, i) => (
               <React.Fragment key={i}>
                 {item.isHeader ? (
-                  <div className="mt-6 mb-2 px-2">
+                  <div className="mt-6 mb-2 px-2 col-span-full">
                     <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
                       <span className="flex-shrink-0">{item.name}</span>
                       <div className="h-px bg-slate-100 flex-1" />
@@ -5227,7 +5264,7 @@ const AdminManagementPage = ({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
                     onClick={() => onItemClick && onItemClick(item.name)}
-                    className={`bg-white px-4 py-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center relative overflow-hidden ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
+                    className={`bg-white px-4 py-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center relative overflow-hidden h-full ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
                   >
                     <div className="flex items-center gap-3">
                       <div 
@@ -5285,14 +5322,16 @@ const TransactionModal = ({
   title, 
   type, 
   customers, 
-  onSave 
+  onSave,
+  dataSource
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
   title: string, 
   type: 'SETOR' | 'TARIK',
   customers: Customer[],
-  onSave: (customer: Customer, amount: number, note: string) => void
+  onSave: (customer: Customer, amount: number, note: string) => void,
+  dataSource?: string
 }) => {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
@@ -5323,13 +5362,13 @@ const TransactionModal = ({
       setIsSaving(true);
       try {
         const nominal = parseInt(amount.replace(/\./g, ''));
-        // Hardcoded Script URL for Tabungan
+        
+        // GOOGLE SHEETS WRITE LOGIC (Original)
         const scriptUrl = "https://script.google.com/macros/s/AKfycbz_nvD6ANhj9qTFpv_DPeog6msTIR3LhvaRAgBN_NFJltKzfEeW6xeECNrG2uw2DT9Q4Q/exec";
         
         if (scriptUrl) {
-          // Send Data to Google Sheets
           try {
-            const resp = await fetch(scriptUrl, {
+            await fetch(scriptUrl, {
               method: 'POST',
               mode: 'no-cors',
               referrerPolicy: 'no-referrer',
@@ -5341,7 +5380,7 @@ const TransactionModal = ({
                 Keterangan: note || "-"
               })
             });
-            console.log("Saving request sent to:", scriptUrl);
+            console.log("Saving request sent to Sheets:", scriptUrl);
           } catch (e) {
             console.error("Fetch error:", e);
           }
@@ -5355,8 +5394,8 @@ const TransactionModal = ({
         setNote("");
         onClose();
       } catch (err) {
-        console.error("Error saving to sheet:", err);
-        // We still save locally even if sheet fails
+        console.error("Error during transaction save process:", err);
+        // Still try to update local state as a last resort
         onSave(selected, parseInt(amount.replace(/\./g, '')), note);
         onClose();
       } finally {
@@ -5500,7 +5539,17 @@ const TransactionModal = ({
   );
 };
 
-const AdminSavingsManagement = ({ customers, transactions, setTransactions }: { customers: Customer[], transactions: SavingTransaction[], setTransactions: React.Dispatch<React.SetStateAction<SavingTransaction[]>> }) => {
+const AdminSavingsManagement = ({ 
+  customers, 
+  transactions, 
+  setTransactions,
+  dataSource 
+}: { 
+  customers: Customer[], 
+  transactions: SavingTransaction[], 
+  setTransactions: React.Dispatch<React.SetStateAction<SavingTransaction[]>>,
+  dataSource?: string 
+}) => {
   const navigate = useNavigate();
   const [showSetorModal, setShowSetorModal] = useState(false);
   const [showTarikModal, setShowTarikModal] = useState(false);
@@ -5625,24 +5674,46 @@ const AdminSavingsManagement = ({ customers, transactions, setTransactions }: { 
           <span className="text-[10px] font-black text-[#005E6A]">{activeRate}% Aktif (30hr)</span>
         </div>
       </div>
+    </div>
+  );
 
-      {/* Action Buttons */}
-      <div className="px-4 grid grid-cols-2 gap-3">
-        <button 
-          onClick={() => setShowSetorModal(true)}
-          className="bg-green-600 text-white p-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-green-700 transition-colors group"
-        >
-          <PlusCircle className="w-3.5 h-3.5" />
-          <span className="text-[9px] font-black uppercase tracking-widest">Setor</span>
-        </button>
-        <button 
-          onClick={() => setShowTarikModal(true)}
-          className="bg-red-600 text-white p-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-red-700 transition-colors group"
-        >
-          <MinusCircle className="w-3.5 h-3.5" />
-          <span className="text-[9px] font-black uppercase tracking-widest">Tarik</span>
-        </button>
-      </div>
+  const savingsActions = (
+    <div className="grid grid-cols-2 gap-4">
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setShowSetorModal(true)}
+        className="relative overflow-hidden group bg-white p-5 rounded-[2rem] border border-green-100 shadow-sm flex items-center gap-4 text-left transition-all hover:shadow-md"
+      >
+        <div className="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center text-white shadow-green-200 shadow-lg shrink-0">
+          <PlusCircle className="w-6 h-6" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-black text-green-600 uppercase tracking-widest leading-none mb-1">Setor Tunai</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Menabung</span>
+        </div>
+        <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+          <PiggyBank className="w-10 h-10 text-green-600" />
+        </div>
+      </motion.button>
+
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setShowTarikModal(true)}
+        className="relative overflow-hidden group bg-white p-5 rounded-[2rem] border border-red-100 shadow-sm flex items-center gap-4 text-left transition-all hover:shadow-md"
+      >
+        <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-red-200 shadow-lg shrink-0">
+          <MinusCircle className="w-6 h-6" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-black text-red-600 uppercase tracking-widest leading-none mb-1">Tarik Saldo</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Pencairan</span>
+        </div>
+        <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+          <Wallet className="w-10 h-10 text-red-600" />
+        </div>
+      </motion.button>
     </div>
   );
 
@@ -5662,6 +5733,7 @@ const AdminSavingsManagement = ({ customers, transactions, setTransactions }: { 
         showLegend={false}
         showBadges={false}
         extraContent={extraContent}
+        actions={savingsActions}
       />
 
       <TransactionModal 
@@ -5671,6 +5743,7 @@ const AdminSavingsManagement = ({ customers, transactions, setTransactions }: { 
         type="SETOR"
         customers={customers}
         onSave={(c, amt, n) => handleSaveTransaction(c, amt, n, 'SETOR')}
+        dataSource={dataSource}
       />
 
       <TransactionModal 
@@ -5680,6 +5753,7 @@ const AdminSavingsManagement = ({ customers, transactions, setTransactions }: { 
         type="TARIK"
         customers={customers}
         onSave={(c, amt, n) => handleSaveTransaction(c, amt, n, 'TARIK')}
+        dataSource={dataSource}
       />
 
       {/* NEW: Global Recent Transactions */}
@@ -5868,7 +5942,7 @@ const AdminCustomerDetailPage = ({
       animate={{ opacity: 1 }}
       className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10">
           <button onClick={() => navigate("/admin/customers")} className="flex items-center gap-2 text-white/70 mb-6 group">
@@ -6015,11 +6089,13 @@ const AdminCashier = ({
   stock, 
   customers, 
   savings, 
+  dataSource,
   onTransactionComplete 
 }: { 
   stock: StockItem[], 
   customers: Customer[], 
   savings: any[],
+  dataSource: "sheets" | "firebase",
   onTransactionComplete: (data: any) => void 
 }) => {
   const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
@@ -6076,7 +6152,16 @@ const AdminCashier = ({
       return;
     }
 
+    if (paymentMethod === "Tabungan" && selectedCustomer) {
+      const balance = parseCurrency(selectedCustomer.Tabungan);
+      if (balance < total) {
+        alert("Saldo tabungan tidak mencukupi!");
+        return;
+      }
+    }
+
     setIsProcessing(true);
+    
     const transaction = {
       id: Math.random().toString(36).substr(2, 9).toUpperCase(),
       date: new Date().toLocaleString('id-ID'),
@@ -6087,8 +6172,10 @@ const AdminCashier = ({
       timestamp: new Date().toISOString()
     };
 
-    // Simulate delay
-    setTimeout(() => {
+    try {
+      // Logic for spreadsheet mode - local state only for simulation since we can't write to sheets as easily from cashier 
+      // without more complex script setup. For now, we rely on the parent's onTransactionComplete to refresh state.
+
       setLastTransaction(transaction);
       setIsProcessing(false);
       setShowReceipt(true);
@@ -6096,7 +6183,11 @@ const AdminCashier = ({
       setCart([]);
       setSelectedCustomer(null);
       setCheckoutStep(1);
-    }, 1000);
+    } catch (error) {
+      console.error("Checkout error:", error);
+      alert("Terjadi kesalahan saat memproses transaksi.");
+      setIsProcessing(false);
+    }
   };
 
   const printReceipt = () => {
@@ -6104,71 +6195,77 @@ const AdminCashier = ({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)]">
+    <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)] p-1">
       {/* Product Selection */}
       <div className={`flex-1 space-y-6 ${checkoutStep === 2 ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div>
-              <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Kasir Pintar</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pilih barang untuk transaksi</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setIsScanning(!isScanning)}
-                className={`p-2.5 rounded-lg border transition-all ${isScanning ? 'bg-red-500 border-red-500 text-white' : 'bg-white border-slate-100 text-[#005E6A] hover:bg-slate-50'}`}
-              >
-                <ScanLine className="w-5 h-5" />
-              </button>
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Cari atau scan..."
-                  className="w-full bg-slate-50 border border-slate-100 rounded-lg pl-10 pr-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden max-h-[85vh]">
+          {/* STICKY HEADER */}
+          <div className="sticky top-0 z-40 bg-white border-b border-slate-50 p-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Kasir Pintar</h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pilih barang untuk transaksi</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setIsScanning(!isScanning)}
+                  className={`p-2.5 rounded-lg border transition-all ${isScanning ? 'bg-red-500 border-red-500 text-white shadow-lg' : 'bg-white border-slate-100 text-[#005E6A] hover:bg-slate-50'}`}
+                >
+                  <ScanLine className="w-5 h-5" />
+                </button>
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Cari atau scan..."
+                    className="w-full bg-slate-50 border border-slate-100 rounded-lg pl-10 pr-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
+
+            {isScanning && (
+              <div className="mt-4 rounded-xl overflow-hidden border-2 border-dashed border-[#005E6A]/20">
+                <BarcodeScannerComponent onResult={onScanResult} />
+              </div>
+            )}
           </div>
 
-          {isScanning && (
-            <div className="mb-6">
-              <BarcodeScannerComponent onResult={onScanResult} />
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+          {/* SCROLLABLE GRID */}
+          <div className="flex-1 overflow-y-auto no-scrollbar p-6">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,130px),1fr))] gap-3">
             {filteredStock.map((item) => (
               <motion.div 
                 key={item.id}
-                whileTap={{ scale: 0.98 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => addToCart(item)}
-                className="bg-white border border-slate-100 rounded-lg p-3 cursor-pointer hover:border-[#005E6A]/20 transition-all shadow-sm group"
+                className="bg-white border border-slate-100 rounded-md p-2 cursor-pointer hover:border-[#005E6A]/20 transition-all shadow-sm group active:shadow-inner"
               >
-                <div className="aspect-square rounded-md bg-slate-50 mb-3 overflow-hidden">
+                <div className="aspect-square rounded-sm bg-slate-50 mb-2 overflow-hidden">
                   {item.Image ? (
                     <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-300">
-                      <Package className="w-8 h-8" />
+                      <Package className="w-6 h-6" />
                     </div>
                   )}
                 </div>
-                <h4 className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight truncate mb-1">{item.Nama}</h4>
-                <div className="flex justify-between items-end">
-                  <p className="text-[10px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</p>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Stok: {item.Stok}</p>
+                <h4 className="text-[9px] font-black text-[#005E6A] uppercase tracking-tight truncate mb-0.5 leading-tight">{item.Nama}</h4>
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-[9px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</p>
+                  <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest leading-none">Stok: {item.Stok}</p>
                 </div>
               </motion.div>
             ))}
           </div>
         </div>
       </div>
+    </div>
 
       {/* Cart & Payment */}
-      <div className="w-full lg:w-96 space-y-6">
+      <div className="w-full lg:w-[450px] space-y-6">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 sticky top-6">
           {checkoutStep === 1 ? (
             <>
@@ -6478,7 +6575,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10">
           <button onClick={() => navigate("/admin")} className="flex items-center gap-2 text-white/70 mb-6 group">
@@ -6567,7 +6664,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
             </button>
           </div>
 
-          <div className="grid gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-3">
             {filteredItems.map((item, i) => {
               const isLow = item.Stok <= item.MinStok;
               
@@ -6875,6 +6972,250 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
         )}
       </AnimatePresence>
     </motion.div>
+  );
+};
+
+const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesTransaction[] }) => {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+  }, [navigate]);
+
+  const pendingWithdrawals = useMemo(() => {
+    return salesTransactions.filter(t => {
+      const type = (t.Jenis || "").toLowerCase();
+      const status = (t.Status || "").toLowerCase();
+      // Filter for Tarik Tunai that is pending (not Finished or Success)
+      const isWithdrawal = type.includes("tarik") || type.includes("withdraw");
+      const isPending = status.includes("belum") || status.includes("proses") || status.includes("ambil") || (!status.includes("selesai") && !status.includes("sukses") && !status.includes("kasbon"));
+      return isWithdrawal && isPending;
+    });
+  }, [salesTransactions]);
+
+  const groupedData = useMemo(() => {
+    const summary: Record<string, { total: number, count: number, transactions: SalesTransaction[] }> = {};
+    const COLORS = [
+      "#FF00ED", "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", 
+      "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
+    ];
+
+    pendingWithdrawals.forEach(t => {
+      const name = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
+      if (!summary[name]) {
+        summary[name] = { total: 0, count: 0, transactions: [] };
+      }
+      // Formula: HargaModal (net to customer) - Sebagian (already taken)
+      const netAmount = (Number(t.HargaModal) || 0) - (Number(t.Sebagian) || 0);
+      summary[name].total += netAmount;
+      summary[name].count += 1;
+      summary[name].transactions.push(t);
+    });
+
+    return Object.entries(summary).map(([name, data], idx) => ({
+      name,
+      total: data.total,
+      count: data.count,
+      color: COLORS[idx % COLORS.length]
+    })).sort((a, b) => b.total - a.total);
+  }, [pendingWithdrawals]);
+
+  const totalPending = groupedData.reduce((acc, curr) => acc + curr.total, 0);
+
+  const statsBreakdown = useMemo(() => {
+    const belum = pendingWithdrawals.filter(t => (t.Status || "").toLowerCase().includes("belum") || (t.Status || "").toLowerCase().includes("ambil"));
+    const proses = pendingWithdrawals.filter(t => (t.Status || "").toLowerCase().includes("proses"));
+    
+    const totalBelum = belum.reduce((acc, t) => acc + ((Number(t.HargaModal) || 0) - (Number(t.Sebagian) || 0)), 0);
+    const totalProses = proses.reduce((acc, t) => acc + ((Number(t.HargaModal) || 0) - (Number(t.Sebagian) || 0)), 0);
+    
+    return { belum: totalBelum, proses: totalProses };
+  }, [pendingWithdrawals]);
+
+  return (
+    <div className="min-h-screen bg-slate-50 pb-32">
+      <div className="bg-[#005E6A] text-white pt-12 pb-20 px-8 rounded-none shadow-2xl relative overflow-hidden mb-8">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full -ml-16 -mb-16 blur-2xl" />
+        
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                <Timer className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-2xl font-black tracking-tight uppercase">Management Lainnya</h1>
+            </div>
+            <p className="text-teal-50/60 text-[10px] font-black uppercase tracking-[0.2em]">Data Tarik Tunai Belum Diambil & Diproses</p>
+          </div>
+          <div className="text-right">
+             <button 
+              onClick={() => navigate("/admin")}
+              className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-black uppercase tracking-widest transition-all backdrop-blur-md flex items-center gap-2"
+            >
+              <span>Dashboard</span>
+              <Home className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 space-y-6 -mt-12 relative z-20">
+        {groupedData.length > 0 && (
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 mb-6">
+            <div className="flex flex-col gap-6">
+              <div className="flex justify-between items-start px-2 mb-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Antrean</p>
+                  <h3 className="text-sm font-black text-[#005E6A]">Rp {totalPending.toLocaleString('id-ID')}</h3>
+                </div>
+                <div className="text-right space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Jumlah Orang</p>
+                  <h3 className="text-sm font-black text-[#F15A24]">{groupedData.length} Orang</h3>
+                </div>
+              </div>
+
+              <div className="flex flex-col lg:flex-row gap-8 items-center">
+                <div className="w-full lg:w-1/3 h-48 relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={groupedData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={5}
+                        dataKey="total"
+                      >
+                        {groupedData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">{data.name}</p>
+                                <p className="text-xs font-black text-[#005E6A]">Rp {data.total.toLocaleString('id-ID')}</p>
+                                <p className="text-[7px] font-bold text-slate-500">{data.count} Transaksi</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="flex-1 flex flex-col gap-6">
+                  <div className="flex items-center justify-between w-full px-4">
+                    <div className="text-center flex-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Total Belum Diambil</p>
+                      <p className="text-xs font-black text-blue-600">Rp {statsBreakdown.belum.toLocaleString('id-ID')}</p>
+                    </div>
+                    <div className="w-[1px] h-8 bg-slate-100 flex-shrink-0 mx-2" />
+                    <div className="text-center flex-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Total Diproses</p>
+                      <p className="text-xs font-black text-amber-600">Rp {statsBreakdown.proses.toLocaleString('id-ID')}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {groupedData.slice(0, 5).map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100">
+                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-[7px] font-black text-slate-500 uppercase truncate max-w-[80px]">{item.name}</span>
+                      </div>
+                    ))}
+                    {groupedData.length > 5 && (
+                      <span className="text-[7px] font-black text-slate-300 uppercase py-1.5">+{groupedData.length - 5} Lainnya</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white p-6 md:p-8 lg:p-12 rounded-[2.5rem] shadow-xl border border-slate-100 min-h-[500px]">
+           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-50">
+            <div>
+              <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-wider mb-1">Antrean Tarik Tunai</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transaksi yang perlu diproses oleh Admin</p>
+            </div>
+            <div className="flex items-center gap-2 px-6 py-3 bg-blue-50 rounded-2xl border border-blue-100/50 self-start sm:self-center">
+              <Timer className="w-5 h-5 text-blue-600" />
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none mb-0.5">{pendingWithdrawals.length} Transaksi</span>
+                <span className="text-[8px] font-bold text-blue-400 uppercase tracking-widest leading-none">Menunggu Proses</span>
+              </div>
+            </div>
+          </div>
+
+          {groupedData.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {groupedData.map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  whileHover={{ y: -5 }}
+                  onClick={() => navigate(`/lainnya/${encodeURIComponent(item.name)}`)}
+                  className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group active:scale-95 flex flex-col justify-between"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-inner" style={{ backgroundColor: item.color }}>
+                      {item.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-xs font-black text-[#005E6A] uppercase tracking-tight truncate group-hover:text-[#F15A24] transition-colors">{item.name}</h4>
+                      <div className="flex items-center gap-2">
+                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{item.count} Transaksi</p>
+                         <span className="w-1 h-1 rounded-full bg-slate-200" />
+                         <p className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Menunggu</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-6 pt-5 border-t border-slate-50">
+                    <div className="flex items-end justify-between">
+                       <div className="space-y-0.5">
+                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Belum Diambil</p>
+                         <p className="text-xl font-black text-[#005E6A]">Rp {item.total.toLocaleString('id-ID')}</p>
+                       </div>
+                       <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#005E6A] group-hover:text-white transition-colors">
+                         <ChevronRight className="w-4 h-4" />
+                       </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-32 text-center">
+              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                <CheckCircle2 className="w-12 h-12 text-slate-200" />
+              </div>
+              <h4 className="text-base font-black text-slate-400 uppercase tracking-widest mb-2">Semua Transaksi Selesai</h4>
+              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] max-w-[280px]">Bagus! Tidak ada antrean tarik tunai yang perlu diproses saat ini.</p>
+              <button 
+                onClick={() => navigate("/admin")}
+                className="mt-8 px-8 py-3 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+              >
+                Kembali ke Dashboard
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -7436,7 +7777,7 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-b-[3rem] shadow-xl relative overflow-hidden">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10">
           <button onClick={() => navigate("/admin")} className="flex items-center gap-2 text-white/70 mb-6 group">
@@ -7524,10 +7865,10 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
           />
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4 px-2">
+        <div className="space-y-4 max-w-full">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-2">
             <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider whitespace-nowrap">Daftar Pelanggan</h3>
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth -mr-2 pr-2">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar scroll-smooth w-full sm:w-auto pb-2 sm:pb-0">
               {["Semua", "Bronze", "Silver", "Gold", "Platinum"].map(label => (
                 <button
                   key={label}
@@ -7544,7 +7885,7 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
             </div>
           </div>
           
-          <div className="grid gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
             {customerList.length > 0 ? (
               customerList.map((c, i) => (
                 <motion.div 
@@ -7588,9 +7929,225 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
 };
 
 
-const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[], transactions: DebtTransaction[] }) => {
+const DebtTransactionModal = ({ 
+  isOpen, 
+  onClose, 
+  title, 
+  type, 
+  customers, 
+  onSave,
+  dataSource,
+  initialCustomer
+}: { 
+  isOpen: boolean, 
+  onClose: () => void, 
+  title: string, 
+  type: 'TAMBAH' | 'BAYAR',
+  customers: Customer[],
+  onSave: (customer: Customer, amount: number, note: string) => void,
+  dataSource?: string,
+  initialCustomer?: Customer | null
+}) => {
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<Customer | null>(initialCustomer || null);
+  
+  useEffect(() => {
+    if (initialCustomer) {
+      setSelected(initialCustomer);
+    }
+  }, [initialCustomer, isOpen]);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const filtered = useMemo(() => {
+    if (!search) return [];
+    return customers.filter(c => {
+      const matchesSearch = c.Nama.toLowerCase().includes(search.toLowerCase());
+      const hasDebt = parseCurrency(c.Hutang) > 0;
+      return matchesSearch && (type === 'TAMBAH' ? true : hasDebt);
+    }).slice(0, 5);
+  }, [search, customers, type]);
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^\d]/g, '');
+    if (val === "") {
+      setAmount("");
+      return;
+    }
+    setAmount(parseInt(val).toLocaleString('id-ID'));
+  };
+
+  const handleSave = async () => {
+    if (selected && amount) {
+      setIsSaving(true);
+      try {
+        const nominal = parseInt(amount.replace(/\./g, ''));
+        
+        onSave(selected, nominal, note);
+        setSearch("");
+        setSelected(null);
+        setAmount("");
+        setNote("");
+        onClose();
+      } catch (err) {
+        console.error("Debt transaction save error:", err);
+        alert("Gagal menyimpan transaksi.");
+      } finally {
+        setIsSaving(false);
+      }
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden"
+      >
+        <div className={`p-6 ${type === 'TAMBAH' ? 'bg-red-600' : 'bg-green-600'} text-white`}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-black uppercase tracking-tighter">{title}</h3>
+            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="space-y-2 relative">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nama Nasabah</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                <Search className="w-4 h-4 text-slate-300" />
+              </div>
+              <input 
+                type="text"
+                placeholder="Cari nama..."
+                value={selected ? selected.Nama : search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setSelected(null);
+                }}
+                disabled={!!selected}
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all"
+              />
+              {selected && (
+                <button 
+                  onClick={() => {setSelected(null); setSearch("");}}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-red-500"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            
+            {!selected && search.length > 0 && (
+              <div className="absolute z-10 w-full left-0 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden mt-1 max-h-[200px] overflow-y-auto">
+                {filtered.length > 0 ? (
+                  filtered.map((c, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setSelected(c);
+                        setSearch("");
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 last:border-0 group"
+                    >
+                      <div>
+                        <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama}</p>
+                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
+                      </div>
+                      <div className="text-right">
+                         <p className="text-[10px] font-black text-red-600">Rp {parseCurrency(c.Hutang).toLocaleString('id-ID')}</p>
+                         <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">Hutang</p>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="p-4 text-center">
+                    <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Pelanggan tidak ditemukan</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {selected && (
+              <div className="px-1 flex justify-between items-center bg-red-50/50 p-3 rounded-xl border border-red-100/50">
+                <p className="text-[9px] font-bold text-red-600 uppercase tracking-widest leading-none">Total Hutang</p>
+                <p className="text-xs font-black text-red-600">Rp {parseCurrency(selected.Hutang).toLocaleString('id-ID')}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nominal</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                <span className="text-sm font-black text-slate-300">Rp</span>
+              </div>
+              <input 
+                type="text"
+                value={amount}
+                onChange={handleAmountChange}
+                placeholder="0"
+                className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-lg font-black text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Keterangan (Opsional)</label>
+            <textarea 
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Contoh: Bayar kasbon minggu lalu"
+              rows={2}
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200 resize-none"
+            />
+          </div>
+        </div>
+
+        <div className="p-6 bg-slate-50 flex gap-3">
+          <button 
+            onClick={onClose}
+            className="flex-1 px-4 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white border border-slate-100"
+          >
+            Batal
+          </button>
+          <button 
+            onClick={handleSave}
+            disabled={isSaving || !selected || !amount}
+            className={`flex-1 px-4 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100 ${
+              type === 'TAMBAH' ? 'bg-red-600 shadow-red-200' : 'bg-green-600 shadow-green-200'
+            }`}
+          >
+            {isSaving ? "Memproses..." : "Simpan Transaksi"}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const AdminDebtManagement = ({ 
+  customers, 
+  transactions, 
+  setTransactions,
+  dataSource 
+}: { 
+  customers: Customer[], 
+  transactions: DebtTransaction[], 
+  setTransactions: (txs: DebtTransaction[]) => void,
+  dataSource: "sheets" | "firebase"
+}) => {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("Semua");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'TAMBAH' | 'BAYAR'>('TAMBAH');
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -7598,6 +8155,21 @@ const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[
       navigate("/");
     }
   }, [navigate]);
+
+  const handleSaveTransaction = (customer: Customer, amount: number, note: string) => {
+    const newTx: DebtTransaction = {
+      Tanggal: new Date().toLocaleDateString('id-ID'),
+      Nama: customer.Nama,
+      Tipe: modalType,
+      Jumlah: amount,
+      Keterangan: note || "-",
+      SaldoAkhir: modalType === 'TAMBAH' 
+        ? parseCurrency(customer.Hutang) + amount 
+        : parseCurrency(customer.Hutang) - amount
+    };
+    
+    setTransactions([newTx, ...transactions]);
+  };
 
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
   
@@ -7714,6 +8286,46 @@ const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[
     </div>
   );
 
+  const debtActions = (
+    <div className="grid grid-cols-2 gap-4">
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => { setModalType("TAMBAH"); setIsModalOpen(true); }}
+        className="relative overflow-hidden group bg-white p-5 rounded-[2rem] border border-red-100 shadow-sm flex items-center gap-4 text-left transition-all hover:shadow-md"
+      >
+        <div className="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center text-white shadow-red-200 shadow-lg shrink-0">
+          <Plus className="w-6 h-6" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-black text-red-600 uppercase tracking-widest leading-none mb-1">Tambah Kasbon</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Manual Input</span>
+        </div>
+        <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+          <Receipt className="w-10 h-10 text-red-600" />
+        </div>
+      </motion.button>
+
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => { setModalType("BAYAR"); setIsModalOpen(true); }}
+        className="relative overflow-hidden group bg-white p-5 rounded-[2rem] border border-green-100 shadow-sm flex items-center gap-4 text-left transition-all hover:shadow-md"
+      >
+        <div className="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center text-white shadow-green-200 shadow-lg shrink-0">
+          <CheckCircle2 className="w-6 h-6" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-black text-green-600 uppercase tracking-widest leading-none mb-1">Bayar Hutang</span>
+          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Pelunasan</span>
+        </div>
+        <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+          <CheckCircle2 className="w-10 h-10 text-green-600" />
+        </div>
+      </motion.button>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <AdminManagementPage 
@@ -7730,6 +8342,17 @@ const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[
         showBadges={false}
         extraContent={extraContent}
         rightHeaderContent={filterContent}
+        actions={debtActions}
+      />
+
+      <DebtTransactionModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={modalType === "TAMBAH" ? "Manual Kasbon" : "Pelunasan Hutang"}
+        type={modalType}
+        customers={customers}
+        onSave={handleSaveTransaction}
+        dataSource={dataSource}
       />
 
       {/* Global Recent Activity */}
@@ -7768,8 +8391,33 @@ const AdminDebtManagement = ({ customers, transactions }: { customers: Customer[
   );
 };
 
-const AdminOthersManagement = ({ transactions, customers }: { transactions: SalesTransaction[], customers: Customer[] }) => {
+const AdminMasterDataPage = ({ 
+  customers, 
+  savingsTransactions, 
+  debtTransactions, 
+  salesTransactions, 
+  redeemedPoints,
+  stockItems,
+  investmentTransactions,
+  fetchData,
+  dataSource
+}: { 
+  customers: Customer[], 
+  savingsTransactions: SavingTransaction[], 
+  debtTransactions: DebtTransaction[], 
+  salesTransactions: SalesTransaction[], 
+  redeemedPoints: RedeemedPoint[],
+  stockItems: StockItem[],
+  investmentTransactions: InvestmentTransaction[],
+  fetchData: (showLoading?: boolean, collectionName?: string) => Promise<void>,
+  dataSource: "sheets" | "firebase"
+}) => {
   const navigate = useNavigate();
+  const [activeCollection, setActiveCollection] = useState<string>("customers");
+  const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<any>({});
+  const [visibleCount, setVisibleCount] = useState(20);
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -7778,154 +8426,505 @@ const AdminOthersManagement = ({ transactions, customers }: { transactions: Sale
     }
   }, [navigate]);
 
-  const { items, total, chartStats, summaryContent } = useMemo(() => {
-    // 1. Calculate Belum Diambil List
-    const belumCustomersList = customers
-      .filter(c => transactions.some(t => {
-        const nameMatch = t.Nama?.toLowerCase() === c.Nama.toLowerCase();
-        const statusMatch = (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL";
-        return nameMatch && statusMatch;
-      }))
-      .map(c => {
-        const userTx = transactions.filter(t => t.Nama?.toLowerCase() === c.Nama.toLowerCase() && (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL");
-        const val = userTx.reduce((acc, t) => acc + ((t.HargaModal || 0) - (t.Sebagian || 0)), 0);
-        return { name: c.Nama, value: val };
-      })
-      .filter(item => item.value > 0);
+  const collectionSpecs = [
+    { id: "customers", name: "customers", label: "Pelanggan", data: customers, idField: "Nama", icon: Users },
+    { id: "stockItems", name: "stockItems", label: "Stok Barang", data: stockItems, idField: "id", icon: Package },
+    { id: "savingTransactions", name: "savingTransactions", label: "Tabungan", data: savingsTransactions, idField: null, icon: PiggyBank },
+    { id: "investmentTransactions", name: "investmentTransactions", label: "Investasi", data: investmentTransactions, idField: null, icon: TrendingUp },
+    { id: "debtTransactions", name: "debtTransactions", label: "Hutang", data: debtTransactions, idField: null, icon: Receipt },
+    { id: "salesTransactions", name: "salesTransactions", label: "Penjualan", data: salesTransactions, idField: null, icon: ShoppingBag },
+    { id: "redeemedPoints", name: "redeemedPoints", label: "Poin", data: redeemedPoints, idField: null, icon: Gift }
+  ];
 
-    const belumGeneral = transactions
-      .filter(t => {
-        const name = (t.Nama || "").toLowerCase().trim();
-        const isGeneral = !name || name === "unknown" || name === "pelanggan umum";
-        return isGeneral && (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL";
-      });
+  const collections = [
+    { id: "customers", label: "Pelanggan", icon: Users, data: customers },
+    { id: "savingTransactions", label: "Tabungan", icon: PiggyBank, data: savingsTransactions },
+    { id: "debtTransactions", label: "Hutang", icon: Receipt, data: debtTransactions },
+    { id: "salesTransactions", label: "Penjualan", icon: ShoppingBag, data: salesTransactions },
+    { id: "redeemedPoints", label: "Poin", icon: Gift, data: redeemedPoints },
+    { id: "stockItems", label: "Stok Barang", icon: Package, data: stockItems },
+    { id: "investmentTransactions", label: "Investasi", icon: TrendingUp, data: investmentTransactions },
+  ];
+
+  const currentData = useMemo(() => {
+    let data = collections.find(c => c.id === activeCollection)?.data || [];
     
-    if (belumGeneral.length > 0) {
-      const val = belumGeneral.reduce((acc, t) => acc + ((t.HargaModal || 0) - (t.Sebagian || 0)), 0);
-      if (val > 0) belumCustomersList.push({ name: "Pelanggan Umum", value: val });
+    if (activeCollection === "customers") {
+      return [...data].sort((a, b) => (a.Nama || "").localeCompare(b.Nama || ""));
     }
 
-    // 2. Calculate Diproses List
-    const prosesCustomersList = customers
-      .filter(c => transactions.some(t => {
-        const nameMatch = t.Nama?.toLowerCase() === c.Nama.toLowerCase();
-        const statusMatch = (t.Status || "").toUpperCase().trim() === "DIPROSES";
-        return nameMatch && statusMatch;
-      }))
-      .map(c => {
-        const userTx = transactions.filter(t => t.Nama?.toLowerCase() === c.Nama.toLowerCase() && (t.Status || "").toUpperCase().trim() === "DIPROSES");
-        const val = userTx.reduce((acc, t) => acc + ((t.HargaModal || 0) - (t.Sebagian || 0)), 0);
-        return { name: c.Nama, value: val };
-      })
-      .filter(item => item.value > 0);
-
-    const prosesGeneral = transactions
-      .filter(t => {
-        const name = (t.Nama || "").toLowerCase().trim();
-        const isGeneral = !name || name === "unknown" || name === "pelanggan umum";
-        return isGeneral && (t.Status || "").toUpperCase().trim() === "DIPROSES";
+    // Default sorting for date-based collections (newest first)
+    const hasTanggal = data.length > 0 && ("Tanggal" in data[0] || "UpdateTerakhir" in data[0]);
+    if (hasTanggal) {
+      return [...data].sort((a: any, b: any) => {
+        const dateA = parseDate(a.Tanggal || a.UpdateTerakhir || "").getTime();
+        const dateB = parseDate(b.Tanggal || b.UpdateTerakhir || "").getTime();
+        return dateB - dateA;
       });
-
-    if (prosesGeneral.length > 0) {
-      const val = prosesGeneral.reduce((acc, t) => acc + ((t.HargaModal || 0) - (t.Sebagian || 0)), 0);
-      if (val > 0) prosesCustomersList.push({ name: "Pelanggan Umum", value: val });
     }
 
-    const sortedBelum = [...belumCustomersList].sort((a,b) => b.value - a.value);
-    const sortedProses = [...prosesCustomersList].sort((a,b) => b.value - a.value);
+    if (activeCollection === "savingTransactions") {
+      return [...data].sort((a: any, b: any) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+    }
 
-    const totalValue = sortedBelum.reduce((acc, i) => acc + i.value, 0) + sortedProses.reduce((acc, i) => acc + i.value, 0);
-    const belumTotalValue = sortedBelum.reduce((acc, i) => acc + i.value, 0);
-    const prosesTotalValue = sortedProses.reduce((acc, i) => acc + i.value, 0);
-
-    const CHART_COLORS = ["#FF00ED", "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"];
+    return data;
+  }, [activeCollection, customers, savingsTransactions, debtTransactions, salesTransactions, redeemedPoints, stockItems, investmentTransactions]);
+  
+  const filteredData = useMemo(() => {
+    const searchStr = search.toLowerCase().trim();
+    if (!searchStr) return currentData;
     
-    // Calculate colors first for synchronization
-    const totalsByName: Record<string, number> = {};
-    [...sortedBelum, ...sortedProses].forEach(i => {
-      totalsByName[i.name] = (totalsByName[i.name] || 0) + i.value;
+    return currentData.filter(item => {
+      // Special case for customers: prioritize searching in Nama
+      if (activeCollection === "customers") {
+        return (item.Nama || "").toLowerCase().includes(searchStr);
+      }
+      
+      return Object.values(item).some(val => 
+        String(val).toLowerCase().includes(searchStr)
+      );
     });
-    const sortedChartList = Object.entries(totalsByName).sort((a,b) => b[1] - a[1]);
-    const colorMap: Record<string, string> = {};
-    sortedChartList.slice(0, 10).forEach(([name, val], idx) => {
-      colorMap[name] = CHART_COLORS[idx % CHART_COLORS.length];
-    });
+  }, [currentData, search, activeCollection]);
 
-    const finalItems: any[] = [];
-    if (sortedBelum.length > 0) {
-      finalItems.push({ name: 'Belum Diambil', value: 0, isHeader: true });
-      sortedBelum.forEach(item => {
-        const itemColor = colorMap[item.name] || "#CBD5E1";
-        finalItems.push({
-          ...item,
-          color: itemColor,
-          badge: {
-            label: `Rp ${item.value.toLocaleString('id-ID')}`,
-            colorClass: `bg-[#0d9488]/5 text-[#0d9488]`,
-            customIconColor: itemColor
-          }
-        });
-      });
-    }
-    if (sortedProses.length > 0) {
-      finalItems.push({ name: 'Diproses', value: 0, isHeader: true });
-      sortedProses.forEach(item => {
-        const itemColor = colorMap[item.name] || "#CBD5E1";
-        finalItems.push({
-          ...item,
-          color: itemColor,
-          badge: {
-            label: `Rp ${item.value.toLocaleString('id-ID')}`,
-            colorClass: `bg-[#ea580c]/5 text-[#ea580c]`,
-            customIconColor: itemColor
-          }
-        });
-      });
-    }
-
-    const stats = sortedChartList.slice(0, 10).map(([name, val], idx) => ({
-      label: name,
-      value: val,
-      count: 1,
-      color: CHART_COLORS[idx % CHART_COLORS.length]
-    }));
-
-    const summaryContent = (
-      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 pt-4 mt-2">
-        <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Belum Diambil</p>
-          <p className="text-[12px] font-black text-teal-600 leading-none">Rp {belumTotalValue.toLocaleString('id-ID')}</p>
-        </div>
-        <div className="w-[1px] h-8 bg-slate-100 flex-shrink-0" />
-        <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Diproses</p>
-          <p className="text-[12px] font-black text-orange-600 leading-none">Rp {prosesTotalValue.toLocaleString('id-ID')}</p>
-        </div>
-      </div>
-    );
-
-    return { items: finalItems, total: totalValue, chartStats: stats, summaryContent };
-  }, [transactions, customers]);
-
-  const handleItemClick = (name: string) => {
-    navigate(`/lainnya/${encodeURIComponent(name)}`);
+  const handleSaveEdit = async () => {
+    setEditingId(null);
   };
 
+  const columns = useMemo(() => {
+    if (activeCollection === "customers") {
+      return ["Nama", "Poin", "Level", "Tabungan", "Investasi", "Lainnya", "Hutang", "PIN"];
+    }
+    if (activeCollection === "savingTransactions") {
+      return ["Tanggal", "Nama", "Tipe", "Nominal", "Berita", "SaldoAkhir"];
+    }
+    if (activeCollection === "stockItems") {
+      return ["Stok", "Nama", "Kategori", "HargaModal", "HargaJual", "Satuan", "Image"];
+    }
+    if (activeCollection === "debtTransactions") {
+      return ["Tanggal", "Nama", "Tipe", "Jumlah", "Keterangan", "SaldoAkhir"];
+    }
+    if (activeCollection === "investmentTransactions") {
+      return ["Tanggal", "Nama", "Nominal", "Tenor", "JatuhTempo", "Status"];
+    }
+    if (activeCollection === "salesTransactions") {
+      return ["Tanggal", "Nama", "Jenis", "Melalui", "Pemasukan", "HargaModal", "Sebagian"];
+    }
+    return currentData.length > 0 
+      ? Object.keys(currentData[0]).filter(k => k !== 'id' && k !== 'updatedAt') 
+      : [];
+  }, [activeCollection, currentData]);
+
   return (
-    <AdminManagementPage 
-      title="Manajemen Lainnya"
-      subtitle="Belum Diambil & Diproses"
-      totalLabel="Estimasi Nilai Total"
-      totalValue={total}
-      items={items}
-      icon={ShoppingBag}
-      colorClass="text-[#005E6A]"
-      onItemClick={handleItemClick}
-      stats={chartStats}
-      showLegend={false}
-      showBadges={false}
-      extraContent={summaryContent}
-    />
+    <div className="min-h-screen bg-slate-50 pb-32">
+      <div className="bg-[#005E6A] text-white pt-12 pb-20 px-8 rounded-none shadow-2xl relative overflow-hidden mb-8">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full -ml-16 -mb-16 blur-2xl" />
+        
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                <FileSpreadsheet className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-2xl font-black tracking-tight uppercase">Master Data</h1>
+            </div>
+            <p className="text-teal-50/60 text-[10px] font-black uppercase tracking-[0.2em]">Manajemen Database Spreadsheet</p>
+          </div>
+          <div className="text-right">
+             <button 
+              onClick={() => navigate("/admin")}
+              className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-black uppercase tracking-widest transition-all backdrop-blur-md flex items-center gap-2"
+            >
+              <span>Kembali</span>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 space-y-6 -mt-12 relative z-20">
+        {/* Header Selection */}
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-[#005E6A] rounded-xl flex items-center justify-center text-white shadow-lg shadow-teal-100">
+                <FileSpreadsheet className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-black text-slate-800 leading-none lowercase tracking-tighter">master data</h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">manajemen database spreadsheet</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => navigate("/admin")}
+              className="p-2 hover:bg-slate-50 rounded-full text-slate-400 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="relative">
+            <select
+              value={activeCollection}
+              onChange={(e) => {
+                const newCol = e.target.value;
+                setActiveCollection(newCol);
+                setEditingId(null);
+                // On-demand load
+                fetchData(false, newCol);
+              }}
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-tight text-[#005E6A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all cursor-pointer shadow-sm"
+            >
+              {collectionSpecs.map(col => (
+                <option key={col.id} value={col.id}>
+                  {col.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none">
+              <ChevronDown className="w-4 h-4 text-[#005E6A]" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mt-6 px-2">
+            <div className="space-y-1">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Baris Data</p>
+              <h3 className="text-base font-black text-[#005E6A]">{currentData.length.toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Items</span></h3>
+            </div>
+            <div className="text-right space-y-1 border-l border-slate-100 pl-4">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Pelanggan</p>
+              <h3 className="text-base font-black text-[#F15A24]">{customers.length.toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Orang</span></h3>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+          <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+              <input 
+                type="text"
+                placeholder={`Cari di ${collections.find(c => c.id === activeCollection)?.label}...`}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all"
+              />
+            </div>
+            
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              {/* Actions removed (Read-only Spreadsheet mode) */}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  {columns.map(col => {
+                    const labelMapping: Record<string, string> = {
+                      "HargaModal": "Harga Modal",
+                      "HargaJual": "Harga Jual",
+                      "Image": "Gambar",
+                      "SaldoAkhir": activeCollection === "debtTransactions" ? "Hutang Akhir" : "Saldo Akhir",
+                      "Jumlah": activeCollection === "debtTransactions" ? "Nominal" : "Jumlah",
+                      "Pemasukan": "Pemasukan",
+                      "JatuhTempo": "Jatuh Tempo"
+                    };
+                    return (
+                      <th key={col} className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {labelMapping[col] || col}
+                      </th>
+                    );
+                  })}
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredData.slice(0, visibleCount).map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
+                    {columns.map(col => (
+                      <td key={col} className="px-6 py-4">
+                        {editingId === item.id ? (
+                          <input 
+                            type="text"
+                            value={editValues[col] || ""}
+                            onChange={(e) => setEditValues({ ...editValues, [col]: e.target.value })}
+                            className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs font-bold focus:outline-none focus:border-teal-500"
+                          />
+                        ) : (
+                          <span className="text-xs font-bold text-slate-600 block max-w-[200px] truncate">
+                            {typeof item[col] === 'object' && item[col]?.seconds 
+                              ? new Date(item[col].seconds * 1000).toLocaleDateString()
+                              : (["Nominal", "Tabungan", "Investasi", "Lainnya", "Hutang", "Saldo", "SaldoAkhir", "Pemasukan", "HargaModal", "Sebagian"].includes(col) && !isNaN(Number(item[col])))
+                                ? `Rp ${Number(item[col]).toLocaleString('id-ID')}`
+                                : String(item[col] || "-")}
+                          </span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="text-[8px] font-black text-slate-300 uppercase italic">Spreadsheet</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredData.length === 0 && (
+                  <tr>
+                    <td colSpan={columns.length + 1} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <AlertCircle className="w-8 h-8 text-slate-200" />
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tidak ada data ditemukan</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredData.length > visibleCount && (
+            <div className="p-6 border-t border-slate-50 flex justify-center">
+              <button 
+                onClick={() => setVisibleCount(prev => prev + 50)}
+                className="flex items-center gap-2 px-8 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Muat Lebih Banyak ({filteredData.length - visibleCount} lagi)</span>
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdminSettingsPage = () => {
+  const navigate = useNavigate();
+  const [fontSize, setFontSize] = useState("medium");
+  const [theme, setTheme] = useState("teal");
+  
+  useEffect(() => {
+    const isAdmin = localStorage.getItem("admin_session") === "true";
+    if (!isAdmin) {
+      navigate("/");
+    }
+    // Load existing settings if any
+    const savedFontSize = localStorage.getItem("app_font_size") || "medium";
+    const savedTheme = localStorage.getItem("app_theme") || "teal";
+    setFontSize(savedFontSize);
+    setTheme(savedTheme);
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("admin_session");
+    navigate("/");
+  };
+
+  const updateFontSize = (size: string) => {
+    setFontSize(size);
+    localStorage.setItem("app_font_size", size);
+  };
+
+  const updateTheme = (newTheme: string) => {
+    setTheme(newTheme);
+    localStorage.setItem("app_theme", newTheme);
+  };
+
+  const settingsSections = [
+    {
+      id: "promo",
+      title: "Manajemen Promo",
+      desc: "Atur promo yang muncul di halaman utama pelanggan",
+      icon: <Ticket className="w-6 h-6 text-purple-500" />,
+      content: (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600">
+                <Ticket className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Double Poin Weekend</p>
+                <p className="text-xs font-bold text-[#005E6A]">Sisa 2 Hari Lagi</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button className="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-purple-600 transition-colors">
+                <Edit3 className="w-4 h-4" />
+              </button>
+              <button className="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-rose-600 transition-colors">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          <button className="w-full py-4 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+            <Plus className="w-4 h-4" /> Tambah Promo Baru
+          </button>
+        </div>
+      )
+    },
+    {
+      id: "carousel",
+      title: "Banner Carousel",
+      desc: "Slide gambar promo di bagian atas aplikasi",
+      icon: <ImageIcon className="w-6 h-6 text-blue-500" />,
+      content: (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="relative group">
+              <div className="aspect-[21/9] bg-slate-100 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border-2 border-slate-200">
+                <ImageIcon className="w-8 h-8 text-slate-300" />
+                <p className="absolute bottom-2 left-2 px-2 py-1 bg-black/50 text-white text-[8px] font-black rounded uppercase">Slide {i}</p>
+              </div>
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button className="p-1.5 bg-white shadow-lg rounded-lg text-blue-600"><CloudUpload className="w-3 h-3" /></button>
+                <button className="p-1.5 bg-white shadow-lg rounded-lg text-rose-600"><X className="w-3 h-3" /></button>
+              </div>
+            </div>
+          ))}
+          <button className="aspect-[21/9] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:bg-slate-50 transition-all">
+            <Plus className="w-5 h-5" />
+            <span className="text-[8px] font-black uppercase tracking-widest">Tambah Slide</span>
+          </button>
+        </div>
+      )
+    },
+    {
+      id: "appearance",
+      title: "Tampilan & Tema",
+      desc: "Kustomisasi ukuran teks dan warna dominan aplikasi",
+      icon: <Palette className="w-6 h-6 text-orange-500" />,
+      content: (
+        <div className="flex flex-col md:flex-row gap-8">
+          <div className="flex-1 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Type className="w-4 h-4 text-slate-400" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ukuran Text</p>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {['small', 'medium', 'large'].map(size => (
+                <button
+                  key={size}
+                  onClick={() => updateFontSize(size)}
+                  className={`py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${
+                    fontSize === size 
+                    ? 'border-[#005E6A] bg-[#005E6A] text-white' 
+                    : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Palette className="w-4 h-4 text-slate-400" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tema Warna</p>
+            </div>
+            <div className="flex gap-4">
+              {[
+                { id: 'teal', color: 'bg-[#005E6A]' },
+                { id: 'blue', color: 'bg-blue-600' },
+                { id: 'indigo', color: 'bg-indigo-600' },
+                { id: 'rose', color: 'bg-rose-600' },
+                { id: 'orange', color: 'bg-[#F15A24]' }
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => updateTheme(t.id)}
+                  className={`w-10 h-10 rounded-full ${t.color} flex items-center justify-center transition-all ${
+                    theme === t.id ? 'ring-4 ring-offset-2 ring-slate-200 scale-110' : 'scale-100 hover:scale-105'
+                  }`}
+                >
+                  {theme === t.id && <Check className="w-5 h-5 text-white" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: "account",
+      title: "Sesi Admin",
+      desc: "Pengaturan keamanan dan logout dari akses administrator",
+      icon: <ShieldCheck className="w-6 h-6 text-red-500" />,
+      content: (
+        <div className="flex items-center justify-between bg-red-50 p-6 rounded-[2.5rem] border border-red-100">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-red-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-red-200">
+              <LogOut className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-red-600 uppercase tracking-widest mb-0.5">Logout Sesi Admin</p>
+              <p className="text-[10px] text-red-400 font-bold">Keluar dan kunci kembali akses dashboard admin</p>
+            </div>
+          </div>
+          <button 
+            onClick={handleLogout}
+            className="px-8 py-4 bg-red-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-red-200 active:scale-95 transition-transform"
+          >
+            Logout
+          </button>
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="pb-32"
+    >
+      <div className="bg-[#005E6A] text-white pt-12 pb-20 px-8 rounded-none shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full -ml-16 -mb-16 blur-2xl" />
+        
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                <Settings className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-2xl font-black tracking-tight uppercase">Pengaturan Admin</h1>
+            </div>
+            <p className="text-teal-50/60 text-[10px] font-black uppercase tracking-[0.2em]">Konfigurasi Sistem & Tampilan</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Versi Sistem</p>
+            <p className="text-lg font-black text-white tracking-widest">v2.4.0 <span className="text-[10px] px-2 py-1 bg-white/10 rounded ml-2 font-bold tracking-normal">STABLE</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 -mt-12 relative z-20 max-w-6xl mx-auto space-y-6">
+        {settingsSections.map((section, idx) => (
+          <motion.div
+            key={section.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: idx * 0.1 }}
+            className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden"
+          >
+            <div className="p-8 border-b border-slate-50">
+              <div className="flex items-center gap-4 mb-2">
+                {section.icon}
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">{section.title}</h3>
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold ml-10">{section.desc}</p>
+            </div>
+            <div className="p-8 bg-slate-50/30">
+              {section.content}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
   );
 };
 
@@ -8349,7 +9348,7 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
         {activeTab === "trend" ? (
           <div className="mb-8">
             {/* 6-Month Trend Chart with Integrated Total */}
-            <div className="bg-[#005E6A] rounded-[2.5rem] p-8 shadow-xl border border-[#005E6A]/10 mb-6 relative overflow-hidden">
+            <div className="bg-[#005E6A] rounded-none p-8 shadow-xl border border-[#005E6A]/10 mb-6 relative overflow-hidden">
               <div className="relative z-10 mb-6 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Total Transaksi {selectedMonthLabel}</p>
@@ -8366,9 +9365,9 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
                 ref={scrollContainerRef}
                 className="h-48 w-full relative z-10 overflow-x-auto no-scrollbar scroll-smooth"
               >
-                <div className="h-full min-w-[600px]">
+                <div className="h-full min-w-[450px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
+                    <BarChart data={chartData} barCategoryGap="15%">
                     <defs>
                       <linearGradient id="barGradientTrend" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#F15A24" stopOpacity={1} />
@@ -8380,7 +9379,7 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
                       dataKey="label" 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 900 }}
+                      tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: 900 }}
                       dy={10}
                     />
                     <Tooltip 
@@ -8399,8 +9398,8 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
                     />
                     <Bar 
                       dataKey="total" 
-                      radius={[10, 10, 10, 10]} 
-                      barSize={18}
+                      radius={[6, 6, 6, 6]} 
+                      barSize={12}
                       animationDuration={1500}
                     >
                       {chartData.map((entry, index) => {
@@ -8672,6 +9671,16 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
   const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
   const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
 
+  const currentLevelIndex = LEVELS.findIndex(l => l.name === customerLevel.name);
+  const nextLevel = LEVELS[currentLevelIndex + 1];
+  
+  let progressPercentage = 100;
+  if (nextLevel) {
+    const currentMin = LEVELS[currentLevelIndex].min;
+    const nextMin = nextLevel.min;
+    progressPercentage = Math.min(100, Math.max(0, ((customerLevel.total - currentMin) / (nextMin - currentMin)) * 100));
+  }
+
   const handlePhotoClick = () => {
     fileInputRef.current?.click();
   };
@@ -8710,99 +9719,150 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
       />
 
       {/* Unified Profile Card */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden mb-8">
-        <div className="bg-slate-50/50 px-6 py-3 border-b border-slate-100 flex items-center justify-between">
-          <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-[0.2em]">Profil</p>
-          <div className="flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3 text-blue-500 fill-blue-500/10" />
-            <span className="text-[8px] font-black text-blue-500 uppercase">Terverifikasi</span>
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-8 group">
+        <div className="bg-gradient-to-r from-[#00B4C4] to-[#005E6A] px-6 py-4 flex items-center justify-between">
+          <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em]">Identity Hub</p>
+          <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
+            <CheckCircle2 className="w-3 h-3 text-cyan-200 fill-cyan-200/10" />
+            <span className="text-[9px] font-black text-white uppercase tracking-wider">Terverifikasi</span>
           </div>
         </div>
         
-        <div className="p-8">
+        <div className="p-8 relative">
+          {/* Decorative Elements */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />
+          
           {/* Profile Header Section */}
-          <div className="flex flex-col items-center mb-8 relative">
+          <div className="flex flex-col items-center mb-10 relative">
             <div 
               onClick={handlePhotoClick}
-              className="w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-slate-200 mb-4 relative group flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+              className="w-28 h-28 rounded-[2rem] border-4 border-white shadow-2xl overflow-hidden bg-slate-100 mb-5 relative group flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-300 ring-1 ring-slate-100"
             >
               {user?.Foto ? (
                 <img src={user.Foto} alt={user.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
-                <User className="w-12 h-12 text-slate-400" />
+                <User className="w-14 h-14 text-slate-300" />
               )}
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Camera className="w-6 h-6 text-white" />
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                <Camera className="w-8 h-8 text-white" />
               </div>
             </div>
             
             <button 
               onClick={() => setShowQR(true)}
-              className="absolute top-0 right-0 w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-[#005E6A] shadow-sm border border-slate-100 active:scale-90 transition-transform"
+              className="absolute top-0 right-0 w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#005E6A] shadow-lg shadow-slate-200/50 border border-slate-50 active:scale-90 transition-transform z-10 hover:bg-slate-50"
             >
-              <QrCode className="w-5 h-5" />
+              <QrCode className="w-6 h-6" />
             </button>
 
-            <h1 className="text-2xl font-black text-[#005E6A] uppercase tracking-tight">{user?.Nama}</h1>
-            <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">ID: WT-{Math.abs(user?.Nama?.length || 0)}-{user?.Nama?.substring(0,2).toUpperCase()}</p>
+            <h1 className="text-3xl font-black text-[#005E6A] uppercase tracking-tighter leading-none mb-1">{user?.Nama}</h1>
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Digital Merchant ID: WT-{Math.abs(user?.Nama?.length || 0)}-{user?.Nama?.substring(0,2).toUpperCase()}</p>
+            </div>
           </div>
 
-          <div className="pt-6 border-t border-slate-100">
-            <div className="grid grid-cols-2 gap-0 divide-x divide-slate-100">
+          <div className="pt-8 border-t border-slate-100 space-y-8">
+            {/* Level Progress */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`p-2 rounded-lg bg-orange-50`}>
+                    <Trophy className="w-4 h-4 text-[#F15A24] fill-[#F15A24]" />
+                  </div>
+                  <div className="flex flex-col">
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Tier Membership</p>
+                    <p className="text-xs font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                   <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">
+                    {Math.round(progressPercentage)}%
+                   </p>
+                </div>
+              </div>
+              <div className="h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.round(progressPercentage)}%` }}
+                  className="h-full bg-gradient-to-r from-[#F15A24] to-[#ff8c42] rounded-full shadow-[0_0_10px_rgba(241,90,36,0.3)]"
+                />
+              </div>
+              {LEVELS[currentLevelIndex + 1] && (
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest text-center">
+                  Butuh Rp {(LEVELS[currentLevelIndex + 1].min - (customerLevel as any).total).toLocaleString('id-ID')} lagi untuk naik ke {LEVELS[currentLevelIndex + 1].name}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div 
                 onClick={() => navigate(`/poin/${encodeURIComponent(user?.Nama || '')}`)}
-                className="flex flex-col items-center gap-1 group transition-colors cursor-pointer active:scale-95 px-2"
+                className="bg-slate-50/50 rounded-3xl p-4 flex flex-col items-center gap-1 group transition-all cursor-pointer active:scale-95 border border-slate-50 hover:border-amber-200 hover:bg-amber-50/30"
               >
-                <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center mb-1">
-                  <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+                  <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
                 </div>
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Loyalitas</p>
-                <p className={`text-[10px] font-black uppercase tracking-tight ${activePoints < 0 ? 'text-red-500' : 'text-[#005E6A]'}`}>{activePoints} Poin</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Poin Saya</p>
+                <p className={`text-sm font-black uppercase tracking-tight ${activePoints < 0 ? 'text-red-500' : 'text-[#005E6A]'}`}>{activePoints.toLocaleString('id-ID')} Poin</p>
               </div>
+              
               <div 
                 onClick={() => setShowLevelBenefits(true)}
-                className="flex flex-col items-center gap-1 group transition-colors cursor-pointer active:scale-95 px-2"
+                className="bg-slate-50/50 rounded-3xl p-4 flex flex-col items-center gap-1 group transition-all cursor-pointer active:scale-95 border border-slate-50 hover:border-[#005E6A]/20 hover:bg-[#005E6A]/5"
               >
-                <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center mb-1">
-                  <Trophy className="w-4 h-4 text-[#F15A24] fill-[#F15A24]" />
+                <div className="w-10 h-10 bg-[#005E6A]/10 rounded-xl flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+                  <CreditCard className="w-5 h-5 text-[#005E6A]" />
                 </div>
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Level</p>
-                <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Transaksi</p>
+                <p className="text-sm font-black text-[#005E6A] uppercase tracking-tight">{transactions.filter(t => t.Nama.toLowerCase() === user?.Nama?.toLowerCase()).length} Kali</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm mb-6">
-        {[
-          { icon: ShieldCheck, label: "Keamanan", color: "text-green-500", action: () => {} },
-          { icon: Bell, label: "Notifikasi", color: "text-orange-500", action: () => {} },
-          { icon: Globe, label: "Bahasa", color: "text-purple-500", action: () => {} },
-          { icon: HelpCircle, label: "Bantuan", color: "text-[#005E6A]", action: () => navigate("/bantuan") },
-        ].map((item, i) => (
-          <button 
-            key={i} 
-            onClick={item.action}
-            className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
-          >
-            <div className="flex items-center gap-3">
-              <item.icon className={`w-5 h-5 ${item.color}`} />
-              <span className="text-xs font-bold text-slate-700">{item.label}</span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-300" />
-          </button>
-        ))}
+      <div className="space-y-6 mb-8">
+        <div className="px-2">
+          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4 ml-2">Pengaturan & Bantuan</h3>
+          <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm">
+            {[
+              { icon: ShieldCheck, label: "Keamanan Akun", color: "text-green-500", desc: "Update PIN & Privasi", action: () => {} },
+              { icon: Bell, label: "Pusat Notifikasi", color: "text-orange-500", desc: "Info belanja & promo", action: () => {} },
+              { icon: MessageSquare, label: "Hubungi Admin", color: "text-blue-500", desc: "Layanan WhatsApp", action: () => { window.open("https://wa.me/6287774138090", "_blank") } },
+              { icon: HelpCircle, label: "Pusat Bantuan", color: "text-[#005E6A]", desc: "Tentang Warung Tomi", action: () => navigate("/bantuan") },
+            ].map((item, i) => (
+              <button 
+                key={i} 
+                onClick={item.action}
+                className="w-full p-5 flex items-center justify-between hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 text-left group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-2xl ${item.color.replace('text-', 'bg-')}/5 flex items-center justify-center group-hover:scale-105 transition-transform`}>
+                    <item.icon className={`w-5 h-5 ${item.color}`} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black text-[#005E6A] uppercase tracking-tight">{item.label}</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{item.desc}</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-200 group-hover:text-[#005E6A] transition-colors" />
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Logout Button */}
-      <button 
-        onClick={() => setShowLogoutConfirm(true)}
-        className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 p-4 rounded-2xl flex items-center justify-center gap-3 transition-colors active:scale-95"
-      >
-        <LogOut className="w-5 h-5" />
-        <span className="text-xs font-black uppercase tracking-[0.2em]">Keluar Akun</span>
-      </button>
+      <div className="px-2 mb-20">
+        <button 
+          onClick={() => setShowLogoutConfirm(true)}
+          className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 p-5 rounded-[2rem] flex items-center justify-center gap-3 transition-all active:scale-95 border border-rose-100 shadow-sm group"
+        >
+          <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-xs font-black uppercase tracking-[0.3em]">Keluar Akun</span>
+        </button>
+      </div>
 
       {/* Logout Confirmation Popup */}
       <AnimatePresence>
@@ -9122,7 +10182,7 @@ const QRISPage = () => {
       exit={{ opacity: 0 }}
       className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-24 rounded-b-[3.5rem] shadow-xl relative overflow-hidden">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-24 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-400/10 rounded-full -ml-24 -mb-24 blur-2xl" />
         
@@ -9325,7 +10385,7 @@ const TarikTunaiPage = () => {
       exit={{ opacity: 0 }}
       className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-24 rounded-b-[3.5rem] shadow-xl relative overflow-hidden">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-24 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl animate-pulse" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-400/10 rounded-full -ml-24 -mb-24 blur-2xl" />
         
@@ -9392,7 +10452,7 @@ const TarikTunaiPage = () => {
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Potongan Admin</p>
                   <p className="text-xs font-black text-rose-500">-{formatIDR(adminFee)}</p>
                 </div>
-                <div className="bg-[#005E6A] p-4 rounded-2xl text-white">
+                <div className="bg-[#005E6A] p-4 rounded-none text-white">
                   <p className="text-[8px] font-black opacity-60 uppercase tracking-widest mb-1">Diterima Tunai</p>
                   <p className="text-xs font-black whitespace-nowrap">{formatIDR(totalReceived)}</p>
                 </div>
@@ -9702,6 +10762,143 @@ const TarikTunaiPage = () => {
   );
 };
 
+
+const AdminLayout = ({ 
+  children, 
+  activeTab 
+}: { 
+  children: React.ReactNode, 
+  activeTab: string 
+}) => {
+  const navigate = useNavigate();
+  
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/admin" },
+    { id: "customers", label: "Pelanggan", icon: Users, path: "/admin/customers" },
+    { id: "cashier", label: "Kasir", icon: Calculator, path: "/admin/cashier" },
+    { id: "data", label: "Data", icon: Database, path: "/admin/master-data" },
+    { id: "settings", label: "Pengaturan", icon: Settings, path: "/admin/others" }
+  ];
+
+  return (
+    <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans flex flex-col md:flex-row">
+      <nav className="fixed bottom-0 left-0 right-0 md:relative md:w-68 md:h-screen md:sticky md:top-0 bg-white/95 backdrop-blur-xl border-t md:border-t-0 md:border-r border-slate-100 z-50 flex md:flex-col items-center md:items-stretch justify-between md:justify-start px-6 py-4 md:px-4 md:py-10 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] md:shadow-none">
+        {/* Desktop Header Logo */}
+        <div className="hidden md:flex flex-col gap-1 mb-12 px-2">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-lg shadow-[#005E6A]/20 transform -rotate-3 transition-transform hover:rotate-0">
+              <LayoutGrid className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-[15px] font-black text-[#005E6A] tracking-tighter leading-none uppercase">WARUNG <span className="text-[#F15A24]">TOMI</span></h1>
+              <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 opacity-80">Admin Center</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex md:flex-col items-center md:items-stretch flex-1 md:flex-none gap-2 w-full">
+          {navItems.map((item) => {
+            const isActive = activeTab === item.id;
+            const Icon = item.icon;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigate(item.path)}
+                className={`relative flex items-center justify-center md:justify-start h-12 md:h-13 transition-all duration-500 rounded-2xl md:rounded-2xl group overflow-hidden ${
+                  isActive 
+                    ? "flex-[2.5] md:flex-none px-6 md:px-5 md:bg-[#005E6A]/5" 
+                    : "flex-1 md:flex-none px-2 md:px-5 hover:bg-slate-50"
+                }`}
+              >
+                {/* Mobile Active Indicator */}
+                {isActive && (
+                  <motion.div
+                    layoutId="adminNavIndicator"
+                    className="absolute inset-0 bg-gradient-to-br from-[#F15A24] to-[#ff8c42] rounded-2xl shadow-lg shadow-[#F15A24]/30 md:hidden"
+                    transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
+                  />
+                )}
+
+                {/* Sidebar Accent (Desktop) */}
+                {isActive && (
+                  <motion.div
+                    layoutId="adminSidebarAccent"
+                    className="absolute left-0 top-3 bottom-3 w-1.5 bg-[#F15A24] rounded-r-full hidden md:block"
+                    transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+                  />
+                )}
+
+                <div className="flex items-center gap-3.5 relative z-10 w-full">
+                  <motion.div
+                    animate={{
+                      scale: isActive ? 1.1 : 1,
+                      rotate: isActive ? 0 : 0
+                    }}
+                    whileHover={{ scale: 1.1 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                    className="shrink-0"
+                  >
+                    <Icon 
+                      className={`w-5 h-5 transition-all duration-500 ${
+                        isActive 
+                          ? "text-white md:text-[#F15A24]" 
+                          : "text-slate-400 group-hover:text-[#F15A24]"
+                      }`} 
+                      strokeWidth={isActive ? 2.5 : 2}
+                    />
+                  </motion.div>
+                  
+                  <div className="flex flex-col overflow-hidden">
+                    <span 
+                      className={`text-[10px] md:text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap transition-all duration-500 ${
+                        isActive 
+                          ? "text-white md:text-[#005E6A] opacity-100" 
+                          : "text-slate-400 opacity-0 md:opacity-60 md:block hidden group-hover:opacity-100"
+                      }`}
+                    >
+                      {item.label}
+                    </span>
+                    {isActive && (
+                      <div className="h-0.5 w-full bg-[#F15A24] mt-0.5 rounded-full md:hidden" />
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Bottom Sidebar Footer (Desktop) */}
+        <div className="hidden md:flex flex-col gap-2 mt-auto pb-6 border-t border-slate-50 pt-8">
+          <button 
+            onClick={() => navigate('/')}
+            className="flex items-center gap-4 px-5 py-3.5 w-full rounded-2xl text-slate-400 hover:text-[#005E6A] hover:bg-slate-50 transition-all group"
+          >
+            <Home className="w-5 h-5 shrink-0 transition-transform group-hover:-translate-x-1" />
+            <span className="text-[10px] font-black uppercase tracking-[0.15em]">Ke Beranda</span>
+          </button>
+          
+          <button 
+            onClick={() => {
+              localStorage.removeItem("admin_session");
+              navigate("/");
+            }}
+            className="flex items-center gap-4 px-5 py-3.5 w-full rounded-2xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all group"
+          >
+            <LogOut className="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" />
+            <span className="text-[10px] font-black uppercase tracking-[0.15em]">Keluar Sesi</span>
+          </button>
+        </div>
+      </nav>
+
+      <main className="flex-1 w-full pb-28 md:pb-12 overflow-x-hidden">
+        {children}
+      </main>
+    </div>
+  );
+};
+
 const Layout = ({ 
   children, 
   activeTab, 
@@ -9713,7 +10910,7 @@ const Layout = ({
   setActiveTab: (id: string) => void,
   user: Customer | null,
 }) => (
-  <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans pb-24">
+  <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans pb-28">
     <main className="container mx-auto max-w-lg">
       {children}
       {activeTab === "beranda" && <KontakSection />}
@@ -9793,7 +10990,7 @@ const HomePage = ({
           {!loggedInUser && <div className="h-6" />}
           {loggedInUser && (
             <section className="px-6 pt-4">
-              <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+              <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-base font-bold text-black uppercase tracking-wider">Portofolio</h3>
                   <button 
@@ -9905,29 +11102,31 @@ const HomePage = ({
                             </span>
                           </div>
                         )}
-                        {assets.map((item, i) => (
-                      <div 
-                        key={i} 
-                        onClick={() => navigate(item.path)}
-                        className={`relative overflow-hidden bg-gradient-to-r ${item.gradient} p-3 rounded-xl flex items-center justify-between shadow-sm border border-white/10 cursor-pointer active:scale-[0.98] transition-transform`}
-                      >
-                        <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-xl" />
-                        
-                        <div className="flex items-center gap-3 relative z-10">
-                          <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20">
-                            <item.icon className="w-5 h-5 text-white" />
-                          </div>
-                          <div>
-                            <p className="text-[8px] font-black text-white/70 uppercase tracking-[0.2em] leading-none mb-1">{item.name}</p>
-                            <p className="text-sm font-black text-white tracking-tight">Rp {formatCurrency(item.value)}</p>
-                          </div>
-                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                          {assets.map((item, i) => (
+                            <div 
+                              key={i} 
+                              onClick={() => navigate(item.path)}
+                              className={`relative overflow-hidden bg-gradient-to-r ${item.gradient} p-4 rounded-xl flex items-center justify-between shadow-sm border border-white/10 cursor-pointer active:scale-[0.98] transition-transform h-full`}
+                            >
+                              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-xl" />
+                              
+                              <div className="flex items-center gap-3 relative z-10">
+                                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20">
+                                  <item.icon className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                  <p className="text-[8px] font-black text-white/70 uppercase tracking-[0.2em] leading-none mb-1">{item.name}</p>
+                                  <p className="text-sm font-black text-white tracking-tight">Rp {formatCurrency(item.value)}</p>
+                                </div>
+                              </div>
 
-                        <div className="w-7 h-7 bg-white/10 rounded-full flex items-center justify-center relative z-10">
-                          <ChevronRight className="w-4 h-4 text-white" />
+                              <div className="w-7 h-7 bg-white/10 rounded-full flex items-center justify-center relative z-10">
+                                <ChevronRight className="w-4 h-4 text-white" />
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      </div>
-                        ))}
                       </>
                     );
                   })()}
@@ -9962,8 +11161,8 @@ const HomePage = ({
               </div>
               <div className="h-px bg-slate-100 w-full mb-6" />
               
-              <div className="grid grid-cols-2 gap-4">
-                {stock.slice(0, 4).map((item, idx) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {stock.slice(0, 8).map((item, idx) => (
                   <motion.div
                     key={item.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -10235,6 +11434,7 @@ export default function App() {
   const [investmentTransactions, setInvestmentTransactions] = useState<InvestmentTransaction[]>([]);
   const [redeemedPoints, setRedeemedPoints] = useState<RedeemedPoint[]>([]);
   const [stock, setStock] = useState<StockItem[]>([]);
+  const [dataSource] = useState<"sheets" | "firebase">("sheets");
   const [userPhotos, setUserPhotos] = useState<Record<string, string>>(() => {
     const saved = localStorage.getItem("warung_tomi_photos");
     return saved ? JSON.parse(saved) : {};
@@ -10290,6 +11490,13 @@ export default function App() {
     localStorage.setItem('install_prompt_dismissed', 'true');
   };
 
+  const [firebaseAuthUser, setFirebaseAuthUser] = useState<any>(null);
+  const [isAuthReady, setIsAuthReady] = useState(true);
+
+  useEffect(() => {
+    // Firebase connection and auth removed as requested to use spreadsheet only
+  }, []);
+
   const isFetching = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -10298,7 +11505,7 @@ export default function App() {
     if (savedUser) setLoggedInUser(JSON.parse(savedUser));
   }, []);
 
-  const fetchData = async (showLoading = true) => {
+  const fetchData = async (showLoading = true, collectionName?: string) => {
     if (isFetching.current && !showLoading) return;
     
     if (abortControllerRef.current) abortControllerRef.current.abort();
@@ -10311,342 +11518,302 @@ export default function App() {
       setDataError(null);
     }
 
-      try {
-        const urls = [
-          { name: "Pelanggan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv" },
-          { name: "Tabungan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv" },
-          { name: "Investasi", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBQ5kUdqwv5bBsJcaiponYzqU_JxO0g7qQb6DQ1ujJ9bzTkY5GlI5XQQXL9BVr22gdmM7V7eEIDMH9/pub?gid=799157484&single=true&output=csv" },
-          { name: "Hutang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv" },
-          { name: "Penjualan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv" },
-          { name: "Poin", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv" },
-          { name: "Stok", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRe7VfqXToI8v15JzJmX2-9IQO0RQFmJPVlMuf3GYyYaa1grUAombFNk9Zt78ZTKJb1NWQFi5QdmPRm/pub?gid=0&single=true&output=csv" }
-        ];
-        
-        // Fetch individually to better pinpoint failures
-        const fetchWithRetry = async (label: string, url: string, signal: AbortSignal, retries = 2) => {
-          let lastError;
-          for (let i = 0; i <= retries; i++) {
-            try {
-              if (signal.aborted) throw new Error('Aborted');
-              
-              // Only add cache buster on retries or after some time to avoid excessive params
-              const useCacheBuster = i > 0;
-              const finalUrl = useCacheBuster 
-                ? url + (url.includes('?') ? '&' : '?') + `t=${Date.now()}`
-                : url;
+    try {
+      const allUrls = [
+        { id: "customers", name: "Pelanggan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv" },
+        { id: "savingTransactions", name: "Tabungan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv" },
+        { id: "investmentTransactions", name: "Investasi", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBQ5kUdqwv5bBsJcaiponYzqU_JxO0g7qQb6DQ1ujJ9bzTkY5GlI5XQQXL9BVr22gdmM7V7eEIDMH9/pub?gid=799157484&single=true&output=csv" },
+        { id: "debtTransactions", name: "Hutang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv" },
+        { id: "salesTransactions", name: "Penjualan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv" },
+        { id: "redeemedPoints", name: "Poin", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv" },
+        { id: "stockItems", name: "Stok Barang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRe7VfqXToI8v15JzJmX2-9IQO0RQFmJPVlMuf3GYyYaa1grUAombFNk9Zt78ZTKJb1NWQFi5QdmPRm/pub?gid=0&single=true&output=csv" }
+      ];
 
-              const res = await fetch(finalUrl, { 
-                signal,
-                cache: 'no-cache', // Use no-cache instead of no-store for better compatibility
-                mode: 'cors',
-                credentials: 'omit'
-              });
+      const activeUrls = (collectionName && collectionName !== "customers") 
+        ? allUrls.filter(u => u.id === collectionName)
+        : allUrls;
+
+      const fetchWithRetry = async (label: string, url: string, signal: AbortSignal, retries = 2) => {
+        let lastError;
+        for (let i = 0; i <= retries; i++) {
+          try {
+            if (signal.aborted) throw new Error('Aborted');
+            const finalUrl = i > 0 ? url + (url.includes('?') ? '&' : '?') + `t=${Date.now()}` : url;
+            const res = await fetch(finalUrl, { signal, cache: 'no-cache', mode: 'cors', credentials: 'omit' });
+            if (!res.ok) throw new Error(`Status ${res.status}`);
+            return await res.text();
+          } catch (e: any) {
+            lastError = e;
+            if (e.name === 'AbortError') throw e;
+            if (i < retries) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+          }
+        }
+        return "";
+      };
+
+      const csvResultsMap = new Map();
+      const fetchResults = await Promise.all(activeUrls.map(async u => {
+        const text = await fetchWithRetry(u.name, u.url, controller.signal);
+        return { id: u.id, text };
+      }));
+      
+      fetchResults.forEach(r => csvResultsMap.set(r.id, r.text));
+      
+      if (controller.signal.aborted) return;
+
+      const parseCsv = (csv: string): Promise<any[]> => new Promise(resolve => {
+        if (!csv) return resolve([]);
+        Papa.parse(csv, { header: true, skipEmptyLines: true, complete: results => resolve(results.data), error: () => resolve([]) });
+      });
+
+      // Partial or full update based on collectionName
+      if (!collectionName || collectionName === "stockItems") {
+        const csv = csvResultsMap.get("stockItems");
+        if (csv) {
+          const sData = await parseCsv(csv);
+          const processedStock: StockItem[] = sData.map(s => {
+            const sIdKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('id barang'));
+            const sNamaKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('nama barang'));
+            const sHmKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga modal'));
+            const sHjKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga jual'));
+            const sStokKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('stok'));
+            return {
+              id: sIdKey ? String(s[sIdKey]).trim() : Math.random().toString(36).substr(2, 9),
+              Nama: sNamaKey ? String(s[sNamaKey]).trim() : "Unknown",
+              Kategori: String(s[Object.keys(s).find(k => k.toLowerCase().includes('kategori')) || ''] || 'Lainnya'),
+              Stok: sStokKey ? parseInt(String(s[sStokKey]).replace(/\D/g, '')) || 0 : 0,
+              Satuan: String(s[Object.keys(s).find(k => k.toLowerCase().includes('satuan')) || ''] || 'Unit'),
+              MinStok: 5,
+              HargaModal: sHmKey ? parseCurrency(s[sHmKey]) : 0,
+              HargaJual: sHjKey ? parseCurrency(s[sHjKey]) : 0,
+              UpdateTerakhir: String(s[Object.keys(s).find(k => k.toLowerCase().includes('tanggal')) || ''] || '-'),
+              Image: String(s[Object.keys(s).find(k => k.toLowerCase().includes('gambar')) || ''] || undefined)
+            };
+          });
+          setStock(processedStock);
+        }
+      }
+
+      let processedRedeemedPoints: RedeemedPoint[] = [];
+      if (!collectionName || collectionName === "redeemedPoints" || collectionName === "customers") {
+        const csv = csvResultsMap.get("redeemedPoints");
+        if (csv) {
+          const rData = await parseCsv(csv);
+          processedRedeemedPoints = rData.map((r, idx) => ({
+            id: `row_${String(idx).padStart(6, '0')}`,
+            Tanggal: String(r[Object.keys(r).find(k => k.toLowerCase().includes('tanggal')) || ''] || '-'),
+            Nama: String(r[Object.keys(r).find(k => k.toLowerCase().includes('nama')) || ''] || 'Unknown'),
+            Poin: parseCurrency(r[Object.keys(r).find(k => k.toLowerCase().includes('poin')) || '']),
+            Hadiah: String(r[Object.keys(r).find(k => k.toLowerCase().includes('hadiah')) || ''] || '-')
+          }));
+          setRedeemedPoints(processedRedeemedPoints);
+        }
+      }
+
+      // Customers and related transactions usually need each other for total calculations
+      if (!collectionName || collectionName === "customers") {
+        const cCsv = csvResultsMap.get("customers");
+        const sCsv = csvResultsMap.get("savingTransactions");
+        const iCsv = csvResultsMap.get("investmentTransactions");
+        const hCsv = csvResultsMap.get("debtTransactions");
+        const salesCsv = csvResultsMap.get("salesTransactions");
+
+        if (cCsv) {
+          const cData = cCsv ? await parseCsv(cCsv) : [];
+          const sData = sCsv ? await parseCsv(sCsv) : [];
+          const iData = iCsv ? await parseCsv(iCsv) : [];
+          const hData = hCsv ? await parseCsv(hCsv) : [];
+          const salesData = salesCsv ? await parseCsv(salesCsv) : [];
+
+          const findKey = (row: any, targets: string[]) => 
+            Object.keys(row).find(k => targets.some(t => k.toLowerCase().trim().includes(t.toLowerCase())));
+
+          const allSavingsTransactions: SavingTransaction[] = [];
+          const allDebtTransactions: DebtTransaction[] = [];
+          const allInvestmentTransactions: InvestmentTransaction[] = [];
+          
+          const processedSales: SalesTransaction[] = salesData.map((s, idx) => {
+            const getSVal = (row: any, targets: string[]) => {
+              const key = findKey(row, targets);
+              return key ? String(row[key]).trim() : "";
+            };
+
+            return {
+              id: `row_${String(idx).padStart(6, '0')}`,
+              Tanggal: getSVal(s, ['tanggal']) || "-",
+              Nama: getSVal(s, ['nama']) || "Unknown",
+              Jenis: getSVal(s, ['jenis']) || "Belanja",
+              Pemasukan: parseCurrency(getSVal(s, ['harga jual', 'pemasukan', 'jumlah'])),
+              Status: getSVal(s, ['status']) || "Selesai",
+              Melalui: getSVal(s, ['melalui']) || "-",
+              HargaModal: parseCurrency(getSVal(s, ['modal'])),
+              Sebagian: parseCurrency(getSVal(s, ['sebagian']))
+            };
+          });
+
+          const validCustomers = cData.map((c: any) => {
+            const getVal = (row: any, targets: string[]) => {
+              const key = findKey(row, targets);
+              return key ? String(row[key]).trim() : "";
+            };
+
+            const name = getVal(c, ['nama']);
+            if (!name) return null;
+            
+            // Process Saving Transactions for this user
+            const userSavings = sData.filter(s => {
+              const sNamaKey = findKey(s, ['nama']);
+              return sNamaKey && String(s[sNamaKey]).trim().toLowerCase() === name.toLowerCase();
+            });
+            
+            const chronologicalSaving = [...userSavings].reverse();
+            let savingBalance = 0;
+            const userSavingTransactions: SavingTransaction[] = [];
+            
+            chronologicalSaving.forEach(t => {
+              const tipeKey = findKey(t, ['tipe']);
+              const nominalKey = findKey(t, ['nominal', 'jumlah']);
+              const tanggalKey = findKey(t, ['tanggal']);
               
-              if (!res.ok) throw new Error(`Status ${res.status}`);
-              return await res.text();
-            } catch (e: any) {
-              lastError = e;
-              if (e.name === 'AbortError') throw e;
-              
-              if (i < retries) {
-                // Wait before retrying (exponential backoff)
-                await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-                continue;
+              if (tipeKey && nominalKey) {
+                const tipe = String(t[tipeKey]).trim().toUpperCase();
+                const nominal = parseCurrency(t[nominalKey]);
+                if (tipe === 'SETOR') savingBalance += nominal;
+                else if (tipe === 'TARIK') savingBalance -= nominal;
+                
+                userSavingTransactions.push({
+                  id: `row_${String(allSavingsTransactions.length + userSavingTransactions.length).padStart(6, '0')}`,
+                  Tanggal: tanggalKey ? String(t[tanggalKey]).trim() : "-",
+                  Nama: name,
+                  Tipe: tipe,
+                  Nominal: nominal,
+                  SaldoAkhir: savingBalance,
+                  Berita: getVal(t, ['berita']) || '-'
+                });
               }
-            }
-          }
+            });
+            allSavingsTransactions.push(...userSavingTransactions);
 
-          if (label === "Pelanggan" || label === "Tabungan") {
-            console.error(`Gagal memuat data vital ${label}:`, lastError);
-          } else {
-            console.warn(`Melewatkan data sekunder ${label} karena error:`, lastError);
-          }
-          
-          if (label !== "Pelanggan") {
-            return "";
-          }
-          
-          const isNetworkError = lastError?.message === 'Failed to fetch' || lastError?.name === 'TypeError';
-          const errorMsg = isNetworkError 
-            ? `Koneksi ke data ${label} terputus. Hal ini biasanya disebabkan oleh isu jaringan, pemblokiran (AdBlock), atau link Google Sheet yang tidak aktif/publik.`
-            : `Gagal memuat data ${label}: ${lastError?.message || 'Error tidak diketahui'}`;
+            // Process Debt Transactions for this user
+            const userDebt = hData.filter(h => {
+              const hNamaKey = findKey(h, ['nama']);
+              return hNamaKey && String(h[hNamaKey]).trim().toLowerCase() === name.toLowerCase();
+            });
             
-          throw new Error(errorMsg);
-        };
-
-        const csvResults = await Promise.all(urls.map(u => fetchWithRetry(u.name, u.url, controller.signal)));
-        
-        if (controller.signal.aborted) return;
-
-        const parseCsv = (csv: string): Promise<any[]> => new Promise(resolve => {
-          if (!csv) return resolve([]);
-          Papa.parse(csv, { header: true, skipEmptyLines: true, complete: results => resolve(results.data), error: () => resolve([]) });
-        });
-        
-        const [cData, sData, iData, hData, salesData, rData, stockData] = await Promise.all(csvResults.map(parseCsv));
-        
-        if (controller.signal.aborted) return;
-        
-        // Process Stock Data
-        const processedStock: StockItem[] = stockData.map(s => {
-          const sIdKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('id barang'));
-          const sNamaKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('nama barang'));
-          const sKategoriKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('kategori'));
-          const sHjKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga jual'));
-          const sHmKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga modal'));
-          const sStokKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('stok'));
-          const sSatuanKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('satuan'));
-          const sGambarKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('gambar'));
-          const sTanggalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('tanggal'));
-
-          return {
-            id: sIdKey ? String(s[sIdKey]).trim() : Math.random().toString(36).substr(2, 9),
-            Nama: sNamaKey ? String(s[sNamaKey]).trim() : "Unknown",
-            Kategori: sKategoriKey ? String(s[sKategoriKey]).trim() : "Lainnya",
-            Stok: sStokKey ? parseInt(String(s[sStokKey]).replace(/\D/g, '')) || 0 : 0,
-            Satuan: sSatuanKey ? String(s[sSatuanKey]).trim() : "Unit",
-            MinStok: 5,
-            HargaModal: sHmKey ? parseCurrency(s[sHmKey]) : 0,
-            HargaJual: sHjKey ? parseCurrency(s[sHjKey]) : 0,
-            UpdateTerakhir: sTanggalKey ? String(s[sTanggalKey]).trim() : new Date().toLocaleDateString('id-ID'),
-            Image: sGambarKey ? String(s[sGambarKey]).trim() : undefined
-          };
-        });
-
-        // Process Redeemed Points
-        const processedRedeemedPoints: RedeemedPoint[] = rData.map(r => {
-          const rNamaKey = Object.keys(r).find(k => k.toLowerCase().trim().includes('nama'));
-          const rTanggalKey = Object.keys(r).find(k => k.toLowerCase().trim().includes('tanggal'));
-          const rPoinKey = Object.keys(r).find(k => k.toLowerCase().trim().includes('poin'));
-          const rHadiahKey = Object.keys(r).find(k => k.toLowerCase().trim().includes('hadiah'));
-
-          return {
-            Tanggal: rTanggalKey ? String(r[rTanggalKey]).trim() : "-",
-            Nama: rNamaKey ? String(r[rNamaKey]).trim() : "Unknown",
-            Poin: rPoinKey ? parseCurrency(r[rPoinKey]) : 0,
-            Hadiah: rHadiahKey ? String(r[rHadiahKey]).trim() : "Penukaran Hadiah"
-          };
-        });
-
-        if (cData.length > 0) {
-          const firstRow = cData[0];
-          const namaKey = Object.keys(firstRow).find(key => key.toLowerCase().trim() === 'nama');
-          const pinKey = Object.keys(firstRow).find(key => key.toLowerCase().trim() === 'pin');
-          const saldoKey = Object.keys(firstRow).find(key => key.toLowerCase().trim() === 'saldo');
-          const idKey = Object.keys(firstRow).find(key => key.toLowerCase().trim() === 'id');
-
-          if (namaKey) {
-            const allSavingsTransactions: SavingTransaction[] = [];
-            const allDebtTransactions: DebtTransaction[] = [];
-            const allInvestmentTransactions: InvestmentTransaction[] = [];
+            const chronologicalDebt = [...userDebt].reverse();
+            let debtBalance = 0;
+            const userDebtTransactions: DebtTransaction[] = [];
             
-            const allSalesTransactions: SalesTransaction[] = salesData.map(s => {
-              const sNamaKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('nama'));
-              const jenisKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('jenis'));
-              const tanggalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('tanggal') || k.toLowerCase().trim().includes('date'));
-              const pemasukanKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga jual') || k.toLowerCase().trim().includes('pemasukan') || k.toLowerCase().trim().includes('jumlah') || k.toLowerCase().trim().includes('nominal'));
-              const statusKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('status'));
-              const melaluiKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('melalui'));
-              const modalKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga modal') || k.toLowerCase().trim().includes('modal'));
-              const sebagianKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('sebagian'));
+            chronologicalDebt.forEach(h => {
+              const tipeKey = findKey(h, ['tipe']);
+              const nominalKey = findKey(h, ['nominal', 'jumlah']);
+              const tanggalKey = findKey(h, ['tanggal']);
+              
+              if (tipeKey && nominalKey) {
+                const tipe = String(h[tipeKey]).trim().toUpperCase();
+                const nominal = parseCurrency(h[nominalKey]);
+                if (tipe === 'TAMBAH') debtBalance += nominal;
+                else if (tipe === 'BAYAR') debtBalance -= nominal;
+                
+                userDebtTransactions.push({
+                  id: `row_${String(allDebtTransactions.length + userDebtTransactions.length).padStart(6, '0')}`,
+                  Tanggal: tanggalKey ? String(h[tanggalKey]).trim() : "-",
+                  Nama: name,
+                  Tipe: tipe,
+                  Jumlah: nominal,
+                  Keterangan: getVal(h, ['keterangan']) || '-',
+                  SaldoAkhir: debtBalance
+                });
+              }
+            });
+            allDebtTransactions.push(...userDebtTransactions);
 
-              const nominal = parseCurrency(pemasukanKey ? s[pemasukanKey] : 0);
-              const modal = parseCurrency(modalKey ? s[modalKey] : 0);
-              const sebagian = parseCurrency(sebagianKey ? s[sebagianKey] : 0);
-
+            // Process Investment Transactions
+            const userInvest = iData.filter(i => {
+              const iNamaKey = findKey(i, ['nama']);
+              return iNamaKey && String(i[iNamaKey]).trim().toLowerCase() === name.toLowerCase();
+            });
+            
+            const userInvestmentTransactions: InvestmentTransaction[] = userInvest.map((i, idx) => {
+              const nominal = parseCurrency(getVal(i, ['nominal', 'diterima']));
               return {
-                Tanggal: tanggalKey ? String(s[tanggalKey]).trim() : "-",
-                Nama: sNamaKey ? String(s[sNamaKey]).trim() : "Unknown",
-                Jenis: jenisKey ? String(s[jenisKey]).trim() : "Belanja",
-                Pemasukan: Math.abs(Math.round(nominal)),
-                Status: statusKey ? String(s[statusKey]).trim() : "Selesai",
-                Melalui: melaluiKey ? String(s[melaluiKey]).trim() : "-",
-                HargaModal: Math.abs(Math.round(modal)),
-                Sebagian: Math.abs(Math.round(sebagian))
+                id: `row_${String(allInvestmentTransactions.length + idx).padStart(6, '0')}`,
+                Tanggal: getVal(i, ['tanggal']) || '-',
+                Nama: name,
+                Nominal: nominal,
+                Tenor: getVal(i, ['tenor']) || '-',
+                JatuhTempo: getVal(i, ['jatuh tempo']) || '-',
+                Status: getVal(i, ['status']) || 'Aktif'
               };
             });
+            allInvestmentTransactions.push(...userInvestmentTransactions);
 
-            const validCustomers = cData
-              .filter((c: any) => c && c[namaKey])
-              .map((c: any) => {
-                const name = String(c[namaKey]).trim();
-                const userTransactions = sData.filter(s => {
-                  const sNamaKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('nama'));
-                  return sNamaKey && String(s[sNamaKey]).trim().toLowerCase() === name.toLowerCase();
-                });
+            let totalInvestValue = userInvestmentTransactions
+              .filter(t => t.Status.toLowerCase() !== "sukses dicairkan")
+              .reduce((acc, curr) => acc + curr.Nominal, 0);
 
-                const chronologicalTransactions = [...userTransactions].reverse();
-                let runningBalance = 0;
-                const transactions: SavingTransaction[] = [];
+            // Sales for points and levels
+            const userSales = processedSales.filter(t => t.Nama.toLowerCase() === name.toLowerCase());
+            const userLainnya = userSales
+              .filter(t => {
+                const s = (t.Status || "").toLowerCase();
+                return s.includes('belum') || s.includes('proses');
+              })
+              .reduce((acc, t) => acc + (t.HargaModal - t.Sebagian), 0);
 
-                chronologicalTransactions.forEach(t => {
-                  const tipeKey = Object.keys(t).find(k => k.toLowerCase().trim().includes('tipe') || k.toLowerCase().trim().includes('type'));
-                  const nominalKey = Object.keys(t).find(k => k.toLowerCase().trim().includes('nominal') || k.toLowerCase().trim().includes('tabungan') || k.toLowerCase().trim().includes('jumlah') || k.toLowerCase().trim().includes('setor') || k.toLowerCase().trim().includes('tarik'));
-                  const tanggalKey = Object.keys(t).find(k => k.toLowerCase().trim().includes('tanggal') || k.toLowerCase().trim().includes('date'));
-                  const beritaKey = Object.keys(t).find(k => k.toLowerCase().trim().includes('berita') || k.toLowerCase().trim().includes('ket') || k.toLowerCase().trim().includes('memo'));
-                  
-                  if (tipeKey && nominalKey) {
-                    const tipe = String(t[tipeKey]).trim().toUpperCase();
-                    const nominalStr = String(t[nominalKey]).replace(/[^\d]/g, '');
-                    const nominal = parseInt(nominalStr) || 0;
-                    const tanggal = tanggalKey ? String(t[tanggalKey]).trim() : "-";
-                    const berita = beritaKey ? String(t[beritaKey]).trim() : "";
+            const levelInfo = calculateCustomerLevel(processedSales, name);
+            const activePoints = calculateActivePoints(name, processedSales, processedRedeemedPoints);
 
-                    if (tipe === 'SETOR') runningBalance += nominal;
-                    else if (tipe === 'TARIK') runningBalance -= nominal;
+            return {
+              ...c,
+              id: getVal(c, ['id']) || Math.random().toString(36).substr(2, 9),
+              Nama: name,
+              PIN: getVal(c, ['pin']),
+              Saldo: getVal(c, ['saldo']) || "0",
+              Poin: activePoints.toLocaleString('id-ID'),
+              Level: levelInfo.name,
+              Tabungan: savingBalance.toLocaleString('id-ID'),
+              Investasi: totalInvestValue.toLocaleString('id-ID'),
+              Hutang: debtBalance.toLocaleString('id-ID'),
+              Lainnya: userLainnya.toLocaleString('id-ID')
+            };
+          }).filter(Boolean) as Customer[];
 
-                    transactions.push({
-                      Tanggal: tanggal,
-                      Nama: name,
-                      Tipe: tipe,
-                      Nominal: nominal,
-                      SaldoAkhir: runningBalance,
-                      Berita: berita
-                    });
-                  }
-                });
+          setCustomers(validCustomers);
+          setSavingsTransactions(allSavingsTransactions);
+          setDebtTransactions(allDebtTransactions);
+          setInvestmentTransactions(allInvestmentTransactions);
+          setSalesTransactions(processedSales);
 
-                allSavingsTransactions.push(...transactions);
-
-                const userInvestasi = iData.filter(i => {
-                  const iNamaKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('nama'));
-                  return iNamaKey && String(i[iNamaKey]).trim().toLowerCase() === name.toLowerCase();
-                });
-                
-                const iTransactions: InvestmentTransaction[] = userInvestasi.map(i => {
-                  const tanggalKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('tanggal') || k.toLowerCase().trim().includes('date'));
-                  const nominalKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('diterima') || k.toLowerCase().trim().includes('nominal') || k.toLowerCase().trim().includes('jumlah'));
-                  const tenorKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('tenor'));
-                  const jatuhTempoKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('jatuh tempo'));
-                  const statusKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('status'));
-                  const nisbahKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('nisbah'));
-                  const keteranganKey = Object.keys(i).find(k => k.toLowerCase().trim().includes('keterangan'));
-                  
-                  const nominalStr = nominalKey ? String(i[nominalKey]).replace(/[^\d]/g, '') : "0";
-                  const nominal = parseInt(nominalStr) || 0;
-                  
-                  return {
-                    Tanggal: tanggalKey ? String(i[tanggalKey]).trim() : "-",
-                    Nama: name,
-                    Nominal: nominal,
-                    Tenor: tenorKey ? String(i[tenorKey]).trim() : "-",
-                    JatuhTempo: jatuhTempoKey ? String(i[jatuhTempoKey]).trim() : "-",
-                    Status: statusKey ? String(i[statusKey]).trim() : "Aktif",
-                    Keterangan: keteranganKey ? String(i[keteranganKey]).trim() : undefined,
-                    Nisbah: nisbahKey ? String(i[nisbahKey]).trim() : undefined
-                  };
-                });
-                allInvestmentTransactions.push(...iTransactions);
-                
-                let totalInvestasiValue = iTransactions
-                  .filter(t => t.Status.toLowerCase() !== "sukses dicairkan")
-                  .reduce((acc, curr) => {
-                    const estimate = calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo);
-                    return acc + estimate.total;
-                  }, 0);
-
-                const userHutangData = hData.filter(h => {
-                  const hNamaKey = Object.keys(h).find(k => k.toLowerCase().trim().includes('nama'));
-                  return hNamaKey && String(h[hNamaKey]).trim().toLowerCase() === name.toLowerCase();
-                });
-
-                const chronologicalHutang = [...userHutangData].reverse();
-                let runningHutang = 0;
-                const dTransactions: DebtTransaction[] = [];
-
-                chronologicalHutang.forEach(h => {
-                  const tipeKey = Object.keys(h).find(k => k.toLowerCase().trim().includes('tipe') || k.toLowerCase().trim().includes('type'));
-                  const nominalKey = Object.keys(h).find(k => k.toLowerCase().trim().includes('nominal') || k.toLowerCase().trim().includes('jumlah'));
-                  const tanggalKey = Object.keys(h).find(k => k.toLowerCase().trim().includes('tanggal') || k.toLowerCase().trim().includes('date'));
-                  const keteranganKey = Object.keys(h).find(k => k.toLowerCase().trim().includes('keterangan'));
-
-                  if (tipeKey && nominalKey) {
-                    const tipe = String(h[tipeKey]).trim().toUpperCase();
-                    const nominalStr = String(h[nominalKey]).replace(/[^\d]/g, '');
-                    const nominal = parseInt(nominalStr) || 0;
-                    const tanggal = tanggalKey ? String(h[tanggalKey]).trim() : "-";
-                    const keterangan = keteranganKey ? String(h[keteranganKey]).trim() : "-";
-
-                    if (tipe === 'TAMBAH') runningHutang += nominal;
-                    else if (tipe === 'BAYAR') runningHutang -= nominal;
-
-                    dTransactions.push({
-                      Tanggal: tanggal,
-                      Nama: name,
-                      Tipe: tipe,
-                      Jumlah: nominal,
-                      Keterangan: keterangan,
-                      SaldoAkhir: runningHutang
-                    });
-                  }
-                });
-                allDebtTransactions.push(...dTransactions);
-
-                const userSalesTransactions = allSalesTransactions.filter(t => t.Nama.toLowerCase() === name.toLowerCase());
-                const userLainnya = userSalesTransactions
-                  .filter(t => {
-                    const s = (t.Status || "").toLowerCase().trim();
-                    return s.includes('belum') || s.includes('ambil') || s.includes('proses');
-                  })
-                  .reduce((acc, t) => {
-                    const s = (t.Status || "").toUpperCase().trim();
-                    if (s === "DIPROSES") return acc + (t.Pemasukan || 0);
-                    return acc + ((t.HargaModal || 0) - (t.Sebagian || 0));
-                  }, 0);
-
-                return {
-                  ...c,
-                  Nama: name,
-                  PIN: pinKey ? String(c[pinKey]).trim() : "",
-                  Saldo: saldoKey ? String(c[saldoKey]).trim() : "0",
-                  id: idKey ? String(c[idKey]).trim() : Math.random().toString(36).substr(2, 9),
-                  Tabungan: runningBalance.toLocaleString('id-ID'),
-                  Investasi: totalInvestasiValue.toLocaleString('id-ID'),
-                  Hutang: runningHutang.toLocaleString('id-ID'),
-                  Lainnya: userLainnya.toLocaleString('id-ID')
-                };
-              });
-
-            setRedeemedPoints(processedRedeemedPoints);
-        setStock(processedStock);
-            setCustomers(validCustomers);
-            setSavingsTransactions(allSavingsTransactions);
-            setDebtTransactions(allDebtTransactions);
-            setSalesTransactions(allSalesTransactions);
-            setInvestmentTransactions(allInvestmentTransactions);
-            
-            setLoggedInUser(prev => {
-              if (!prev) return null;
-              const updated = validCustomers.find(vc => vc.Nama.toLowerCase() === prev.Nama.toLowerCase());
-              if (updated) {
-                localStorage.setItem("warung_tomi_user", JSON.stringify(updated));
-                return updated;
-              }
-              return prev;
-            });
-          }
+          setLoggedInUser(prev => {
+            if (!prev) return null;
+            const updated = validCustomers.find(vc => vc.Nama.toLowerCase() === prev.Nama.toLowerCase());
+            return updated || prev;
+          });
         }
-      } catch (error: any) {
-        if (error.name !== 'AbortError') {
-          console.error("Fetch Data Error:", error);
-          setDataError(error.message || "Gagal menghubungkan ke server data");
-        }
-    } finally {
-      if (abortControllerRef.current === controller) {
-        setIsLoading(false);
-        isFetching.current = false;
       }
+
+      // The simplest way to handle on-demand is if collectionName is present, we just fetch that one and update it
+      // But because Tabungan, Investasi, etc. are processed from a single big block in existing code,
+      // I'll keep the big block for initial load and add specialized paths for single items.
+      
+    } catch (e: any) {
+      if (e.name === 'AbortError') return;
+      console.error("Fetch Data General Error:", e);
+    } finally {
+      setIsLoading(false);
+      isFetching.current = false;
     }
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(() => fetchData(false), 30000); // Poll every 30 seconds instead of 10
+    fetchData(true);
+    const interval = setInterval(() => fetchData(false, "customers"), 300000); 
     return () => {
       clearInterval(interval);
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
-  }, []);
+  }, [dataSource, isAuthReady]);
 
   const handleUpdatePhoto = (nama: string, base64: string) => {
     const newPhotos = { ...userPhotos, [nama]: base64 };
@@ -10806,7 +11973,13 @@ export default function App() {
           <DebtDetailPage user={loggedInUser} transactions={debtTransactions} />
         } />
         <Route path="/hutang/:customerName" element={
-          <DebtDetailPage user={loggedInUser} transactions={debtTransactions} customers={customers} />
+          <DebtDetailPage 
+            user={loggedInUser} 
+            transactions={debtTransactions} 
+            customers={customers} 
+            fetchData={fetchData} 
+            dataSource={dataSource} 
+          />
         } />
         <Route path="/lainnya" element={
           <LainnyaPage user={loggedInUser} transactions={salesTransactions} />
@@ -10842,25 +12015,107 @@ export default function App() {
             <BansosPage transactions={salesTransactions} />
           </Layout>
         } />
-        <Route path="/admin" element={<AdminDashboard transactions={salesTransactions} user={loggedInUser} customers={customers} investmentTransactions={investmentTransactions} />} />
-        <Route path="/admin/report" element={<AdminReportPage transactions={salesTransactions} />} />
-        <Route path="/admin/customers" element={<AdminCustomerManagement customers={customers} transactions={salesTransactions} redeemedPoints={redeemedPoints} />} />
-        <Route path="/admin/customers/:customerName" element={
-          <AdminCustomerDetailPage 
-            customers={customers} 
-            salesTransactions={salesTransactions} 
-            savingsTransactions={savingsTransactions}
-            investmentTransactions={investmentTransactions}
-            debtTransactions={debtTransactions}
-            redeemedPoints={redeemedPoints}
-          />
+        <Route path="/admin" element={
+          <AdminLayout activeTab="dashboard">
+            <AdminDashboard 
+              transactions={salesTransactions} 
+              user={loggedInUser} 
+              customers={customers} 
+              investmentTransactions={investmentTransactions} 
+              savingsTransactions={savingsTransactions}
+              debtTransactions={debtTransactions}
+              redeemedPoints={redeemedPoints}
+              stock={stock}
+            />
+          </AdminLayout>
         } />
-        <Route path="/admin/savings" element={<AdminSavingsManagement customers={customers} transactions={savingsTransactions} setTransactions={setSavingsTransactions} />} />
-        <Route path="/admin/investment" element={<AdminInvestmentManagement customers={customers} investmentTransactions={investmentTransactions} />} />
-        <Route path="/admin/debt" element={<AdminDebtManagement customers={customers} transactions={debtTransactions} />} />
-        <Route path="/admin/others" element={<AdminOthersManagement transactions={salesTransactions} customers={customers} />} />
-        <Route path="/admin/cashier" element={<AdminCashier stock={stock} customers={customers} savings={savingsTransactions} onTransactionComplete={() => fetchData(false)} />} />
-        <Route path="/admin/stock" element={<AdminStockManagement stock={stock} setStock={setStock} />} />
+        <Route path="/admin/report" element={
+          <AdminLayout activeTab="dashboard">
+            <AdminReportPage transactions={salesTransactions} />
+          </AdminLayout>
+        } />
+        <Route path="/admin/customers" element={
+          <AdminLayout activeTab="customers">
+            <AdminCustomerManagement customers={customers} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
+          </AdminLayout>
+        } />
+        <Route path="/admin/customers/:customerName" element={
+          <AdminLayout activeTab="customers">
+            <AdminCustomerDetailPage 
+              customers={customers} 
+              salesTransactions={salesTransactions} 
+              savingsTransactions={savingsTransactions}
+              investmentTransactions={investmentTransactions}
+              debtTransactions={debtTransactions}
+              redeemedPoints={redeemedPoints}
+            />
+          </AdminLayout>
+        } />
+        <Route path="/admin/savings" element={
+          <AdminLayout activeTab="dashboard">
+            <AdminSavingsManagement customers={customers} transactions={savingsTransactions} setTransactions={setSavingsTransactions} dataSource={dataSource} />
+          </AdminLayout>
+        } />
+        <Route path="/admin/investment" element={
+          <AdminLayout activeTab="dashboard">
+            <AdminInvestmentManagement customers={customers} investmentTransactions={investmentTransactions} />
+          </AdminLayout>
+        } />
+        <Route path="/admin/debt" element={
+          <AdminLayout activeTab="dashboard">
+            <AdminDebtManagement customers={customers} transactions={debtTransactions} setTransactions={setDebtTransactions} dataSource={dataSource} />
+          </AdminLayout>
+        } />
+        <Route path="/admin/management-lainnya" element={
+          <AdminLayout activeTab="dashboard">
+            <AdminOtherManagement salesTransactions={salesTransactions} />
+          </AdminLayout>
+        } />
+        <Route path="/admin/master-data" element={
+          <AdminLayout activeTab="data">
+            <AdminMasterDataPage 
+              customers={customers}
+              savingsTransactions={savingsTransactions}
+              debtTransactions={debtTransactions}
+              salesTransactions={salesTransactions}
+              redeemedPoints={redeemedPoints}
+              stockItems={stock}
+              investmentTransactions={investmentTransactions}
+              fetchData={fetchData}
+              dataSource={dataSource}
+            />
+          </AdminLayout>
+        } />
+        <Route path="/admin/others" element={
+          <AdminLayout activeTab="settings">
+            <AdminSettingsPage />
+          </AdminLayout>
+        } />
+        <Route path="/admin/vouchers" element={
+          <AdminLayout activeTab="dashboard">
+             <div className="p-8 py-20 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl m-6 max-w-6xl mx-auto">
+              <Ticket className="w-16 h-16 text-purple-500 mx-auto mb-6" />
+              <h3 className="text-xl font-black text-[#005E6A] uppercase tracking-wider mb-2">Manajemen Voucher</h3>
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-[0.2em] mb-8">Fitur ini sedang dalam pengembangan</p>
+              <Link 
+                to="/admin"
+                className="inline-flex px-8 py-3 bg-[#005E6A] text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
+              >
+                Kembali ke Dashboard
+              </Link>
+            </div>
+          </AdminLayout>
+        } />
+        <Route path="/admin/cashier" element={
+          <AdminLayout activeTab="cashier">
+            <AdminCashier stock={stock} customers={customers} savings={savingsTransactions} dataSource={dataSource} onTransactionComplete={() => fetchData(false)} />
+          </AdminLayout>
+        } />
+        <Route path="/admin/stock" element={
+          <AdminLayout activeTab="data">
+            <AdminStockManagement stock={stock} setStock={setStock} />
+          </AdminLayout>
+        } />
       </Routes>
           </motion.div>
         )}
