@@ -142,8 +142,9 @@ const parseCurrency = (val: string | number | undefined) => {
   return parseInt(String(val).replace(/[^\d]/g, '')) || 0;
 };
 
-const formatCurrency = (val: number) => {
-  return val.toLocaleString('id-ID');
+const formatCurrency = (val: number | string | undefined) => {
+  const num = typeof val === 'number' ? val : parseCurrency(val);
+  return num.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
 const qrisUrl = "https://lh3.googleusercontent.com/d/1P7Itn82Za-1G1a_4wpEa5BmarzCPvtn_";
@@ -240,6 +241,7 @@ const getRelativeTime = (dateStr: string) => {
 };
 
 interface Customer {
+  id_pelanggan?: string;
   Nama: string;
   PIN?: string;
   Saldo?: string;
@@ -251,6 +253,7 @@ interface Customer {
 
 interface SavingTransaction {
   id?: string;
+  id_tabungan?: string;
   Tanggal: string;
   Nama: string;
   Tipe: string;
@@ -261,6 +264,7 @@ interface SavingTransaction {
 
 interface DebtTransaction {
   id?: string;
+  id_hutang?: string;
   Tanggal: string;
   Nama: string;
   Tipe: string;
@@ -271,10 +275,13 @@ interface DebtTransaction {
 
 interface SalesTransaction {
   id?: string;
+  id_transaksi?: string;
   Tanggal: string;
   Nama: string;
   Jenis: string;
+  Metode: string;
   Pemasukan: number;
+  Poin?: number;
   Status: string;
   Melalui: string;
   HargaModal: number;
@@ -291,6 +298,7 @@ interface RedeemedPoint {
 
 interface StockItem {
   id: string;
+  id_barang?: string;
   Nama: string;
   Kategori: string;
   Stok: number;
@@ -392,6 +400,7 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: 
 
 interface InvestmentTransaction {
   id?: string;
+  id_investasi?: string;
   Tanggal: string;
   Nama: string;
   Nominal: number;
@@ -560,7 +569,7 @@ const calculateCustomerLevel = (transactions: SalesTransaction[], userName: stri
   const total = transactions
     .filter(t => t.Nama.toLowerCase() === userName.toLowerCase())
     .filter(t => parseDate(t.Tanggal) >= threeMonthsAgo)
-    .reduce((acc, curr) => acc + (Number(curr.Pemasukan) || 0), 0);
+    .reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
 
   if (total >= 20000000) return { ...LEVELS[3], total };
   if (total >= 10000000) return { ...LEVELS[2], total };
@@ -861,7 +870,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
           stages[stage].set(nameKey, kpm);
         }
         
-        const amount = Number(t.Pemasukan) || 0;
+        const amount = parseCurrency(t.Pemasukan) || 0;
         if (jenis.includes("PKH")) {
           kpm.pkh += amount;
         }
@@ -1918,29 +1927,29 @@ const ProtectedPage = ({
   );
 };
 
-const AssetPieChart = ({ data }: { data: any[] }) => {
-  const total = data.reduce((acc, curr) => acc + curr.value, 0);
-
+const AssetPieChart = ({ data, compact = false }: { data: any[], compact?: boolean }) => {
   return (
-    <div className="h-64 w-full relative flex items-center justify-center">
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Komposisi</p>
-        <p className="text-xs font-black text-[#005E6A]">{data.length} Kategori</p>
-      </div>
-      <ResponsiveContainer width="100%" height="100%">
+    <div className={`${compact ? 'h-full' : 'h-64'} w-full relative flex items-center justify-center`}>
+      {!compact && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Komposisi</p>
+          <p className="text-xs font-black text-[#005E6A]">{data.length} Kategori</p>
+        </div>
+      )}
+      <ResponsiveContainer width={compact ? "100%" : "100%"} height={compact ? "100%" : "100%"}>
         <PieChart>
           <Pie
             data={data}
             cx="50%"
             cy="50%"
-            innerRadius={70}
-            outerRadius={95}
-            paddingAngle={8}
+            innerRadius={compact ? "55%" : 70}
+            outerRadius={compact ? "95%" : 95}
+            paddingAngle={compact ? 3 : 8}
             dataKey="value"
             stroke="none"
-            cornerRadius={10}
+            cornerRadius={compact ? 4 : 10}
             animationBegin={0}
-            animationDuration={1500}
+            animationDuration={1000}
             animationEasing="ease-out"
           >
             {data.map((entry, index) => (
@@ -1951,9 +1960,11 @@ const AssetPieChart = ({ data }: { data: any[] }) => {
               />
             ))}
           </Pie>
-          <Tooltip 
-            content={({ active, payload }) => {
+          {!compact && (
+            <Tooltip 
+              content={({ active, payload }) => {
               if (active && payload && payload.length) {
+                const total = data.reduce((acc, curr) => acc + curr.value, 0);
                 const item = payload[0].payload;
                 const percentage = ((item.value / total) * 100).toFixed(1);
                 return (
@@ -1967,7 +1978,8 @@ const AssetPieChart = ({ data }: { data: any[] }) => {
               }
               return null;
             }}
-          />
+            />
+          )}
         </PieChart>
       </ResponsiveContainer>
     </div>
@@ -2713,172 +2725,144 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-white rounded-[2.5rem] p-6 shadow-2xl shadow-slate-200 mb-8 relative overflow-hidden group border border-slate-50"
+          className="bg-white rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 mb-6 relative overflow-hidden group border border-slate-100"
         >
-          {/* Animated Decorative Elements */}
-          <motion.div 
-            animate={{ 
-              scale: [1, 1.2, 1],
-              opacity: [0.3, 0.6, 0.3]
-            }}
-            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute top-0 right-0 w-64 h-64 bg-[#00F2FF]/20 rounded-full -mr-24 -mt-24 blur-[80px]" 
-          />
-          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#F15A24]/10 rounded-full blur-[60px]" />
-          
-          <div className="flex items-center justify-between mb-6 relative z-10">
-            <div className="flex flex-col">
-              <h2 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em] mb-1.5 flex items-center gap-2">
+          <div className="flex items-center justify-between relative z-10 gap-6">
+            <div className="flex flex-col justify-center">
+              <h2 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2">
                 Total Aset
-                <motion.span 
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="w-1 h-1 rounded-full bg-[#005E6A]"
-                />
               </h2>
-              <div className="h-0.5 w-6 bg-[#F15A24] rounded-full" />
-            </div>
-            <button 
-              onClick={toggleBalance}
-              className="w-10 h-10 bg-slate-50 hover:bg-slate-100 rounded-xl flex items-center justify-center text-[#005E6A] active:scale-90 transition-all border border-slate-100 shadow-sm"
-            >
-              {showBalances ? <History className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
-            </button>
-          </div>
-
-          <div className="flex flex-col mb-8 relative z-10">
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-black text-[#F15A24] italic opacity-80">Rp</span>
-              <motion.span 
-                key={totalAset}
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-4xl font-black text-[#005E6A] tracking-tighter leading-none"
-              >
-                {mask(formatCurrency(totalAset))}
-              </motion.span>
-            </div>
-            <div className="flex items-center gap-2 mt-3 pl-1">
-              <TrendingUp className="w-3 h-3 text-[#00B4C4]" />
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Optimasi Berjalan</span>
-            </div>
-          </div>
-          
-          <div className="relative z-10 bg-slate-50 rounded-[1.8rem] p-4 border border-slate-100 shadow-inner">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Alokasi Portofolio</span>
-              <div className="px-2 py-0.5 bg-[#F15A24]/10 rounded-full border border-[#F15A24]/20">
-                <span className="text-[7px] font-black text-[#F15A24] uppercase tracking-tighter">Live Status</span>
+              <div className="flex items-baseline gap-1">
+                <span className="text-sm font-black text-[#F15A24] italic opacity-70">Rp</span>
+                <motion.span 
+                  key={totalAset}
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-3xl font-black text-[#005E6A] tracking-tighter leading-none"
+                >
+                  {mask(formatCurrency(totalAset))}
+                </motion.span>
+              </div>
+              <div className="flex items-center gap-1.5 mt-3">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Portfolio Analytics</span>
               </div>
             </div>
-            <div className="scale-95 origin-center">
-              <AssetPieChart data={assetData} />
+
+            <div className="w-28 h-28 bg-slate-50/50 rounded-[1.5rem] flex items-center justify-center p-1.5 border border-slate-100/50 shadow-inner">
+              <div className="w-full h-full transform transition-transform group-hover:scale-105">
+                <AssetPieChart data={assetData} compact={true} />
+              </div>
+            </div>
+          </div>
+
+          {/* Integrated Balance Grid */}
+          <div className="mt-8 pt-6 border-t border-slate-50 flex flex-col gap-4 relative z-10">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Rincian Saldo</h3>
+              <div className="h-0.5 w-8 bg-[#F15A24]/30 rounded-full" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {[
+                { 
+                  name: "Tabungan", 
+                  balance: formatCurrency(tabunganBalance), 
+                  gradient: "from-green-500 to-emerald-600",
+                  icon: Wallet,
+                  clickable: true, 
+                  path: "/tabungan" 
+                },
+                { 
+                  name: "Investasi", 
+                  balance: formatCurrency(investasiBalance), 
+                  gradient: "from-indigo-500 to-violet-600",
+                  icon: TrendingUp,
+                  clickable: true, 
+                  path: "/investasi" 
+                },
+                { 
+                  name: "Lainnya", 
+                  balance: formatCurrency(lainnyaBalance), 
+                  gradient: "from-teal-500 to-cyan-600",
+                  icon: Layers,
+                  clickable: true, 
+                  path: "/lainnya" 
+                },
+                { 
+                  name: "Hutang", 
+                  balance: formatCurrency(hutangBalance), 
+                  gradient: "from-rose-500 to-red-600",
+                  icon: CreditCard,
+                  clickable: true, 
+                  path: "/hutang" 
+                },
+              ].map((item, i) => (
+                <div 
+                  key={i} 
+                  onClick={() => item.clickable && item.path && navigate(item.path)}
+                  className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-[1.8rem] flex flex-col justify-between shadow-lg shadow-slate-200/20 min-h-[110px] ${item.clickable ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+                >
+                  <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-2xl" />
+                  
+                  <div className="flex justify-between items-start relative z-10">
+                    <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
+                      <item.icon className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="w-5 h-5 bg-white/10 rounded-full flex items-center justify-center">
+                      <ChevronRight className="w-2.5 h-2.5 text-white" />
+                    </div>
+                  </div>
+
+                  <div className="relative z-10 mt-3">
+                    <p className="text-[7px] font-black text-white/70 uppercase tracking-widest leading-none mb-1">{item.name}</p>
+                    <p className="text-[12px] font-black text-white tracking-tight leading-none">Rp {mask(item.balance)}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </motion.div>
 
-        {/* Rincian Saldo Section */}
-        <div className="grid grid-cols-2 gap-4">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest col-span-2">Rincian Saldo</h3>
-          {[
-            { 
-              name: "Tabungan", 
-              balance: formatCurrency(tabunganBalance), 
-              gradient: "from-green-500 to-emerald-600",
-              icon: Wallet,
-              clickable: true, 
-              path: "/tabungan" 
-            },
-            { 
-              name: "Investasi", 
-              balance: formatCurrency(investasiBalance), 
-              gradient: "from-indigo-500 to-violet-600",
-              icon: TrendingUp,
-              clickable: true, 
-              path: "/investasi" 
-            },
-            { 
-              name: "Lainnya", 
-              balance: formatCurrency(lainnyaBalance), 
-              gradient: "from-teal-500 to-cyan-600",
-              icon: Layers,
-              clickable: true, 
-              path: "/lainnya" 
-            },
-            { 
-              name: "Hutang", 
-              balance: formatCurrency(hutangBalance), 
-              gradient: "from-rose-500 to-red-600",
-              icon: CreditCard,
-              clickable: true, 
-              path: "/hutang" 
-            },
-          ].map((item, i) => (
-            <div 
-              key={i} 
-              onClick={() => item.clickable && item.path && navigate(item.path)}
-              className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-[2rem] flex flex-col justify-between shadow-lg shadow-slate-200/50 min-h-[120px] ${item.clickable ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
-            >
-              {/* Decorative Circle */}
-              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-2xl" />
-              
-              <div className="flex justify-between items-start relative z-10">
-                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
-                  <item.icon className="w-5 h-5 text-white" />
-                </div>
-                <div className="w-6 h-6 bg-white/10 rounded-full flex items-center justify-center">
-                  <ChevronRight className="w-3 h-3 text-white" />
-                </div>
-              </div>
-
-              <div className="relative z-10 mt-4">
-                <p className="text-[8px] font-black text-white/70 uppercase tracking-widest leading-none mb-1.5">{item.name}</p>
-                <p className="text-[13px] font-black text-white tracking-tight">Rp {mask(item.balance)}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
         {/* Target Impian Section - Moved to Bottom */}
+
         <div className="mt-10">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Target Impian</h3>
-          <div className="bg-[#005E6A] rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/10 transition-colors" />
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group border border-slate-100">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#005E6A]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#005E6A]/10 transition-colors" />
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                <Trophy className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 bg-[#005E6A]/10 rounded-lg flex items-center justify-center">
+                <Trophy className="w-4 h-4 text-[#005E6A]" />
               </div>
-              <h3 className="text-[10px] font-black text-white uppercase tracking-widest">Target Impian</h3>
+              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Target Impian</h3>
             </div>
             <button 
               onClick={() => {
                 setTempGoal(targetGoal.toLocaleString('id-ID'));
                 setIsEditingGoal(true);
               }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 bg-[#005E6A]/5 hover:bg-[#005E6A]/10 rounded-full transition-colors border border-[#005E6A]/10"
             >
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">
+              <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">
                 Goal: {targetGoal >= 1000000 ? `${(targetGoal / 1000000).toFixed(0)}jt` : formatCurrency(targetGoal)}
               </span>
-              <Settings className="w-3 h-3 text-white/60" />
+              <Settings className="w-3 h-3 text-[#005E6A]/60" />
             </button>
           </div>
           
           <div className="space-y-3">
             <div className="flex justify-between items-end">
-              <p className="text-[9px] font-black text-white/70 uppercase tracking-widest">Progres Tabungan</p>
-              <p className="text-xs font-black text-white">{Math.min(Math.round((tabunganBalance / targetGoal) * 100), 100)}%</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Progres Tabungan</p>
+              <p className="text-xs font-black text-[#005E6A]">{Math.min(Math.round((tabunganBalance / targetGoal) * 100), 100)}%</p>
             </div>
-            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min((tabunganBalance / targetGoal) * 100, 100)}%` }}
                 transition={{ duration: 1, delay: 0.5 }}
-                className="h-full bg-gradient-to-r from-orange-400 to-yellow-300 shadow-[0_0_10px_rgba(251,146,60,0.5)]"
+                className="h-full bg-gradient-to-r from-[#005E6A] to-[#00b8c4] rounded-full shadow-sm"
               />
             </div>
-            <p className="text-[8px] font-bold text-white/50 uppercase tracking-tight">Kumpulkan aset untuk mencapai kebebasan finansial</p>
+            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight italic">"Kumpulkan aset untuk mencapai kebebasan finansial"</p>
           </div>
         </div>
       </div>
@@ -3044,10 +3028,6 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
     const timer = setTimeout(scrollToRight, 100);
     return () => clearTimeout(timer);
   }, [activeTab, allMonths.length]);
-
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString('id-ID');
-  };
 
   const filteredTransactions = userTransactions
     .filter(t => {
@@ -3551,10 +3531,6 @@ const DebtDetailPage = ({
   const collectability = useMemo(() => {
     return calculateUserCollectability(userTransactions);
   }, [userTransactions]);
-
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString('id-ID');
-  };
 
   return (
     <>
@@ -4219,10 +4195,6 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
     return tName === displayUser?.Nama?.toLowerCase() && statusMatch;
   });
 
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString('id-ID');
-  };
-
   const diprosesTransactions = userTransactions.filter(t => (t.Status || "").toUpperCase().trim() === "DIPROSES");
   const belumDiambilTransactions = userTransactions.filter(t => (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL");
 
@@ -4500,13 +4472,6 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         
         <div className="relative z-10">
-          <button 
-            onClick={() => navigate("/admin")}
-            className="flex items-center gap-2 text-white/70 mb-6 group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Dashboard</span>
-          </button>
           
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
@@ -6147,7 +6112,7 @@ const AdminCustomerDetailPage = ({
               <h1 className="text-2xl font-black uppercase tracking-tight leading-none mb-1">{customer.Nama}</h1>
               <div className="flex items-center gap-2">
                  <Badge className="bg-[#F15A24] text-white border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
-                   PIN: {customer.PIN || "-"}
+                   PIN: {customer.PIN || ""}
                  </Badge>
               </div>
             </div>
@@ -6740,7 +6705,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
     }
   }, [navigate]);
 
-  const categories = ["Semua", ...Array.from(new Set(stock.map(item => item.Kategori)))];
+  const categories = ["Semua", ...Array.from(new Set(stock.map(item => item.Kategori))).sort((a, b) => a.localeCompare(b))];
 
   const filteredItems = stock.filter(item => {
     const matchesSearch = item.Nama.toLowerCase().includes(searchQuery.toLowerCase());
@@ -6767,10 +6732,6 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10">
-          <button onClick={() => navigate("/admin")} className="flex items-center gap-2 text-white/70 mb-6 group">
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Dashboard</span>
-          </button>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center flex-shrink-0">
               <Package className="w-5 h-5 text-white" />
@@ -7198,7 +7159,7 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
         summary[name] = { total: 0, count: 0, transactions: [] };
       }
       // Formula: HargaModal (net to customer) - Sebagian (already taken)
-      const netAmount = (Number(t.HargaModal) || 0) - (Number(t.Sebagian) || 0);
+      const netAmount = (parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0);
       summary[name].total += netAmount;
       summary[name].count += 1;
       summary[name].transactions.push(t);
@@ -7218,8 +7179,8 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
     const belum = pendingWithdrawals.filter(t => (t.Status || "").toLowerCase().includes("belum") || (t.Status || "").toLowerCase().includes("ambil"));
     const proses = pendingWithdrawals.filter(t => (t.Status || "").toLowerCase().includes("proses"));
     
-    const totalBelum = belum.reduce((acc, t) => acc + ((Number(t.HargaModal) || 0) - (Number(t.Sebagian) || 0)), 0);
-    const totalProses = proses.reduce((acc, t) => acc + ((Number(t.HargaModal) || 0) - (Number(t.Sebagian) || 0)), 0);
+    const totalBelum = belum.reduce((acc, t) => acc + ((parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0)), 0);
+    const totalProses = proses.reduce((acc, t) => acc + ((parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0)), 0);
     
     return { belum: totalBelum, proses: totalProses };
   }, [pendingWithdrawals]);
@@ -7507,7 +7468,7 @@ const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | nul
   const [lastAddedId, setLastAddedId] = useState<string | null>(null);
 
   const categories = useMemo(() => {
-    const cats = Array.from(new Set(stock.map(s => s.Kategori)));
+    const cats = Array.from(new Set(stock.map(s => s.Kategori))).sort((a, b) => a.localeCompare(b));
     return ["Semua", ...cats];
   }, [stock]);
   
@@ -8568,6 +8529,77 @@ const AdminDebtManagement = ({
   );
 };
 
+const DataComparisonView = ({ collections }: { collections: any[] }) => {
+  return (
+    <div className="space-y-6">
+      {/* Header Info */}
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 shadow-inner">
+            <RefreshCw className="w-7 h-7" />
+          </div>
+          <div>
+            <h3 className="text-xl font-black text-slate-800 tracking-tight uppercase">Audit & Migrasi Data</h3>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">Status database saat ini (Multi-Sheets)</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {collections.filter(c => c.id !== 'comparison').map(col => (
+            <div key={col.id} className="group p-5 bg-slate-50 hover:bg-white rounded-[2rem] border border-slate-100 hover:border-blue-100 hover:shadow-lg transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400 group-hover:text-blue-500 transition-colors">
+                    <col.icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{col.label}</p>
+                    <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{col.id}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-slate-300 uppercase leading-none mb-1">Data Lama</p>
+                  <p className="text-lg font-black text-blue-600">{col.data.length} <span className="text-[9px] uppercase text-slate-400">Rows</span></p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-12 overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] p-8 text-white relative shadow-2xl shadow-blue-200">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" />
+          <div className="relative z-10 space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+                <CloudUpload className="w-6 h-6" />
+              </div>
+              <h4 className="text-lg font-black uppercase tracking-tight">Rencana Konsolidasi Data</h4>
+            </div>
+            
+            <p className="text-sm text-blue-50/80 font-medium leading-relaxed max-w-2xl">
+              Anda sedang dalam proses memindahkan data dari banyak file Google Sheets terpisah ke dalam <span className="text-white font-bold italic text-base mx-1 underline underline-offset-4 decoration-yellow-400">SATU</span> file Master Spreadsheet untuk kemudahan manajemen.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
+              {[
+                { title: "Export", desc: "Pastikan semua data lama sudah disalin.", icon: Download },
+                { title: "Verify", desc: "Cek nama kolom (headers) harus sama.", icon: CheckCircle2 },
+                { title: "Switch", desc: "Update URL di App.tsx ke file baru.", icon: Zap }
+              ].map((step, i) => (
+                <div key={i} className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/10">
+                  <step.icon className="w-5 h-5 mb-3 text-yellow-300" />
+                  <p className="font-black text-xs uppercase mb-1">{step.title}</p>
+                  <p className="text-[9px] text-blue-100 font-bold leading-tight">{step.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdminMasterDataPage = ({ 
   customers, 
   savingsTransactions, 
@@ -8621,9 +8653,11 @@ const AdminMasterDataPage = ({
     { id: "redeemedPoints", label: "Poin", icon: Gift, data: redeemedPoints },
     { id: "stockItems", label: "Stok Barang", icon: Package, data: stockItems },
     { id: "investmentTransactions", label: "Investasi", icon: TrendingUp, data: investmentTransactions },
+    { id: "comparison", label: "Perbandingan Data", icon: BarChart3, data: [] },
   ];
 
   const currentData = useMemo(() => {
+    if (activeCollection === "comparison") return [];
     let data = collections.find(c => c.id === activeCollection)?.data || [];
     
     if (activeCollection === "customers") {
@@ -8652,9 +8686,12 @@ const AdminMasterDataPage = ({
     if (!searchStr) return currentData;
     
     return currentData.filter(item => {
-      // Special case for customers: prioritize searching in Nama
+      // Special case for customers: search in Nama and id_pelanggan
       if (activeCollection === "customers") {
-        return (item.Nama || "").toLowerCase().includes(searchStr);
+        const nameMatch = (item.Nama || "").toLowerCase().includes(searchStr);
+        const idPart = (item.id_pelanggan || "");
+        const idMatch = idPart.toLowerCase().includes(searchStr);
+        return nameMatch || idMatch;
       }
       
       return Object.values(item).some(val => 
@@ -8669,22 +8706,25 @@ const AdminMasterDataPage = ({
 
   const columns = useMemo(() => {
     if (activeCollection === "customers") {
-      return ["Nama", "Poin", "Level", "Tabungan", "Investasi", "Lainnya", "Hutang", "PIN"];
+      return ["id_pelanggan", "Nama", "PIN", "Level", "Poin", "Tabungan", "Investasi", "Lainnya", "Hutang", "Foto"];
     }
     if (activeCollection === "savingTransactions") {
-      return ["Tanggal", "Nama", "Tipe", "Nominal", "Berita", "SaldoAkhir"];
+      return ["id_tabungan", "Tanggal", "Nama", "Tipe", "Nominal", "Berita", "SaldoAkhir"];
     }
     if (activeCollection === "stockItems") {
-      return ["Stok", "Nama", "Kategori", "HargaModal", "HargaJual", "Satuan", "Image"];
+      return ["id_barang", "Stok", "Nama", "Kategori", "HargaModal", "HargaJual", "Satuan", "Image"];
     }
     if (activeCollection === "debtTransactions") {
-      return ["Tanggal", "Nama", "Tipe", "Jumlah", "Keterangan", "SaldoAkhir"];
+      return ["id_hutang", "Tanggal", "Nama", "Tipe", "Jumlah", "Keterangan", "SaldoAkhir"];
     }
     if (activeCollection === "investmentTransactions") {
-      return ["Tanggal", "Nama", "Nominal", "Tenor", "JatuhTempo", "Status"];
+      return ["id_investasi", "Tanggal", "Nama", "Nominal", "Tenor", "JatuhTempo", "Status"];
     }
     if (activeCollection === "salesTransactions") {
-      return ["Tanggal", "Nama", "Jenis", "Melalui", "Pemasukan", "HargaModal", "Sebagian"];
+      return ["id_transaksi", "Tanggal", "Nama", "Jenis", "Melalui", "Metode", "Pemasukan", "HargaModal", "Sebagian", "Status", "Poin"];
+    }
+    if (activeCollection === "redeemedPoints") {
+      return ["id_tukar", "Tanggal", "Nama", "Poin", "Hadiah"];
     }
     return currentData.length > 0 
       ? Object.keys(currentData[0]).filter(k => k !== 'id' && k !== 'updatedAt') 
@@ -8708,38 +8748,12 @@ const AdminMasterDataPage = ({
             <p className="text-teal-50/60 text-[10px] font-black uppercase tracking-[0.2em]">Manajemen Database Spreadsheet</p>
           </div>
           <div className="text-right">
-             <button 
-              onClick={() => navigate("/admin")}
-              className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-black uppercase tracking-widest transition-all backdrop-blur-md flex items-center gap-2"
-            >
-              <span>Kembali</span>
-              <X className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 space-y-6 -mt-12 relative z-20">
-        {/* Header Selection */}
         <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#005E6A] rounded-xl flex items-center justify-center text-white shadow-lg shadow-teal-100">
-                <FileSpreadsheet className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-black text-slate-800 leading-none lowercase tracking-tighter">master data</h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">manajemen database spreadsheet</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => navigate("/admin")}
-              className="p-2 hover:bg-slate-50 rounded-full text-slate-400 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
           <div className="relative">
             <select
               value={activeCollection}
@@ -8769,15 +8783,18 @@ const AdminMasterDataPage = ({
               <h3 className="text-base font-black text-[#005E6A]">{currentData.length.toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Items</span></h3>
             </div>
             <div className="text-right space-y-1 border-l border-slate-100 pl-4">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Pelanggan</p>
-              <h3 className="text-base font-black text-[#F15A24]">{customers.length.toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Orang</span></h3>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Sel yang Diambil</p>
+              <h3 className="text-base font-black text-[#F15A24]">{currentData.length * columns.length} <span className="text-[10px] text-slate-300 ml-1 uppercase">Sel</span></h3>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
-          <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
+        {activeCollection === "comparison" ? (
+          <DataComparisonView collections={collections} />
+        ) : (
+          <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+            <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="relative flex-1 w-full">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <input 
@@ -8800,12 +8817,21 @@ const AdminMasterDataPage = ({
                 <tr className="bg-slate-50/50">
                   {columns.map(col => {
                     const labelMapping: Record<string, string> = {
+                      "id_pelanggan": "ID Pelanggan",
+                      "id_tabungan": "ID Tabungan",
+                      "id_investasi": "ID Investasi",
+                      "id_hutang": "ID Hutang",
+                      "id_transaksi": "ID Transaksi",
+                      "id_tukar": "ID Tukar",
+                      "Metode": "Metode",
+                      "id_barang": "ID Barang",
                       "HargaModal": "Harga Modal",
                       "HargaJual": "Harga Jual",
                       "Image": "Gambar",
+                      "Foto": "Foto",
                       "SaldoAkhir": activeCollection === "debtTransactions" ? "Hutang Akhir" : "Saldo Akhir",
                       "Jumlah": activeCollection === "debtTransactions" ? "Nominal" : "Jumlah",
-                      "Pemasukan": "Pemasukan",
+                      "Pemasukan": "Harga Jual",
                       "JatuhTempo": "Jatuh Tempo"
                     };
                     return (
@@ -8814,7 +8840,6 @@ const AdminMasterDataPage = ({
                       </th>
                     );
                   })}
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -8831,25 +8856,24 @@ const AdminMasterDataPage = ({
                           />
                         ) : (
                           <span className="text-xs font-bold text-slate-600 block max-w-[200px] truncate">
-                            {typeof item[col] === 'object' && item[col]?.seconds 
+                            {col === "Image" || col === "Foto" ? (
+                              item[col] ? (
+                                <img src={item[col]} alt="Asset" className="w-8 h-8 rounded-lg object-cover border border-slate-100" referrerPolicy="no-referrer" />
+                              ) : "-"
+                            ) : typeof item[col] === 'object' && item[col]?.seconds 
                               ? new Date(item[col].seconds * 1000).toLocaleDateString()
-                              : (["Nominal", "Tabungan", "Investasi", "Lainnya", "Hutang", "Saldo", "SaldoAkhir", "Pemasukan", "HargaModal", "Sebagian"].includes(col) && !isNaN(Number(item[col])))
-                                ? `Rp ${Number(item[col]).toLocaleString('id-ID')}`
+                              : (["Nominal", "Tabungan", "Investasi", "Lainnya", "Hutang", "Saldo", "SaldoAkhir", "Pemasukan", "HargaModal", "Sebagian"].includes(col) && item[col] !== undefined)
+                                ? `Rp ${formatCurrency(item[col])}`
                                 : String(item[col] || "-")}
                           </span>
                         )}
                       </td>
                     ))}
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="text-[8px] font-black text-slate-300 uppercase italic">Spreadsheet</span>
-                      </div>
-                    </td>
                   </tr>
                 ))}
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={columns.length + 1} className="px-6 py-12 text-center">
+                    <td colSpan={columns.length} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <AlertCircle className="w-8 h-8 text-slate-200" />
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tidak ada data ditemukan</p>
@@ -8873,6 +8897,7 @@ const AdminMasterDataPage = ({
             </div>
           )}
         </div>
+      )}
       </div>
     </div>
   );
@@ -9112,10 +9137,6 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
   const currentLevelInfo = calculateCustomerLevel(transactions, user?.Nama || "");
   const currentLevelIndex = LEVELS.findIndex(l => l.name === currentLevelInfo.name);
 
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString('id-ID');
-  };
-
   useEffect(() => {
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current;
@@ -9310,10 +9331,6 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
       scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
     }
   }, [activeTab]);
-
-  const formatCurrency = (val: number) => {
-    return val.toLocaleString('id-ID');
-  };
 
   // Process data for the chart (from first transaction to now)
   const chartData = React.useMemo(() => {
@@ -10990,11 +11007,7 @@ const AdminLayout = ({
               >
                 {/* Active Indicator */}
                 {isActive && (
-                  <motion.div
-                    layoutId="adminNavIndicator"
-                    className="absolute inset-0 bg-[#F15A24] rounded-xl md:hidden opacity-10"
-                    transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
-                  />
+                  <div className="absolute inset-0 bg-[#F15A24]/10 rounded-xl md:hidden z-0" />
                 )}
 
                 {/* Sidebar Accent (Desktop) */}
@@ -11007,23 +11020,14 @@ const AdminLayout = ({
                 )}
 
                 <div className="flex items-center gap-3.5 relative z-10 w-full justify-center md:justify-start md:pl-5">
-                  <motion.div
-                    animate={{
-                      scale: isActive ? 1.1 : 1,
-                    }}
-                    whileHover={{ scale: 1.1 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                    className="shrink-0"
-                  >
-                    <Icon 
-                      className={`w-5 h-5 transition-all duration-300 ${
-                        isActive 
-                          ? "text-[#F15A24]" 
-                          : "text-slate-400 group-hover:text-[#F15A24]"
-                      }`} 
-                      strokeWidth={isActive ? 2.5 : 2}
-                    />
-                  </motion.div>
+                  <Icon 
+                    className={`w-5 h-5 shrink-0 transition-all duration-300 ${
+                      isActive 
+                        ? "text-[#F15A24]" 
+                        : "text-slate-400 group-hover:text-[#F15A24]"
+                    }`} 
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
                   
                   <div className="hidden md:flex flex-col overflow-hidden text-left">
                     <span 
@@ -11292,23 +11296,23 @@ const HomePage = ({
                               animate={{ opacity: 1, scale: 1 }}
                               transition={{ delay: i * 0.1 }}
                               onClick={() => navigate(item.path)}
-                              className={`group relative overflow-hidden bg-white p-4 rounded-lg flex flex-col justify-between shadow-sm border border-slate-100 cursor-pointer active:scale-95 transition-all hover:shadow-xl hover:shadow-slate-100 min-h-[100px]`}
+                              className={`group relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-lg flex flex-col justify-between shadow-lg shadow-slate-100/50 cursor-pointer active:scale-95 transition-all hover:shadow-xl hover:shadow-slate-200 min-h-[100px]`}
                             >
-                              <div className={`absolute top-0 right-0 w-20 h-20 bg-gradient-to-br ${item.gradient} opacity-[0.03] rounded-full -mr-10 -mt-10 group-hover:opacity-[0.08] transition-opacity`} />
+                              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-xl" />
                               
-                              <div className="flex justify-between items-start relative z-10 w-full">
-                                <div className={`w-9 h-9 bg-gradient-to-br ${item.gradient} rounded-[1.2rem] flex items-center justify-center shadow-lg shadow-current/10 group-hover:scale-110 transition-transform`}>
+                              <div className="flex justify-between items-start relative z-10 w-full text-white">
+                                <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20 group-hover:scale-110 transition-transform">
                                   <item.icon className="w-4 h-4 text-white" />
                                 </div>
-                                <div className="p-1 rounded-lg bg-slate-50 group-hover:bg-[#F15A24]/10 transition-colors">
-                                  <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-[#F15A24]" />
+                                <div className="p-1 rounded-lg bg-white/10 group-hover:bg-white/20 transition-colors">
+                                  <ChevronRight className="w-3 h-3 text-white" />
                                 </div>
                               </div>
 
                               <div className="mt-3 relative z-10">
                                 <div className="flex flex-col">
-                                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover:text-[#005E6A] transition-colors">{item.name}</span>
-                                  <p className="text-xs font-black text-slate-900 tracking-tight">Rp {formatCurrency(item.value)}</p>
+                                  <span className="text-[8px] font-black text-white/70 uppercase tracking-widest mb-1">{item.name}</span>
+                                  <p className="text-xs font-black text-white tracking-tight">Rp {formatCurrency(item.value)}</p>
                                 </div>
                               </div>
                             </motion.div>
@@ -11716,9 +11720,13 @@ export default function App() {
         { id: "stockItems", name: "Stok Barang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRe7VfqXToI8v15JzJmX2-9IQO0RQFmJPVlMuf3GYyYaa1grUAombFNk9Zt78ZTKJb1NWQFi5QdmPRm/pub?gid=0&single=true&output=csv" }
       ];
 
-      const activeUrls = (collectionName && collectionName !== "customers") 
+      const coreCollections = ["savingTransactions", "investmentTransactions", "debtTransactions", "salesTransactions", "redeemedPoints"];
+      const needCustomers = coreCollections.includes(collectionName || "");
+      const activeUrls = (collectionName && !needCustomers) 
         ? allUrls.filter(u => u.id === collectionName)
-        : allUrls;
+        : (collectionName && needCustomers)
+          ? allUrls.filter(u => u.id === collectionName || u.id === "customers")
+          : allUrls;
 
       const fetchWithRetry = async (label: string, url: string, signal: AbortSignal, retries = 2) => {
         let lastError;
@@ -11758,14 +11766,17 @@ export default function App() {
         const csv = csvResultsMap.get("stockItems");
         if (csv) {
           const sData = await parseCsv(csv);
-          const processedStock: StockItem[] = sData.map(s => {
+          // Reverse to ensure oldest data gets index 0 for ID assignment, then sort by category for display
+          const processedStock: StockItem[] = [...sData].reverse().map((s, idx) => {
             const sIdKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('id barang'));
             const sNamaKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('nama barang'));
             const sHmKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga modal'));
             const sHjKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga jual'));
             const sStokKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('stok'));
+            const autoId = `BRG-${String(idx + 1).padStart(4, '0')}`;
             return {
-              id: sIdKey ? String(s[sIdKey]).trim() : Math.random().toString(36).substr(2, 9),
+              id: sIdKey ? String(s[sIdKey]).trim() : autoId,
+              id_barang: sIdKey ? String(s[sIdKey]).trim() : autoId,
               Nama: sNamaKey ? String(s[sNamaKey]).trim() : "Unknown",
               Kategori: String(s[Object.keys(s).find(k => k.toLowerCase().includes('kategori')) || ''] || 'Lainnya'),
               Stok: sStokKey ? parseInt(String(s[sStokKey]).replace(/\D/g, '')) || 0 : 0,
@@ -11776,41 +11787,107 @@ export default function App() {
               UpdateTerakhir: String(s[Object.keys(s).find(k => k.toLowerCase().includes('tanggal')) || ''] || '-'),
               Image: String(s[Object.keys(s).find(k => k.toLowerCase().includes('gambar')) || ''] || undefined)
             };
-          });
+          }).sort((a, b) => a.Kategori.localeCompare(b.Kategori));
           setStock(processedStock);
         }
       }
 
+      const cleanDate = (dateStr: string) => {
+        if (!dateStr || dateStr === '-') return '-';
+        const rawDate = dateStr.split(/[ T]/)[0];
+        const parts = rawDate.split(/[-/]/);
+        if (parts.length === 3) {
+           // If YYYY-MM-DD
+           if (parts[0].length === 4) return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+           // If DD/MM/YYYY or MM/DD/YYYY (assuming user uses DD/MM/YYYY)
+           return parts.map((p, i) => i === 2 ? p : p.padStart(2, '0')).join('/');
+        }
+        return rawDate;
+      };
+
+      // 1. Build Customer ID Mapping first if we have customer data
+      const customerIdMap = new Map<string, string>();
+      const cCsv = csvResultsMap.get("customers");
+      if (cCsv) {
+        const cData = await parseCsv(cCsv);
+        const findKey = (row: any, targets: string[]) => 
+          Object.keys(row).find(k => targets.some(t => k.toLowerCase().trim().includes(t.toLowerCase())));
+        
+        const rawNames = cData
+          .map((c: any) => {
+            const key = findKey(c, ['nama']);
+            return key ? String(c[key]).trim() : "";
+          })
+          .filter(name => name && name.toLowerCase() !== "unknown" && name.toLowerCase() !== "pelanggan umum");
+
+        // Stable ID assignment based on first appearance (assuming Oldest to Newest in CSV)
+        const seenNames = new Set<string>();
+        let customerCounter = 1;
+        rawNames.forEach(name => {
+          const lower = name.toLowerCase();
+          if (!seenNames.has(lower)) {
+            seenNames.add(lower);
+            customerIdMap.set(lower, String(customerCounter++).padStart(4, '0'));
+          }
+        });
+      }
+
+      const getCustIdPart = (name: string) => {
+        if (!name || name.toLowerCase() === "unknown" || name.toLowerCase() === "pelanggan umum") return "0000";
+        return customerIdMap.get(name.toLowerCase()) || "0000";
+      };
+
+      // Counter for each customer's transactions
+      const customerTxCounters: Record<string, { trx: number, tab: number, inv: number, htg: number, tp: number }> = {};
+      const getNextSeq = (name: string, type: keyof typeof customerTxCounters[string]) => {
+        const idPart = getCustIdPart(name);
+        if (!customerTxCounters[idPart]) {
+          customerTxCounters[idPart] = { trx: 0, tab: 0, inv: 0, htg: 0, tp: 0 };
+        }
+        customerTxCounters[idPart][type]++;
+        return customerTxCounters[idPart][type];
+      };
+
+      // 2. Process Redeemed Points
+      const rCsv = csvResultsMap.get("redeemedPoints");
       let processedRedeemedPoints: RedeemedPoint[] = [];
-      if (!collectionName || collectionName === "redeemedPoints" || collectionName === "customers") {
-        const csv = csvResultsMap.get("redeemedPoints");
-        if (csv) {
-          const rData = await parseCsv(csv);
-          processedRedeemedPoints = rData.map((r, idx) => ({
-            id: `row_${String(idx).padStart(6, '0')}`,
-            Tanggal: String(r[Object.keys(r).find(k => k.toLowerCase().includes('tanggal')) || ''] || '-'),
-            Nama: String(r[Object.keys(r).find(k => k.toLowerCase().includes('nama')) || ''] || 'Unknown'),
+
+      if (rCsv && (!collectionName || collectionName === "redeemedPoints" || collectionName === "customers")) {
+        // Assume CSV is Newest-to-Oldest (Row 2 = Newest), so we reverse to process chronologically
+        const rDataRaw = (await parseCsv(rCsv)).reverse();
+        const processedChronological = rDataRaw.map((r, idx) => {
+          const name = String(r[Object.keys(r).find(k => k.toLowerCase().includes('nama')) || ''] || 'Unknown');
+          const idPart = getCustIdPart(name);
+          const seq = getNextSeq(name, 'tp');
+          
+          return {
+            id: `row_tp_${String(idx).padStart(6, '0')}`,
+            id_tukar: `TP-${idPart}/${seq}`,
+            Tanggal: cleanDate(String(r[Object.keys(r).find(k => k.toLowerCase().includes('tanggal')) || ''] || '-')),
+            Nama: name,
             Poin: parseCurrency(r[Object.keys(r).find(k => k.toLowerCase().includes('poin')) || '']),
             Hadiah: String(r[Object.keys(r).find(k => k.toLowerCase().includes('hadiah')) || ''] || '-')
-          }));
-          setRedeemedPoints(processedRedeemedPoints);
-        }
+          };
+        });
+        // Reverse for display (Newest First)
+        processedRedeemedPoints = [...processedChronological].reverse();
+        setRedeemedPoints(processedRedeemedPoints);
       }
 
       // Customers and related transactions usually need each other for total calculations
       if (!collectionName || collectionName === "customers") {
-        const cCsv = csvResultsMap.get("customers");
         const sCsv = csvResultsMap.get("savingTransactions");
         const iCsv = csvResultsMap.get("investmentTransactions");
         const hCsv = csvResultsMap.get("debtTransactions");
         const salesCsv = csvResultsMap.get("salesTransactions");
 
         if (cCsv) {
-          const cData = cCsv ? await parseCsv(cCsv) : [];
-          const sData = sCsv ? await parseCsv(sCsv) : [];
-          const iData = iCsv ? await parseCsv(iCsv) : [];
-          const hData = hCsv ? await parseCsv(hCsv) : [];
-          const salesData = salesCsv ? await parseCsv(salesCsv) : [];
+          const cData = await parseCsv(cCsv);
+          // Assume CSVs are Newest-to-Oldest, reverse them for chronological processing
+          const sData = (sCsv ? await parseCsv(sCsv) : []).reverse();
+          const iData = (iCsv ? await parseCsv(iCsv) : []).reverse();
+          const hData = (hCsv ? await parseCsv(hCsv) : []).reverse();
+          const salesData = (salesCsv ? await parseCsv(salesCsv) : []).reverse();
 
           const findKey = (row: any, targets: string[]) => 
             Object.keys(row).find(k => targets.some(t => k.toLowerCase().trim().includes(t.toLowerCase())));
@@ -11818,27 +11895,44 @@ export default function App() {
           const allSavingsTransactions: SavingTransaction[] = [];
           const allDebtTransactions: DebtTransaction[] = [];
           const allInvestmentTransactions: InvestmentTransaction[] = [];
-          
-          const processedSales: SalesTransaction[] = salesData.map((s, idx) => {
+
+          const tempCData = [...cData].reverse();
+
+          // 3. Process Sales Transactions (Oldest to Newest for stable sequence)
+          const salesChronological: SalesTransaction[] = salesData.map((s, idx) => {
             const getSVal = (row: any, targets: string[]) => {
               const key = findKey(row, targets);
               return key ? String(row[key]).trim() : "";
             };
 
+            const rawName = getSVal(s, ['nama']);
+            const name = (rawName && rawName.toLowerCase() !== "unknown") ? rawName : "-";
+            const idPart = (name === "-" || name.toLowerCase() === "pelanggan umum") ? "0000" : getCustIdPart(name);
+            const seq = getNextSeq(name, 'trx');
+            const status = getSVal(s, ['status']) || "Selesai";
+            const metode = status.toUpperCase().includes("KASBON") ? "KASBON" : "TUNAI";
+
+            const pemasukan = parseCurrency(getSVal(s, ['harga jual', 'pemasukan', 'jumlah']));
             return {
-              id: `row_${String(idx).padStart(6, '0')}`,
-              Tanggal: getSVal(s, ['tanggal']) || "-",
-              Nama: getSVal(s, ['nama']) || "Unknown",
+              id: `row_trx_${String(idx).padStart(6, '0')}`,
+              id_transaksi: `TRX-${idPart}/${seq}`,
+              Tanggal: cleanDate(getSVal(s, ['tanggal'])) || "-",
+              Nama: name,
               Jenis: getSVal(s, ['jenis']) || "Belanja",
-              Pemasukan: parseCurrency(getSVal(s, ['harga jual', 'pemasukan', 'jumlah'])),
-              Status: getSVal(s, ['status']) || "Selesai",
               Melalui: getSVal(s, ['melalui']) || "-",
+              Metode: metode,
+              Pemasukan: pemasukan,
+              Poin: Math.floor(pemasukan / 10000),
               HargaModal: parseCurrency(getSVal(s, ['modal'])),
-              Sebagian: parseCurrency(getSVal(s, ['sebagian']))
+              Sebagian: parseCurrency(getSVal(s, ['sebagian'])),
+              Status: status
             };
           });
+          // Reverse for display (Newest First)
+          const processedSales = [...salesChronological].reverse();
 
-          const validCustomers = cData.map((c: any) => {
+          // 4. Process Customers and their sub-transactions
+          const validCustomers = tempCData.map((c: any, idx: number) => {
             const getVal = (row: any, targets: string[]) => {
               const key = findKey(row, targets);
               return key ? String(row[key]).trim() : "";
@@ -11847,17 +11941,18 @@ export default function App() {
             const name = getVal(c, ['nama']);
             if (!name) return null;
             
-            // Process Saving Transactions for this user
+            const customerIdPart = getCustIdPart(name);
+
+            // Process Saving Transactions for this user (Now in Oldest-to-Newest due to sData.reverse())
             const userSavings = sData.filter(s => {
               const sNamaKey = findKey(s, ['nama']);
               return sNamaKey && String(s[sNamaKey]).trim().toLowerCase() === name.toLowerCase();
             });
             
-            const chronologicalSaving = [...userSavings].reverse();
             let savingBalance = 0;
             const userSavingTransactions: SavingTransaction[] = [];
             
-            chronologicalSaving.forEach(t => {
+            userSavings.forEach(t => {
               const tipeKey = findKey(t, ['tipe']);
               const nominalKey = findKey(t, ['nominal', 'jumlah']);
               const tanggalKey = findKey(t, ['tanggal']);
@@ -11868,8 +11963,10 @@ export default function App() {
                 if (tipe === 'SETOR') savingBalance += nominal;
                 else if (tipe === 'TARIK') savingBalance -= nominal;
                 
+                const seq = getNextSeq(name, 'tab');
                 userSavingTransactions.push({
                   id: `row_${String(allSavingsTransactions.length + userSavingTransactions.length).padStart(6, '0')}`,
+                  id_tabungan: `TAB-${customerIdPart}/${seq}`,
                   Tanggal: tanggalKey ? String(t[tanggalKey]).trim() : "-",
                   Nama: name,
                   Tipe: tipe,
@@ -11881,17 +11978,16 @@ export default function App() {
             });
             allSavingsTransactions.push(...userSavingTransactions);
 
-            // Process Debt Transactions for this user
+            // Process Debt Transactions for this user (Now in Oldest-to-Newest)
             const userDebt = hData.filter(h => {
               const hNamaKey = findKey(h, ['nama']);
               return hNamaKey && String(h[hNamaKey]).trim().toLowerCase() === name.toLowerCase();
             });
             
-            const chronologicalDebt = [...userDebt].reverse();
             let debtBalance = 0;
             const userDebtTransactions: DebtTransaction[] = [];
             
-            chronologicalDebt.forEach(h => {
+            userDebt.forEach(h => {
               const tipeKey = findKey(h, ['tipe']);
               const nominalKey = findKey(h, ['nominal', 'jumlah']);
               const tanggalKey = findKey(h, ['tanggal']);
@@ -11902,8 +11998,10 @@ export default function App() {
                 if (tipe === 'TAMBAH') debtBalance += nominal;
                 else if (tipe === 'BAYAR') debtBalance -= nominal;
                 
+                const seq = getNextSeq(name, 'htg');
                 userDebtTransactions.push({
                   id: `row_${String(allDebtTransactions.length + userDebtTransactions.length).padStart(6, '0')}`,
+                  id_hutang: `HTG-${customerIdPart}/${seq}`,
                   Tanggal: tanggalKey ? String(h[tanggalKey]).trim() : "-",
                   Nama: name,
                   Tipe: tipe,
@@ -11915,7 +12013,7 @@ export default function App() {
             });
             allDebtTransactions.push(...userDebtTransactions);
 
-            // Process Investment Transactions
+            // Process Investment Transactions (Now in Oldest-to-Newest)
             const userInvest = iData.filter(i => {
               const iNamaKey = findKey(i, ['nama']);
               return iNamaKey && String(i[iNamaKey]).trim().toLowerCase() === name.toLowerCase();
@@ -11923,8 +12021,10 @@ export default function App() {
             
             const userInvestmentTransactions: InvestmentTransaction[] = userInvest.map((i, idx) => {
               const nominal = parseCurrency(getVal(i, ['nominal', 'diterima']));
+              const seq = getNextSeq(name, 'inv');
               return {
                 id: `row_${String(allInvestmentTransactions.length + idx).padStart(6, '0')}`,
+                id_investasi: `INV-${customerIdPart}/${seq}`,
                 Tanggal: getVal(i, ['tanggal']) || '-',
                 Nama: name,
                 Nominal: nominal,
@@ -11954,15 +12054,16 @@ export default function App() {
             return {
               ...c,
               id: getVal(c, ['id']) || Math.random().toString(36).substr(2, 9),
+              id_pelanggan: `CUST-${customerIdPart}`,
               Nama: name,
-              PIN: getVal(c, ['pin']),
-              Saldo: getVal(c, ['saldo']) || "0",
-              Poin: activePoints.toLocaleString('id-ID'),
+              PIN: getVal(c, ['pin']) || "",
+              Poin: activePoints,
               Level: levelInfo.name,
-              Tabungan: savingBalance.toLocaleString('id-ID'),
-              Investasi: totalInvestValue.toLocaleString('id-ID'),
-              Hutang: debtBalance.toLocaleString('id-ID'),
-              Lainnya: userLainnya.toLocaleString('id-ID')
+              Tabungan: savingBalance,
+              Investasi: totalInvestValue,
+              Hutang: debtBalance,
+              Lainnya: userLainnya,
+              Foto: getVal(c, ['foto', 'gambar', 'image']) || ""
             };
           }).filter(Boolean) as Customer[];
 
