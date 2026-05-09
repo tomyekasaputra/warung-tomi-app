@@ -792,6 +792,27 @@ const PROMO_SLIDES = [
 const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const navigate = useNavigate();
   const currentMonth = new Date().getMonth();
+
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Warung Tomi - Cek Bansos',
+          text: 'Cek status bantuan sosial PKH dan BPNT di Warung Tomi',
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        alert('Link disalin ke clipboard!');
+      }
+    } catch (err) {
+      // Ignore AbortError (user canceled)
+      if (err instanceof Error && err.name !== 'AbortError') {
+        console.error('Error sharing:', err);
+      }
+    }
+  };
+
   const defaultTahap = Math.floor(currentMonth / 3) + 1;
   const [activeTahap, setActiveTahap] = useState(defaultTahap);
   const [searchQuery, setSearchQuery] = useState("");
@@ -869,11 +890,24 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const totalKPM = currentStageData.length;
 
   const trendData = React.useMemo(() => {
-    return [1, 2, 3, 4].map(id => ({
-      stage: `Tahap ${id}`,
-      count: processedData[id]?.length || 0,
-      period: id === 1 ? "Jan-Mar" : id === 2 ? "Apr-Jun" : id === 3 ? "Jul-Sep" : "Okt-Des"
-    }));
+    return [1, 2, 3, 4].map(id => {
+      const stageItems = processedData[id] || [];
+      const pkhCount = stageItems.filter(item => item.pkh > 0).length;
+      const bpntCount = stageItems.filter(item => item.bpnt > 0).length;
+      const pkhFunds = stageItems.reduce((acc, item) => acc + item.pkh, 0);
+      const bpntFunds = stageItems.reduce((acc, item) => acc + item.bpnt, 0);
+      const totalFunds = pkhFunds + bpntFunds;
+      return {
+        stage: `Tahap ${id}`,
+        pkh: pkhCount,
+        bpnt: bpntCount,
+        pkhFunds: pkhFunds,
+        bpntFunds: bpntFunds,
+        totalFunds: totalFunds,
+        count: stageItems.length,
+        period: id === 1 ? "Jan-Mar" : id === 2 ? "Apr-Jun" : id === 3 ? "Jul-Sep" : "Okt-Des"
+      };
+    });
   }, [processedData]);
 
   const [showPKHInfo, setShowPKHInfo] = useState(false);
@@ -881,22 +915,76 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const foundKPM = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     if (query.length < 3) return null;
-    return currentStageData.find(k => {
-      const words = k.nama.toLowerCase().split(/\s+/);
-      return words.some(word => word.startsWith(query)) || k.nama.toLowerCase().startsWith(query);
-    });
-  }, [searchQuery, currentStageData]);
+    
+    // Find the person by name in any stage to get the unique identity
+    let person = null;
+    for (let i = 1; i <= 4; i++) {
+      const found = (processedData[i] || []).find(k => {
+        const words = k.nama.toLowerCase().split(/\s+/);
+        return words.some(word => word === query) || k.nama.toLowerCase() === query;
+      });
+      if (found) {
+        person = found;
+        break;
+      }
+    }
+
+    if (!person) return null;
+
+    // Calculate totals and breakdown across all stages for this person
+    let totalAllStages = 0;
+    const stageBreakdown: Record<number, { pkh: number, bpnt: number }> = {};
+    
+    for (let i = 1; i <= 4; i++) {
+      const foundInStage = (processedData[i] || []).find(k => k.nama.toLowerCase() === person.nama.toLowerCase());
+      if (foundInStage) {
+        const amount = (foundInStage.pkh + foundInStage.bpnt);
+        totalAllStages += amount;
+        stageBreakdown[i] = { pkh: foundInStage.pkh, bpnt: foundInStage.bpnt };
+      } else {
+        stageBreakdown[i] = { pkh: 0, bpnt: 0 };
+      }
+    }
+
+    // Get specific data for the ACTIVE stage to show breakdown
+    const currentStageInfo = currentStageData.find(k => k.nama.toLowerCase() === person.nama.toLowerCase());
+
+    return {
+      nama: person.nama,
+      pkh: currentStageInfo?.pkh || 0,
+      bpnt: currentStageInfo?.bpnt || 0,
+      totalAllStages,
+      stageBreakdown
+    };
+  }, [searchQuery, currentStageData, processedData]);
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="min-h-screen bg-white pb-24"
+      className="min-h-screen bg-white pb-24 relative"
     >
-      {/* Top Header Removed */}
+      {/* Navigation Header */}
+      <div className="px-6 pt-6 flex items-center justify-between mb-2">
+        <button 
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-[#005E6A] active:scale-95 transition-transform"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span className="text-[9px] font-black uppercase tracking-widest">Kembali</span>
+        </button>
+        
+        <button 
+          onClick={handleShare}
+          className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-[#005E6A] active:scale-95 transition-transform"
+        >
+          <span className="text-[9px] font-black uppercase tracking-widest">Bagikan</span>
+          <Share2 className="w-4 h-4" />
+        </button>
+      </div>
 
-      <div className="px-6 pt-6">
+      <div className="px-6 pt-4">
         {/* Combined Image & Title Card */}
         <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200 mb-10 border border-slate-50">
           <div className="aspect-[16/10] overflow-hidden">
@@ -919,20 +1007,23 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Tren Penerima (KPM)</h3>
-              <p className="text-[8px] font-bold text-slate-400 uppercase">Statistik Per Tahap {targetYear}</p>
+              <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Perbandingan PKH & BPNT</h3>
+              <p className="text-[8px] font-bold text-slate-400 uppercase">Penerima Bansos Tahap {targetYear}</p>
             </div>
-            <TrendingUp className="w-5 h-5 text-[#F15A24]" />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-[#005E6A]" />
+                <span className="text-[7px] font-black text-slate-400 uppercase">PKH</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-[#F15A24]" />
+                <span className="text-[7px] font-black text-slate-400 uppercase">BPNT</span>
+              </div>
+            </div>
           </div>
           <div className="h-32 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData}>
-                <defs>
-                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#F15A24" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#F15A24" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
+              <BarChart data={trendData} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                 <XAxis 
                   dataKey="stage" 
@@ -941,26 +1032,65 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                   tick={{ fontSize: 8, fontWeight: 900, fill: '#64748B' }}
                 />
                 <Tooltip 
+                  cursor={{ fill: 'transparent' }}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
+                      const data = payload[0].payload;
                       return (
-                        <div className="bg-white p-2 rounded-lg shadow-xl border border-slate-100 text-[8px] font-black">
-                          <p className="text-[#F15A24]">{payload[0].value} ORANG</p>
+                        <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-100 text-[9px] font-black space-y-2 w-48">
+                          <p className="text-[#005E6A] uppercase tracking-wider pb-1.5 border-b border-slate-50">{data.stage} - {data.period}</p>
+                          
+                          <div className="space-y-1.5">
+                            <div className="flex justify-between items-start gap-3">
+                              <div className="flex items-center gap-1">
+                                <div className="w-1.5 h-1.5 rounded-full bg-[#005E6A]" />
+                                <span className="text-slate-400">PKH:</span>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[#005E6A] leading-none">Rp {data.pkhFunds.toLocaleString('id-ID')}</p>
+                                <p className="text-[7px] text-slate-400 mt-0.5">{data.pkh} KPM</p>
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-start gap-3">
+                              <div className="flex items-center gap-1">
+                                <div className="w-1.5 h-1.5 rounded-full bg-[#F15A24]" />
+                                <span className="text-slate-400">BPNT:</span>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[#F15A24] leading-none">Rp {data.bpntFunds.toLocaleString('id-ID')}</p>
+                                <p className="text-[7px] text-slate-400 mt-0.5">{data.bpnt} KPM</p>
+                              </div>
+                            </div>
+
+                            <div className="pt-1.5 border-t border-slate-50 flex justify-between">
+                              <span className="text-slate-600">TOTAL DANA:</span>
+                              <span className="text-[#005E6A]">Rp {data.totalFunds.toLocaleString('id-ID')}</span>
+                            </div>
+                            <div className="flex justify-between border-t border-slate-50 pt-1">
+                              <span className="text-slate-600">TOTAL KPM:</span>
+                              <span className="text-[#F15A24]">{data.count} ORANG</span>
+                            </div>
+                          </div>
                         </div>
                       );
                     }
                     return null;
                   }}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="count" 
-                  stroke="#F15A24" 
-                  strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorCount)" 
+                <Bar 
+                  dataKey="pkh" 
+                  fill="#005E6A" 
+                  radius={[4, 4, 0, 0]}
+                  barSize={12}
                 />
-              </AreaChart>
+                <Bar 
+                  dataKey="bpnt" 
+                  fill="#F15A24" 
+                  radius={[4, 4, 0, 0]}
+                  barSize={12}
+                />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -1007,100 +1137,132 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
           </div>
         </div>
 
-        {/* Search Widget "Cek Nama Anda" */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-xl border border-orange-100 mb-8 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-125 transition-transform">
-            <Search className="w-20 h-20 text-[#F15A24]" />
-          </div>
-          <h3 className="text-[10px] font-black text-[#F15A24] uppercase tracking-widest mb-4">Cek Nama Anda</h3>
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-            <input 
-              type="text"
-              placeholder="Masukan nama lengkap Anda..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-xs font-black uppercase tracking-tight focus:outline-none focus:border-[#F15A24]/20 transition-all shadow-inner"
-            />
-          </div>
-
-          <AnimatePresence>
-            {foundKPM && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                className="mt-4 p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                    <CheckCircle2 className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black text-green-600 uppercase">Terdaftar Penerima</p>
-                    <p className="text-[11px] font-black text-[#005E6A] uppercase">{foundKPM.nama}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[8px] font-bold text-slate-400 uppercase">Total Bantuan</p>
-                  <p className="text-[11px] font-black text-green-600">Rp {(foundKPM.pkh + foundKPM.bpnt).toLocaleString('id-ID')}</p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Table */}
+        {/* Table with Search */}
         <div className="border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm no-scrollbar bg-white mb-8">
-          <table className="w-full text-left border-collapse min-w-[320px]">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">No.</th>
-                <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Nama KPM</th>
-                <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">
-                  <div className="flex items-center justify-center gap-1">
-                    PKH
-                    <button onClick={() => setShowPKHInfo(true)}>
-                      <HelpCircle className="w-2.5 h-2.5 text-[#005E6A]" />
-                    </button>
-                  </div>
-                </th>
-                <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">BPNT</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {filteredData.length > 0 ? filteredData.map((item, index) => (
-                <tr key={index} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-3 py-3 text-[9px] font-bold text-slate-400 whitespace-nowrap">{index + 1}</td>
-                  <td className="px-3 py-3 text-[9px] font-black text-black uppercase tracking-tight whitespace-nowrap">{item.nama}</td>
-                  <td className="px-3 py-3 text-[9px] font-bold text-green-600 text-center whitespace-nowrap">
-                    {item.pkh > 0 ? `Rp ${item.pkh.toLocaleString('id-ID')}` : "-"}
-                  </td>
-                  <td className="px-3 py-3 text-[9px] font-bold text-orange-600 text-center whitespace-nowrap">
-                    {item.bpnt > 0 ? `Rp ${item.bpnt.toLocaleString('id-ID')}` : "-"}
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={4} className="px-3 py-10 text-center text-[8px] font-bold text-slate-400 uppercase tracking-widest">
-                    Tidak ada data untuk tahap ini
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+          <div className="p-5 border-b border-slate-50 bg-slate-50/30">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Daftar Penerima</h3>
+              <Search className="w-4 h-4 text-slate-300" />
+            </div>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+              <input 
+                type="text"
+                placeholder="Cari nama anda di sini..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border-2 border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-[11px] font-black uppercase tracking-tight focus:outline-none focus:border-[#005E6A]/20 transition-all shadow-inner"
+              />
+            </div>
 
-        {/* Bantuan Button */}
-        <a 
-          href={`https://wa.me/6281313433367?text=Halo%20Admin%20Warung%20Tomi,%20saya%20ingin%20menanyakan%20status%20bansos%20atas%20nama%20...`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="w-full bg-[#25D366] text-white rounded-2xl p-4 flex items-center justify-center gap-3 shadow-lg shadow-green-100 active:scale-95 transition-transform"
-        >
-          <MessageCircle className="w-5 h-5" />
-          <span className="text-[10px] font-black uppercase tracking-widest">Lapor Kendala Bansos</span>
-        </a>
+            <AnimatePresence>
+              {foundKPM && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95, y: 5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 5 }}
+                  className="mt-4 p-5 bg-white border border-slate-100 rounded-[1.5rem] shadow-xl overflow-hidden relative"
+                >
+                  <div className="absolute top-0 right-0 p-4 opacity-5">
+                    <CheckCircle2 className="w-20 h-20 text-green-500" />
+                  </div>
+                  
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-100">
+                      <CheckCircle2 className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Detail Penerima Manfaat</p>
+                      <p className="text-sm font-black text-[#005E6A] uppercase">{foundKPM.nama}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 mb-6">
+                    <h4 className="text-[9px] font-black text-[#005E6A] uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Rincian Per Tahap</h4>
+                    <div className="grid grid-cols-1 gap-2">
+                      {[1, 2, 3, 4].map(stageId => {
+                        const stage = foundKPM.stageBreakdown[stageId];
+                        const hasData = stage.pkh > 0 || stage.bpnt > 0;
+                        
+                        return (
+                          <div key={stageId} className={`p-3 rounded-xl border transition-all ${hasData ? 'bg-slate-50 border-slate-100' : 'bg-slate-50/20 border-dashed border-slate-100 opacity-50'}`}>
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-[10px] font-black text-slate-600">TAHAP {stageId}</span>
+                              <span className="text-[10px] font-black text-[#005E6A]">Rp {(stage.pkh + stage.bpnt).toLocaleString('id-ID')}</span>
+                            </div>
+                            {hasData ? (
+                              <div className="flex gap-4">
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-[#005E6A]" />
+                                  <span className="text-[8px] font-bold text-slate-400">PKH: <span className="text-slate-600">Rp {stage.pkh.toLocaleString('id-ID')}</span></span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-[#F15A24]" />
+                                  <span className="text-[8px] font-bold text-slate-400">BPNT: <span className="text-slate-600">Rp {stage.bpnt.toLocaleString('id-ID')}</span></span>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-[8px] font-medium text-slate-400 italic">Data belum tersedia / Tidak menerima</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="bg-gradient-to-r from-[#005E6A] to-[#004852] p-4 rounded-xl text-white shadow-lg">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-[8px] font-black uppercase tracking-widest opacity-60 mb-1">Akumulasi Tahunan</p>
+                      </div>
+                      <p className="text-sm font-black">Rp {foundKPM.totalAllStages.toLocaleString('id-ID')}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
+          {!foundKPM && (
+            <table className="w-full text-left border-collapse min-w-[320px]">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">No.</th>
+                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Nama KPM</th>
+                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">
+                    <div className="flex items-center justify-center gap-1">
+                      PKH
+                      <button onClick={() => setShowPKHInfo(true)}>
+                        <HelpCircle className="w-2.5 h-2.5 text-[#005E6A]" />
+                      </button>
+                    </div>
+                  </th>
+                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">BPNT</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredData.length > 0 ? filteredData.map((item, index) => (
+                  <tr key={index} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-3 py-3 text-[9px] font-bold text-slate-400 whitespace-nowrap">{index + 1}</td>
+                    <td className="px-3 py-3 text-[9px] font-black text-black uppercase tracking-tight whitespace-nowrap">{item.nama}</td>
+                    <td className="px-3 py-3 text-[9px] font-bold text-green-600 text-center whitespace-nowrap">
+                      {item.pkh > 0 ? `Rp ${item.pkh.toLocaleString('id-ID')}` : "-"}
+                    </td>
+                    <td className="px-3 py-3 text-[9px] font-bold text-orange-600 text-center whitespace-nowrap">
+                      {item.bpnt > 0 ? `Rp ${item.bpnt.toLocaleString('id-ID')}` : "-"}
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-10 text-center text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                      Tidak ada data untuk tahap ini
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
       {/* PKH Info Modal */}
@@ -2166,7 +2328,7 @@ const LoyaltyPointsDetailPage = ({ user, transactions, redeemedPoints, customers
         className="px-6 py-4"
       >
         {/* Main Card */}
-        <div className="bg-[#005E6A] rounded-none p-8 pb-6 text-white shadow-lg mb-6 relative overflow-hidden group">
+        <div className="bg-[#005E6A] rounded-[2.5rem] p-8 pb-6 text-white shadow-lg mb-6 relative overflow-hidden group">
           <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
           <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${activePoints < 0 ? 'bg-red-500/20' : 'bg-white/10'}`}>
             <Star className={`w-6 h-6 ${activePoints < 0 ? 'text-red-400 fill-red-400' : 'text-amber-400 fill-amber-400'}`} />
@@ -2547,43 +2709,73 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
         animate={{ opacity: 1, y: 0 }}
         className="px-6 py-4 cursor-grab active:cursor-grabbing"
       >
-        <div className="bg-gradient-to-br from-[#00B4C4] via-[#005E6A] to-[#012E35] rounded-[3rem] p-8 shadow-2xl shadow-[#005E6A]/40 mb-10 relative overflow-hidden group border border-white/20">
-          {/* Decorative shapes for attention */}
-          <div className="absolute top-0 right-0 w-72 h-72 bg-[#00F2FF]/20 rounded-full -mr-32 -mt-32 blur-[100px] group-hover:bg-[#00F2FF]/30 transition-all duration-1000" />
-          <div className="absolute -bottom-8 -left-8 w-48 h-48 bg-[#F15A24]/20 rounded-full blur-[80px]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1)_0%,transparent_70%)] opacity-50" />
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="bg-white rounded-[2.5rem] p-6 shadow-2xl shadow-slate-200 mb-8 relative overflow-hidden group border border-slate-50"
+        >
+          {/* Animated Decorative Elements */}
+          <motion.div 
+            animate={{ 
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.6, 0.3]
+            }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-0 right-0 w-64 h-64 bg-[#00F2FF]/20 rounded-full -mr-24 -mt-24 blur-[80px]" 
+          />
+          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#F15A24]/10 rounded-full blur-[60px]" />
           
-          <div className="flex items-center justify-between mb-8 relative z-10">
+          <div className="flex items-center justify-between mb-6 relative z-10">
             <div className="flex flex-col">
-              <h2 className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-1">Total Aset</h2>
-              <div className="h-1 w-8 bg-[#F15A24] rounded-full" />
+              <h2 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em] mb-1.5 flex items-center gap-2">
+                Total Aset
+                <motion.span 
+                  animate={{ opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="w-1 h-1 rounded-full bg-[#005E6A]"
+                />
+              </h2>
+              <div className="h-0.5 w-6 bg-[#F15A24] rounded-full" />
             </div>
             <button 
               onClick={toggleBalance}
-              className="w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white active:scale-90 transition-all border border-white/20 shadow-lg"
+              className="w-10 h-10 bg-slate-50 hover:bg-slate-100 rounded-xl flex items-center justify-center text-[#005E6A] active:scale-90 transition-all border border-slate-100 shadow-sm"
             >
               {showBalances ? <History className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
             </button>
           </div>
 
-          <div className="flex items-baseline gap-3 mb-10 relative z-10">
-            <span className="text-xl font-bold text-white/30 italic">Rp</span>
-            <span className="text-5xl font-black text-white tracking-tighter leading-none drop-shadow-md">
-              {mask(formatCurrency(totalAset))}
-            </span>
+          <div className="flex flex-col mb-8 relative z-10">
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-black text-[#F15A24] italic opacity-80">Rp</span>
+              <motion.span 
+                key={totalAset}
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="text-4xl font-black text-[#005E6A] tracking-tighter leading-none"
+              >
+                {mask(formatCurrency(totalAset))}
+              </motion.span>
+            </div>
+            <div className="flex items-center gap-2 mt-3 pl-1">
+              <TrendingUp className="w-3 h-3 text-[#00B4C4]" />
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Optimasi Berjalan</span>
+            </div>
           </div>
           
-          <div className="relative z-10 bg-white/5 backdrop-blur-md rounded-[2rem] p-6 border border-white/10 shadow-inner">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[9px] font-black text-white/60 uppercase tracking-widest">Alokasi Portofolio</span>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-[#F15A24] animate-pulse" />
-                <span className="text-[8px] font-bold text-[#F15A24] uppercase tracking-tighter">Live</span>
+          <div className="relative z-10 bg-slate-50 rounded-[1.8rem] p-4 border border-slate-100 shadow-inner">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Alokasi Portofolio</span>
+              <div className="px-2 py-0.5 bg-[#F15A24]/10 rounded-full border border-[#F15A24]/20">
+                <span className="text-[7px] font-black text-[#F15A24] uppercase tracking-tighter">Live Status</span>
               </div>
             </div>
-            <AssetPieChart data={assetData} />
+            <div className="scale-95 origin-center">
+              <AssetPieChart data={assetData} />
+            </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Rincian Saldo Section */}
         <div className="grid grid-cols-2 gap-4">
@@ -2650,7 +2842,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
         {/* Target Impian Section - Moved to Bottom */}
         <div className="mt-10">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Target Impian</h3>
-          <div className="bg-[#005E6A] rounded-none p-6 shadow-xl relative overflow-hidden group">
+          <div className="bg-[#005E6A] rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-white/10 transition-colors" />
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -3092,8 +3284,15 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-center">
                           <div className="space-y-1">
-                            <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-widest leading-none">{t.Berita || t.Tipe}</p>
-                            <p className="text-[9px] font-bold text-slate-400 leading-none">{t.Tanggal}</p>
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-widest leading-none">{t.Tipe}</p>
+                                {t.Berita && t.Berita !== t.Tipe && (
+                                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest truncate max-w-[120px]">| {t.Berita}</span>
+                                )}
+                              </div>
+                              <p className="text-[9px] font-bold text-slate-400 leading-none">{t.Tanggal}</p>
+                            </div>
                           </div>
                           <div className="text-right">
                             <p className={`text-sm font-black leading-none mb-1 ${
@@ -4653,15 +4852,7 @@ const AdminDashboard = ({
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
         
         <div className="relative z-10">
-          <div className="flex justify-between items-center mb-6">
-            <button 
-              onClick={() => navigate("/")}
-              className="flex items-center gap-2 text-white/70 group"
-            >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              <span className="text-xs font-bold uppercase tracking-widest">Beranda</span>
-            </button>
-          </div>
+
           
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
@@ -5136,10 +5327,6 @@ const AdminManagementPage = ({
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10">
-          <button onClick={() => navigate("/admin")} className="flex items-center gap-2 text-white/70 mb-6 group">
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Dashboard</span>
-          </button>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center flex-shrink-0">
               <Icon className="w-5 h-5 text-white" />
@@ -5779,7 +5966,9 @@ const AdminSavingsManagement = ({
                   <p className={`text-xs font-black ${t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'}`}>
                     {t.Tipe === 'SETOR' ? '+' : '-'}{t.Nominal.toLocaleString('id-ID')}
                   </p>
-                  <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">{t.Berita || t.Tipe}</p>
+                  <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">
+                    {t.Tipe} {t.Berita && t.Berita !== t.Tipe ? `| ${t.Berita}` : ''}
+                  </p>
                 </div>
               </div>
             ))}
@@ -7051,15 +7240,7 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
             </div>
             <p className="text-teal-50/60 text-[10px] font-black uppercase tracking-[0.2em]">Data Tarik Tunai Belum Diambil & Diproses</p>
           </div>
-          <div className="text-right">
-             <button 
-              onClick={() => navigate("/admin")}
-              className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-black uppercase tracking-widest transition-all backdrop-blur-md flex items-center gap-2"
-            >
-              <span>Dashboard</span>
-              <Home className="w-4 h-4" />
-            </button>
-          </div>
+
         </div>
       </div>
 
@@ -7780,10 +7961,6 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10">
-          <button onClick={() => navigate("/admin")} className="flex items-center gap-2 text-white/70 mb-6 group">
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Kembali ke Dashboard</span>
-          </button>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center flex-shrink-0">
               <Users className="w-5 h-5 text-white" />
@@ -9348,7 +9525,7 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
         {activeTab === "trend" ? (
           <div className="mb-8">
             {/* 6-Month Trend Chart with Integrated Total */}
-            <div className="bg-[#005E6A] rounded-none p-8 shadow-xl border border-[#005E6A]/10 mb-6 relative overflow-hidden">
+            <div className="bg-[#005E6A] rounded-[2.5rem] p-8 shadow-xl border border-[#005E6A]/10 mb-6 relative overflow-hidden">
               <div className="relative z-10 mb-6 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Total Transaksi {selectedMonthLabel}</p>
@@ -10781,22 +10958,22 @@ const AdminLayout = ({
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans flex flex-col md:flex-row">
-      <nav className="fixed bottom-0 left-0 right-0 md:relative md:w-68 md:h-screen md:sticky md:top-0 bg-white/95 backdrop-blur-xl border-t md:border-t-0 md:border-r border-slate-100 z-50 flex md:flex-col items-center md:items-stretch justify-between md:justify-start px-6 py-4 md:px-4 md:py-10 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] md:shadow-none">
-        {/* Desktop Header Logo */}
-        <div className="hidden md:flex flex-col gap-1 mb-12 px-2">
+    <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans flex flex-row">
+      <nav className="sticky top-0 h-screen w-16 md:w-68 bg-white/95 backdrop-blur-xl border-r border-slate-100 z-50 flex flex-col items-center md:items-stretch px-2 md:px-4 py-8 md:py-10 shadow-xl md:shadow-none">
+        {/* Logo Section */}
+        <div className="flex flex-col gap-1 mb-10 px-1 md:px-2">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-lg shadow-[#005E6A]/20 transform -rotate-3 transition-transform hover:rotate-0">
-              <LayoutGrid className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 md:w-11 md:h-11 shrink-0 rounded-2xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-lg shadow-[#005E6A]/20 transform -rotate-3 transition-transform hover:rotate-0">
+              <LayoutGrid className="w-5 h-5 md:w-6 md:h-6 text-white" />
             </div>
-            <div>
+            <div className="hidden md:block">
               <h1 className="text-[15px] font-black text-[#005E6A] tracking-tighter leading-none uppercase">WARUNG <span className="text-[#F15A24]">TOMI</span></h1>
               <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 opacity-80">Admin Center</p>
             </div>
           </div>
         </div>
 
-        <div className="flex md:flex-col items-center md:items-stretch flex-1 md:flex-none gap-2 w-full">
+        <div className="flex flex-col items-center md:items-stretch gap-2 w-full">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             const Icon = item.icon;
@@ -10805,17 +10982,17 @@ const AdminLayout = ({
               <button
                 key={item.id}
                 onClick={() => navigate(item.path)}
-                className={`relative flex items-center justify-center md:justify-start h-12 md:h-13 transition-all duration-500 rounded-2xl md:rounded-2xl group overflow-hidden ${
+                className={`relative flex items-center justify-center md:justify-start h-12 transition-all duration-300 rounded-xl md:rounded-2xl group overflow-hidden w-12 md:w-full ${
                   isActive 
-                    ? "flex-[2.5] md:flex-none px-6 md:px-5 md:bg-[#005E6A]/5" 
-                    : "flex-1 md:flex-none px-2 md:px-5 hover:bg-slate-50"
+                    ? "md:bg-[#005E6A]/5" 
+                    : "hover:bg-slate-50"
                 }`}
               >
-                {/* Mobile Active Indicator */}
+                {/* Active Indicator */}
                 {isActive && (
                   <motion.div
                     layoutId="adminNavIndicator"
-                    className="absolute inset-0 bg-gradient-to-br from-[#F15A24] to-[#ff8c42] rounded-2xl shadow-lg shadow-[#F15A24]/30 md:hidden"
+                    className="absolute inset-0 bg-[#F15A24] rounded-xl md:hidden opacity-10"
                     transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
                   />
                 )}
@@ -10829,39 +11006,35 @@ const AdminLayout = ({
                   />
                 )}
 
-                <div className="flex items-center gap-3.5 relative z-10 w-full">
+                <div className="flex items-center gap-3.5 relative z-10 w-full justify-center md:justify-start md:pl-5">
                   <motion.div
                     animate={{
                       scale: isActive ? 1.1 : 1,
-                      rotate: isActive ? 0 : 0
                     }}
                     whileHover={{ scale: 1.1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
                     className="shrink-0"
                   >
                     <Icon 
-                      className={`w-5 h-5 transition-all duration-500 ${
+                      className={`w-5 h-5 transition-all duration-300 ${
                         isActive 
-                          ? "text-white md:text-[#F15A24]" 
+                          ? "text-[#F15A24]" 
                           : "text-slate-400 group-hover:text-[#F15A24]"
                       }`} 
                       strokeWidth={isActive ? 2.5 : 2}
                     />
                   </motion.div>
                   
-                  <div className="flex flex-col overflow-hidden">
+                  <div className="hidden md:flex flex-col overflow-hidden text-left">
                     <span 
-                      className={`text-[10px] md:text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap transition-all duration-500 ${
+                      className={`text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap transition-all duration-300 ${
                         isActive 
-                          ? "text-white md:text-[#005E6A] opacity-100" 
-                          : "text-slate-400 opacity-0 md:opacity-60 md:block hidden group-hover:opacity-100"
+                          ? "text-[#005E6A]" 
+                          : "text-slate-400 group-hover:text-[#005E6A]"
                       }`}
                     >
                       {item.label}
                     </span>
-                    {isActive && (
-                      <div className="h-0.5 w-full bg-[#F15A24] mt-0.5 rounded-full md:hidden" />
-                    )}
                   </div>
                 </div>
               </button>
@@ -10869,14 +11042,15 @@ const AdminLayout = ({
           })}
         </div>
 
-        {/* Bottom Sidebar Footer (Desktop) */}
-        <div className="hidden md:flex flex-col gap-2 mt-auto pb-6 border-t border-slate-50 pt-8">
+        {/* Bottom Sidebar Footer */}
+        <div className="flex flex-col items-center md:items-stretch gap-2 mt-auto pb-6 border-t border-slate-50 pt-8 w-full">
           <button 
             onClick={() => navigate('/')}
-            className="flex items-center gap-4 px-5 py-3.5 w-full rounded-2xl text-slate-400 hover:text-[#005E6A] hover:bg-slate-50 transition-all group"
+            className="flex items-center justify-center md:justify-start gap-4 p-3 md:px-5 md:py-3.5 w-12 md:w-full rounded-xl md:rounded-2xl text-slate-400 hover:text-[#005E6A] hover:bg-slate-50 transition-all group"
+            title="Ke Beranda"
           >
             <Home className="w-5 h-5 shrink-0 transition-transform group-hover:-translate-x-1" />
-            <span className="text-[10px] font-black uppercase tracking-[0.15em]">Ke Beranda</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.15em] hidden md:block">Ke Beranda</span>
           </button>
           
           <button 
@@ -10884,15 +11058,16 @@ const AdminLayout = ({
               localStorage.removeItem("admin_session");
               navigate("/");
             }}
-            className="flex items-center gap-4 px-5 py-3.5 w-full rounded-2xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all group"
+            className="flex items-center justify-center md:justify-start gap-4 p-3 md:px-5 md:py-3.5 w-12 md:w-full rounded-xl md:rounded-2xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all group"
+            title="Keluar Sesi"
           >
             <LogOut className="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" />
-            <span className="text-[10px] font-black uppercase tracking-[0.15em]">Keluar Sesi</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.15em] hidden md:block">Keluar Sesi</span>
           </button>
         </div>
       </nav>
 
-      <main className="flex-1 w-full pb-28 md:pb-12 overflow-x-hidden">
+      <main className="flex-1 w-full pb-12 overflow-x-hidden">
         {children}
       </main>
     </div>
@@ -10909,15 +11084,20 @@ const Layout = ({
   activeTab: string, 
   setActiveTab: (id: string) => void,
   user: Customer | null,
-}) => (
-  <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans pb-28">
-    <main className="container mx-auto max-w-lg">
-      {children}
-      {activeTab === "beranda" && <KontakSection />}
-    </main>
-    <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
-  </div>
-);
+}) => {
+  const location = useLocation();
+  const isBansosPage = location.pathname.includes("/bansos");
+
+  return (
+    <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans pb-28">
+      <main className="container mx-auto max-w-lg">
+        {children}
+        {activeTab === "beranda" && !isBansosPage && <KontakSection />}
+      </main>
+      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
+    </div>
+  );
+};
 
 const HomePage = ({ 
   activeTab, 
@@ -11090,44 +11270,51 @@ const HomePage = ({
                     }
 
                     return (
-                      <>
+                      <div className="space-y-4">
                         {hasAssets && (
-                          <div className="mb-2 px-3 py-2 bg-[#005E6A]/5 rounded-xl border border-[#005E6A]/10 flex justify-between items-center group hover:bg-[#005E6A]/10 transition-colors">
-                            <div className="flex items-center gap-2">
-                              <div className="w-1.5 h-1.5 rounded-full bg-[#005E6A]" />
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Bersih</span>
-                            </div>
-                            <span className="text-sm font-black text-[#005E6A]">
+                          <motion.div 
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="inline-flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-[#005E6A]/10 to-transparent rounded-full border border-[#005E6A]/10"
+                          >
+                            <div className="w-2 h-2 rounded-full bg-[#005E6A] animate-pulse" />
+                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Saldo Bersih</span>
+                            <span className="text-xs font-black text-[#005E6A] drop-shadow-sm">
                               Rp {saldoBersih.toLocaleString('id-ID')}
                             </span>
-                          </div>
+                          </motion.div>
                         )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                           {assets.map((item, i) => (
-                            <div 
+                            <motion.div 
                               key={i} 
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: i * 0.1 }}
                               onClick={() => navigate(item.path)}
-                              className={`relative overflow-hidden bg-gradient-to-r ${item.gradient} p-4 rounded-xl flex items-center justify-between shadow-sm border border-white/10 cursor-pointer active:scale-[0.98] transition-transform h-full`}
+                              className={`group relative overflow-hidden bg-white p-4 rounded-lg flex flex-col justify-between shadow-sm border border-slate-100 cursor-pointer active:scale-95 transition-all hover:shadow-xl hover:shadow-slate-100 min-h-[100px]`}
                             >
-                              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-xl" />
+                              <div className={`absolute top-0 right-0 w-20 h-20 bg-gradient-to-br ${item.gradient} opacity-[0.03] rounded-full -mr-10 -mt-10 group-hover:opacity-[0.08] transition-opacity`} />
                               
-                              <div className="flex items-center gap-3 relative z-10">
-                                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20">
-                                  <item.icon className="w-5 h-5 text-white" />
+                              <div className="flex justify-between items-start relative z-10 w-full">
+                                <div className={`w-9 h-9 bg-gradient-to-br ${item.gradient} rounded-[1.2rem] flex items-center justify-center shadow-lg shadow-current/10 group-hover:scale-110 transition-transform`}>
+                                  <item.icon className="w-4 h-4 text-white" />
                                 </div>
-                                <div>
-                                  <p className="text-[8px] font-black text-white/70 uppercase tracking-[0.2em] leading-none mb-1">{item.name}</p>
-                                  <p className="text-sm font-black text-white tracking-tight">Rp {formatCurrency(item.value)}</p>
+                                <div className="p-1 rounded-lg bg-slate-50 group-hover:bg-[#F15A24]/10 transition-colors">
+                                  <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-[#F15A24]" />
                                 </div>
                               </div>
 
-                              <div className="w-7 h-7 bg-white/10 rounded-full flex items-center justify-center relative z-10">
-                                <ChevronRight className="w-4 h-4 text-white" />
+                              <div className="mt-3 relative z-10">
+                                <div className="flex flex-col">
+                                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover:text-[#005E6A] transition-colors">{item.name}</span>
+                                  <p className="text-xs font-black text-slate-900 tracking-tight">Rp {formatCurrency(item.value)}</p>
+                                </div>
                               </div>
-                            </div>
+                            </motion.div>
                           ))}
                         </div>
-                      </>
+                      </div>
                     );
                   })()}
                 </div>
