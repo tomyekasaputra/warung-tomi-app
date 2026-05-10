@@ -262,6 +262,7 @@ interface SavingTransaction {
   Nominal: number;
   SaldoAkhir: number;
   Berita?: string;
+  Sebagian?: number;
 }
 
 interface DebtTransaction {
@@ -274,6 +275,7 @@ interface DebtTransaction {
   Jumlah: number;
   Keterangan: string;
   SaldoAkhir: number;
+  Sebagian?: number;
 }
 
 interface SalesTransaction {
@@ -416,6 +418,7 @@ interface InvestmentTransaction {
   Status: string;
   Keterangan?: string;
   Nisbah?: string;
+  Sebagian?: number;
 }
 
 // --- Data ---
@@ -8641,67 +8644,85 @@ const AdminMasterDataPage = ({
       id_migrasi: t.id_tabungan, 
       Tanggal: t.Tanggal, 
       id_pelanggan: t.id_pelanggan, 
-      Kategori: 'Tabungan', 
+      Kategori: 'TABUNGAN', 
       Tipe: t.Tipe, 
       Nominal: t.Nominal, 
+      Modal: 0,
+      Sebagian: 0,
+      Poin: 0,
       Melalui: '-', 
       Metode: '-', 
-      Status: 'Selesai',
+      Status: '',
       Keterangan: t.Berita 
     }));
     debtTransactions.forEach(t => data.push({ 
       id_migrasi: t.id_hutang, 
       Tanggal: t.Tanggal, 
       id_pelanggan: t.id_pelanggan, 
-      Kategori: 'Hutang', 
+      Kategori: 'HUTANG', 
       Tipe: t.Tipe, 
       Nominal: t.Jumlah, 
+      Modal: 0,
+      Sebagian: t.Sebagian || 0,
+      Poin: 0,
       Melalui: '-', 
       Metode: '-', 
-      Status: t.SaldoAkhir > 0 ? 'Kasbon' : 'Lunas',
+      Status: '',
       Keterangan: t.Keterangan 
     }));
     investmentTransactions.forEach(t => data.push({ 
       id_migrasi: t.id_investasi, 
       Tanggal: t.Tanggal, 
       id_pelanggan: t.id_pelanggan, 
-      Kategori: 'Investasi', 
+      Kategori: 'INVESTASI', 
       Tipe: 'MODAL', 
       Nominal: t.Nominal, 
+      Modal: 0,
+      Sebagian: 0,
+      Poin: 0,
       Melalui: '-', 
       Metode: '-', 
-      Status: t.Status,
+      Status: '',
       Keterangan: `Tenor: ${t.Tenor}` 
     }));
-    salesTransactions.forEach(t => data.push({ 
-      id_migrasi: t.id_transaksi, 
-      Tanggal: t.Tanggal, 
-      id_pelanggan: t.id_pelanggan, 
-      Kategori: 'Penjualan', 
-      Tipe: 'JUAL', 
-      Nominal: t.Pemasukan, 
-      Melalui: t.Melalui || '-', 
-      Metode: t.Metode || '-', 
-      Status: t.Status || 'Selesai',
-      Keterangan: t.Jenis 
-    }));
+    salesTransactions.forEach(t => {
+      const isVirtual = ["TARIK TUNAI", "TRANSFER", "PULSA", "DATA"].some(v => (t.Jenis || "").toUpperCase().includes(v));
+      data.push({ 
+        id_migrasi: t.id_transaksi, 
+        Tanggal: t.Tanggal, 
+        id_pelanggan: t.id_pelanggan, 
+        Kategori: 'PENJUALAN', 
+        Tipe: isVirtual ? 'VIRTUAL' : 'FISIK', 
+        Nominal: t.Pemasukan, 
+        Modal: t.HargaModal || 0,
+        Sebagian: t.Sebagian || 0,
+        Poin: t.Poin || 0,
+        Melalui: t.Melalui || '-', 
+        Metode: t.Metode || '-', 
+        Status: t.Status || 'Selesai',
+        Keterangan: t.Jenis 
+      });
+    });
     redeemedPoints.forEach(t => data.push({ 
       id_migrasi: t.id_tukar, 
       Tanggal: t.Tanggal, 
       id_pelanggan: t.id_pelanggan, 
-      Kategori: 'Poin', 
+      Kategori: 'POIN', 
       Tipe: 'TUKAR', 
       Nominal: t.Poin, 
+      Modal: 0,
+      Sebagian: 0,
+      Poin: t.Poin,
       Melalui: '-', 
       Metode: 'Poin', 
-      Status: 'Selesai',
+      Status: '',
       Keterangan: t.Hadiah 
     }));
     
     return data.sort((a,b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
   }, [savingsTransactions, debtTransactions, investmentTransactions, salesTransactions, redeemedPoints]);
 
-  const migrationColumns = ["id_migrasi", "Tanggal", "id_pelanggan", "Kategori", "Tipe", "Nominal", "Melalui", "Metode", "Status", "Keterangan"];
+  const migrationColumns = ["id_migrasi", "Tanggal", "id_pelanggan", "Kategori", "Tipe", "Nominal", "Modal", "Sebagian", "Poin", "Keterangan", "Melalui", "Metode", "Status"];
 
   const filteredMigrationData = useMemo(() => {
     const searchStr = search.toLowerCase().trim();
@@ -8912,11 +8933,11 @@ const AdminMasterDataPage = ({
 
           <div className="grid grid-cols-2 gap-4 mt-6 px-2">
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Baris Data</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Baris</p>
               <h3 className="text-base font-black text-[#005E6A]">{(viewMode === "lama" ? currentData.length : migrationData.length).toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Items</span></h3>
             </div>
             <div className="text-right space-y-1 border-l border-slate-100 pl-4">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Sel yang Diambil</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Sel</p>
               <h3 className="text-base font-black text-[#F15A24]">{(viewMode === "lama" ? currentData.length * columns.length : migrationData.length * migrationColumns.length).toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Sel</span></h3>
             </div>
           </div>
@@ -8973,7 +8994,10 @@ const AdminMasterDataPage = ({
                       "SaldoAkhir": activeCollection === "debtTransactions" ? "Hutang Akhir" : "Saldo Akhir",
                       "Jumlah": activeCollection === "debtTransactions" ? "Nominal" : "Jumlah",
                       "Pemasukan": "Harga Jual",
-                      "JatuhTempo": "Jatuh Tempo"
+                      "JatuhTempo": "Jatuh Tempo",
+                      "Modal": "Modal",
+                      "Sebagian": "Sebagian",
+                      "Poin": "Poin"
                     };
                     return (
                       <th key={col} className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
@@ -9004,18 +9028,20 @@ const AdminMasterDataPage = ({
                             className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs font-bold focus:outline-none focus:border-teal-500"
                           />
                         ) : (
-                          <span className="text-xs font-bold text-slate-600 block max-w-[200px] truncate">
+                          <span className={`text-xs font-bold block max-w-[200px] truncate ${col === "Kategori" ? "uppercase text-teal-600 bg-teal-50 px-2 py-0.5 rounded border border-teal-100 w-fit" : "text-slate-600"}`}>
                             {col === "Image" || col === "Foto" ? (
                               item[col] ? (
                                 <img src={item[col]} alt="Asset" className="w-8 h-8 rounded-lg object-cover border border-slate-100" referrerPolicy="no-referrer" />
                               ) : "-"
                             ) : typeof item[col] === 'object' && item[col]?.seconds 
                               ? new Date(item[col].seconds * 1000).toLocaleDateString()
-                              : (["Nominal", "Tabungan", "Investasi", "Lainnya", "Hutang", "Saldo", "SaldoAkhir", "Pemasukan", "HargaModal", "Sebagian"].includes(col) && item[col] !== undefined)
-                                ? `Rp ${formatCurrency(item[col])}`
+                              : (["Nominal", "Modal", "Tabungan", "Investasi", "Lainnya", "Hutang", "Saldo", "SaldoAkhir", "Pemasukan", "HargaModal", "Sebagian"].includes(col))
+                                ? (item[col] && item[col] !== 0 ? `Rp ${formatCurrency(item[col])}` : "")
+                                : col === "Status"
+                                  ? String(item[col]?.toUpperCase() || "")
                                 : col === "Nama"
                                   ? String(item[col] || "Pelanggan Umum")
-                                  : String(item[col] || "-")}
+                                  : (item[col] === "-" || !item[col] || item[col] === 0) ? "" : String(item[col])}
                           </span>
                         )}
                       </td>
@@ -9089,7 +9115,7 @@ const AdminMasterDataPage = ({
               className="relative w-full max-w-lg bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/20 max-h-[90vh] flex flex-col"
             >
               <div className={`${catStyles.bg} p-6 sm:p-8 text-white relative shrink-0`}>
-                <div className="flex justify-between items-start mb-4 sm:mb-6">
+                <div className="flex justify-between items-start">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <Database className="w-4 h-4 opacity-70" />
@@ -9107,144 +9133,252 @@ const AdminMasterDataPage = ({
                     <X className="w-5 h-5 text-white" />
                   </button>
                 </div>
-
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[10px] font-black uppercase opacity-70">Nominal:</span>
-                  {isEditingPopup ? (
-                    <div className="flex items-center bg-white/10 rounded-xl px-3 py-1 mt-1 border border-white/20">
-                      <span className="text-lg font-black mr-1 opacity-70">Rp</span>
-                      <input 
-                        type="number"
-                        value={popupEditValues.Nominal}
-                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Nominal: parseFloat(e.target.value) || 0 })}
-                        className="bg-transparent border-none text-xl sm:text-2xl font-black text-white w-full outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        autoFocus
-                      />
-                    </div>
-                  ) : (
-                    <span className="text-2xl sm:text-3xl font-black">
-                      {typeof selectedMigrationItem.Nominal === 'number' 
-                        ? `Rp ${selectedMigrationItem.Nominal.toLocaleString('id-ID')}`
-                        : selectedMigrationItem.Nominal}
-                    </span>
-                  )}
-                </div>
               </div>
 
-              <div className="p-6 sm:p-8 space-y-6 overflow-y-auto custom-scrollbar">
-                <div className="grid grid-cols-2 gap-4 sm:gap-6">
+              <div className="p-6 sm:p-8 space-y-4 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Row 1: Nama Pelanggan | ID Pelanggan */}
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Pelanggan</p>
-                    {isEditingPopup ? (
-                      <input 
-                        type="text"
-                        value={customers.find(c => c.id_pelanggan === popupEditValues.id_pelanggan)?.Nama || ""}
-                        disabled
-                        className="w-full text-sm font-bold text-slate-400 bg-slate-50 border-none rounded-lg px-0"
-                      />
-                    ) : (
-                      <p className="text-sm font-bold text-slate-700 break-words">
-                        {customers.find(c => c.id_pelanggan === selectedMigrationItem.id_pelanggan)?.Nama || "Pelanggan Tidak Dikenal"}
-                      </p>
-                    )}
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Pelanggan</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                      {customers.find(c => c.id_pelanggan === (isEditingPopup ? popupEditValues.id_pelanggan : selectedMigrationItem.id_pelanggan))?.Nama || "Pelanggan Tidak Dikenal"}
+                    </div>
                   </div>
+                  
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Pelanggan</p>
-                    <p className="text-sm font-mono font-bold text-slate-700">{selectedMigrationItem.id_pelanggan}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Pelanggan</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-mono font-bold text-slate-700 min-h-[52px] flex items-center">
+                      {isEditingPopup ? (
+                        <input 
+                          type="text"
+                          value={popupEditValues.id_pelanggan}
+                          onChange={(e) => setPopupEditValues({ ...popupEditValues, id_pelanggan: e.target.value })}
+                          className="w-full bg-transparent border-none outline-none"
+                        />
+                      ) : (
+                        selectedMigrationItem.id_pelanggan || ""
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</p>
-                    {isEditingPopup ? (
-                      <input 
-                        type="text"
-                        value={popupEditValues.Tanggal}
-                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Tanggal: e.target.value })}
-                        className="w-full text-sm font-bold text-slate-700 border-b-2 border-indigo-100 focus:border-indigo-500 outline-none transition-colors py-1"
-                      />
-                    ) : (
-                      <p className="text-sm font-bold text-slate-700">{selectedMigrationItem.Tanggal}</p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kategori</p>
-                    <span className={`inline-block px-3 py-1 ${catStyles.softBg} ${catStyles.text} text-[10px] font-black uppercase tracking-widest rounded-lg border ${catStyles.border}`}>
-                      {selectedMigrationItem.Kategori}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipe</p>
-                    {isEditingPopup ? (
-                      <input 
-                        type="text"
-                        value={popupEditValues.Tipe}
-                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Tipe: e.target.value })}
-                        className="w-full text-sm font-bold text-slate-700 border-b-2 border-indigo-100 focus:border-indigo-500 outline-none transition-colors py-1"
-                      />
-                    ) : (
-                      <p className="text-sm font-bold text-slate-700">{selectedMigrationItem.Tipe}</p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</p>
-                    {isEditingPopup ? (
-                      <select 
-                        value={popupEditValues.Status}
-                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Status: e.target.value })}
-                        className="w-full text-sm font-bold text-slate-700 border-b-2 border-indigo-100 focus:border-indigo-500 outline-none transition-colors py-1 bg-transparent"
-                      >
-                        <option value="Lunas">Lunas</option>
-                        <option value="Kasbon">Kasbon</option>
-                        <option value="Proses">Proses</option>
-                      </select>
-                    ) : (
-                      <p className={`text-sm font-bold ${selectedMigrationItem.Status === 'Kasbon' ? 'text-red-500' : 'text-green-500'}`}>
-                        {selectedMigrationItem.Status}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Melalui</p>
-                    {isEditingPopup ? (
-                      <input 
-                        type="text"
-                        value={popupEditValues.Melalui}
-                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Melalui: e.target.value })}
-                        className="w-full text-sm font-bold text-slate-700 border-b-2 border-indigo-100 focus:border-indigo-500 outline-none transition-colors py-1"
-                      />
-                    ) : (
-                      <p className="text-sm font-bold text-slate-700">{selectedMigrationItem.Melalui || '-'}</p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Metode</p>
-                    {isEditingPopup ? (
-                      <input 
-                        type="text"
-                        value={popupEditValues.Metode}
-                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Metode: e.target.value })}
-                        className="w-full text-sm font-bold text-slate-700 border-b-2 border-indigo-100 focus:border-indigo-500 outline-none transition-colors py-1"
-                      />
-                    ) : (
-                      <p className="text-sm font-bold text-slate-700">{selectedMigrationItem.Metode || '-'}</p>
-                    )}
-                  </div>
-                </div>
 
-                <div className="space-y-1 pt-4 border-t border-slate-50">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Keterangan / Berita</p>
-                  {isEditingPopup ? (
-                    <textarea 
-                      value={popupEditValues.Keterangan}
-                      onChange={(e) => setPopupEditValues({ ...popupEditValues, Keterangan: e.target.value })}
-                      rows={3}
-                      className="w-full bg-slate-50 p-4 rounded-2xl text-sm font-medium text-slate-600 border border-slate-200 outline-none focus:border-indigo-500 transition-colors resize-none"
-                    />
-                  ) : (
-                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-medium text-slate-600 italic">
-                      {selectedMigrationItem.Keterangan}
+                  {/* Row 2: Tanggal | Status (Status only for PENJUALAN) */}
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                      {isEditingPopup ? (
+                        <input 
+                          type="text"
+                          value={popupEditValues.Tanggal}
+                          onChange={(e) => setPopupEditValues({ ...popupEditValues, Tanggal: e.target.value })}
+                          className="w-full bg-transparent border-none outline-none"
+                        />
+                      ) : (
+                        selectedMigrationItem.Tanggal || ""
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedMigrationItem.Kategori?.toUpperCase() === 'PENJUALAN' && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</p>
+                      <div className={`p-4 rounded-2xl text-sm font-black min-h-[52px] flex items-center ${isEditingPopup ? 'bg-slate-50 text-slate-700' : (selectedMigrationItem.Status?.toUpperCase() === 'KASBON' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
+                        {isEditingPopup ? (
+                          <select 
+                            value={popupEditValues.Status?.toUpperCase()}
+                            onChange={(e) => setPopupEditValues({ ...popupEditValues, Status: e.target.value })}
+                            className="w-full bg-transparent border-none outline-none font-black"
+                          >
+                            <option value="LUNAS">LUNAS</option>
+                            <option value="KASBON">KASBON</option>
+                            <option value="PROSES">PROSES</option>
+                            <option value="SELESAI">SELESAI</option>
+                          </select>
+                        ) : (
+                          selectedMigrationItem.Status?.toUpperCase() || ""
+                        )}
+                      </div>
                     </div>
                   )}
+
+                  {/* Row 3: Kategori | Tipe */}
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-black text-slate-700 min-h-[52px] flex items-center">
+                      {selectedMigrationItem.Kategori?.toUpperCase() || ""}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipe</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                      {isEditingPopup ? (
+                        selectedMigrationItem.Kategori?.toUpperCase() === 'PENJUALAN' ? (
+                          <select 
+                            value={popupEditValues.Tipe}
+                            onChange={(e) => setPopupEditValues({ ...popupEditValues, Tipe: e.target.value })}
+                            className="w-full bg-transparent border-none outline-none"
+                          >
+                            <option value="FISIK">FISIK (Penjualan barang fisik/etalase)</option>
+                            <option value="VIRTUAL">VIRTUAL (Tarik tunai, transfer, pulsa, dll)</option>
+                          </select>
+                        ) : (
+                          <input 
+                            type="text"
+                            value={popupEditValues.Tipe}
+                            onChange={(e) => setPopupEditValues({ ...popupEditValues, Tipe: e.target.value })}
+                            className="w-full bg-transparent border-none outline-none"
+                          />
+                        )
+                      ) : (
+                        selectedMigrationItem.Tipe || ""
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 4: Melalui | Metode (Only for PENJUALAN) */}
+                  {selectedMigrationItem.Kategori?.toUpperCase() === 'PENJUALAN' && (
+                    <>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Melalui</p>
+                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                          {isEditingPopup ? (
+                            <input 
+                              type="text"
+                              value={popupEditValues.Melalui}
+                              onChange={(e) => setPopupEditValues({ ...popupEditValues, Melalui: e.target.value })}
+                              className="w-full bg-transparent border-none outline-none"
+                            />
+                          ) : (
+                            (selectedMigrationItem.Melalui === "-" ? "" : selectedMigrationItem.Melalui) || ""
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Metode</p>
+                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                          {isEditingPopup ? (
+                            <input 
+                              type="text"
+                              value={popupEditValues.Metode}
+                              onChange={(e) => setPopupEditValues({ ...popupEditValues, Metode: e.target.value })}
+                              className="w-full bg-transparent border-none outline-none"
+                            />
+                          ) : (
+                            (selectedMigrationItem.Metode === "-" ? "" : selectedMigrationItem.Metode) || ""
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Row 5: Nominal | Modal */}
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nominal</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-black text-slate-700 min-h-[52px] flex items-center">
+                      {isEditingPopup ? (
+                        <div className="flex items-center w-full">
+                          <span className="mr-1 opacity-50">Rp</span>
+                          <input 
+                            type="number"
+                            value={popupEditValues.Nominal}
+                            onChange={(e) => setPopupEditValues({ ...popupEditValues, Nominal: parseFloat(e.target.value) || 0 })}
+                            className="w-full bg-transparent border-none outline-none"
+                          />
+                        </div>
+                      ) : (
+                        selectedMigrationItem.Nominal && selectedMigrationItem.Nominal !== 0
+                          ? `Rp ${selectedMigrationItem.Nominal.toLocaleString('id-ID')}`
+                          : ""
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedMigrationItem.Kategori?.toUpperCase() === 'PENJUALAN' && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Modal</p>
+                      <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                        {isEditingPopup ? (
+                          <div className="flex items-center w-full">
+                            <span className="mr-1 opacity-50">Rp</span>
+                            <input 
+                              type="number"
+                              value={popupEditValues.Modal || 0}
+                              onChange={(e) => setPopupEditValues({ ...popupEditValues, Modal: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-transparent border-none outline-none"
+                            />
+                          </div>
+                        ) : (
+                          selectedMigrationItem.Modal && selectedMigrationItem.Modal !== 0
+                            ? `Rp ${selectedMigrationItem.Modal.toLocaleString('id-ID')}`
+                            : ""
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Row 6: Sebagian | Poin (Only for PENJUALAN) */}
+                  {selectedMigrationItem.Kategori?.toUpperCase() === 'PENJUALAN' && (
+                    <>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sebagian</p>
+                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                          {isEditingPopup ? (
+                            <div className="flex items-center w-full">
+                              <span className="mr-1 opacity-50">Rp</span>
+                              <input 
+                                type="number"
+                                value={popupEditValues.Sebagian || 0}
+                                onChange={(e) => setPopupEditValues({ ...popupEditValues, Sebagian: parseFloat(e.target.value) || 0 })}
+                                className="w-full bg-transparent border-none outline-none"
+                              />
+                            </div>
+                          ) : (
+                            selectedMigrationItem.Sebagian && selectedMigrationItem.Sebagian !== 0
+                              ? `Rp ${selectedMigrationItem.Sebagian.toLocaleString('id-ID')}`
+                              : ""
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Poin</p>
+                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                          {isEditingPopup ? (
+                            <input 
+                              type="number"
+                              value={popupEditValues.Poin || 0}
+                              onChange={(e) => setPopupEditValues({ ...popupEditValues, Poin: parseFloat(e.target.value) || 0 })}
+                              className="w-full bg-transparent border-none outline-none"
+                            />
+                          ) : (
+                            selectedMigrationItem.Poin && selectedMigrationItem.Poin !== 0
+                              ? `${selectedMigrationItem.Poin.toLocaleString('id-ID')} Poin`
+                              : ""
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
+
+                {(isEditingPopup || selectedMigrationItem.Keterangan) && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Keterangan / Berita</p>
+                    {isEditingPopup ? (
+                      <textarea 
+                        value={popupEditValues.Keterangan}
+                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Keterangan: e.target.value })}
+                        rows={3}
+                        className="w-full bg-slate-50 p-4 rounded-2xl text-sm font-medium text-slate-600 border border-slate-200 outline-none focus:border-indigo-500 transition-colors resize-none"
+                      />
+                    ) : (
+                      <div className="bg-slate-50 p-4 rounded-2xl text-sm font-medium text-slate-600 italic">
+                        {selectedMigrationItem.Keterangan}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex gap-3 pt-6 border-t border-slate-100 flex-col sm:flex-row">
                   {isEditingPopup ? (
@@ -9256,8 +9390,13 @@ const AdminMasterDataPage = ({
                         Batal
                       </button>
                       <button 
-                        className="flex-1 flex items-center justify-center gap-2 py-4 bg-green-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-green-700 active:scale-95 transition-all shadow-lg shadow-green-200 opacity-50 cursor-not-allowed"
-                        disabled
+                        className="flex-1 flex items-center justify-center gap-2 py-4 bg-green-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-green-700 active:scale-95 transition-all shadow-lg shadow-green-200"
+                        onClick={() => {
+                          // In a real app, this would update the state or database
+                          console.log("Saving changes:", popupEditValues);
+                          setIsEditingPopup(false);
+                          // For demo purposes, we usually close the popup or update local state if applicable
+                        }}
                       >
                         Simpan Perubahan
                       </button>
