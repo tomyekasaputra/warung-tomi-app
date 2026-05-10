@@ -3093,7 +3093,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-2xl font-black tracking-tight drop-shadow-sm truncate max-w-[200px] mb-0.5">{displayUser?.Nama}</h3>
+                    <h3 className="text-2xl font-black tracking-tight drop-shadow-sm truncate max-w-[200px] mb-0.5">{displayUser?.Nama || "Pelanggan Umum"}</h3>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Saldo Tabungan</p>
                   </div>
                   <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
@@ -3557,7 +3557,7 @@ const DebtDetailPage = ({
               <div className="relative z-10 p-8">
                 <div className="flex justify-between items-start mb-10">
                   <div className="space-y-1">
-                    <h3 className="text-2xl font-black tracking-tight drop-shadow-sm truncate max-w-[200px]">{displayUser?.Nama}</h3>
+                    <h3 className="text-2xl font-black tracking-tight drop-shadow-sm truncate max-w-[200px]">{displayUser?.Nama || "Pelanggan Umum"}</h3>
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Total Hutang Saat Ini</p>
                   </div>
                   <div className="w-14 h-14 bg-white/10 backdrop-blur-xl rounded-[1.2rem] flex items-center justify-center border border-white/20 shadow-xl rotate-12 -mr-1 -mt-1 group-hover:rotate-0 transition-transform duration-500 shrink-0">
@@ -3931,7 +3931,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
           <div className="relative z-10 flex flex-col h-full justify-between">
             <div className="flex justify-between items-start">
               <div className="space-y-1">
-                <h3 className="text-2xl font-black tracking-tight drop-shadow-sm">{displayUser?.Nama}</h3>
+                <h3 className="text-2xl font-black tracking-tight drop-shadow-sm">{displayUser?.Nama || "Pelanggan Umum"}</h3>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">Estimasi Portofolio</p>
               </div>
               <div className="w-16 h-16 bg-white/10 backdrop-blur-xl rounded-[1.5rem] flex items-center justify-center border border-white/20 shadow-2xl rotate-12 -mr-2 -mt-2 group hover:rotate-0 transition-transform duration-500">
@@ -4245,7 +4245,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
           <div className="relative z-10 flex flex-col h-full">
             <div className="mb-8">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-1">Pelanggan</p>
-              <h3 className="text-xl font-black tracking-tight uppercase">{displayUser?.Nama}</h3>
+              <h3 className="text-xl font-black tracking-tight uppercase">{displayUser?.Nama || "Pelanggan Umum"}</h3>
             </div>
             
             <div className="mt-auto">
@@ -4448,7 +4448,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
       if (!searchQuery.trim()) return true;
       
       const q = searchQuery.toLowerCase();
-      const matchName = (t.Nama || "").toLowerCase().includes(q);
+      const matchName = (t.Nama || "Pelanggan Umum").toLowerCase().includes(q);
       const matchJenis = (t.Jenis || "").toLowerCase().includes(q);
       const matchMelalui = (t.Melalui || "").toLowerCase().includes(q);
       const matchStatus = (t.Status || "").toLowerCase().includes(q);
@@ -5616,7 +5616,7 @@ const TransactionModal = ({
                       className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 last:border-0 group"
                     >
                       <div>
-                        <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama}</p>
+                        <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama || "Pelanggan Umum"}</p>
                         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
                       </div>
                       <div className="text-right">
@@ -5923,7 +5923,7 @@ const AdminSavingsManagement = ({
                     {t.Tipe === 'SETOR' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownLeft className="w-4 h-4" />}
                   </div>
                   <div>
-                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama}</p>
+                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama || "Pelanggan Umum"}</p>
                     <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
                   </div>
                 </div>
@@ -7137,12 +7137,8 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
 
   const pendingWithdrawals = useMemo(() => {
     return salesTransactions.filter(t => {
-      const type = (t.Jenis || "").toLowerCase();
-      const status = (t.Status || "").toLowerCase();
-      // Filter for Tarik Tunai that is pending (not Finished or Success)
-      const isWithdrawal = type.includes("tarik") || type.includes("withdraw");
-      const isPending = status.includes("belum") || status.includes("proses") || status.includes("ambil") || (!status.includes("selesai") && !status.includes("sukses") && !status.includes("kasbon"));
-      return isWithdrawal && isPending;
+      const s = (t.Status || "").toUpperCase().trim();
+      return s === "BELUM DIAMBIL" || s === "DIPROSES";
     });
   }, [salesTransactions]);
 
@@ -7176,8 +7172,8 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
   const totalPending = groupedData.reduce((acc, curr) => acc + curr.total, 0);
 
   const statsBreakdown = useMemo(() => {
-    const belum = pendingWithdrawals.filter(t => (t.Status || "").toLowerCase().includes("belum") || (t.Status || "").toLowerCase().includes("ambil"));
-    const proses = pendingWithdrawals.filter(t => (t.Status || "").toLowerCase().includes("proses"));
+    const belum = pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL");
+    const proses = pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "DIPROSES");
     
     const totalBelum = belum.reduce((acc, t) => acc + ((parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0)), 0);
     const totalProses = proses.reduce((acc, t) => acc + ((parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0)), 0);
@@ -7199,7 +7195,7 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
               </div>
               <h1 className="text-2xl font-black tracking-tight uppercase">Management Lainnya</h1>
             </div>
-            <p className="text-teal-50/60 text-[10px] font-black uppercase tracking-[0.2em]">Data Tarik Tunai Belum Diambil & Diproses</p>
+            <p className="text-teal-50/60 text-[10px] font-black uppercase tracking-[0.2em]">Data Transaksi Belum Diambil & Diproses</p>
           </div>
 
         </div>
@@ -7289,7 +7285,7 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
         <div className="bg-white p-6 md:p-8 lg:p-12 rounded-[2.5rem] shadow-xl border border-slate-100 min-h-[500px]">
            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-50">
             <div>
-              <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-wider mb-1">Antrean Tarik Tunai</h3>
+              <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-wider mb-1">Antrean Transaksi</h3>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transaksi yang perlu diproses oleh Admin</p>
             </div>
             <div className="flex items-center gap-2 px-6 py-3 bg-blue-50 rounded-2xl border border-blue-100/50 self-start sm:self-center">
@@ -7346,7 +7342,7 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
                 <CheckCircle2 className="w-12 h-12 text-slate-200" />
               </div>
               <h4 className="text-base font-black text-slate-400 uppercase tracking-widest mb-2">Semua Transaksi Selesai</h4>
-              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] max-w-[280px]">Bagus! Tidak ada antrean tarik tunai yang perlu diproses saat ini.</p>
+              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] max-w-[280px]">Bagus! Tidak ada antrean transaksi yang perlu diproses saat ini.</p>
               <button 
                 onClick={() => navigate("/admin")}
                 className="mt-8 px-8 py-3 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
@@ -8039,7 +8035,7 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
                       <User className="w-5 h-5 transition-transform group-hover:scale-110" />
                     </div>
                     <div>
-                      <p className="text-[12px] font-black text-[#005E6A] uppercase tracking-tight">{c.Nama}</p>
+                      <p className="text-[12px] font-black text-[#005E6A] uppercase tracking-tight">{c.Nama || "Pelanggan Umum"}</p>
                       <div className="flex items-center gap-1.5 mt-0.5 font-black">
                         <span className={`text-[10px] tabular-nums ${c.activePoints < 0 ? 'text-red-600' : 'text-[#F15A24]'}`}>{c.activePoints}</span>
                         <span className="text-[7px] text-slate-400 uppercase tracking-widest font-bold">Poin Aktif</span>
@@ -8196,7 +8192,7 @@ const DebtTransactionModal = ({
                       className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 last:border-0 group"
                     >
                       <div>
-                        <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama}</p>
+                        <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama || "Pelanggan Umum"}</p>
                         <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
                       </div>
                       <div className="text-right">
@@ -8508,7 +8504,7 @@ const AdminDebtManagement = ({
                     {t.Tipe === 'TAMBAH' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                   </div>
                   <div>
-                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama}</p>
+                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama || "Pelanggan Umum"}</p>
                     <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
                   </div>
                 </div>
@@ -8694,9 +8690,12 @@ const AdminMasterDataPage = ({
         return nameMatch || idMatch;
       }
       
-      return Object.values(item).some(val => 
-        String(val).toLowerCase().includes(searchStr)
-      );
+      return Object.entries(item).some(([key, val]) => {
+        if (key === "Nama" && !val) {
+          return "pelanggan umum".includes(searchStr);
+        }
+        return String(val).toLowerCase().includes(searchStr);
+      });
     });
   }, [currentData, search, activeCollection]);
 
@@ -8864,7 +8863,9 @@ const AdminMasterDataPage = ({
                               ? new Date(item[col].seconds * 1000).toLocaleDateString()
                               : (["Nominal", "Tabungan", "Investasi", "Lainnya", "Hutang", "Saldo", "SaldoAkhir", "Pemasukan", "HargaModal", "Sebagian"].includes(col) && item[col] !== undefined)
                                 ? `Rp ${formatCurrency(item[col])}`
-                                : String(item[col] || "-")}
+                                : col === "Nama"
+                                  ? String(item[col] || "Pelanggan Umum")
+                                  : String(item[col] || "-")}
                           </span>
                         )}
                       </td>
