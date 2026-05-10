@@ -99,6 +99,7 @@ import {
   Database,
   CloudUpload,
   Trash2,
+  Edit2,
   Edit3,
   Ticket,
   Image as ImageIcon,
@@ -254,6 +255,7 @@ interface Customer {
 interface SavingTransaction {
   id?: string;
   id_tabungan?: string;
+  id_pelanggan?: string;
   Tanggal: string;
   Nama: string;
   Tipe: string;
@@ -265,6 +267,7 @@ interface SavingTransaction {
 interface DebtTransaction {
   id?: string;
   id_hutang?: string;
+  id_pelanggan?: string;
   Tanggal: string;
   Nama: string;
   Tipe: string;
@@ -276,6 +279,7 @@ interface DebtTransaction {
 interface SalesTransaction {
   id?: string;
   id_transaksi?: string;
+  id_pelanggan?: string;
   Tanggal: string;
   Nama: string;
   Jenis: string;
@@ -290,6 +294,8 @@ interface SalesTransaction {
 
 interface RedeemedPoint {
   id?: string;
+  id_tukar?: string;
+  id_pelanggan?: string;
   Tanggal: string;
   Nama: string;
   Poin: number;
@@ -401,6 +407,7 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: 
 interface InvestmentTransaction {
   id?: string;
   id_investasi?: string;
+  id_pelanggan?: string;
   Tanggal: string;
   Nama: string;
   Nominal: number;
@@ -8623,6 +8630,86 @@ const AdminMasterDataPage = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<any>({});
   const [visibleCount, setVisibleCount] = useState(20);
+  const [viewMode, setViewMode] = useState<"lama" | "baru">("lama");
+  const [selectedMigrationItem, setSelectedMigrationItem] = useState<any | null>(null);
+  const [isEditingPopup, setIsEditingPopup] = useState(false);
+  const [popupEditValues, setPopupEditValues] = useState<any>({});
+
+  const migrationData = useMemo(() => {
+    const data: any[] = [];
+    savingsTransactions.forEach(t => data.push({ 
+      id_migrasi: t.id_tabungan, 
+      Tanggal: t.Tanggal, 
+      id_pelanggan: t.id_pelanggan, 
+      Kategori: 'Tabungan', 
+      Tipe: t.Tipe, 
+      Nominal: t.Nominal, 
+      Melalui: '-', 
+      Metode: '-', 
+      Status: 'Selesai',
+      Keterangan: t.Berita 
+    }));
+    debtTransactions.forEach(t => data.push({ 
+      id_migrasi: t.id_hutang, 
+      Tanggal: t.Tanggal, 
+      id_pelanggan: t.id_pelanggan, 
+      Kategori: 'Hutang', 
+      Tipe: t.Tipe, 
+      Nominal: t.Jumlah, 
+      Melalui: '-', 
+      Metode: '-', 
+      Status: t.SaldoAkhir > 0 ? 'Kasbon' : 'Lunas',
+      Keterangan: t.Keterangan 
+    }));
+    investmentTransactions.forEach(t => data.push({ 
+      id_migrasi: t.id_investasi, 
+      Tanggal: t.Tanggal, 
+      id_pelanggan: t.id_pelanggan, 
+      Kategori: 'Investasi', 
+      Tipe: 'MODAL', 
+      Nominal: t.Nominal, 
+      Melalui: '-', 
+      Metode: '-', 
+      Status: t.Status,
+      Keterangan: `Tenor: ${t.Tenor}` 
+    }));
+    salesTransactions.forEach(t => data.push({ 
+      id_migrasi: t.id_transaksi, 
+      Tanggal: t.Tanggal, 
+      id_pelanggan: t.id_pelanggan, 
+      Kategori: 'Penjualan', 
+      Tipe: 'JUAL', 
+      Nominal: t.Pemasukan, 
+      Melalui: t.Melalui || '-', 
+      Metode: t.Metode || '-', 
+      Status: t.Status || 'Selesai',
+      Keterangan: t.Jenis 
+    }));
+    redeemedPoints.forEach(t => data.push({ 
+      id_migrasi: t.id_tukar, 
+      Tanggal: t.Tanggal, 
+      id_pelanggan: t.id_pelanggan, 
+      Kategori: 'Poin', 
+      Tipe: 'TUKAR', 
+      Nominal: t.Poin, 
+      Melalui: '-', 
+      Metode: 'Poin', 
+      Status: 'Selesai',
+      Keterangan: t.Hadiah 
+    }));
+    
+    return data.sort((a,b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+  }, [savingsTransactions, debtTransactions, investmentTransactions, salesTransactions, redeemedPoints]);
+
+  const migrationColumns = ["id_migrasi", "Tanggal", "id_pelanggan", "Kategori", "Tipe", "Nominal", "Melalui", "Metode", "Status", "Keterangan"];
+
+  const filteredMigrationData = useMemo(() => {
+    const searchStr = search.toLowerCase().trim();
+    if (!searchStr) return migrationData;
+    return migrationData.filter(item => 
+      Object.values(item).some(val => String(val).toLowerCase().includes(searchStr))
+    );
+  }, [migrationData, search]);
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -8730,6 +8817,28 @@ const AdminMasterDataPage = ({
       : [];
   }, [activeCollection, currentData]);
 
+  const getCategoryStyles = (category: string) => {
+    switch (category) {
+      case 'Tabungan': return { bg: 'bg-emerald-600', text: 'text-emerald-700', border: 'border-emerald-100', softBg: 'bg-emerald-50' };
+      case 'Hutang': return { bg: 'bg-rose-600', text: 'text-rose-700', border: 'border-rose-100', softBg: 'bg-rose-50' };
+      case 'Investasi': return { bg: 'bg-amber-600', text: 'text-amber-700', border: 'border-amber-100', softBg: 'bg-amber-50' };
+      case 'Penjualan': return { bg: 'bg-blue-600', text: 'text-blue-700', border: 'border-blue-100', softBg: 'bg-blue-50' };
+      case 'Poin': return { bg: 'bg-purple-600', text: 'text-purple-700', border: 'border-purple-100', softBg: 'bg-purple-50' };
+      default: return { bg: 'bg-[#005E6A]', text: 'text-teal-700', border: 'border-teal-100', softBg: 'bg-teal-50' };
+    }
+  };
+
+  const catStyles = selectedMigrationItem ? getCategoryStyles(selectedMigrationItem.Kategori) : null;
+
+  useEffect(() => {
+    if (selectedMigrationItem) {
+      document.body.classList.add('popup-open');
+    } else {
+      document.body.classList.remove('popup-open');
+    }
+    return () => document.body.classList.remove('popup-open');
+  }, [selectedMigrationItem]);
+
   return (
     <div className="min-h-screen bg-slate-50 pb-32">
       <div className="bg-[#005E6A] text-white pt-12 pb-20 px-8 rounded-none shadow-2xl relative overflow-hidden mb-8">
@@ -8753,43 +8862,68 @@ const AdminMasterDataPage = ({
 
       <div className="max-w-7xl mx-auto px-6 space-y-6 -mt-12 relative z-20">
         <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
-          <div className="relative">
-            <select
-              value={activeCollection}
-              onChange={(e) => {
-                const newCol = e.target.value;
-                setActiveCollection(newCol);
-                setEditingId(null);
-                // On-demand load
-                fetchData(false, newCol);
-              }}
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-tight text-[#005E6A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all cursor-pointer shadow-sm"
+          {/* Migration Tabs */}
+          <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-6">
+            <button 
+              onClick={() => setViewMode("lama")}
+              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === "lama" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              {collectionSpecs.map(col => (
-                <option key={col.id} value={col.id}>
-                  {col.label}
-                </option>
-              ))}
-            </select>
-            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none">
-              <ChevronDown className="w-4 h-4 text-[#005E6A]" />
-            </div>
+              Data Lama <span className="opacity-40 ml-1">(Saat Ini)</span>
+            </button>
+            <button 
+              onClick={() => setViewMode("baru")}
+              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === "baru" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Data Baru <span className="opacity-40 ml-1">(Persiapan Migrasi)</span>
+            </button>
+          </div>
+
+          <div className="relative">
+            {viewMode === "lama" ? (
+              <>
+                <select
+                  value={activeCollection}
+                  onChange={(e) => {
+                    const newCol = e.target.value;
+                    setActiveCollection(newCol);
+                    setEditingId(null);
+                    // On-demand load
+                    fetchData(false, newCol);
+                  }}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-tight text-[#005E6A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all cursor-pointer shadow-sm"
+                >
+                  {collectionSpecs.map(col => (
+                    <option key={col.id} value={col.id}>
+                      {col.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <ChevronDown className="w-4 h-4 text-[#005E6A]" />
+                </div>
+              </>
+            ) : (
+              <div className="w-full bg-[#005E6A] border border-[#005E6A] rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-tight text-white flex items-center justify-between shadow-lg">
+                <span>Unified Migration Data Ledger</span>
+                <Database className="w-4 h-4 opacity-50" />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 mt-6 px-2">
             <div className="space-y-1">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Baris Data</p>
-              <h3 className="text-base font-black text-[#005E6A]">{currentData.length.toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Items</span></h3>
+              <h3 className="text-base font-black text-[#005E6A]">{(viewMode === "lama" ? currentData.length : migrationData.length).toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Items</span></h3>
             </div>
             <div className="text-right space-y-1 border-l border-slate-100 pl-4">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Sel yang Diambil</p>
-              <h3 className="text-base font-black text-[#F15A24]">{currentData.length * columns.length} <span className="text-[10px] text-slate-300 ml-1 uppercase">Sel</span></h3>
+              <h3 className="text-base font-black text-[#F15A24]">{(viewMode === "lama" ? currentData.length * columns.length : migrationData.length * migrationColumns.length).toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Sel</span></h3>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        {activeCollection === "comparison" ? (
+        {activeCollection === "comparison" && viewMode === "lama" ? (
           <DataComparisonView collections={collections} />
         ) : (
           <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
@@ -8798,7 +8932,7 @@ const AdminMasterDataPage = ({
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
               <input 
                 type="text"
-                placeholder={`Cari di ${collections.find(c => c.id === activeCollection)?.label}...`}
+                placeholder={viewMode === "lama" ? `Cari di ${collections.find(c => c.id === activeCollection)?.label}...` : "Cari di Data Migrasi..."}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all"
@@ -8806,7 +8940,12 @@ const AdminMasterDataPage = ({
             </div>
             
             <div className="flex items-center gap-3 w-full md:w-auto">
-              {/* Actions removed (Read-only Spreadsheet mode) */}
+              {viewMode === "baru" && (
+                <button className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
+                  <Download className="w-4 h-4" />
+                  Eksport Database Baru
+                </button>
+              )}
             </div>
           </div>
 
@@ -8814,7 +8953,7 @@ const AdminMasterDataPage = ({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50">
-                  {columns.map(col => {
+                  {(viewMode === "lama" ? columns : migrationColumns).map(col => {
                     const labelMapping: Record<string, string> = {
                       "id_pelanggan": "ID Pelanggan",
                       "id_tabungan": "ID Tabungan",
@@ -8822,7 +8961,10 @@ const AdminMasterDataPage = ({
                       "id_hutang": "ID Hutang",
                       "id_transaksi": "ID Transaksi",
                       "id_tukar": "ID Tukar",
+                      "id_migrasi": "ID Entry",
+                      "Melalui": "Melalui",
                       "Metode": "Metode",
+                      "Status": "Status",
                       "id_barang": "ID Barang",
                       "HargaModal": "Harga Modal",
                       "HargaJual": "Harga Jual",
@@ -8842,9 +8984,17 @@ const AdminMasterDataPage = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredData.slice(0, visibleCount).map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                    {columns.map(col => (
+                {(viewMode === "lama" ? filteredData : filteredMigrationData).slice(0, visibleCount).map((item, idx) => (
+                  <tr 
+                    key={item.id || `mig_${idx}`} 
+                    className="hover:bg-slate-50 transition-colors group cursor-pointer"
+                    onClick={() => {
+                      if (viewMode === "baru") {
+                        setSelectedMigrationItem(item);
+                      }
+                    }}
+                  >
+                    {(viewMode === "lama" ? columns : migrationColumns).map(col => (
                       <td key={col} className="px-6 py-4">
                         {editingId === item.id ? (
                           <input 
@@ -8872,9 +9022,9 @@ const AdminMasterDataPage = ({
                     ))}
                   </tr>
                 ))}
-                {filteredData.length === 0 && (
+                {(viewMode === "lama" ? filteredData : filteredMigrationData).length === 0 && (
                   <tr>
-                    <td colSpan={columns.length} className="px-6 py-12 text-center">
+                    <td colSpan={(viewMode === "lama" ? columns.length : migrationColumns.length)} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <AlertCircle className="w-8 h-8 text-slate-200" />
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tidak ada data ditemukan</p>
@@ -8886,19 +9036,257 @@ const AdminMasterDataPage = ({
             </table>
           </div>
 
-          {filteredData.length > visibleCount && (
+          {(viewMode === "lama" ? filteredData.length : filteredMigrationData.length) > visibleCount && (
             <div className="p-6 border-t border-slate-50 flex justify-center">
               <button 
                 onClick={() => setVisibleCount(prev => prev + 50)}
                 className="flex items-center gap-2 px-8 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
               >
                 <RefreshCw className="w-4 h-4" />
-                <span>Muat Lebih Banyak ({filteredData.length - visibleCount} lagi)</span>
+                <span>Muat Lebih Banyak ({(viewMode === "lama" ? filteredData.length : filteredMigrationData.length) - visibleCount} lagi)</span>
               </button>
             </div>
           )}
         </div>
       )}
+
+      {/* Migration Detail Modal */}
+      <style>{`
+        body.popup-open nav { 
+          display: none !important; 
+        }
+        body.popup-open .pb-32, body.popup-open .pb-28 { 
+          padding-bottom: 0 !important; 
+        }
+        .custom-scrollbar::-webkit-scrollbar { 
+          width: 4px; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-track { 
+          background: transparent; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb { 
+          background: #cbd5e1; 
+          border-radius: 10px; 
+        }
+      `}</style>
+      <AnimatePresence>
+        {selectedMigrationItem && catStyles && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                setSelectedMigrationItem(null);
+                setIsEditingPopup(false);
+              }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden border border-white/20 max-h-[90vh] flex flex-col"
+            >
+              <div className={`${catStyles.bg} p-6 sm:p-8 text-white relative shrink-0`}>
+                <div className="flex justify-between items-start mb-4 sm:mb-6">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Database className="w-4 h-4 opacity-70" />
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Detail Entry Migrasi</p>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight">{selectedMigrationItem.id_migrasi}</h2>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setSelectedMigrationItem(null);
+                      setIsEditingPopup(false);
+                    }}
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[10px] font-black uppercase opacity-70">Nominal:</span>
+                  {isEditingPopup ? (
+                    <div className="flex items-center bg-white/10 rounded-xl px-3 py-1 mt-1 border border-white/20">
+                      <span className="text-lg font-black mr-1 opacity-70">Rp</span>
+                      <input 
+                        type="number"
+                        value={popupEditValues.Nominal}
+                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Nominal: parseFloat(e.target.value) || 0 })}
+                        className="bg-transparent border-none text-xl sm:text-2xl font-black text-white w-full outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        autoFocus
+                      />
+                    </div>
+                  ) : (
+                    <span className="text-2xl sm:text-3xl font-black">
+                      {typeof selectedMigrationItem.Nominal === 'number' 
+                        ? `Rp ${selectedMigrationItem.Nominal.toLocaleString('id-ID')}`
+                        : selectedMigrationItem.Nominal}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6 sm:p-8 space-y-6 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Pelanggan</p>
+                    {isEditingPopup ? (
+                      <input 
+                        type="text"
+                        value={customers.find(c => c.id_pelanggan === popupEditValues.id_pelanggan)?.Nama || ""}
+                        disabled
+                        className="w-full text-sm font-bold text-slate-400 bg-slate-50 border-none rounded-lg px-0"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-slate-700 break-words">
+                        {customers.find(c => c.id_pelanggan === selectedMigrationItem.id_pelanggan)?.Nama || "Pelanggan Tidak Dikenal"}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Pelanggan</p>
+                    <p className="text-sm font-mono font-bold text-slate-700">{selectedMigrationItem.id_pelanggan}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tanggal</p>
+                    {isEditingPopup ? (
+                      <input 
+                        type="text"
+                        value={popupEditValues.Tanggal}
+                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Tanggal: e.target.value })}
+                        className="w-full text-sm font-bold text-slate-700 border-b-2 border-indigo-100 focus:border-indigo-500 outline-none transition-colors py-1"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-slate-700">{selectedMigrationItem.Tanggal}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kategori</p>
+                    <span className={`inline-block px-3 py-1 ${catStyles.softBg} ${catStyles.text} text-[10px] font-black uppercase tracking-widest rounded-lg border ${catStyles.border}`}>
+                      {selectedMigrationItem.Kategori}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tipe</p>
+                    {isEditingPopup ? (
+                      <input 
+                        type="text"
+                        value={popupEditValues.Tipe}
+                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Tipe: e.target.value })}
+                        className="w-full text-sm font-bold text-slate-700 border-b-2 border-indigo-100 focus:border-indigo-500 outline-none transition-colors py-1"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-slate-700">{selectedMigrationItem.Tipe}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</p>
+                    {isEditingPopup ? (
+                      <select 
+                        value={popupEditValues.Status}
+                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Status: e.target.value })}
+                        className="w-full text-sm font-bold text-slate-700 border-b-2 border-indigo-100 focus:border-indigo-500 outline-none transition-colors py-1 bg-transparent"
+                      >
+                        <option value="Lunas">Lunas</option>
+                        <option value="Kasbon">Kasbon</option>
+                        <option value="Proses">Proses</option>
+                      </select>
+                    ) : (
+                      <p className={`text-sm font-bold ${selectedMigrationItem.Status === 'Kasbon' ? 'text-red-500' : 'text-green-500'}`}>
+                        {selectedMigrationItem.Status}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Melalui</p>
+                    {isEditingPopup ? (
+                      <input 
+                        type="text"
+                        value={popupEditValues.Melalui}
+                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Melalui: e.target.value })}
+                        className="w-full text-sm font-bold text-slate-700 border-b-2 border-indigo-100 focus:border-indigo-500 outline-none transition-colors py-1"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-slate-700">{selectedMigrationItem.Melalui || '-'}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Metode</p>
+                    {isEditingPopup ? (
+                      <input 
+                        type="text"
+                        value={popupEditValues.Metode}
+                        onChange={(e) => setPopupEditValues({ ...popupEditValues, Metode: e.target.value })}
+                        className="w-full text-sm font-bold text-slate-700 border-b-2 border-indigo-100 focus:border-indigo-500 outline-none transition-colors py-1"
+                      />
+                    ) : (
+                      <p className="text-sm font-bold text-slate-700">{selectedMigrationItem.Metode || '-'}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1 pt-4 border-t border-slate-50">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Keterangan / Berita</p>
+                  {isEditingPopup ? (
+                    <textarea 
+                      value={popupEditValues.Keterangan}
+                      onChange={(e) => setPopupEditValues({ ...popupEditValues, Keterangan: e.target.value })}
+                      rows={3}
+                      className="w-full bg-slate-50 p-4 rounded-2xl text-sm font-medium text-slate-600 border border-slate-200 outline-none focus:border-indigo-500 transition-colors resize-none"
+                    />
+                  ) : (
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-medium text-slate-600 italic">
+                      {selectedMigrationItem.Keterangan}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 pt-6 border-t border-slate-100 flex-col sm:flex-row">
+                  {isEditingPopup ? (
+                    <>
+                      <button 
+                        onClick={() => setIsEditingPopup(false)}
+                        className="flex-1 flex items-center justify-center gap-2 py-4 border-2 border-slate-200 text-slate-500 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all"
+                      >
+                        Batal
+                      </button>
+                      <button 
+                        className="flex-1 flex items-center justify-center gap-2 py-4 bg-green-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-green-700 active:scale-95 transition-all shadow-lg shadow-green-200 opacity-50 cursor-not-allowed"
+                        disabled
+                      >
+                        Simpan Perubahan
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => {
+                          setPopupEditValues({ ...selectedMigrationItem });
+                          setIsEditingPopup(true);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 py-4 bg-indigo-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 active:scale-95 transition-all shadow-lg shadow-indigo-200"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                        Edit Data
+                      </button>
+                      <button className="flex-1 flex items-center justify-center gap-2 py-4 border-2 border-red-500/20 text-red-500 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-red-50 active:scale-95 transition-all">
+                        <Trash2 className="w-4 h-4" />
+                        Hapus
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       </div>
     </div>
   );
@@ -11721,13 +12109,14 @@ export default function App() {
         { id: "stockItems", name: "Stok Barang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRe7VfqXToI8v15JzJmX2-9IQO0RQFmJPVlMuf3GYyYaa1grUAombFNk9Zt78ZTKJb1NWQFi5QdmPRm/pub?gid=0&single=true&output=csv" }
       ];
 
-      const coreCollections = ["savingTransactions", "investmentTransactions", "debtTransactions", "salesTransactions", "redeemedPoints"];
-      const needCustomers = coreCollections.includes(collectionName || "");
-      const activeUrls = (collectionName && !needCustomers) 
-        ? allUrls.filter(u => u.id === collectionName)
-        : (collectionName && needCustomers)
-          ? allUrls.filter(u => u.id === collectionName || u.id === "customers")
-          : allUrls;
+      const financeCollections = ["customers", "savingTransactions", "investmentTransactions", "debtTransactions", "salesTransactions", "redeemedPoints"];
+      const isFinanceRequest = !collectionName || financeCollections.includes(collectionName);
+      
+      const activeUrls = isFinanceRequest
+        ? allUrls.filter(u => u.id !== "stockItems")
+        : allUrls.filter(u => u.id === "stockItems");
+
+      const finalUrls = !collectionName ? allUrls : activeUrls;
 
       const fetchWithRetry = async (label: string, url: string, signal: AbortSignal, retries = 2) => {
         let lastError;
@@ -11748,7 +12137,7 @@ export default function App() {
       };
 
       const csvResultsMap = new Map();
-      const fetchResults = await Promise.all(activeUrls.map(async u => {
+      const fetchResults = await Promise.all(finalUrls.map(async u => {
         const text = await fetchWithRetry(u.name, u.url, controller.signal);
         return { id: u.id, text };
       }));
@@ -11810,6 +12199,7 @@ export default function App() {
       const customerIdMap = new Map<string, string>();
       const cCsv = csvResultsMap.get("customers");
       if (cCsv) {
+        // Process top to bottom as per user request "urut mulai dari atas ke bawah"
         const cData = await parseCsv(cCsv);
         const findKey = (row: any, targets: string[]) => 
           Object.keys(row).find(k => targets.some(t => k.toLowerCase().trim().includes(t.toLowerCase())));
@@ -11821,7 +12211,6 @@ export default function App() {
           })
           .filter(name => name && name.toLowerCase() !== "unknown" && name.toLowerCase() !== "pelanggan umum");
 
-        // Stable ID assignment based on first appearance (assuming Oldest to Newest in CSV)
         const seenNames = new Set<string>();
         let customerCounter = 1;
         rawNames.forEach(name => {
@@ -11853,30 +12242,31 @@ export default function App() {
       const rCsv = csvResultsMap.get("redeemedPoints");
       let processedRedeemedPoints: RedeemedPoint[] = [];
 
-      if (rCsv && (!collectionName || collectionName === "redeemedPoints" || collectionName === "customers")) {
-        // Assume CSV is Newest-to-Oldest (Row 2 = Newest), so we reverse to process chronologically
-        const rDataRaw = (await parseCsv(rCsv)).reverse();
-        const processedChronological = rDataRaw.map((r, idx) => {
-          const name = String(r[Object.keys(r).find(k => k.toLowerCase().includes('nama')) || ''] || 'Unknown');
+      if (rCsv && isFinanceRequest) {
+        // Process top to bottom as per user request
+        const rDataRaw = await parseCsv(rCsv);
+        const processed = rDataRaw.map((r, idx) => {
+          const rawName = String(r[Object.keys(r).find(k => k.toLowerCase().includes('nama')) || ''] || 'Unknown');
+          const name = (rawName && rawName.toLowerCase() !== "unknown" && rawName !== "-") ? rawName : "Pelanggan Umum";
           const idPart = getCustIdPart(name);
           const seq = getNextSeq(name, 'tp');
           
           return {
             id: `row_tp_${String(idx).padStart(6, '0')}`,
             id_tukar: `TP-${idPart}/${seq}`,
+            id_pelanggan: `CUST-${idPart}`,
             Tanggal: cleanDate(String(r[Object.keys(r).find(k => k.toLowerCase().includes('tanggal')) || ''] || '-')),
             Nama: name,
             Poin: parseCurrency(r[Object.keys(r).find(k => k.toLowerCase().includes('poin')) || '']),
             Hadiah: String(r[Object.keys(r).find(k => k.toLowerCase().includes('hadiah')) || ''] || '-')
           };
         });
-        // Reverse for display (Newest First)
-        processedRedeemedPoints = [...processedChronological].reverse();
+        processedRedeemedPoints = processed;
         setRedeemedPoints(processedRedeemedPoints);
       }
 
       // Customers and related transactions usually need each other for total calculations
-      if (!collectionName || collectionName === "customers") {
+      if (isFinanceRequest) {
         const sCsv = csvResultsMap.get("savingTransactions");
         const iCsv = csvResultsMap.get("investmentTransactions");
         const hCsv = csvResultsMap.get("debtTransactions");
@@ -11884,7 +12274,7 @@ export default function App() {
 
         if (cCsv) {
           const cData = await parseCsv(cCsv);
-          // Assume CSVs are Newest-to-Oldest, reverse them for chronological processing
+          // Process top to bottom for customers as per "urut mulai dari atas ke bawah"
           const sData = (sCsv ? await parseCsv(sCsv) : []).reverse();
           const iData = (iCsv ? await parseCsv(iCsv) : []).reverse();
           const hData = (hCsv ? await parseCsv(hCsv) : []).reverse();
@@ -11897,9 +12287,9 @@ export default function App() {
           const allDebtTransactions: DebtTransaction[] = [];
           const allInvestmentTransactions: InvestmentTransaction[] = [];
 
-          const tempCData = [...cData].reverse();
+          const tempCData = [...cData];
 
-          // 3. Process Sales Transactions (Oldest to Newest for stable sequence)
+          // 3. Process Sales Transactions (Oldest First for sequence/display reversal)
           const salesChronological: SalesTransaction[] = salesData.map((s, idx) => {
             const getSVal = (row: any, targets: string[]) => {
               const key = findKey(row, targets);
@@ -11907,8 +12297,8 @@ export default function App() {
             };
 
             const rawName = getSVal(s, ['nama']);
-            const name = (rawName && rawName.toLowerCase() !== "unknown") ? rawName : "-";
-            const idPart = (name === "-" || name.toLowerCase() === "pelanggan umum") ? "0000" : getCustIdPart(name);
+            const name = (rawName && rawName.toLowerCase() !== "unknown" && rawName !== "-") ? rawName : "Pelanggan Umum";
+            const idPart = (name.toLowerCase() === "pelanggan umum") ? "0000" : getCustIdPart(name);
             const seq = getNextSeq(name, 'trx');
             const status = getSVal(s, ['status']) || "Selesai";
             const metode = status.toUpperCase().includes("KASBON") ? "KASBON" : "TUNAI";
@@ -11917,6 +12307,7 @@ export default function App() {
             return {
               id: `row_trx_${String(idx).padStart(6, '0')}`,
               id_transaksi: `TRX-${idPart}/${seq}`,
+              id_pelanggan: `CUST-${idPart}`,
               Tanggal: cleanDate(getSVal(s, ['tanggal'])) || "-",
               Nama: name,
               Jenis: getSVal(s, ['jenis']) || "Belanja",
@@ -11931,6 +12322,7 @@ export default function App() {
           });
           // Reverse for display (Newest First)
           const processedSales = [...salesChronological].reverse();
+          setSalesTransactions(processedSales);
 
           // 4. Process Customers and their sub-transactions
           const validCustomers = tempCData.map((c: any, idx: number) => {
@@ -11968,6 +12360,7 @@ export default function App() {
                 userSavingTransactions.push({
                   id: `row_${String(allSavingsTransactions.length + userSavingTransactions.length).padStart(6, '0')}`,
                   id_tabungan: `TAB-${customerIdPart}/${seq}`,
+                  id_pelanggan: `CUST-${customerIdPart}`,
                   Tanggal: tanggalKey ? String(t[tanggalKey]).trim() : "-",
                   Nama: name,
                   Tipe: tipe,
@@ -12003,6 +12396,7 @@ export default function App() {
                 userDebtTransactions.push({
                   id: `row_${String(allDebtTransactions.length + userDebtTransactions.length).padStart(6, '0')}`,
                   id_hutang: `HTG-${customerIdPart}/${seq}`,
+                  id_pelanggan: `CUST-${customerIdPart}`,
                   Tanggal: tanggalKey ? String(h[tanggalKey]).trim() : "-",
                   Nama: name,
                   Tipe: tipe,
@@ -12026,6 +12420,7 @@ export default function App() {
               return {
                 id: `row_${String(allInvestmentTransactions.length + idx).padStart(6, '0')}`,
                 id_investasi: `INV-${customerIdPart}/${seq}`,
+                id_pelanggan: `CUST-${customerIdPart}`,
                 Tanggal: getVal(i, ['tanggal']) || '-',
                 Nama: name,
                 Nominal: nominal,
