@@ -811,6 +811,7 @@ const PROMO_SLIDES = [
 const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const navigate = useNavigate();
   const currentMonth = new Date().getMonth();
+  const [activeMenu, setActiveMenu] = useState<'laporan' | 'riwayat'>('laporan');
 
   const handleShare = async () => {
     try {
@@ -835,6 +836,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const defaultTahap = Math.floor(currentMonth / 3) + 1;
   const [activeTahap, setActiveTahap] = useState(defaultTahap);
   const [searchQuery, setSearchQuery] = useState("");
+  const [riwayatSearchQuery, setRiwayatSearchQuery] = useState("");
 
   const { result: processedData, targetYear } = React.useMemo(() => {
     const stages: Record<number, Map<string, { nama: string, pkh: number, bpnt: number }>> = { 
@@ -896,6 +898,31 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
     }
     return { result, targetYear: year };
   }, [transactions]);
+
+  const riwayatData = React.useMemo(() => {
+    return transactions
+      .filter(t => {
+        const jenis = t.Jenis?.toUpperCase() || "";
+        const status = (t.Status || "").toLowerCase();
+        const nama = (t.Nama || "").toLowerCase();
+        const query = riwayatSearchQuery.toLowerCase().trim();
+        
+        const isMatch = (jenis.includes("PKH") || jenis.includes("BPNT")) && 
+               !(status.includes("batal") || status.includes("cancel"));
+        
+        if (!isMatch) return false;
+        if (!query) return true;
+        
+        return nama.includes(query) || jenis.toLowerCase().includes(query);
+      })
+      .map(t => ({
+        tanggal: t.Tanggal,
+        nama: t.Nama,
+        jenis: t.Jenis?.toUpperCase() || "",
+        nominal: parseCurrency(t.Pemasukan) || 0
+      }))
+      .sort((a, b) => parseDate(b.tanggal).getTime() - parseDate(a.tanggal).getTime());
+  }, [transactions, riwayatSearchQuery]);
 
   const currentStageData = processedData[activeTahap] || [];
   const filteredData = currentStageData.filter(k => {
@@ -982,7 +1009,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="min-h-screen bg-white pb-24 relative"
+      className="min-h-screen bg-white pb-32 relative"
     >
       {/* Navigation Header */}
       <div className="px-6 pt-6 flex items-center justify-between mb-2">
@@ -1004,8 +1031,10 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
       </div>
 
       <div className="px-6 pt-4">
-        {/* Combined Image & Title Card */}
-        <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200 mb-10 border border-slate-50">
+        {activeMenu === 'laporan' ? (
+          <>
+            {/* Combined Image & Title Card */}
+            <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200 mb-10 border border-slate-50">
           <div className="aspect-[16/10] overflow-hidden">
             <img 
               src="https://lh3.googleusercontent.com/d/1GpNZ4yIov99m-EDWMUmfb3m9aISQBEe6" 
@@ -1056,39 +1085,17 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
                       return (
-                        <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-100 text-[9px] font-black space-y-2 w-48">
-                          <p className="text-[#005E6A] uppercase tracking-wider pb-1.5 border-b border-slate-50">{data.stage} - {data.period}</p>
-                          
-                          <div className="space-y-1.5">
-                            <div className="flex justify-between items-start gap-3">
-                              <div className="flex items-center gap-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#005E6A]" />
-                                <span className="text-slate-400">PKH:</span>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[#005E6A] leading-none">Rp {data.pkhFunds.toLocaleString('id-ID')}</p>
-                                <p className="text-[7px] text-slate-400 mt-0.5">{data.pkh} KPM</p>
-                              </div>
+                        <div className="bg-white w-20 h-20 rounded-full shadow-2xl shadow-slate-200 border border-slate-50 flex flex-col items-center justify-center text-center">
+                          <p className="text-[7px] font-black uppercase tracking-widest mb-1 text-slate-300">{data.stage}</p>
+                          <div className="space-y-0">
+                            <div className="flex flex-col items-center">
+                              <span className="text-[10px] font-black text-[#005E6A] leading-tight">{data.pkh}</span>
+                              <span className="text-[5px] font-black text-slate-400 -mt-0.5">PKH</span>
                             </div>
-
-                            <div className="flex justify-between items-start gap-3">
-                              <div className="flex items-center gap-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#F15A24]" />
-                                <span className="text-slate-400">BPNT:</span>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[#F15A24] leading-none">Rp {data.bpntFunds.toLocaleString('id-ID')}</p>
-                                <p className="text-[7px] text-slate-400 mt-0.5">{data.bpnt} KPM</p>
-                              </div>
-                            </div>
-
-                            <div className="pt-1.5 border-t border-slate-50 flex justify-between">
-                              <span className="text-slate-600">TOTAL DANA:</span>
-                              <span className="text-[#005E6A]">Rp {data.totalFunds.toLocaleString('id-ID')}</span>
-                            </div>
-                            <div className="flex justify-between border-t border-slate-50 pt-1">
-                              <span className="text-slate-600">TOTAL KPM:</span>
-                              <span className="text-[#F15A24]">{data.count} ORANG</span>
+                            <div className="w-4 h-[1px] bg-slate-50 my-0.5" />
+                            <div className="flex flex-col items-center">
+                              <span className="text-[10px] font-black text-[#F15A24] leading-tight">{data.bpnt}</span>
+                              <span className="text-[5px] font-black text-slate-400 -mt-0.5">BPNT</span>
                             </div>
                           </div>
                         </div>
@@ -1282,7 +1289,160 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
             </table>
           )}
         </div>
+          </>
+        ) : (
+          <div className="pb-10">
+            <div className="bg-[#005E6A] rounded-[2rem] p-8 text-white mb-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <History className="w-24 h-24" />
+              </div>
+              <h1 className="text-xl font-black uppercase tracking-widest mb-1">Riwayat Pencairan</h1>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60">Total {riwayatData.length} Transaksi Ditemukan</p>
+            </div>
+
+            {/* Search Bar for Riwayat */}
+            <div className="mb-6 px-2">
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none transition-colors duration-300 group-focus-within:text-[#005E6A]">
+                  <Search className="w-4 h-4 text-slate-300" />
+                </div>
+                <input 
+                  type="text" 
+                  value={riwayatSearchQuery}
+                  onChange={(e) => setRiwayatSearchQuery(e.target.value)}
+                  placeholder="Cari nama penerima atau jenis bansos..."
+                  className="w-full bg-slate-50 border-2 border-transparent focus:border-[#005E6A]/20 focus:bg-white text-[11px] font-bold text-slate-600 pl-12 pr-6 py-4 rounded-2xl outline-none transition-all duration-300 shadow-sm placeholder:text-slate-300 placeholder:font-black placeholder:uppercase placeholder:tracking-widest"
+                />
+                {riwayatSearchQuery && (
+                  <button 
+                    onClick={() => setRiwayatSearchQuery("")}
+                    className="absolute inset-y-0 right-4 flex items-center px-2 text-slate-300 hover:text-slate-500 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm bg-white">
+              <table className="w-full text-left border-collapse min-w-[320px]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="px-4 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tanggal</th>
+                    <th className="px-4 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Nama Penerima</th>
+                    <th className="px-4 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Jenis</th>
+                    <th className="px-4 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {riwayatData.length > 0 ? (() => {
+                    let lastTahapId = "";
+                    return riwayatData.map((item, index) => {
+                      const date = parseDate(item.tanggal);
+                      const m = date.getMonth();
+                      const y = date.getFullYear();
+                      let tahapLabel = "";
+                      let tahapPeriod = "";
+                      let tahapId = "";
+
+                      if (m <= 2) { tahapLabel = "TAHAP 1"; tahapPeriod = "JANUARI - MARET"; tahapId = `T1-${y}`; }
+                      else if (m <= 5) { tahapLabel = "TAHAP 2"; tahapPeriod = "APRIL - JUNI"; tahapId = `T2-${y}`; }
+                      else if (m <= 8) { tahapLabel = "TAHAP 3"; tahapPeriod = "JULI - SEPTEMBER"; tahapId = `T3-${y}`; }
+                      else { tahapLabel = "TAHAP 4"; tahapPeriod = "OKTOBER - DESEMBER"; tahapId = `T4-${y}`; }
+
+                      const showTahapHeader = tahapId !== lastTahapId;
+                      lastTahapId = tahapId;
+
+                      return (
+                        <React.Fragment key={index}>
+                          {showTahapHeader && (
+                            <tr className="bg-[#005E6A]/5">
+                              <td colSpan={4} className="px-4 py-3.5 border-y border-[#005E6A]/10">
+                                <div className="flex items-center gap-4">
+                                  <div className="px-3 py-1 bg-[#005E6A] text-white text-[9px] font-black rounded-lg uppercase tracking-[0.1em] shadow-md shadow-[#005E6A]/20">
+                                    {tahapLabel} {y}
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">
+                                      {tahapPeriod}
+                                    </span>
+                                    <span className="text-[7px] font-bold text-slate-400 uppercase tracking-[0.2em]">
+                                      Periode Pencairan
+                                    </span>
+                                  </div>
+                                  <div className="flex-1 h-[1px] bg-[#005E6A]/10" />
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          <tr className="hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-4 text-[9px] font-bold text-slate-400 whitespace-nowrap">{item.tanggal}</td>
+                            <td className="px-4 py-4 text-[9px] font-black text-black uppercase tracking-tight whitespace-nowrap">{item.nama}</td>
+                            <td className="px-4 py-4 text-[9px] font-bold text-slate-600 whitespace-nowrap">
+                              <span className={`px-2.5 py-1 rounded-full text-[9px] font-black tracking-tight ${item.jenis.includes('PKH') ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
+                                {item.jenis}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4 text-[9px] font-black text-[#005E6A] text-right whitespace-nowrap">
+                              Rp {item.nominal.toLocaleString('id-ID')}
+                            </td>
+                          </tr>
+                        </React.Fragment>
+                      );
+                    });
+                  })() : (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-12 text-center text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                        Belum ada data pencairan
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Bansos Specific Bottom Nav - Styled like main BottomNav */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 px-6 py-4 z-50 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
+        {[
+          { id: 'laporan', label: 'Laporan', icon: FileText },
+          { id: 'riwayat', label: 'Riwayat', icon: History }
+        ].map((item) => {
+          const isActive = activeMenu === item.id;
+          const Icon = item.icon;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveMenu(item.id as any)}
+              className={`relative flex items-center justify-center h-12 transition-all duration-500 rounded-full group ${
+                isActive ? "flex-[2] bg-[#005E6A]/5 px-6" : "flex-1 px-2"
+              }`}
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="bansosNavIndicator"
+                  className="absolute inset-0 bg-gradient-to-br from-[#F15A24] to-[#ff8c42] rounded-full shadow-lg shadow-[#F15A24]/30"
+                  transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
+                />
+              )}
+              <div className="flex items-center gap-2 relative z-10">
+                <Icon className={`w-5 h-5 transition-all duration-500 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-[#005E6A]'}`} />
+                {isActive && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </nav>
 
       {/* PKH Info Modal */}
       <AnimatePresence>
@@ -11626,7 +11786,7 @@ const Layout = ({
         {children}
         {activeTab === "beranda" && !isBansosPage && <KontakSection />}
       </main>
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />
+      {!isBansosPage && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />}
     </div>
   );
 };
