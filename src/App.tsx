@@ -801,11 +801,11 @@ const Header = ({
 };
 
 const PROMO_SLIDES = [
-  { id: 1, image: "https://lh3.googleusercontent.com/d/1mIuvZjLO0eroPRfJR5fw38mo1iIueuzq", title: "Promo 1" },
-  { id: 2, image: "https://lh3.googleusercontent.com/d/1RwJbtl5zMaZjpB5EOI2nmXNqPmbQx6Ep", title: "Promo 2" },
-  { id: 3, image: "https://lh3.googleusercontent.com/d/1BK2wG7qAlYgTJyX3yLk4BdGi-IEjkbpc", title: "Promo 3" },
-  { id: 4, image: "https://lh3.googleusercontent.com/d/1q06qTXISxLvOMCQnTT4f3MATAmBo5is-", title: "Promo 4" },
-  { id: 5, image: "https://lh3.googleusercontent.com/d/1GpNZ4yIov99m-EDWMUmfb3m9aISQBEe6", title: "Promo 5" },
+  { id: 5, image: "https://lh3.googleusercontent.com/d/1GpNZ4yIov99m-EDWMUmfb3m9aISQBEe6", title: "Bansos" },
+  { id: 1, image: "https://lh3.googleusercontent.com/d/1mIuvZjLO0eroPRfJR5fw38mo1iIueuzq", title: "Tabungan" },
+  { id: 2, image: "https://lh3.googleusercontent.com/d/1RwJbtl5zMaZjpB5EOI2nmXNqPmbQx6Ep", title: "Promo" },
+  { id: 3, image: "https://lh3.googleusercontent.com/d/1BK2wG7qAlYgTJyX3yLk4BdGi-IEjkbpc", title: "Poin" },
+  { id: 4, image: "https://lh3.googleusercontent.com/d/1q06qTXISxLvOMCQnTT4f3MATAmBo5is-", title: "Level" },
 ];
 
 const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
@@ -1549,8 +1549,10 @@ const PromoSection = () => {
               transition={{ duration: 0.5 }}
               className="w-full h-full cursor-pointer"
               onClick={() => {
-                if (currentSlide === 2) navigate("/poin");
-                if (currentSlide === 4) navigate("/bansos");
+                if (currentSlide === 0) navigate("/bansos");
+                if (currentSlide === 1) navigate("/tabungan");
+                if (currentSlide === 3) navigate("/poin");
+                if (currentSlide === 4) navigate("/level");
               }}
             >
               {!imageError ? (
@@ -11334,7 +11336,7 @@ const TarikTunaiPage = () => {
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Potongan Admin</p>
                   <p className="text-xs font-black text-rose-500">-{formatIDR(adminFee)}</p>
                 </div>
-                <div className="bg-[#005E6A] p-4 rounded-none text-white">
+                <div className="bg-[#005E6A] p-4 rounded-2xl text-white">
                   <p className="text-[8px] font-black opacity-60 uppercase tracking-widest mb-1">Diterima Tunai</p>
                   <p className="text-xs font-black whitespace-nowrap">{formatIDR(totalReceived)}</p>
                 </div>
@@ -11412,7 +11414,7 @@ const TarikTunaiPage = () => {
               </p>
               
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 p-4 rounded-none border border-slate-100">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-widest mb-3 border-b border-slate-200 pb-2">Cek Saldo</p>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
@@ -11426,7 +11428,7 @@ const TarikTunaiPage = () => {
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-none border border-slate-100">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-widest mb-3 border-b border-slate-200 pb-2">Tarik Tunai</p>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
@@ -11441,7 +11443,7 @@ const TarikTunaiPage = () => {
                 </div>
               </div>
 
-              <div className="mt-6 flex items-start gap-3 bg-rose-50 p-4 rounded-none border border-rose-100">
+              <div className="mt-6 flex items-start gap-3 bg-rose-50 p-4 rounded-2xl border border-rose-100">
                 <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <p className="text-[8px] font-black text-rose-600 uppercase tracking-wider leading-relaxed text-left italic">
                   * Biaya di atas adalah biaya layanan EDC yang dipotong langsung dari saldo ATM oleh Bank, belum termasuk biaya administrasi warung.
@@ -11779,6 +11781,10 @@ const Layout = ({
 }) => {
   const location = useLocation();
   const isBansosPage = location.pathname.includes("/bansos");
+
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [location.pathname, activeTab]);
 
   return (
     <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans pb-28">
