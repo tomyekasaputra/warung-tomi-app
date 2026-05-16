@@ -18,6 +18,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
+import CustomerManagement from "./components/CustomerManagement";
 import { 
   ShoppingBag, 
   Zap, 
@@ -81,6 +82,7 @@ import {
   AlertCircle,
   ChevronUp,
   Share2,
+  ExternalLink,
   Camera,
   CameraOff,
   LogOut,
@@ -811,7 +813,7 @@ const PROMO_SLIDES = [
 const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const navigate = useNavigate();
   const currentMonth = new Date().getMonth();
-  const [activeMenu, setActiveMenu] = useState<'laporan' | 'riwayat'>('laporan');
+  const [activeMenu, setActiveMenu] = useState<'laporan' | 'riwayat' | 'cek_desil'>('laporan');
 
   const handleShare = async () => {
     try {
@@ -837,6 +839,25 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const [activeTahap, setActiveTahap] = useState(defaultTahap);
   const [searchQuery, setSearchQuery] = useState("");
   const [riwayatSearchQuery, setRiwayatSearchQuery] = useState("");
+  
+  const getRelativeDay = (dateStr: string) => {
+    const date = parseDate(dateStr);
+    if (!date || date.getTime() === 0) return dateStr;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    targetDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = today.getTime() - targetDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "Hari ini";
+    if (diffDays === 1) return "Kemarin";
+    if (diffDays >= 2 && diffDays <= 30) return `${diffDays} Hari lalu`;
+    return dateStr;
+  };
 
   const { result: processedData, targetYear } = React.useMemo(() => {
     const stages: Record<number, Map<string, { nama: string, pkh: number, bpnt: number }>> = { 
@@ -1031,7 +1052,64 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
       </div>
 
       <div className="px-6 pt-4">
-        {activeMenu === 'laporan' ? (
+        {activeMenu === 'cek_desil' ? (
+          <div className="pb-20">
+            <div className="bg-gradient-to-br from-[#005E6A] to-[#004852] rounded-[2.5rem] p-8 text-white mb-8 relative overflow-hidden shadow-2xl shadow-teal-100">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Globe className="w-24 h-24" />
+              </div>
+              <h1 className="text-xl font-black uppercase tracking-[0.2em] mb-1">Cek Desil Bansos</h1>
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60">Portal Resmi Kemensos RI</p>
+            </div>
+
+            <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200 text-center relative overflow-hidden group">
+              <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-transparent via-teal-100 to-transparent opacity-50" />
+              
+              <div className="w-20 h-20 bg-teal-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 relative">
+                <Globe className="w-10 h-10 text-[#005E6A]" />
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#005E6A] rounded-full border-4 border-white flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                </div>
+              </div>
+
+              <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-3">Portal Cek Bansos</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed mb-10 max-w-[240px] mx-auto">
+                Website resmi Kemensos dilindungi oleh sistem keamanan tinggi dan hanya dapat diakses langsung.
+              </p>
+
+              <div className="space-y-4">
+                <a 
+                  href="https://cekbansos.kemensos.go.id/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-full py-5 bg-[#005E6A] text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 hover:bg-[#004b54] shadow-xl shadow-teal-100 transition-all active:scale-95"
+                >
+                  Buka Portal Resmi
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+
+                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mt-6">
+                  <div className="flex items-start gap-4 text-left">
+                    <div className="w-8 h-8 bg-white rounded-xl border border-slate-100 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="w-4 h-4 text-teal-600" />
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-slate-800 uppercase tracking-widest mb-1">Informasi Keamanan</p>
+                      <p className="text-[7px] font-bold text-slate-400 uppercase leading-normal tracking-wider">
+                        Anda akan diarahkan ke domain resmi <span className="text-[#005E6A]">kemensos.go.id</span> untuk memastikan data Anda aman dan valid 100%.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-10 flex items-center justify-center gap-2">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Server Kemensos Online</span>
+              </div>
+            </div>
+          </div>
+        ) : activeMenu === 'laporan' ? (
           <>
             {/* Combined Image & Title Card */}
             <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200 mb-10 border border-slate-50">
@@ -1376,7 +1454,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                             </tr>
                           )}
                           <tr className="hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-4 text-[9px] font-bold text-slate-400 whitespace-nowrap">{item.tanggal}</td>
+                            <td className="px-4 py-4 text-[9px] font-bold text-slate-400 whitespace-nowrap">{getRelativeDay(item.tanggal)}</td>
                             <td className="px-4 py-4 text-[9px] font-black text-black uppercase tracking-tight whitespace-nowrap">{item.nama}</td>
                             <td className="px-4 py-4 text-[9px] font-bold text-slate-600 whitespace-nowrap">
                               <span className={`px-2.5 py-1 rounded-full text-[9px] font-black tracking-tight ${item.jenis.includes('PKH') ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
@@ -1408,6 +1486,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 px-6 py-4 z-50 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
         {[
           { id: 'laporan', label: 'Laporan', icon: FileText },
+          { id: 'cek_desil', label: 'Cek Desil', icon: Globe },
           { id: 'riwayat', label: 'Riwayat', icon: History }
         ].map((item) => {
           const isActive = activeMenu === item.id;
@@ -6238,9 +6317,56 @@ const AdminCustomerDetailPage = ({
   const activePoints = calculateActivePoints(customer.Nama, salesTransactions, redeemedPoints);
   const levelInfo = calculateCustomerLevel(salesTransactions, customer.Nama);
   
-  const userSales = salesTransactions
-    .filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase())
-    .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+  const [selectedFilter, setSelectedFilter] = useState(`${new Date().getMonth()}-${new Date().getFullYear()}`);
+
+  const months = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+
+  const userSales = useMemo(() => {
+    return salesTransactions
+      .filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase())
+      .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+  }, [salesTransactions, customer.Nama]);
+
+  const availableMonths = useMemo(() => {
+    if (userSales.length === 0) {
+      const now = new Date();
+      return [{ 
+        month: now.getMonth(), 
+        year: now.getFullYear(),
+        label: `${months[now.getMonth()]} ${now.getFullYear()}`
+      }];
+    }
+    
+    const dates = userSales.map(t => parseDate(t.Tanggal));
+    const firstDate = new Date(Math.min(...dates.map(d => d.getTime())));
+    const lastDate = new Date();
+    
+    const options = [];
+    let current = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+    const end = new Date(lastDate.getFullYear(), lastDate.getMonth(), 1);
+    
+    while (current <= end) {
+      options.push({
+        month: current.getMonth(),
+        year: current.getFullYear(),
+        label: `${months[current.getMonth()]} ${current.getFullYear()}`
+      });
+      current.setMonth(current.getMonth() + 1);
+    }
+    
+    return options.reverse(); // Newest first
+  }, [userSales]);
+
+  const filteredUserSales = useMemo(() => {
+    const [m, y] = selectedFilter.split('-').map(Number);
+    return userSales.filter(t => {
+      const d = parseDate(t.Tanggal);
+      return d.getMonth() === m && d.getFullYear() === y;
+    });
+  }, [userSales, selectedFilter]);
     
   const userSavings = savingsTransactions.filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase());
   const currentSavings = userSavings.length > 0 ? userSavings[userSavings.length - 1].SaldoAkhir : parseCurrency(customer.Tabungan);
@@ -6268,31 +6394,54 @@ const AdminCustomerDetailPage = ({
       animate={{ opacity: 1 }}
       className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-24 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10">
-          <button onClick={() => navigate("/admin/customers")} className="flex items-center gap-2 text-white/70 mb-6 group">
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Manajemen Pelanggan</span>
-          </button>
-          
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-[2rem] bg-white flex items-center justify-center shadow-lg transform rotate-3">
                <User className="w-8 h-8 text-[#005E6A]" />
             </div>
             <div>
-              <h1 className="text-2xl font-black uppercase tracking-tight leading-none mb-1">{customer.Nama}</h1>
-              <div className="flex items-center gap-2">
-                 <Badge className="bg-[#F15A24] text-white border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
-                   PIN: {customer.PIN || ""}
-                 </Badge>
-              </div>
+              <h1 className="text-2xl font-black uppercase tracking-tight leading-none mb-1">Detail Pelanggan</h1>
+              <p className="text-[10px] font-medium text-white/60 uppercase tracking-[0.2em]">Profil & Riwayat Transaksi</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="px-6 -mt-10 relative z-20 space-y-6">
+      <div className="px-6 -mt-12 relative z-20 space-y-6">
+        {/* Profile Card */}
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 flex items-center gap-5">
+           <div className="w-20 h-20 rounded-[2rem] bg-slate-50 overflow-hidden border border-slate-100 flex items-center justify-center shadow-inner shrink-0">
+              {customer.Foto ? (
+                <img src={customer.Foto} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-10 h-10 text-slate-200" />
+              )}
+           </div>
+           <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h3 className="text-lg font-black text-[#005E6A] uppercase leading-none truncate">{customer.Nama}</h3>
+                <button 
+                  onClick={() => navigate("/admin/customers")} // For now, navigate back to list where editing is available
+                  className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-teal-50 hover:text-[#005E6A] transition-all"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                 <div className="bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
+                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">ID Pelanggan</p>
+                    <p className="text-[10px] font-black text-[#005E6A] font-mono">{customer.id_pelanggan || '-'}</p>
+                 </div>
+                 <div className="bg-[#F15A24]/5 px-3 py-2 rounded-xl border border-[#F15A24]/10">
+                    <p className="text-[7px] font-black text-[#F15A24] uppercase tracking-widest mb-0.5">PIN Akses</p>
+                    <p className="text-[10px] font-black text-[#F15A24] font-mono">{customer.PIN || '-'}</p>
+                 </div>
+              </div>
+           </div>
+        </div>
+
         <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 flex items-center divide-x divide-slate-50">
            <div className="flex-1 text-center">
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Poin Aktif</p>
@@ -6311,94 +6460,83 @@ const AdminCustomerDetailPage = ({
 
         <div className="space-y-3">
           <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-widest px-2">Data Keuangan & Aset</h3>
-          <div className="grid gap-3">
-             <div 
-               onClick={() => navigate(`/tabungan/${encodeURIComponent(customer.Nama)}`)}
-               className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
-             >
-                <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 rounded-[1.25rem] bg-teal-50 flex items-center justify-center group-hover:bg-teal-100 transition-colors">
-                      <PiggyBank className="w-6 h-6 text-teal-600" />
-                   </div>
-                   <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Saldo Tabungan</p>
-                      <p className="text-lg font-black text-[#005E6A] tabular-nums leading-none">Rp {currentSavings.toLocaleString('id-ID')}</p>
-                   </div>
+          <div className="grid grid-cols-2 gap-4">
+            {[
+              { 
+                name: "Tabungan", 
+                balance: currentSavings, 
+                gradient: "from-green-500 to-emerald-600",
+                icon: PiggyBank,
+                path: `/tabungan/${encodeURIComponent(customer.Nama)}`
+              },
+              { 
+                name: "Investasi", 
+                balance: totalInvestment, 
+                gradient: "from-indigo-500 to-violet-600",
+                icon: TrendingUp,
+                path: `/investasi/${encodeURIComponent(customer.Nama)}`
+              },
+              { 
+                name: "Lainnya", 
+                balance: currentOthers, 
+                gradient: "from-teal-500 to-cyan-600",
+                icon: Layers,
+                path: `/lainnya/${encodeURIComponent(customer.Nama)}`
+              },
+              { 
+                name: "Hutang", 
+                balance: currentDebt, 
+                gradient: "from-rose-500 to-red-600",
+                icon: Receipt,
+                path: `/hutang/${encodeURIComponent(customer.Nama)}`
+              },
+            ].map((item, i) => (
+              <div 
+                key={i} 
+                onClick={() => navigate(item.path)}
+                className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-[1.8rem] flex flex-col justify-between shadow-lg shadow-slate-200/20 min-h-[110px] cursor-pointer active:scale-95 transition-transform`}
+              >
+                <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-2xl" />
+                
+                <div className="flex justify-between items-start relative z-10">
+                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
+                    <item.icon className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="w-5 h-5 bg-white/10 rounded-full flex items-center justify-center">
+                    <ChevronRight className="w-2.5 h-2.5 text-white" />
+                  </div>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
-                  <ChevronRight className="w-4 h-4 text-slate-300" />
-                </div>
-             </div>
 
-             <div 
-               onClick={() => navigate(`/investasi/${encodeURIComponent(customer.Nama)}`)}
-               className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
-             >
-                <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 rounded-[1.25rem] bg-orange-50 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
-                      <TrendingUp className="w-6 h-6 text-orange-600" />
-                   </div>
-                   <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Investasi Aktif</p>
-                      <p className="text-lg font-black text-[#F15A24] tabular-nums leading-none">Rp {totalInvestment.toLocaleString('id-ID')}</p>
-                   </div>
+                <div className="relative z-10 mt-3">
+                  <p className="text-[7px] font-black text-white/70 uppercase tracking-widest leading-none mb-1">{item.name}</p>
+                  <p className="text-[12px] font-black text-white tracking-tight leading-none">Rp {item.balance.toLocaleString('id-ID')}</p>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
-                  <ChevronRight className="w-4 h-4 text-slate-300" />
-                </div>
-             </div>
-
-             <div 
-               onClick={() => navigate(`/hutang/${encodeURIComponent(customer.Nama)}`)}
-               className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
-             >
-                <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 rounded-[1.25rem] bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">
-                      <Receipt className="w-6 h-6 text-red-600" />
-                   </div>
-                   <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Hutang</p>
-                      <p className="text-lg font-black text-red-600 tabular-nums leading-none">Rp {currentDebt.toLocaleString('id-ID')}</p>
-                   </div>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
-                  <ChevronRight className="w-4 h-4 text-slate-300" />
-                </div>
-             </div>
-
-             <div 
-               onClick={() => navigate(`/lainnya/${encodeURIComponent(customer.Nama)}`)}
-               className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between group active:scale-95 transition-all cursor-pointer"
-             >
-                <div className="flex items-center gap-4">
-                   <div className="w-12 h-12 rounded-[1.25rem] bg-indigo-50 flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
-                      <Layers className="w-6 h-6 text-indigo-600" />
-                   </div>
-                   <div>
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Lainnya (Belum Ambil)</p>
-                      <p className="text-lg font-black text-indigo-600 tabular-nums leading-none">Rp {currentOthers.toLocaleString('id-ID')}</p>
-                   </div>
-                </div>
-                <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center">
-                  <ChevronRight className="w-4 h-4 text-slate-300" />
-                </div>
-             </div>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="space-y-4">
            <div className="flex items-center justify-between px-2">
              <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-widest">Riwayat Belanja</h3>
-             <Badge className="bg-slate-50 text-slate-400 border-none text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
-               {userSales.length} Transaksi
-             </Badge>
+             <div className="flex items-center gap-2">
+               <select 
+                 value={selectedFilter}
+                 onChange={(e) => setSelectedFilter(e.target.value)}
+                 className="bg-white border border-slate-100 rounded-xl px-3 py-1.5 text-[9px] font-black text-[#005E6A] outline-none shadow-sm"
+               >
+                 {availableMonths.map((opt, idx) => (
+                   <option key={idx} value={`${opt.month}-${opt.year}`}>{opt.label.toUpperCase()}</option>
+                 ))}
+               </select>
+             </div>
            </div>
            
            <div className="space-y-3">
-             {userSales.map((t, i) => (
+             {filteredUserSales.map((t, i) => (
                 <TransactionCard key={i} t={t} index={i} isAdmin={true} />
              ))}
-             {userSales.length === 0 && (
+             {filteredUserSales.length === 0 && (
                <div className="bg-white p-12 rounded-[2.5rem] border border-dashed border-slate-200 text-center">
                  <ShoppingBag className="w-10 h-10 text-slate-200 mx-auto mb-3 opacity-20" />
                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Belum ada riwayat transaksi</p>
@@ -12404,6 +12542,8 @@ export default function App() {
     }
 
     try {
+      const scriptUrl = localStorage.getItem('APPS_SCRIPT_URL') || import.meta.env.VITE_APPS_SCRIPT_URL || '';
+      
       const allUrls = [
         { id: "customers", name: "Pelanggan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv" },
         { id: "savingTransactions", name: "Tabungan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv" },
@@ -12428,7 +12568,11 @@ export default function App() {
         for (let i = 0; i <= retries; i++) {
           try {
             if (signal.aborted) throw new Error('Aborted');
-            const finalUrl = i > 0 ? url + (url.includes('?') ? '&' : '?') + `t=${Date.now()}` : url;
+            
+            // IF it is customers AND we have a scriptUrl, use it instead of CSV
+            const targetUrl = (label === 'Pelanggan' && scriptUrl) ? scriptUrl : url;
+            const finalUrl = i > 0 ? targetUrl + (targetUrl.includes('?') ? '&' : '?') + `t=${Date.now()}` : targetUrl;
+            
             const res = await fetch(finalUrl, { signal, cache: 'no-cache', mode: 'cors', credentials: 'omit' });
             if (!res.ok) throw new Error(`Status ${res.status}`);
             return await res.text();
@@ -12453,6 +12597,14 @@ export default function App() {
 
       const parseCsv = (csv: string): Promise<any[]> => new Promise(resolve => {
         if (!csv) return resolve([]);
+        if (csv.trim().startsWith('[') || csv.trim().startsWith('{')) {
+          try {
+            const data = JSON.parse(csv);
+            return resolve(Array.isArray(data) ? data : [data]);
+          } catch (e) {
+            // fallback to csv if parse fails
+          }
+        }
         Papa.parse(csv, { header: true, skipEmptyLines: true, complete: results => resolve(results.data), error: () => resolve([]) });
       });
 
@@ -13025,7 +13177,13 @@ export default function App() {
         } />
         <Route path="/admin/customers" element={
           <AdminLayout activeTab="customers">
-            <AdminCustomerManagement customers={customers} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
+            <CustomerManagement 
+              salesTransactions={salesTransactions}
+              savingsTransactions={savingsTransactions}
+              investmentTransactions={investmentTransactions}
+              debtTransactions={debtTransactions}
+              redeemedPoints={redeemedPoints}
+            />
           </AdminLayout>
         } />
         <Route path="/admin/customers/:customerName" element={
