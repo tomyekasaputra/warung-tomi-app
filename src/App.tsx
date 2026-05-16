@@ -5767,7 +5767,7 @@ const TransactionModal = ({
         const nominal = parseInt(amount.replace(/\./g, ''));
         
         // GOOGLE SHEETS WRITE LOGIC (Original)
-        const scriptUrl = "https://script.google.com/macros/s/AKfycbz_nvD6ANhj9qTFpv_DPeog6msTIR3LhvaRAgBN_NFJltKzfEeW6xeECNrG2uw2DT9Q4Q/exec";
+        const scriptUrl = "https://script.google.com/macros/s/AKfycbzFXIApyWFaY7tGXiq-k7yvRlFAUJB2QNzeSU01-sR2dVL1FrnaVNPlgf2FXxsqSi5L9g/exec";
         
         if (scriptUrl) {
           try {
@@ -12542,7 +12542,7 @@ export default function App() {
     }
 
     try {
-      const scriptUrl = localStorage.getItem('APPS_SCRIPT_URL') || import.meta.env.VITE_APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbz_nvD6ANhj9qTFpv_DPeog6msTIR3LhvaRAgBN_NFJltKzfEeW6xeECNrG2uw2DT9Q4Q/exec';
+      const scriptUrl = localStorage.getItem('APPS_SCRIPT_URL') || import.meta.env.VITE_APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbzFXIApyWFaY7tGXiq-k7yvRlFAUJB2QNzeSU01-sR2dVL1FrnaVNPlgf2FXxsqSi5L9g/exec';
       
       const allUrls = [
         { id: "customers", name: "Pelanggan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv" },
