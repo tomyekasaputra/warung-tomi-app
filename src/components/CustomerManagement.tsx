@@ -277,18 +277,18 @@ export default function CustomerManagement({
     }, {});
 
     const COLORS: any = {
-      'Bronze': '#92400E', // Brown (Coklat)
-      'Silver': '#94a3b8', // Silver (Slate)
-      'Gold': '#F59E0B',   // Emas (Amber)
-      'Platinum': '#1e293b' // Hitam (Slate-950/Black)
+      'Bronze': '#CD7F32',
+      'Silver': '#94a3b8',
+      'Gold': '#F59E0B',
+      'Platinum': '#1e293b'
     };
 
-    return Object.keys(counts).map(level => ({
+    return ['Bronze', 'Silver', 'Gold', 'Platinum'].map(level => ({
       name: level,
-      value: counts[level],
-      color: COLORS[level] || '#005E6A'
+      value: counts[level] || 0,
+      color: COLORS[level]
     }));
-  }, [customers]);
+  }, [customersWithStats]);
 
   if (!isUrlConfigured) {
     return (

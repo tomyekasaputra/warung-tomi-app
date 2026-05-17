@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { BrowserRouter, Routes, Route, useNavigate, Link, useParams, useLocation, useSearchParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, Link, useParams, useLocation, useSearchParams, Navigate } from "react-router-dom";
 import Papa from "papaparse";
 import { 
   LineChart, 
@@ -38,6 +38,7 @@ import {
   Receipt,
   Truck,
   History,
+  ClipboardList,
   User,
   Users,
   Package,
@@ -449,7 +450,7 @@ const LEVELS = [
     name: "Bronze", 
     min: 0, 
     max: 999999, 
-    color: "from-orange-400 to-orange-600", 
+    color: "from-[#CD7F32] to-[#A57164]", 
     icon: <Trophy className="w-6 h-6 text-white" />,
     benefits: ["Dapat 1 Poin (Tiap kelipatan Rp10.000)"]
   },
@@ -1030,38 +1031,71 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="min-h-screen bg-white pb-32 relative"
+      className="min-h-screen bg-white pb-32"
     >
-      {/* Navigation Header */}
-      <div className="px-6 pt-6 flex items-center justify-between mb-2">
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-[#005E6A] active:scale-95 transition-transform"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span className="text-[9px] font-black uppercase tracking-widest">Kembali</span>
-        </button>
+      {/* Hero Section */}
+      <div className="relative h-[45vh] overflow-hidden">
+        <img 
+          src="https://lh3.googleusercontent.com/d/1GpNZ4yIov99m-EDWMUmfb3m9aISQBEe6" 
+          alt="Bansos Banner" 
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         
-        <button 
-          onClick={handleShare}
-          className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl text-[#005E6A] active:scale-95 transition-transform"
-        >
-          <span className="text-[9px] font-black uppercase tracking-widest">Bagikan</span>
-          <Share2 className="w-4 h-4" />
-        </button>
+        <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
+          <button 
+            onClick={() => navigate(-1)}
+            className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white border border-white/20 active:scale-90 transition-transform"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          
+          <button 
+            onClick={handleShare}
+            className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white border border-white/20 active:scale-95 transition-transform"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="absolute bottom-12 left-6 right-6 text-white">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-2">Pencairan Bansos</h1>
+            <p className="text-xs font-bold text-white/70 uppercase tracking-[0.2em]">PKH & BPNT • WARUNG TOMI {targetYear}</p>
+          </motion.div>
+        </div>
       </div>
 
-      <div className="px-6 pt-4">
+      <div className="px-6 -mt-8 relative z-10">
+        {/* Menu Switcher inside the overlapping container */}
+        <div className="bg-white rounded-3xl p-2 flex gap-2 shadow-xl border border-slate-50 mb-8">
+          {[
+            { id: 'laporan', label: 'Laporan', icon: ClipboardList },
+            { id: 'riwayat', label: 'Riwayat', icon: History },
+            { id: 'cek_desil', label: 'Cek Desil', icon: Globe },
+          ].map(menu => (
+            <button
+              key={menu.id}
+              onClick={() => setActiveMenu(menu.id as any)}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
+                activeMenu === menu.id 
+                  ? 'bg-[#005E6A] text-white shadow-lg shadow-teal-100' 
+                  : 'text-slate-400 hover:bg-slate-50'
+              }`}
+            >
+              <menu.icon className="w-3.5 h-3.5" />
+              <span>{menu.label}</span>
+            </button>
+          ))}
+        </div>
+
         {activeMenu === 'cek_desil' ? (
           <div className="pb-20">
-            <div className="bg-gradient-to-br from-[#005E6A] to-[#004852] rounded-[2.5rem] p-8 text-white mb-8 relative overflow-hidden shadow-2xl shadow-teal-100">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Globe className="w-24 h-24" />
-              </div>
-              <h1 className="text-xl font-black uppercase tracking-[0.2em] mb-1">Cek Desil Bansos</h1>
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60">Portal Resmi Kemensos RI</p>
-            </div>
-
             <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200 text-center relative overflow-hidden group">
               <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-transparent via-teal-100 to-transparent opacity-50" />
               
@@ -1111,26 +1145,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
           </div>
         ) : activeMenu === 'laporan' ? (
           <>
-            {/* Combined Image & Title Card */}
-            <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl shadow-slate-200 mb-10 border border-slate-50">
-          <div className="aspect-[16/10] overflow-hidden">
-            <img 
-              src="https://lh3.googleusercontent.com/d/1GpNZ4yIov99m-EDWMUmfb3m9aISQBEe6" 
-              alt="Bansos Banner" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-          <div className="p-8 text-center">
-            <h1 className="text-2xl font-black text-black uppercase tracking-tight mb-2">Pencairan Bansos</h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed max-w-[240px] mx-auto">
-              Program Keluarga Harapan (PKH) & Bantuan Pangan Non Tunai (BPNT)
-            </p>
-          </div>
-        </div>
-
-        {/* Tren KPM Chart */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-8">
+            {/* Tren KPM Chart */}
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Perbandingan PKH & BPNT</h3>
@@ -1482,46 +1498,6 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
         )}
       </div>
 
-      {/* Bansos Specific Bottom Nav - Styled like main BottomNav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 px-6 py-4 z-50 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
-        {[
-          { id: 'laporan', label: 'Laporan', icon: FileText },
-          { id: 'cek_desil', label: 'Cek Desil', icon: Globe },
-          { id: 'riwayat', label: 'Riwayat', icon: History }
-        ].map((item) => {
-          const isActive = activeMenu === item.id;
-          const Icon = item.icon;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveMenu(item.id as any)}
-              className={`relative flex items-center justify-center h-12 transition-all duration-500 rounded-full group ${
-                isActive ? "flex-[2] bg-[#005E6A]/5 px-6" : "flex-1 px-2"
-              }`}
-            >
-              {isActive && (
-                <motion.div
-                  layoutId="bansosNavIndicator"
-                  className="absolute inset-0 bg-gradient-to-br from-[#F15A24] to-[#ff8c42] rounded-full shadow-lg shadow-[#F15A24]/30"
-                  transition={{ type: "spring", bounce: 0.1, duration: 0.5 }}
-                />
-              )}
-              <div className="flex items-center gap-2 relative z-10">
-                <Icon className={`w-5 h-5 transition-all duration-500 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-[#005E6A]'}`} />
-                {isActive && (
-                  <motion.span
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="text-[10px] font-black text-white uppercase tracking-widest whitespace-nowrap"
-                  >
-                    {item.label}
-                  </motion.span>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </nav>
 
       {/* PKH Info Modal */}
       <AnimatePresence>
@@ -1567,7 +1543,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   );
 };
 
-const PromoSection = () => {
+const PromoSection = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [imageError, setImageError] = useState(false);
@@ -1629,7 +1605,10 @@ const PromoSection = () => {
               className="w-full h-full cursor-pointer"
               onClick={() => {
                 if (currentSlide === 0) navigate("/bansos");
-                if (currentSlide === 1) navigate("/tabungan");
+                if (currentSlide === 1) {
+                  if (loggedInUser) navigate(`/tabungan/${encodeURIComponent(loggedInUser.Nama)}`);
+                  else navigate("/tabungan");
+                }
                 if (currentSlide === 3) navigate("/poin");
                 if (currentSlide === 4) navigate("/level");
               }}
@@ -1657,7 +1636,7 @@ const PromoSection = () => {
   );
 };
 
-const MainServices = () => {
+const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
   const navigate = useNavigate();
   return (
     <section className="px-6 py-1">
@@ -1687,8 +1666,14 @@ const MainServices = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
-                if (service.name === "Investasi") navigate("/investasi");
-                else if (service.name === "Tabungan") navigate("/tabungan");
+                if (service.name === "Investasi") {
+                  if (loggedInUser) navigate(`/investasi/${encodeURIComponent(loggedInUser.Nama)}`);
+                  else navigate("/investasi");
+                }
+                else if (service.name === "Tabungan") {
+                  if (loggedInUser) navigate(`/tabungan/${encodeURIComponent(loggedInUser.Nama)}`);
+                  else navigate("/tabungan");
+                }
                 else if (service.name === "Poin Loyalitas") navigate("/poin");
                 else if (service.name === "QRIS") navigate("/qris");
                 else if (service.name === "Tarik Tunai") navigate("/tariktunai");
@@ -3018,57 +3003,84 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
                 { 
                   name: "Tabungan", 
                   balance: formatCurrency(tabunganBalance), 
-                  gradient: "from-green-500 to-emerald-600",
+                  gradient: "from-[#2ecc71] to-[#27ae60]", // Emerald Wallet
                   icon: Wallet,
                   clickable: true, 
-                  path: "/tabungan" 
+                  path: user ? `/tabungan/${encodeURIComponent(user.Nama)}` : "/tabungan" 
                 },
                 { 
                   name: "Investasi", 
                   balance: formatCurrency(investasiBalance), 
-                  gradient: "from-indigo-500 to-violet-600",
+                  gradient: "from-[#9b59b6] to-[#8e44ad]", // Purple Wallet
                   icon: TrendingUp,
                   clickable: true, 
-                  path: "/investasi" 
+                  path: user ? `/investasi/${encodeURIComponent(user.Nama)}` : "/investasi" 
                 },
                 { 
                   name: "Lainnya", 
                   balance: formatCurrency(lainnyaBalance), 
-                  gradient: "from-teal-500 to-cyan-600",
+                  gradient: "from-[#f1c40f] to-[#f39c12]", // Gold/Yellow Wallet
                   icon: Layers,
                   clickable: true, 
-                  path: "/lainnya" 
+                  path: user ? `/lainnya/${encodeURIComponent(user.Nama)}` : "/lainnya" 
                 },
                 { 
                   name: "Hutang", 
                   balance: formatCurrency(hutangBalance), 
-                  gradient: "from-rose-500 to-red-600",
+                  gradient: "from-[#e74c3c] to-[#c0392b]", // Red Wallet
                   icon: CreditCard,
                   clickable: true, 
-                  path: "/hutang" 
+                  path: user ? `/hutang/${encodeURIComponent(user.Nama)}` : "/hutang" 
                 },
               ].map((item, i) => (
-                <div 
+                <motion.div 
                   key={i} 
+                  initial={{ rotateX: -30, opacity: 0, translateY: 20 }}
+                  animate={{ rotateX: 0, opacity: 1, translateY: 0 }}
+                  transition={{ 
+                    duration: 0.7, 
+                    delay: i * 0.1,
+                    ease: "easeOut"
+                  }}
                   onClick={() => item.clickable && item.path && navigate(item.path)}
-                  className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-[1.8rem] flex flex-col justify-between shadow-lg shadow-slate-200/20 min-h-[110px] ${item.clickable ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}
+                  className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-5 rounded-[2.2rem] flex flex-col justify-between shadow-lg shadow-slate-200/40 min-h-[130px] ${item.clickable ? 'cursor-pointer active:scale-95 transition-all group/wallet hover:shadow-xl hover:-translate-y-1' : ''} border-t border-white/20`}
                 >
-                  <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-2xl" />
+                  {/* Wallet Closure Strap Design */}
+                  <motion.div 
+                    initial={{ x: 20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: i * 0.1 + 0.5, type: "spring", stiffness: 200, damping: 15 }}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 w-7 h-12 bg-black/5 backdrop-blur-sm border-l border-t border-b border-white/20 rounded-l-2xl z-0 transition-all group-hover/wallet:w-9" 
+                  />
+                  <motion.div 
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: i * 0.1 + 0.8 }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-2 h-2 bg-white/40 rounded-full z-10 shadow-sm border border-white/20" 
+                  />
                   
+                  {/* Subtle Texture for Wallet Feel */}
+                  <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/leather.png')]" />
+
                   <div className="flex justify-between items-start relative z-10">
-                    <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
-                      <item.icon className="w-4 h-4 text-white" />
+                    <div className="w-10 h-10 bg-white/25 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-inner">
+                      <item.icon className="w-5 h-5 text-white" />
                     </div>
-                    <div className="w-5 h-5 bg-white/10 rounded-full flex items-center justify-center">
-                      <ChevronRight className="w-2.5 h-2.5 text-white" />
+                    <div className="w-6 h-6 bg-white/15 rounded-xl flex items-center justify-center border border-white/10 group-hover/wallet:bg-white/30 transition-colors">
+                      <ChevronRight className="w-3 h-3 text-white" />
                     </div>
                   </div>
 
-                  <div className="relative z-10 mt-3">
-                    <p className="text-[7px] font-black text-white/70 uppercase tracking-widest leading-none mb-1">{item.name}</p>
-                    <p className="text-[12px] font-black text-white tracking-tight leading-none">Rp {mask(item.balance)}</p>
+                  <div className="relative z-10">
+                    <p className="text-[8px] font-black text-white/80 uppercase tracking-[0.2em] leading-none mb-2">{item.name}</p>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[8px] font-black text-white/50 italic">Rp</span>
+                      <p className="text-[14px] font-black text-white tracking-tight leading-none uppercase">
+                        {mask(item.balance)}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
@@ -3196,6 +3208,129 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
         </AnimatePresence>
       </motion.div>
     </ProtectedPage>
+  );
+};
+
+const SavingsPromotionPage = () => {
+  const navigate = useNavigate();
+  return (
+    <div className="min-h-screen bg-white pb-32">
+      {/* Hero Section */}
+      <div className="relative h-[45vh] overflow-hidden">
+        <img 
+          src="https://lh3.googleusercontent.com/d/1mIuvZjLO0eroPRfJR5fw38mo1iIueuzq" 
+          alt="Tabungan Banner" 
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute bottom-10 left-6 right-6 text-white">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-2">Yuk Menabung!</h1>
+            <p className="text-xs font-bold text-white/70 uppercase tracking-[0.2em]">Wujudkan Masa Depan Cerah Bersama Warung Tomi</p>
+          </motion.div>
+        </div>
+        <button 
+          onClick={() => navigate(-1)}
+          className="absolute top-6 left-6 w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white border border-white/20 active:scale-90 transition-transform"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className="px-6 -mt-8 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-50"
+        >
+          <div className="flex flex-col items-center text-center mb-8">
+            <div className="w-16 h-16 bg-[#E6F4F5] rounded-2xl flex items-center justify-center text-[#005E6A] mb-4 shadow-lg shadow-teal-100">
+              <PiggyBank className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Kenapa Harus Menabung di Sini?</h2>
+            <div className="w-12 h-1 bg-[#F15A24] rounded-full mt-3" />
+          </div>
+
+          <div className="space-y-6">
+            {[
+              { 
+                title: "Aman & Transparan", 
+                desc: "Setiap transaksi tercatat otomatis di sistem digital kami. Anda bisa cek saldo kapanpun!",
+                icon: ShieldCheck,
+                color: "bg-blue-50 text-blue-600"
+              },
+              { 
+                title: "Tanpa Biaya Admin", 
+                desc: "Tidak ada potongan bulanan. Uang yang Anda tabung utuh 100% milik Anda.",
+                icon: Calculator,
+                color: "bg-green-50 text-green-600"
+              },
+              { 
+                title: "Bonus Poin Reward", 
+                desc: "Setiap kelipatan tabungan tertentu akan mendapatkan poin yang bisa ditukar hadiah menarik.",
+                icon: Star,
+                color: "bg-amber-50 text-amber-600"
+              },
+              { 
+                title: "Tarik Kapan Saja", 
+                desc: "Butuh uang darurat? Saldo tabungan bisa dicairkan di jam operasional toko kami.",
+                icon: Wallet,
+                color: "bg-purple-50 text-purple-600"
+              },
+              { 
+                title: "Naikkan Level Member", 
+                desc: "Total tabungan yang tinggi membantu Anda naik ke level Platinum lebih cepat!",
+                icon: Trophy,
+                color: "bg-rose-50 text-rose-600"
+              }
+            ].map((item, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 + (i * 0.1) }}
+                className="flex gap-4 items-start"
+              >
+                <div className={`w-10 h-10 ${item.color} rounded-xl flex items-center justify-center shrink-0 border border-black/5 shadow-sm`}>
+                  <item.icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-1">{item.title}</h3>
+                  <p className="text-[9px] font-bold text-slate-400 leading-relaxed uppercase tracking-tight">{item.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <div className="mt-12 bg-slate-50 p-6 rounded-[2rem] border border-slate-100 text-center">
+            <h4 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest mb-2">Mulai Menabung Hari Ini!</h4>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight leading-relaxed mb-6">Datang langsung ke Warung Tomi atau hubungi kami melalui WhatsApp.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button 
+                onClick={() => window.open("https://wa.me/6287774138090", "_blank")}
+                className="bg-green-500 text-white py-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-green-100 active:scale-95 transition-transform flex items-center justify-center gap-2"
+              >
+                <MessageCircle className="w-3 h-3" />
+                <span>WhatsApp</span>
+              </button>
+              <button 
+                onClick={() => navigate("/")}
+                className="bg-[#005E6A] text-white py-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 active:scale-95 transition-transform flex items-center justify-center gap-2"
+              >
+                <Home className="w-3 h-3" />
+                <span>Beranda</span>
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
   );
 };
 
@@ -3335,7 +3470,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden"
+              className="bg-gradient-to-br from-[#2ecc71] to-[#27ae60] rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden border-t border-white/20"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
               <div className="absolute -bottom-4 -right-4 opacity-10">
@@ -3353,7 +3488,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                 </div>
                 <div className="flex items-baseline gap-2 mb-8">
                   <span className="text-lg font-bold opacity-80">Rp</span>
-                  <h2 className="text-4xl font-black tracking-tight">{displayUser?.Tabungan || "0"}</h2>
+                  <h2 className="text-4xl font-black tracking-tight">{formatCurrency(displayUser?.Tabungan || 0)}</h2>
                 </div>
 
                 {/* Integrated Stats */}
@@ -3800,7 +3935,7 @@ const DebtDetailPage = ({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-gradient-to-br from-red-600 to-rose-700 rounded-[2.5rem] text-white shadow-2xl mb-8 relative overflow-hidden transition-all duration-500 hover:shadow-red-500/20"
+              className="bg-gradient-to-br from-[#e74c3c] to-[#c0392b] rounded-[2.5rem] text-white shadow-2xl mb-8 relative overflow-hidden transition-all duration-500 hover:shadow-red-500/20 border-t border-white/20"
             >
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl opacity-50" />
               <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-black/10 rounded-full blur-3xl opacity-30" />
@@ -4175,7 +4310,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="px-6 py-4 bg-slate-50 min-h-screen"
       >
-        <div className="bg-gradient-to-br from-[#6D28D9] to-[#4C1D95] rounded-[2.5rem] p-8 text-white shadow-2xl mb-8 relative overflow-hidden">
+        <div className="bg-gradient-to-br from-[#9b59b6] to-[#8e44ad] rounded-[2.5rem] p-8 text-white shadow-2xl mb-8 relative overflow-hidden border-t border-white/20">
           <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl opacity-50" />
           <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-white/5 rounded-full blur-3xl opacity-30" />
           
@@ -4487,7 +4622,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="px-6 py-4"
       >
-        <div className="bg-[#005E6A] rounded-[2.5rem] p-8 text-white shadow-xl mb-8 relative overflow-hidden group">
+        <div className="bg-gradient-to-br from-[#f1c40f] to-[#f39c12] rounded-[2.5rem] p-8 text-white shadow-xl mb-8 relative overflow-hidden group border-t border-white/20">
           <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-24 -mt-24 blur-3xl group-hover:scale-110 transition-transform duration-700" />
           <div className="absolute -bottom-10 -left-10 opacity-10 rotate-12">
             <Layers className="w-48 h-48" />
@@ -4500,7 +4635,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
             </div>
             
             <div className="mt-auto">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#F15A24] mb-2">Total Lainnya</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 mb-2">Total Lainnya</p>
               <div className="flex items-baseline gap-2">
                 <span className="text-lg font-bold opacity-40">Rp</span>
                 <h2 className="text-5xl font-black tracking-tighter tabular-nums leading-none">
@@ -11799,7 +11934,7 @@ const AdminLayout = ({
     { id: "customers", label: "Pelanggan", icon: Users, path: "/admin/customers" },
     { id: "cashier", label: "Kasir", icon: Calculator, path: "/admin/cashier" },
     { id: "data", label: "Data", icon: Database, path: "/admin/master-data" },
-    { id: "settings", label: "Pengaturan", icon: Settings, path: "/admin/others" }
+    { id: "settings", label: "Pengaturan", icon: Settings, path: "/admin/pengaturan" }
   ];
 
   return (
@@ -11925,7 +12060,7 @@ const Layout = ({
   }, [location.pathname, activeTab]);
 
   return (
-    <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans pb-28">
+    <div className={`min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans ${isBansosPage ? '' : 'pb-28'}`}>
       <main className="container mx-auto max-w-lg">
         {children}
         {activeTab === "beranda" && !isBansosPage && <KontakSection />}
@@ -12036,30 +12171,30 @@ const HomePage = ({
                       { 
                         name: "Tabungan", 
                         value: tabVal, 
-                        gradient: "from-green-500 to-emerald-600",
+                        gradient: "from-[#2ecc71] to-[#27ae60]",
                         icon: Wallet,
-                        path: "/tabungan" 
+                        path: `/tabungan/${encodeURIComponent(loggedInUser.Nama)}` 
                       },
                       { 
                         name: "Investasi", 
                         value: invVal, 
-                        gradient: "from-indigo-500 to-violet-600",
+                        gradient: "from-[#9b59b6] to-[#8e44ad]",
                         icon: TrendingUp,
-                        path: "/investasi" 
+                        path: `/investasi/${encodeURIComponent(loggedInUser.Nama)}` 
                       },
                       { 
                         name: "Lainnya", 
                         value: lainVal, 
-                        gradient: "from-teal-500 to-cyan-600",
+                        gradient: "from-[#f1c40f] to-[#f39c12]",
                         icon: Layers,
-                        path: "/lainnya" 
+                        path: `/lainnya/${encodeURIComponent(loggedInUser.Nama)}` 
                       },
                       { 
                         name: "Hutang", 
                         value: hutVal, 
-                        gradient: "from-rose-500 to-red-600",
+                        gradient: "from-[#e74c3c] to-[#c0392b]",
                         icon: CreditCard,
-                        path: "/hutang" 
+                        path: `/hutang/${encodeURIComponent(loggedInUser.Nama)}` 
                       },
                     ].filter(item => item.value > 0);
 
@@ -12089,13 +12224,19 @@ const HomePage = ({
                           </p>
                           <div className="flex gap-2">
                             <button 
-                              onClick={() => navigate('/tabungan')}
+                              onClick={() => {
+                                if (loggedInUser) navigate(`/tabungan/${encodeURIComponent(loggedInUser.Nama)}`);
+                                else navigate('/tabungan');
+                              }}
                               className="px-4 py-2 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-widest rounded-lg shadow-md shadow-[#005E6A]/20 active:scale-95 transition-transform"
                             >
                               Menabung
                             </button>
                             <button 
-                              onClick={() => navigate('/investasi')}
+                              onClick={() => {
+                                if (loggedInUser) navigate(`/investasi/${encodeURIComponent(loggedInUser.Nama)}`);
+                                else navigate('/investasi');
+                              }}
                               className="px-4 py-2 bg-white text-[#005E6A] border border-[#005E6A]/20 text-[10px] font-black uppercase tracking-widest rounded-lg active:scale-95 transition-transform"
                             >
                               Investasi
@@ -12120,36 +12261,69 @@ const HomePage = ({
                             </span>
                           </motion.div>
                         )}
-                        <div className="grid grid-cols-2 gap-3">
-                          {assets.map((item, i) => (
-                            <motion.div 
-                              key={i} 
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ delay: i * 0.1 }}
-                              onClick={() => navigate(item.path)}
-                              className={`group relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-lg flex flex-col justify-between shadow-lg shadow-slate-100/50 cursor-pointer active:scale-95 transition-all hover:shadow-xl hover:shadow-slate-200 min-h-[100px]`}
-                            >
-                              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-xl" />
-                              
-                              <div className="flex justify-between items-start relative z-10 w-full text-white">
-                                <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20 group-hover:scale-110 transition-transform">
-                                  <item.icon className="w-4 h-4 text-white" />
+                        <motion.div
+                          initial={{ height: 0, opacity: 0, scaleY: 0.8 }}
+                          animate={{ height: "auto", opacity: 1, scaleY: 1 }}
+                          transition={{ 
+                            duration: 1, 
+                            ease: [0.16, 1, 0.3, 1], // Custom bounce-like ease
+                            delay: 0.2
+                          }}
+                          className="origin-top overflow-hidden"
+                        >
+                          <div className="grid grid-cols-2 gap-3 pb-2 pt-1">
+                            {assets.map((item, i) => (
+                              <motion.div 
+                                key={i} 
+                                initial={{ rotateX: -45, opacity: 0, translateY: 30, scale: 0.9 }}
+                                animate={{ rotateX: 0, opacity: 1, translateY: 0, scale: 1 }}
+                                transition={{ 
+                                  duration: 0.8, 
+                                  delay: i * 0.15 + 0.5, 
+                                  ease: "easeOut"
+                                }}
+                                onClick={() => navigate(item.path)}
+                                className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-[1.8rem] flex flex-col justify-between shadow-lg shadow-slate-200/40 cursor-pointer active:scale-95 transition-all group/wallet hover:shadow-xl hover:-translate-y-1 border-t border-white/20 min-h-[110px]`}
+                              >
+                                {/* Wallet Closure Strap Design */}
+                                <motion.div 
+                                  initial={{ x: 15, opacity: 0 }}
+                                  animate={{ x: 0, opacity: 1 }}
+                                  transition={{ delay: i * 0.15 + 1, type: "spring", stiffness: 200, damping: 15 }}
+                                  className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-10 bg-black/5 backdrop-blur-sm border-l border-t border-b border-white/20 rounded-l-xl z-0 transition-all group-hover/wallet:w-7" 
+                                />
+                                <motion.div 
+                                  initial={{ scale: 0, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  transition={{ delay: i * 0.15 + 1.3 }}
+                                  className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white/40 rounded-full z-10 shadow-sm border border-white/20" 
+                                />
+                                
+                                {/* Subtle Texture for Wallet Feel */}
+                                <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/leather.png')]" />
+  
+                                <div className="flex justify-between items-start relative z-10">
+                                  <div className="w-8 h-8 bg-white/25 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30 shadow-inner">
+                                    <item.icon className="w-4 h-4 text-white" />
+                                  </div>
+                                  <div className="w-5 h-5 bg-white/15 rounded-lg flex items-center justify-center border border-white/10 group-hover/wallet:bg-white/30 transition-colors">
+                                    <ChevronRight className="w-2.5 h-2.5 text-white" />
+                                  </div>
                                 </div>
-                                <div className="p-1 rounded-lg bg-white/10 group-hover:bg-white/20 transition-colors">
-                                  <ChevronRight className="w-3 h-3 text-white" />
+  
+                                <div className="relative z-10 mt-2">
+                                  <p className="text-[7px] font-black text-white/80 uppercase tracking-[0.2em] leading-none mb-1.5">{item.name}</p>
+                                  <div className="flex items-baseline gap-0.5">
+                                    <span className="text-[7px] font-black text-white/50 italic">Rp</span>
+                                    <p className="text-[11px] font-black text-white tracking-tight leading-none uppercase">
+                                      {formatCurrency(item.value)}
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-
-                              <div className="mt-3 relative z-10">
-                                <div className="flex flex-col">
-                                  <span className="text-[8px] font-black text-white/70 uppercase tracking-widest mb-1">{item.name}</span>
-                                  <p className="text-xs font-black text-white tracking-tight">Rp {formatCurrency(item.value)}</p>
-                                </div>
-                              </div>
-                            </motion.div>
-                          ))}
-                        </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </motion.div>
                       </div>
                     );
                   })()}
@@ -12157,8 +12331,8 @@ const HomePage = ({
               </div>
             </section>
           )}
-          <PromoSection />
-          <MainServices />
+          <PromoSection loggedInUser={loggedInUser} />
+          <MainServices loggedInUser={loggedInUser} />
 
           {/* Highlight Belanja Section */}
           <section className="px-6 pb-6">
@@ -13104,9 +13278,7 @@ export default function App() {
             />
           </Layout>
         } />
-        <Route path="/tabungan" element={
-          <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} />
-        } />
+        <Route path="/tabungan" element={<SavingsPromotionPage />} />
         <Route path="/tabungan/:customerName" element={
           <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} customers={customers} />
         } />
@@ -13234,6 +13406,9 @@ export default function App() {
           </AdminLayout>
         } />
         <Route path="/admin/others" element={
+          <Navigate to="/admin/pengaturan" replace />
+        } />
+        <Route path="/admin/pengaturan" element={
           <AdminLayout activeTab="settings">
             <AdminSettingsPage />
           </AdminLayout>
