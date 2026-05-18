@@ -857,7 +857,9 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
     if (diffDays === 0) return "Hari ini";
     if (diffDays === 1) return "Kemarin";
     if (diffDays >= 2 && diffDays <= 30) return `${diffDays} Hari lalu`;
-    return dateStr;
+    
+    const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
   const { result: processedData, targetYear } = React.useMemo(() => {
@@ -941,7 +943,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
         tanggal: t.Tanggal,
         nama: t.Nama,
         jenis: t.Jenis?.toUpperCase() || "",
-        nominal: parseCurrency(t.Pemasukan) || 0
+        nominal: parseCurrency(t.Pemasukan) || 0,
+        status: t.Status
       }))
       .sort((a, b) => parseDate(b.tanggal).getTime() - parseDate(a.tanggal).getTime());
   }, [transactions, riwayatSearchQuery]);
@@ -1107,9 +1110,22 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
               </div>
 
               <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-3">Portal Cek Bansos</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed mb-10 max-w-[240px] mx-auto">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed mb-6 max-w-[240px] mx-auto">
                 Website resmi Kemensos dilindungi oleh sistem keamanan tinggi dan hanya dapat diakses langsung.
               </p>
+
+              {/* KTP Notice */}
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-8 flex gap-3 text-left">
+                <div className="shrink-0 w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center">
+                  <CreditCard className="w-4 h-4 text-amber-600" />
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-black text-amber-900 uppercase tracking-wider mb-1">Siapkan KTP Anda</h4>
+                  <p className="text-[9px] text-amber-700 font-bold leading-relaxed">
+                    Anda memerlukan Nomor Induk Kependudukan (NIK) untuk melakukan pengecekan bansos di situs resmi.
+                  </p>
+                </div>
+              </div>
 
               <div className="space-y-4">
                 <a 
@@ -1386,12 +1402,26 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
           </>
         ) : (
           <div className="pb-10">
-            <div className="bg-[#005E6A] rounded-[2rem] p-8 text-white mb-8 relative overflow-hidden">
+            <div className="bg-[#005E6A] rounded-[2rem] p-8 text-white mb-6 relative overflow-hidden">
               <div className="absolute top-0 right-0 p-4 opacity-10">
                 <History className="w-24 h-24" />
               </div>
               <h1 className="text-xl font-black uppercase tracking-widest mb-1">Riwayat Pencairan</h1>
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] opacity-60">Total {riwayatData.length} Transaksi Ditemukan</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">Total {riwayatData.length} Transaksi Ditemukan</p>
+            </div>
+
+            {/* Gesek Kolektif Info */}
+            <div className="bg-orange-50 border border-orange-100 rounded-3xl p-5 mb-8 flex gap-4">
+              <div className="shrink-0 w-10 h-10 bg-orange-100 rounded-2xl flex items-center justify-center">
+                <Clock className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <h4 className="text-[10px] font-black text-orange-900 uppercase tracking-widest mb-1">Sistem Gesek Kolektif</h4>
+                <p className="text-[9px] text-orange-700 font-bold leading-relaxed">
+                  Transaksi pukul <span className="text-orange-950">06:00 - 15:00</span>: Saldo dikumpulkan terlebih dahulu. 
+                  Uang tunai akan dibagikan serentak pada <span className="text-orange-950 font-black">Pukul 16:00</span>.
+                </p>
+              </div>
             </div>
 
             {/* Search Bar for Riwayat */}
@@ -1418,14 +1448,15 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
               </div>
             </div>
 
-            <div className="border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm bg-white">
-              <table className="w-full text-left border-collapse min-w-[320px]">
+            <div className="border border-slate-100 rounded-[2rem] overflow-x-auto shadow-sm bg-white scrollbar-hide">
+              <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="px-4 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tanggal</th>
-                    <th className="px-4 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Nama Penerima</th>
-                    <th className="px-4 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Jenis</th>
-                    <th className="px-4 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
+                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tanggal</th>
+                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest">Nama Penerima</th>
+                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Jenis</th>
+                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
+                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -1447,38 +1478,43 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       const showTahapHeader = tahapId !== lastTahapId;
                       lastTahapId = tahapId;
 
+                      const isSelesai = (item.status || "").toLowerCase().includes("selesai") || (item.status || "").toLowerCase().includes("sukses");
+                      const StatusIcon = isSelesai ? CheckCircle2 : Timer;
+
                       return (
                         <React.Fragment key={index}>
                           {showTahapHeader && (
-                            <tr className="bg-[#005E6A]/5">
-                              <td colSpan={4} className="px-4 py-3.5 border-y border-[#005E6A]/10">
-                                <div className="flex items-center gap-4">
-                                  <div className="px-3 py-1 bg-[#005E6A] text-white text-[9px] font-black rounded-lg uppercase tracking-[0.1em] shadow-md shadow-[#005E6A]/20">
+                            <tr className="bg-slate-50/50">
+                              <td colSpan={5} className="px-4 py-3 border-y border-slate-100">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-[#FF6600]" />
+                                  <span className="text-[9px] font-black text-slate-900 uppercase tracking-[0.15em]">
                                     {tahapLabel} {y}
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">
-                                      {tahapPeriod}
-                                    </span>
-                                    <span className="text-[7px] font-bold text-slate-400 uppercase tracking-[0.2em]">
-                                      Periode Pencairan
-                                    </span>
-                                  </div>
-                                  <div className="flex-1 h-[1px] bg-[#005E6A]/10" />
+                                  </span>
+                                  <div className="flex-1 h-[1px] bg-slate-100" />
+                                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                                    {tahapPeriod}
+                                  </span>
                                 </div>
                               </td>
                             </tr>
                           )}
                           <tr className="hover:bg-slate-50 transition-colors">
-                            <td className="px-4 py-4 text-[9px] font-bold text-slate-400 whitespace-nowrap">{getRelativeDay(item.tanggal)}</td>
-                            <td className="px-4 py-4 text-[9px] font-black text-black uppercase tracking-tight whitespace-nowrap">{item.nama}</td>
-                            <td className="px-4 py-4 text-[9px] font-bold text-slate-600 whitespace-nowrap">
-                              <span className={`px-2.5 py-1 rounded-full text-[9px] font-black tracking-tight ${item.jenis.includes('PKH') ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
+                            <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-bold text-slate-400 whitespace-nowrap">{getRelativeDay(item.tanggal)}</td>
+                            <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-black text-black uppercase tracking-tight leading-tight min-w-[80px]">{item.nama}</td>
+                            <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-bold text-slate-600 whitespace-nowrap">
+                              <span className={`px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[7px] sm:text-[9px] font-black tracking-tight ${item.jenis.includes('PKH') ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
                                 {item.jenis}
                               </span>
                             </td>
-                            <td className="px-4 py-4 text-[9px] font-black text-[#005E6A] text-right whitespace-nowrap">
+                            <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-black text-[#005E6A] text-right whitespace-nowrap">
                               Rp {item.nominal.toLocaleString('id-ID')}
+                            </td>
+                            <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-bold text-center whitespace-nowrap">
+                              <div className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border ${isSelesai ? 'bg-emerald-50 text-emerald-600 border-emerald-100/50' : 'bg-amber-50 text-amber-600 border-amber-100/50'}`}>
+                                <StatusIcon className="w-2.5 sm:w-3 h-2.5 sm:h-3" />
+                                <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest">{isSelesai ? 'Selesai' : 'Belum'}</span>
+                              </div>
                             </td>
                           </tr>
                         </React.Fragment>
@@ -1486,7 +1522,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                     });
                   })() : (
                     <tr>
-                      <td colSpan={4} className="px-4 py-12 text-center text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                      <td colSpan={5} className="px-4 py-12 text-center text-[9px] font-black text-slate-300 uppercase tracking-widest">
                         Belum ada data pencairan
                       </td>
                     </tr>
