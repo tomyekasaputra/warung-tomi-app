@@ -479,7 +479,7 @@ export default function CustomerManagement({
               {filteredCustomers.map((customer, i) => (
                 <motion.div 
                   layout
-                  key={customer.id_pelanggan}
+                  key={`cust-${customer.id_pelanggan}-${i}`}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}

@@ -158,6 +158,32 @@ const parseDateForProgress = (dateStr: string) => {
   return parseDate(dateStr);
 };
 
+const getRelativeTime = (dateStr: string) => {
+  if (!dateStr || dateStr === "-") return "-";
+  const date = parseDate(dateStr);
+  const now = new Date();
+  
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffInMs = today.getTime() - targetDate.getTime();
+  const diffInDays = Math.round(diffInMs / (1000 * 3600 * 24));
+
+  if (diffInDays === 0) return "Hari ini";
+  if (diffInDays === 1) return "Kemarin";
+  
+  if (diffInDays < 30) {
+    return `${diffInDays} hari lalu`;
+  }
+  
+  const diffInMonths = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
+  if (diffInMonths < 12) {
+    return `${Math.max(1, diffInMonths)} bulan lalu`;
+  }
+  
+  const diffInYears = Math.floor(diffInMonths / 12);
+  return `${diffInYears} tahun lalu`;
+};
+
 const calculateProgress = (startDateStr: string, endDateStr: string) => {
   try {
     const start = parseDateForProgress(startDateStr).getTime();
@@ -218,30 +244,6 @@ const calculateEstimatedReturn = (nominal: number, nisbah: string | undefined, s
   }
 
   return { profit: 0, total: nominal, percent: 0, rateYearly: 0 };
-};
-
-const getRelativeTime = (dateStr: string) => {
-  const date = parseDate(dateStr);
-  if (date.getTime() === 0) return "";
-  
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  
-  const diffTime = today.getTime() - targetDate.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 0) return "Hari ini";
-  if (diffDays === 1) return "Kemarin";
-  if (diffDays < 30) return `${diffDays} hari lalu`;
-  
-  const diffMonths = Math.floor(diffDays / 30);
-  if (diffMonths === 1) return "1 bulan lalu";
-  if (diffMonths < 12) return `${diffMonths} bulan lalu`;
-  
-  const diffYears = Math.floor(diffDays / 365);
-  if (diffYears === 1) return "1 tahun lalu";
-  return `${diffYears} tahun lalu`;
 };
 
 interface Customer {
@@ -396,7 +398,7 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: 
       {/* Ribbon at bottom right - Points (Customer) or Profit (Admin) */}
       {isAdmin ? (
         <div className="absolute bottom-0 right-0 w-20 py-1 rounded-tl-xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm text-center bg-[#F15A24]">
-          Rp {(t.Pemasukan - (t.HargaModal || 0)).toLocaleString('id-ID')}
+          Rp {( (parseCurrency(t.Pemasukan) || 0) - (parseCurrency(t.HargaModal) || 0) ).toLocaleString('id-ID')}
         </div>
       ) : (
         Math.floor(t.Pemasukan / 10000) > 0 && (
@@ -2049,7 +2051,12 @@ const ProtectedPage = ({
                           }}
                           className="w-full px-5 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between group"
                         >
-                          <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{s.Nama}</span>
+                          <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 bg-slate-50 rounded-full flex items-center justify-center text-[#005E6A] shrink-0 border border-slate-100/50">
+                              <User className="w-3 h-3 text-[#005E6A]" />
+                            </div>
+                            <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{s.Nama}</span>
+                          </div>
                           <ArrowRight className="w-3 h-3 text-slate-300 group-hover:text-[#F15A24] transition-colors" />
                         </button>
                       ))}
@@ -2287,25 +2294,40 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="px-6 py-4 pb-24"
+        className="min-h-screen bg-white pb-24"
       >
-        <div className="mb-8">
-          <div className="bg-white rounded-[2.5rem] overflow-hidden border border-slate-100 shadow-sm">
-            <div className="w-full aspect-[16/9] overflow-hidden relative group">
-              <img 
-                src="https://lh3.googleusercontent.com/d/1BK2wG7qAlYgTJyX3yLk4BdGi-IEjkbpc"
-                alt="Loyalty Header"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-white/20 to-transparent" />
-            </div>
-            <div className="p-8 flex flex-col items-center">
-              <h2 className="text-2xl font-black text-[#005E6A] leading-tight text-center uppercase tracking-tighter">Poin Loyalitas</h2>
-              <p className="text-[10px] font-bold text-slate-400 mt-2 text-center uppercase tracking-widest leading-relaxed max-w-[240px]">Kumpulkan poin dari setiap transaksi Anda di Warung Tomi</p>
-            </div>
+        {/* Hero Section */}
+        <div className="relative h-[40vh] overflow-hidden mb-8">
+          <img 
+            src="https://lh3.googleusercontent.com/d/1BK2wG7qAlYgTJyX3yLk4BdGi-IEjkbpc" 
+            alt="Loyalty Banner" 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+          
+          <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
+            <button 
+              onClick={() => navigate(-1)}
+              className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white border border-white/20 active:scale-90 transition-transform"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="absolute bottom-12 left-6 right-6 text-white">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-2">Poin Loyalitas</h1>
+              <p className="text-xs font-bold text-white/70 uppercase tracking-[0.2em]">Kumpulkan Poin di Warung Tomi</p>
+            </motion.div>
           </div>
         </div>
+
+        <div className="px-6">
 
         {/* Session Sensitive Header */}
         <div className="mb-8">
@@ -2370,8 +2392,8 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
                             className="w-full px-5 py-4 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 flex items-center justify-between group transition-colors"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-teal-50 rounded-full flex items-center justify-center text-[10px] font-black text-[#005E6A]">
-                                {s.Nama.charAt(0)}
+                              <div className="w-8 h-8 bg-teal-50 rounded-full flex items-center justify-center text-[#005E6A] shrink-0">
+                                <User className="w-4 h-4" />
                               </div>
                               <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{s.Nama}</span>
                             </div>
@@ -2511,6 +2533,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
             </div>
           </div>
         )}
+        </div>
       </motion.div>
     </ProtectedPage>
   );
@@ -2609,41 +2632,60 @@ const LoyaltyPointsDetailPage = ({ user, transactions, redeemedPoints, customers
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="px-6 py-4"
+        className="min-h-screen bg-white"
       >
-        {/* Main Card */}
-        <div className="bg-[#005E6A] rounded-[2.5rem] p-8 pb-6 text-white shadow-lg mb-6 relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${activePoints < 0 ? 'bg-red-500/20' : 'bg-white/10'}`}>
-            <Star className={`w-6 h-6 ${activePoints < 0 ? 'text-red-400 fill-red-400' : 'text-amber-400 fill-amber-400'}`} />
+        {/* Hero Section */}
+        <div className="relative h-[40vh] overflow-hidden mb-10">
+          <img 
+            src="https://lh3.googleusercontent.com/d/1BK2wG7qAlYgTJyX3yLk4BdGi-IEjkbpc" 
+            alt="Loyalty Banner" 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+          
+          <div className="absolute top-6 left-6 flex items-center justify-between right-6">
+            <button 
+              onClick={() => navigate(-1)}
+              className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white border border-white/20 active:scale-95 transition-transform"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Total Poin Aktif</p>
-          <h2 className={`text-4xl font-black tracking-tighter mb-8 ${activePoints < 0 ? 'text-red-300' : 'text-white'}`}>{activePoints} <span className="text-sm font-bold uppercase tracking-widest opacity-60">Poin</span></h2>
-          
-          {activePoints < 0 && (
-            <div className="mb-8 p-4 bg-red-500/20 border border-red-500/30 rounded-2xl flex items-start gap-4">
-              <Info className="w-5 h-5 text-red-200 shrink-0 mt-0.5" />
-              <p className="text-[10px] font-bold text-red-50 uppercase tracking-[0.1em] leading-relaxed">
-                Poin Anda minus karena pernah menukar poin melebihi poin yang didapat.
-              </p>
-            </div>
-          )}
-          
-          {/* Internal Stats */}
-          <div className="pt-6 border-t border-white/10 flex items-center">
-            <div className="flex-1 text-center">
-              <p className="text-[7px] font-black uppercase tracking-widest text-white/50 mb-1">Poin Ditukar</p>
-              <p className="text-sm font-black">{totalRedeemed} Poin</p>
-            </div>
-            
-            <div className="w-px h-8 bg-white/10 mx-2" />
-            
-            <div className="flex-1 text-center">
-              <p className="text-[7px] font-black uppercase tracking-widest text-white/50 mb-1">Poin Hangus</p>
-              <p className="text-sm font-black">{totalExpired} Poin</p>
-            </div>
+
+          <div className="absolute bottom-10 left-6 right-6 text-white translate-z-0">
+             <div className="flex items-center gap-4 mb-4">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${activePoints < 0 ? 'bg-red-500/40' : 'bg-white/20'} backdrop-blur-md border border-white/20 shadow-lg`}>
+                  <Star className={`w-6 h-6 ${activePoints < 0 ? 'text-red-400 fill-red-400' : 'text-amber-400 fill-amber-400'}`} />
+                </div>
+                <div>
+                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 mb-0.5">Total Poin Aktif</p>
+                   <h2 className={`text-4xl font-black tracking-tighter leading-none ${activePoints < 0 ? 'text-red-300' : 'text-white'}`}>{activePoints.toLocaleString('id-ID')}</h2>
+                </div>
+             </div>
+
+             {activePoints < 0 && (
+                <div className="mt-2 p-3 bg-red-500/30 border border-red-500/20 rounded-xl flex items-start gap-3 backdrop-blur-md">
+                  <Info className="w-4 h-4 text-red-200 shrink-0 mt-0.5" />
+                  <p className="text-[8px] font-bold text-red-50 uppercase tracking-[0.1em] leading-relaxed">
+                    Poin Anda minus karena pernah menukar lebih dari yang didapat.
+                  </p>
+                </div>
+             )}
           </div>
         </div>
+
+        <div className="px-6 pb-24">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden mb-10 flex divide-x divide-slate-50">
+            <div className="flex-1 p-5 text-center">
+               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Ditukar</p>
+               <p className="text-xl font-black text-[#F15A24] tabular-nums">{totalRedeemed.toLocaleString('id-ID')}</p>
+            </div>
+            <div className="flex-1 p-5 text-center">
+               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Hangus</p>
+               <p className="text-xl font-black text-slate-900 tabular-nums">{totalExpired.toLocaleString('id-ID')}</p>
+            </div>
+          </div>
 
         {/* Small Cards Removed - Moved Inside Above */}
 
@@ -2748,9 +2790,10 @@ const LoyaltyPointsDetailPage = ({ user, transactions, redeemedPoints, customers
             )
           )}
         </div>
-      </motion.div>
-    </ProtectedPage>
-  );
+      </div>
+    </motion.div>
+  </ProtectedPage>
+);
 };
 
 const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
@@ -2960,7 +3003,12 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
     if (s === "DIPROSES") {
       return acc + (curr.Pemasukan || 0);
     }
-    const net = curr.HargaModal - curr.Sebagian;
+    
+    let base = curr.HargaModal;
+    if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
+      base -= 1500;
+    }
+    const net = base - curr.Sebagian;
     return acc + (net > 0 ? net : 0);
   }, 0);
 
@@ -3991,7 +4039,7 @@ const DebtDetailPage = ({
                   <div className="flex items-baseline gap-2">
                     <span className="text-lg font-bold opacity-40">Rp</span>
                     <h2 className="text-5xl font-black tracking-tighter tabular-nums leading-none drop-shadow-md">
-                      {displayUser?.Hutang || "0"}
+                      {formatCurrency(displayUser?.Hutang || 0)}
                     </h2>
                   </div>
                 </div>
@@ -4622,7 +4670,11 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
 
   const totalDiproses = diprosesTransactions.reduce((acc, curr) => acc + (curr.Pemasukan || 0), 0);
   const totalBelumDiambil = belumDiambilTransactions.reduce((acc, curr) => {
-    const net = curr.HargaModal - curr.Sebagian;
+    let base = parseCurrency(curr.HargaModal) || 0;
+    if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI") {
+      base -= 1500;
+    }
+    const net = base - (parseCurrency(curr.Sebagian) || 0);
     return acc + (net > 0 ? net : 0);
   }, 0);
 
@@ -4709,7 +4761,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    onClick={() => setExpandedId(expandedId === `proses-${i}` ? null : `proses-${i}`)}
+                    onClick={() => setExpandedId(expandedId === `diproses-${i}` ? null : `diproses-${i}`)}
                     className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
                   >
                     <div className="relative z-10">
@@ -4726,7 +4778,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <p className="text-[7px] font-black text-orange-600 uppercase tracking-widest mb-0.5">Nilai</p>
-                            <p className="text-md font-black text-orange-600 leading-none">Rp {formatCurrency(t.Pemasukan)}</p>
+                            <p className="text-md font-black text-orange-600 leading-none">Rp {formatCurrency(parseCurrency(t.Pemasukan) || 0)}</p>
                           </div>
                           <div className="opacity-20 group-hover:opacity-40 transition-opacity">
                             {expandedId === `proses-${i}` ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -4735,7 +4787,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                       </div>
 
                       <AnimatePresence>
-                        {expandedId === `proses-${i}` && (
+                        {expandedId === `diproses-${i}` && (
                           <motion.div
                             initial={{ height: 0, opacity: 0, marginTop: 0 }}
                             animate={{ height: "auto", opacity: 1, marginTop: 16 }}
@@ -4790,7 +4842,11 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <p className="text-[7px] font-black text-teal-600 uppercase tracking-widest mb-0.5">Sisa</p>
-                            <p className="text-md font-black text-teal-600 leading-none">Rp {formatCurrency(t.HargaModal - t.Sebagian)}</p>
+                            <p className="text-md font-black text-teal-600 leading-none">
+                              Rp {formatCurrency(
+                                ((t.Melalui || "").toUpperCase().trim() === "EDC BNI" ? (parseCurrency(t.HargaModal) || 0) - 1500 : (parseCurrency(t.HargaModal) || 0)) - (parseCurrency(t.Sebagian) || 0)
+                              )}
+                            </p>
                           </div>
                           <div className="opacity-20 group-hover:opacity-40 transition-opacity">
                             {expandedId === `belum-${i}` ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -4809,13 +4865,48 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                             <div className="flex items-stretch gap-6 pt-4 border-t border-slate-50">
                               <div className="flex-1">
                                 <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nominal Transaksi</p>
-                                <p className="text-xs font-black text-slate-700">Rp {formatCurrency(t.Pemasukan)}</p>
+                                <p className="text-xs font-black text-slate-700">Rp {formatCurrency(parseCurrency(t.Pemasukan) || 0)}</p>
                               </div>
                               <div className="w-px bg-slate-100 self-stretch" />
                               <div className="flex-1">
                                 <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Biaya & Potongan</p>
                                 <div className="space-y-1">
-                                  <p className="text-[9px] font-bold text-red-500">Admin: Rp {formatCurrency(t.Pemasukan - t.HargaModal)}</p>
+                                  {(() => {
+                                    const melalui = (t.Melalui || "").toUpperCase().trim();
+                                    const status = (t.Status || "").toUpperCase().trim();
+                                    const isEDC = melalui === "EDC BNI" && status === "BELUM DIAMBIL";
+                                    
+                                    const pNom = parseCurrency(t.Pemasukan) || 0;
+                                    const hMod = parseCurrency(t.HargaModal) || 0;
+                                    const totalProfitAdjusted = isEDC ? (pNom - hMod - 1500) : (pNom - hMod);
+                                    
+                                    const standardAdmin = (() => {
+                                      const p = pNom;
+                                      if (p <= 0) return 0;
+                                      if (p < 100000) return 3000;
+                                      if (p <= 999999) return 5000;
+                                      if (p <= 1999999) return 10000;
+                                      if (p <= 2999999) return 15000;
+                                      if (p <= 3999999) return 20000;
+                                      if (p <= 4999999) return 25000;
+                                      return Math.round(p * 0.005);
+                                    })();
+                                    
+                                    const displayAdmin = Math.min(totalProfitAdjusted, standardAdmin);
+                                    const bonus = Math.max(0, totalProfitAdjusted - standardAdmin);
+                                    
+                                    return (
+                                      <>
+                                        <p className="text-[9px] font-bold text-red-500">Admin: Rp {formatCurrency(displayAdmin)}</p>
+                                        {bonus > 0 && (
+                                          <p className="text-[9px] font-bold text-teal-500">Bonus: Rp {formatCurrency(bonus)}</p>
+                                        )}
+                                        {isEDC && (
+                                          <p className="text-[9px] font-bold text-slate-500">Biaya EDC: Rp {formatCurrency(3000)}</p>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                   {t.Sebagian > 0 && (
                                     <p className="text-[9px] font-bold text-orange-500">Diambil: Rp {formatCurrency(t.Sebagian)}</p>
                                   )}
@@ -4878,8 +4969,8 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
       return matchName || matchJenis || matchMelalui || matchStatus;
     });
 
-  const totalPemasukan = filteredTransactions.reduce((acc, curr) => acc + curr.Pemasukan, 0);
-  const totalModal = filteredTransactions.reduce((acc, curr) => acc + curr.HargaModal, 0);
+  const totalPemasukan = filteredTransactions.reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
+  const totalModal = filteredTransactions.reduce((acc, curr) => acc + (parseCurrency(curr.HargaModal) || 0), 0);
   const totalKeuntungan = totalPemasukan - totalModal;
   const totalTransaksi = filteredTransactions.length;
 
@@ -5072,7 +5163,13 @@ const AdminDashboard = ({
       return isGeneral && (s.includes('belum') || s.includes('ambil') || s.includes('proses'));
     })
     .reduce((acc, t) => {
-      return acc + ((t.HargaModal || 0) - (t.Sebagian || 0));
+      const s = (t.Status || "").toUpperCase().trim();
+      const melalui = (t.Melalui || "").toUpperCase().trim();
+      let base = (t.HargaModal || 0);
+      if (melalui === "EDC BNI" && s === "BELUM DIAMBIL") {
+        base -= 1500;
+      }
+      return acc + (base - (t.Sebagian || 0));
     }, 0);
   
   const totalLainnya = totalLainnyaFromCustomers + totalLainnyaFromGeneral;
@@ -5691,7 +5788,9 @@ const AdminManagementPage = ({
     isHeader?: boolean,
     color?: string,
     badge?: { label: string, colorClass: string, iconColorClass?: string, customIconColor?: string },
-    statusBadge?: { label: string, color: string }
+    statusBadge?: { label: string, color: string },
+    transactionCount?: number,
+    startDate?: string
   }[],
   icon: any,
   colorClass: string,
@@ -5838,40 +5937,40 @@ const AdminManagementPage = ({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
                     onClick={() => onItemClick && onItemClick(item.name)}
-                    className={`bg-white px-4 py-5 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center relative overflow-hidden h-full ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
+                    className={`bg-white px-4 py-4 rounded-[1.8rem] shadow-sm border border-slate-100 flex justify-between items-center relative overflow-hidden h-full ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
                   >
                     <div className="flex items-center gap-3">
                       <div 
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center ${item.color ? '' : (item.badge?.iconColorClass ? item.badge.iconColorClass : 'bg-slate-200 text-slate-400')}`}
-                        style={item.color ? { backgroundColor: `${item.color}35`, color: item.color } : (item.badge?.customIconColor ? { backgroundColor: `${item.badge.customIconColor}35`, color: item.badge.customIconColor } : {})}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${item.color ? '' : (item.badge?.iconColorClass ? item.badge.iconColorClass : 'bg-slate-100 text-slate-400')}`}
+                        style={item.color ? { backgroundColor: `${item.color}25`, color: item.color } : (item.badge?.customIconColor ? { backgroundColor: `${item.badge.customIconColor}25`, color: item.badge.customIconColor } : {})}
                       >
-                        <User className="w-5 h-5" />
+                        <User className="w-4.5 h-4.5" />
                       </div>
                       <div>
-                        <div className="mb-2">
-                          <p className="text-[11px] font-black text-[#005E6A] uppercase leading-none">{item.name}</p>
-                        </div>
-                        {item.statusBadge ? (
-                          <div className="flex mb-1">
-                            <span className={`text-[6px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md text-white shadow-sm`} style={{ backgroundColor: item.statusBadge.color }}>
-                              {item.statusBadge.label}
-                            </span>
+                        <p className="text-[11px] font-black text-[#005E6A] uppercase leading-tight truncate max-w-[120px]">{item.name}</p>
+                        <div className="flex flex-col gap-0.5 mt-0.5">
+                          {item.startDate && (
+                            <p className="text-[7px] font-bold text-[#F15A24] uppercase tracking-wider">{item.startDate}</p>
+                          )}
+                          <div className="flex items-center gap-2">
+                            {item.transactionCount !== undefined && !item.startDate && (
+                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.transactionCount} Transaksi</p>
+                            )}
+                            {!item.transactionCount && !item.startDate && item.subtext && (
+                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">{item.subtext}</p>
+                            )}
                           </div>
-                        ) : null}
-                        {item.subtext && <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">{item.subtext}</p>}
+                        </div>
                       </div>
                     </div>
                     
-                    <p className={`text-[13px] font-black ${colorClass} leading-none`}>Rp {item.value.toLocaleString('id-ID')}</p>
-                    
-                    {item.badge && showBadges && (
-                      <div 
-                        className={`absolute bottom-0 right-0 ${item.badge.colorClass.includes('bg-[') ? '' : item.badge.colorClass.replace(/text-[\w-]+/, 'text-white')} w-[150px] py-1.5 rounded-tl-3xl shadow-sm text-center px-4`}
-                        style={item.badge.colorClass.includes('bg-[') ? { backgroundColor: item.badge.customIconColor } : {}}
-                      >
-                        <p className="text-[6px] font-black uppercase tracking-wider text-white truncate">
-                          {item.badge.label}
-                        </p>
+                    <div className="text-right">
+                      <p className={`text-[12px] font-bold ${colorClass} tabular-nums leading-none`}>Rp {item.value.toLocaleString('id-ID')}</p>
+                    </div>
+
+                    {item.statusBadge && (
+                      <div className="absolute top-1 right-1 opacity-20">
+                         <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.statusBadge.color }} />
                       </div>
                     )}
                   </motion.div>
@@ -6037,9 +6136,14 @@ const TransactionModal = ({
                       }}
                       className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 last:border-0 group"
                     >
-                      <div>
-                        <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama || "Pelanggan Umum"}</p>
-                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 group-hover:text-[#F15A24] transition-colors shrink-0">
+                          <User className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama || "Pelanggan Umum"}</p>
+                          <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
+                        </div>
                       </div>
                       <div className="text-right">
                          <p className="text-[10px] font-black text-[#005E6A]">Rp {parseCurrency(c.Tabungan).toLocaleString('id-ID')}</p>
@@ -6208,7 +6312,8 @@ const AdminSavingsManagement = ({
       return { 
         name: c.Nama, 
         value: val,
-        color
+        color,
+        transactionCount: transactions.filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase()).length
       };
     });
 
@@ -6408,12 +6513,7 @@ const AdminInvestmentManagement = ({ customers, investmentTransactions }: { cust
         name: item.name, 
         value: item.value,
         color,
-        badge: {
-          label: `Investasi: Rp ${item.value.toLocaleString('id-ID')}`,
-          colorClass: `bg-slate-100 text-slate-600`,
-          iconColorClass: `bg-opacity-10`,
-          customIconColor: color
-        }
+        transactionCount: investmentTransactions.filter(t => t.Nama.toLowerCase() === item.name.toLowerCase()).length
       };
     });
 
@@ -6550,7 +6650,13 @@ const AdminCustomerDetailPage = ({
 
   const currentOthers = salesTransactions
     .filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase() && (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL")
-    .reduce((acc, t) => acc + ((t.HargaModal || 0) - (t.Sebagian || 0)), 0);
+    .reduce((acc, t) => {
+      let base = parseCurrency(t.HargaModal) || 0;
+      if ((t.Melalui || "").toUpperCase().trim() === "EDC BNI") {
+        base -= 1500;
+      }
+      return acc + Math.max(0, base - (parseCurrency(t.Sebagian) || 0));
+    }, 0);
 
   const levelColorMap: Record<string, string> = {
     Bronze: "text-orange-600",
@@ -7636,7 +7742,18 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
         summary[name] = { total: 0, count: 0, transactions: [] };
       }
       // Formula: HargaModal (net to customer) - Sebagian (already taken)
-      const netAmount = (parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0);
+      const netAmount = (() => {
+        const modal = parseCurrency(t.HargaModal) || 0;
+        const sebagian = parseCurrency(t.Sebagian) || 0;
+        const status = (t.Status || "").toUpperCase().trim();
+        const melalui = (t.Melalui || "").toUpperCase().trim();
+        
+        let base = modal;
+        if (melalui === "EDC BNI" && status === "BELUM DIAMBIL") {
+          base -= 1500;
+        }
+        return base - sebagian;
+      })();
       summary[name].total += netAmount;
       summary[name].count += 1;
       summary[name].transactions.push(t);
@@ -7656,185 +7773,51 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
     const belum = pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL");
     const proses = pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "DIPROSES");
     
-    const totalBelum = belum.reduce((acc, t) => acc + ((parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0)), 0);
+    const totalBelum = belum.reduce((acc, t) => {
+      const modal = parseCurrency(t.HargaModal) || 0;
+      const melalui = (t.Melalui || "").toUpperCase().trim();
+      let base = modal;
+      if (melalui === "EDC BNI") {
+        base -= 1500;
+      }
+      return acc + (base - (parseCurrency(t.Sebagian) || 0));
+    }, 0);
     const totalProses = proses.reduce((acc, t) => acc + ((parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0)), 0);
     
     return { belum: totalBelum, proses: totalProses };
   }, [pendingWithdrawals]);
 
+  const items = groupedData.map(item => ({
+    name: item.name,
+    value: item.total,
+    color: item.color,
+    transactionCount: item.count
+  }));
+
+  const stats = [
+    { label: "Belum Diambil", value: statsBreakdown.belum, count: pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL").length, color: "#3b82f6" },
+    { label: "Diproses", value: statsBreakdown.proses, count: pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "DIPROSES").length, color: "#f59e0b" }
+  ];
+
+  const handleItemClick = (name: string) => {
+    navigate(`/lainnya/${encodeURIComponent(name)}`);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 pb-32">
-      <div className="bg-[#005E6A] text-white pt-12 pb-20 px-8 rounded-none shadow-2xl relative overflow-hidden mb-8">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full -ml-16 -mb-16 blur-2xl" />
-        
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-                <Timer className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-2xl font-black tracking-tight uppercase">Management Lainnya</h1>
-            </div>
-            <p className="text-teal-50/60 text-[10px] font-black uppercase tracking-[0.2em]">Data Transaksi Belum Diambil & Diproses</p>
-          </div>
-
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 space-y-6 -mt-12 relative z-20">
-        {groupedData.length > 0 && (
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 mb-6">
-            <div className="flex flex-col gap-6">
-              <div className="flex justify-between items-start px-2 mb-4">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Antrean</p>
-                  <h3 className="text-sm font-black text-[#005E6A]">Rp {totalPending.toLocaleString('id-ID')}</h3>
-                </div>
-                <div className="text-right space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Jumlah Orang</p>
-                  <h3 className="text-sm font-black text-[#F15A24]">{groupedData.length} Orang</h3>
-                </div>
-              </div>
-
-              <div className="flex flex-col lg:flex-row gap-8 items-center">
-                <div className="w-full lg:w-1/3 h-48 relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={groupedData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={70}
-                        paddingAngle={5}
-                        dataKey="total"
-                      >
-                        {groupedData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const data = payload[0].payload;
-                            return (
-                              <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">{data.name}</p>
-                                <p className="text-xs font-black text-[#005E6A]">Rp {data.total.toLocaleString('id-ID')}</p>
-                                <p className="text-[7px] font-bold text-slate-500">{data.count} Transaksi</p>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="flex-1 flex flex-col gap-6">
-                  <div className="flex items-center justify-between w-full px-4">
-                    <div className="text-center flex-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Total Belum Diambil</p>
-                      <p className="text-xs font-black text-blue-600">Rp {statsBreakdown.belum.toLocaleString('id-ID')}</p>
-                    </div>
-                    <div className="w-[1px] h-8 bg-slate-100 flex-shrink-0 mx-2" />
-                    <div className="text-center flex-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Total Diproses</p>
-                      <p className="text-xs font-black text-amber-600">Rp {statsBreakdown.proses.toLocaleString('id-ID')}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {groupedData.slice(0, 5).map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100">
-                        <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span className="text-[7px] font-black text-slate-500 uppercase truncate max-w-[80px]">{item.name}</span>
-                      </div>
-                    ))}
-                    {groupedData.length > 5 && (
-                      <span className="text-[7px] font-black text-slate-300 uppercase py-1.5">+{groupedData.length - 5} Lainnya</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-white p-6 md:p-8 lg:p-12 rounded-[2.5rem] shadow-xl border border-slate-100 min-h-[500px]">
-           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-50">
-            <div>
-              <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-wider mb-1">Antrean Transaksi</h3>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transaksi yang perlu diproses oleh Admin</p>
-            </div>
-            <div className="flex items-center gap-2 px-6 py-3 bg-blue-50 rounded-2xl border border-blue-100/50 self-start sm:self-center">
-              <Timer className="w-5 h-5 text-blue-600" />
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none mb-0.5">{pendingWithdrawals.length} Transaksi</span>
-                <span className="text-[8px] font-bold text-blue-400 uppercase tracking-widest leading-none">Menunggu Proses</span>
-              </div>
-            </div>
-          </div>
-
-          {groupedData.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {groupedData.map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  whileHover={{ y: -5 }}
-                  onClick={() => navigate(`/lainnya/${encodeURIComponent(item.name)}`)}
-                  className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 cursor-pointer hover:shadow-md transition-all group active:scale-95 flex flex-col justify-between"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-sm shadow-inner" style={{ backgroundColor: item.color }}>
-                      {item.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-xs font-black text-[#005E6A] uppercase tracking-tight truncate group-hover:text-[#F15A24] transition-colors">{item.name}</h4>
-                      <div className="flex items-center gap-2">
-                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{item.count} Transaksi</p>
-                         <span className="w-1 h-1 rounded-full bg-slate-200" />
-                         <p className="text-[9px] font-bold text-blue-500 uppercase tracking-widest">Menunggu</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-6 pt-5 border-t border-slate-50">
-                    <div className="flex items-end justify-between">
-                       <div className="space-y-0.5">
-                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Belum Diambil</p>
-                         <p className="text-xl font-black text-[#005E6A]">Rp {item.total.toLocaleString('id-ID')}</p>
-                       </div>
-                       <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#005E6A] group-hover:text-white transition-colors">
-                         <ChevronRight className="w-4 h-4" />
-                       </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-32 text-center">
-              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6 shadow-inner">
-                <CheckCircle2 className="w-12 h-12 text-slate-200" />
-              </div>
-              <h4 className="text-base font-black text-slate-400 uppercase tracking-widest mb-2">Semua Transaksi Selesai</h4>
-              <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] max-w-[280px]">Bagus! Tidak ada antrean transaksi yang perlu diproses saat ini.</p>
-              <button 
-                onClick={() => navigate("/admin")}
-                className="mt-8 px-8 py-3 bg-slate-50 hover:bg-slate-100 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
-              >
-                Kembali ke Dashboard
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <AdminManagementPage 
+      title="Management Lainnya"
+      subtitle="Data Transaksi Belum Diambil & Diproses"
+      totalLabel="Total Dana Mengendap"
+      totalValue={totalPending}
+      items={items}
+      icon={Timer}
+      colorClass="text-[#F15A24]"
+      onItemClick={handleItemClick}
+      stats={stats}
+      showLegend={true}
+      showBadges={false}
+      listTitle="Antrean Transaksi"
+    />
   );
 };
 
@@ -8672,9 +8655,14 @@ const DebtTransactionModal = ({
                       }}
                       className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 last:border-0 group"
                     >
-                      <div>
-                        <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama || "Pelanggan Umum"}</p>
-                        <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 group-hover:text-[#F15A24] transition-colors shrink-0">
+                          <User className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama || "Pelanggan Umum"}</p>
+                          <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
+                        </div>
                       </div>
                       <div className="text-right">
                          <p className="text-[10px] font-black text-red-600">Rp {parseCurrency(c.Hutang).toLocaleString('id-ID')}</p>
@@ -8822,7 +8810,10 @@ const AdminDebtManagement = ({
   const allItems = customers
     .filter(c => parseCurrency(c.Hutang) > 0)
     .map(c => {
-      const userTransactions = transactions.filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase());
+      const userTransactions = [...transactions]
+        .filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase())
+        .sort((a, b) => parseDate(a.Tanggal).getTime() - parseDate(b.Tanggal).getTime());
+        
       const collectResult = calculateUserCollectability(userTransactions);
       const debtVal = parseCurrency(c.Hutang);
       
@@ -8839,6 +8830,10 @@ const AdminDebtManagement = ({
 
       const tierColor = collectResult.label === "Lancar" ? "#22c55e" : collectResult.label === "Diragukan" ? "#FFE600" : "#FF005C";
       
+      const latestDateStr = userTransactions.length > 0 
+        ? userTransactions[userTransactions.length - 1].Tanggal
+        : "-";
+
       return { 
         name: c.Nama, 
         value: debtVal,
@@ -8848,10 +8843,10 @@ const AdminDebtManagement = ({
           label: collectResult.label,
           color: tierColor
         },
+        transactionCount: userTransactions.length,
+        startDate: getRelativeTime(latestDateStr),
         sortOrder: collectResult.sortOrder,
-        latestDate: userTransactions.length > 0 
-          ? [...userTransactions].sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())[0].Tanggal
-          : "-"
+        latestDate: latestDateStr
       };
     });
 
@@ -10175,20 +10170,38 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="min-h-screen bg-slate-50 pb-24 overflow-hidden"
       >
-        <div className="px-6 pt-6 pb-2">
-          <button 
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-slate-500 mb-4 group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
-          </button>
+        {/* Hero Section */}
+        <div className="relative h-[35vh] overflow-hidden mb-0">
+          <img 
+            src="https://lh3.googleusercontent.com/d/1q06qTXISxLvOMCQnTT4f3MATAmBo5is-" 
+            alt="Level Banner" 
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/20 to-transparent" />
+          
+          <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
+            <button 
+              onClick={() => navigate(-1)}
+              className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white border border-white/20 active:scale-90 transition-transform"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          </div>
 
-          <div className="mb-6">
-            <h2 className="text-2xl font-black text-[#005E6A] leading-tight">Level Pelanggan</h2>
-            <p className="text-xs font-medium text-slate-400 mt-1">Tingkatkan transaksi Anda untuk level lebih tinggi</p>
+          <div className="absolute bottom-8 left-6 right-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-1 text-[#005E6A]">Member Level</h1>
+              <p className="text-xs font-bold text-[#005E6A]/50 uppercase tracking-[0.2em]">Warung Tomi Loyalty Program</p>
+            </motion.div>
           </div>
         </div>
+
+        <div className="px-6 pt-2">
 
         {/* Carousel Container with Progressive Stack Effect */}
         <div 
@@ -10308,9 +10321,10 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
             );
           })}
         </div>
-      </motion.div>
-    </ProtectedPage>
-  );
+      </div>
+    </motion.div>
+  </ProtectedPage>
+);
 };
 
 const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
@@ -12195,7 +12209,11 @@ const HomePage = ({
                     const invVal = investmentTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && t.Status.toLowerCase() !== "sukses dicairkan").reduce((acc, curr) => acc + calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo).total, 0);
                     const lainVal = salesTransactions.filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && ((t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL" || (t.Status || "").toUpperCase().trim() === "DIPROSES")).reduce((acc, curr) => {
                       if ((curr.Status || "").toUpperCase().trim() === "DIPROSES") return acc + (curr.Pemasukan || 0);
-                      const net = curr.HargaModal - curr.Sebagian;
+                      let base = curr.HargaModal;
+                      if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI" && (curr.Status || "").toUpperCase().trim() === "BELUM DIAMBIL") {
+                        base -= 1500;
+                      }
+                      const net = base - curr.Sebagian;
                       return acc + (net > 0 ? net : 0);
                     }, 0);
                     const hutVal = parseCurrency(loggedInUser.Hutang);
@@ -13109,7 +13127,15 @@ export default function App() {
                 const s = (t.Status || "").toLowerCase();
                 return s.includes('belum') || s.includes('proses');
               })
-              .reduce((acc, t) => acc + (t.HargaModal - t.Sebagian), 0);
+              .reduce((acc, t) => {
+                const s = (t.Status || "").toUpperCase().trim();
+                const melalui = (t.Melalui || "").toUpperCase().trim();
+                let base = t.HargaModal;
+                if (melalui === "EDC BNI" && s === "BELUM DIAMBIL") {
+                  base -= 1500;
+                }
+                return acc + (base - t.Sebagian);
+              }, 0);
 
             const levelInfo = calculateCustomerLevel(processedSales, name);
             const activePoints = calculateActivePoints(name, processedSales, processedRedeemedPoints);
