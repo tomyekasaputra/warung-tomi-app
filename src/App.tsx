@@ -1089,7 +1089,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
               onClick={() => setActiveMenu(menu.id as any)}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
                 activeMenu === menu.id 
-                  ? 'bg-[#005E6A] text-white shadow-lg shadow-teal-100' 
+                  ? 'bg-[#F15A24] text-white shadow-lg shadow-orange-100' 
                   : 'text-slate-400 hover:bg-slate-50'
               }`}
             >
@@ -1409,7 +1409,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                 <History className="w-24 h-24" />
               </div>
               <h1 className="text-xl font-black uppercase tracking-widest mb-1">Riwayat Pencairan</h1>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">Total {riwayatData.length} Transaksi Ditemukan</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-60">Total {riwayatData.length} transaksi dari {[1, 2, 3, 4].filter(id => (processedData[id] || []).length > 0).length || defaultTahap} tahap berjalan</p>
             </div>
 
             {/* Gesek Kolektif Info */}
@@ -3019,7 +3019,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
   const assetData = [
     { name: 'Tabungan', value: tabunganBalance, color: '#22c55e' },
     { name: 'Investasi', value: investasiBalance, color: '#6366f1' },
-    { name: 'Lainnya', value: lainnyaBalance, color: '#14b8a6' },
+    { name: 'Lainnya', value: lainnyaBalance, color: '#f39c12' },
     { name: 'Hutang', value: hutangBalance, color: '#ef4444' },
   ].filter(item => item.value !== 0);
 
@@ -6857,10 +6857,14 @@ const AdminCashier = ({
     }
   };
 
-  const filteredStock = stock.filter(item => 
-    item.Nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.Kategori.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredStock = useMemo(() => {
+    return stock
+      .filter(item => 
+        item.Nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.Kategori.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      .sort((a, b) => b.HargaJual - a.HargaJual);
+  }, [stock, searchQuery]);
 
   const addToCart = (product: StockItem) => {
     setCart(prev => {
@@ -7932,12 +7936,16 @@ const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | nul
     return ["Semua", ...cats];
   }, [stock]);
   
-  const filteredStock = stock.filter(item => {
-    const matchesSearch = item.Nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.Kategori.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "Semua" || item.Kategori === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredStock = useMemo(() => {
+    return stock
+      .filter(item => {
+        const matchesSearch = item.Nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                             item.Kategori.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = selectedCategory === "Semua" || item.Kategori === selectedCategory;
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => b.HargaJual - a.HargaJual);
+  }, [stock, searchQuery, selectedCategory]);
 
   const addToCart = (product: StockItem) => {
     setCart(prev => {
@@ -12105,12 +12113,81 @@ const Layout = ({
   const location = useLocation();
   const isBansosPage = location.pathname.includes("/bansos");
 
+  const touchStartX = React.useRef<number | null>(null);
+  const touchStartY = React.useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    // Ignore swiping if target is inside an input, select, button, scrollable area or drag area
+    if (!target || 
+        target.closest('input') || 
+        target.closest('textarea') || 
+        target.closest('select') || 
+        target.closest('button') || 
+        target.closest('a') ||
+        target.closest('.no-scrollbar') || 
+        target.closest('.overflow-x-auto') || 
+        target.closest('.scrollbar-hide') ||
+        target.closest('[drag="x"]') ||
+        target.closest('.touch-none') ||
+        target.closest('[data-no-swipe="true"]')
+    ) {
+      touchStartX.current = null;
+      touchStartY.current = null;
+      return;
+    }
+    
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    const diffY = e.changedTouches[0].clientY - touchStartY.current;
+    
+    touchStartX.current = null;
+    touchStartY.current = null;
+    
+    const minDistance = 60; // minimum swipe distance in px
+    if (Math.abs(diffX) > Math.abs(diffY) * 1.5 && Math.abs(diffX) > minDistance) {
+      const allNavItems = [
+        { id: "beranda", protected: false },
+        { id: "riwayat", protected: true },
+        { id: "belanja", protected: false },
+        { id: "aset", protected: true },
+        { id: "settings", protected: false },
+      ];
+      const activeTabs = allNavItems.filter(item => !item.protected || user).map(item => item.id);
+      const currentIndex = activeTabs.indexOf(activeTab);
+      
+      if (currentIndex !== -1) {
+        if (diffX < 0) {
+          // Left swipe -> Next Tab
+          if (currentIndex < activeTabs.length - 1) {
+            setActiveTab(activeTabs[currentIndex + 1]);
+          }
+        } else {
+          // Right swipe -> Previous Tab
+          if (currentIndex > 0) {
+            setActiveTab(activeTabs[currentIndex - 1]);
+          }
+        }
+      }
+    }
+  };
+
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname, activeTab]);
 
   return (
-    <div className={`min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans ${isBansosPage ? '' : 'pb-28'}`}>
+    <div 
+      onTouchStart={handleTouchStart} 
+      onTouchEnd={handleTouchEnd}
+      className={`min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans ${isBansosPage ? '' : 'pb-28'}`}
+    >
       <main className="container mx-auto max-w-lg">
         {children}
         {activeTab === "beranda" && !isBansosPage && <KontakSection />}
