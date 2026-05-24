@@ -984,6 +984,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   }, [processedData]);
 
   const [showPKHInfo, setShowPKHInfo] = useState(false);
+  const [expandedDesil, setExpandedDesil] = useState<number | null>(null);
 
   const foundKPM = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -1101,63 +1102,268 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
 
         {activeMenu === 'cek_desil' ? (
           <div className="pb-20">
-            <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-2xl shadow-slate-200 text-center relative overflow-hidden group">
-              <div className="absolute top-0 inset-x-0 h-2 bg-gradient-to-r from-transparent via-teal-100 to-transparent opacity-50" />
-              
-              <div className="w-20 h-20 bg-teal-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 relative">
-                <Globe className="w-10 h-10 text-[#005E6A]" />
-                <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#005E6A] rounded-full border-4 border-white flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                </div>
+            {/* Simplified Portal Cek Bansos */}
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-xl text-center">
+              <div className="w-16 h-16 bg-[#005E6A]/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                <Globe className="w-8 h-8 text-[#005E6A]" />
               </div>
 
-              <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-3">Portal Cek Bansos</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed mb-6 max-w-[240px] mx-auto">
-                Website resmi Kemensos dilindungi oleh sistem keamanan tinggi dan hanya dapat diakses langsung.
+              <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">Portal Resmi Cek Bansos</h2>
+              <p className="text-[10px] font-medium text-slate-500 leading-relaxed mb-6 max-w-[280px] mx-auto">
+                Silakan akses situs resmi Kementerian Sosial Republik Indonesia untuk mengecek kepesertaan jaminan sosial menggunakan NIK KTP Anda secara aman.
               </p>
 
-              {/* KTP Notice */}
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 mb-8 flex gap-3 text-left">
-                <div className="shrink-0 w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center">
-                  <CreditCard className="w-4 h-4 text-amber-600" />
+              <a 
+                href="https://cekbansos.kemensos.go.id/" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full py-4 bg-[#005E6A] text-white rounded-2xl font-black uppercase tracking-[0.15em] text-[10px] flex items-center justify-center gap-2 hover:bg-[#004b54] shadow-md transition-all active:scale-95"
+              >
+                Buka Portal Resmi
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+
+            {/* Tabel Acuan Desil P3KE / DTKS Kemensos */}
+            <div className="mt-8 bg-white rounded-[3rem] p-8 border border-slate-100 shadow-xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-[#005E6A]/10 rounded-xl flex items-center justify-center shrink-0">
+                  <Layers className="w-5 h-5 text-[#005E6A]" />
                 </div>
                 <div>
-                  <h4 className="text-[10px] font-black text-amber-900 uppercase tracking-wider mb-1">Siapkan KTP Anda</h4>
-                  <p className="text-[9px] text-amber-700 font-bold leading-relaxed">
-                    Anda memerlukan Nomor Induk Kependudukan (NIK) untuk melakukan pengecekan bansos di situs resmi.
-                  </p>
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Tabel Acuan Desil Kesejahteraan</h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kriteria Kesejahteraan DTKS & P3KE</p>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <a 
-                  href="https://cekbansos.kemensos.go.id/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="w-full py-5 bg-[#005E6A] text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 hover:bg-[#004b54] shadow-xl shadow-teal-100 transition-all active:scale-95"
-                >
-                  Buka Portal Resmi
-                  <ExternalLink className="w-4 h-4" />
-                </a>
+              <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-6">
+                Sistem pendataan kesejahteraan sosial nasional menggunakan standard binned-deciles (Desil 1 s.d. 10) untuk menggolongkan rumah tangga secara akurat. Kelompok desil menunjukkan urutan persentase kesejahteraan penduduk dari terendah (Desil 1) hingga tertinggi (Desil 10).
+              </p>
 
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mt-6">
-                  <div className="flex items-start gap-4 text-left">
-                    <div className="w-8 h-8 bg-white rounded-xl border border-slate-100 flex items-center justify-center shrink-0">
-                      <ShieldCheck className="w-4 h-4 text-teal-600" />
+              {/* Desil Accordion List (Without Search / Filter) */}
+              <div className="space-y-3">
+                {(() => {
+                  const items = [
+                    {
+                      id: 1,
+                      percentile: "0% - 10%",
+                      badge: "Desil 1: Sangat Miskin (Kemiskinan Ekstrem)",
+                      color: "bg-rose-50 text-rose-700 border-rose-100/80",
+                      cardClass: "bg-rose-50/20 border-rose-100/70 hover:bg-rose-50/30 hover:border-rose-200",
+                      textColor: "text-rose-700",
+                      indicatorColor: "bg-rose-500",
+                      description: "10% Kelompok rumah tangga dengan kesejahteraan terendah secara nasional. Prioritas penuntasan mutlak kemiskinan ekstrem.",
+                      income: "Penghasilan di bawah Rp 350.000,- per orang per bulan. Tidak memiliki sumber pencarian tetap atau penyandang disabilitas berat/lansia tunggal.",
+                      papan: "Lantai tanah/bambu kasar, dinding anyaman bambu pelupuh/kayu lapis lapuk, atap rumbia/seng berkarat, tidak memiliki MCK pribadi/layak, luas rumah di bawah 8 meter persegi per jiwa, menggunakan air sungai/sumur terbuka tak terlindungi.",
+                      bansos: "Mutlak berhak menerima bansos reguler PKH, BPNT Sembako bulanan, Program Indonesia Pintar (PIP), Jamsos Kesehatan gratis (PBI-JKN), BLT Kemiskinan Ekstrem Desa, serta bantuan rehabilitasi rumah tidak layak huni (RTLH).",
+                      tag: "miskin bansospkhbpnt"
+                    },
+                    {
+                      id: 2,
+                      percentile: "10% - 20%",
+                      badge: "Desil 2: Keluarga Miskin",
+                      color: "bg-orange-50 text-orange-700 border-orange-100/80",
+                      cardClass: "bg-orange-50/20 border-orange-100/70 hover:bg-orange-50/30 hover:border-orange-200",
+                      textColor: "text-orange-700",
+                      indicatorColor: "bg-orange-500",
+                      description: "Kelompok kesejahteraan 10-20% terendah secara nasional. Mengalami kerawanan pangan dan guncangan daya beli ringan.",
+                      income: "Penghasilan berkisar Rp 350.000,- s.d Rp 450.000,- per orang per bulan. Bekerja di sektor kasar, buruh harian lepas, atau pertanian subsisten.",
+                      papan: "Kondisi rumah semi permanen, dinding papan tipis/batako tanpa plaster, lantai semen kasar/retak, sarana mandi cuci kakus darurat atau bersama tetangga, listrik berdaya rendah (450W).",
+                      bansos: "Berhak menerima bantuan sosial reguler pilar Kemensos: PKH, BPNT Sembako, bantuan pangan beras cadangan pemerintah, PBI-JKN BPJS gratis, dan subsidi LPG 3kg & Listrik.",
+                      tag: "miskin bansospkhbpnt"
+                    },
+                    {
+                      id: 3,
+                      percentile: "20% - 30%",
+                      badge: "Desil 3: Hampir Miskin",
+                      color: "bg-amber-50 text-amber-700 border-amber-100/80",
+                      cardClass: "bg-amber-50/20 border-amber-100/70 hover:bg-amber-50/30 hover:border-amber-200",
+                      textColor: "text-amber-700",
+                      indicatorColor: "bg-amber-500",
+                      description: "Kelompok kesejahteraan 20-30% terbawah secara nasional. Kondisi keuangan di garis batas kemiskinan daerah.",
+                      income: "Penghasilan berkisar Rp 450.000,- s.d Rp 600.000,- per orang per bulan. Anggota keluarga bekerja serabutan, ojek pangkalan, pekerja paruh waktu.",
+                      papan: "Rumah permanen sederhana namun memiliki banyak bagian rusak/lapuk, lantai plester kasar/sebagian ubin biasa, ketersediaan MCK seadanya, menggunakan sumur bor/pompa listrik daya rendah.",
+                      bansos: "Layak menerima BPNT Sembako, bantuan pangan beras mitigasi inflasi, beasiswa KIP PIP sekolah, PBI-JKN kesehatan gratis, serta program kredit mikro tanpa jaminan.",
+                      tag: "miskin bansosbpnt"
+                    },
+                    {
+                      id: 4,
+                      percentile: "30% - 40%",
+                      badge: "Desil 4: Rentan Miskin",
+                      color: "bg-yellow-50 text-yellow-700 border-yellow-100/80",
+                      cardClass: "bg-yellow-50/20 border-yellow-100/70 hover:bg-yellow-50/30 hover:border-yellow-200",
+                      textColor: "text-yellow-700",
+                      indicatorColor: "bg-yellow-500",
+                      description: "Kelompok kesejahteraan 30-40% bawah secara nasional. Aman dalam keadaan normal, namun langsung jatuh miskin jika terjadi PHK/sakit.",
+                      income: "Penghasilan berkisar Rp 600.000,- s.d Rp 750.000,- per orang per month. Pekerja informal perkotaan, pedagang asongan, supir angkutan umum.",
+                      papan: "Rumah permanen sederhana, lantai keramik sederhana, dinding bata diplester kasar, sanitasi tangki septik sederhana secara mandiri, listrik daya 900W.",
+                      bansos: "Sasaran potensial jaminan kesehatan PBI-JKN, diprioritaskan untuk mendapat Kartu Prakerja, bansos pangan insidental saat inflasi tinggi, serta beasiswa sekolah daerah.",
+                      tag: "miskin bansos"
+                    },
+                    {
+                      id: 5,
+                      percentile: "40% - 50%",
+                      badge: "Desil 5: Menengah Bawah (Hampir Rentan)",
+                      color: "bg-sky-50 text-sky-700 border-sky-100/80",
+                      cardClass: "bg-sky-50/20 border-sky-100/70 hover:bg-sky-50/30 hover:border-sky-200",
+                      textColor: "text-sky-700",
+                      indicatorColor: "bg-sky-500",
+                      description: "Kelompok kesejahteraan 40-50% secara nasional. Kebutuhan dasar tercukupi pas-pasan, tidak memiliki tabungan bernilai besar.",
+                      income: "Penghasilan berkisar Rp 750.000,- s.d Rp 1.000.000,- per orang per bulan. Karyawan swasta gaji minimum rendah, pelaku usaha mikro kecil mandiri.",
+                      papan: "Rumah permanen kokoh, berlantai ubin/keramik standar, atap genteng, fasilitas kamar mandi layak pribadi, listrik daya 900W s.d 1300W.",
+                      bansos: "Tidak menerima bansos sembako reguler. Berhak atas subsidi BBM umum bersubsidi, subsidi energi gas 3kg, subsidi pupuk sektor pertanian, dan bantuan modal KUR.",
+                      tag: "mampu"
+                    },
+                    {
+                      id: 6,
+                      percentile: "50% - 60%",
+                      badge: "Desil 6: Menengah Bawah Atas (Cukup Mampu)",
+                      color: "bg-teal-50 text-teal-700 border-teal-100/80",
+                      cardClass: "bg-teal-50/20 border-teal-100/70 hover:bg-teal-50/30 hover:border-teal-200",
+                      textColor: "text-teal-700",
+                      indicatorColor: "bg-teal-500",
+                      description: "Kelompok kesejahteraan 50-60%. Memiliki kemandirian ekonomi, sanggup menghadapi guncangan ekonomi ringan secara mandiri.",
+                      income: "Penghasilan berkisar Rp 1.000.000,- s.d Rp 1.500.000,- per orang per bulan. Pekerja kantoran, wiraswasta terdaftar, pemilik kios/lapak permanen.",
+                      papan: "Rumah struktur beton kokoh rapi, lantai keramik modern, ventilasi baik, fasilitas air bor jetpump bersih atau PDAM lancar, mengonsumsi air galon bermerek.",
+                      bansos: "Saringan KPM Mandiri: Tidak menerima bansos kemiskinan reguler. Menikmati subsidi energi tarif dasar dan program subsidi bunga pinjaman Kredit Usaha Rakyat (KUR).",
+                      tag: "mampu"
+                    },
+                    {
+                      id: 7,
+                      percentile: "60% - 70%",
+                      badge: "Desil 7: Kelompok Menengah",
+                      color: "bg-indigo-50 text-indigo-700 border-indigo-100/80",
+                      cardClass: "bg-indigo-50/20 border-indigo-100/70 hover:bg-indigo-50/30 hover:border-indigo-200",
+                      textColor: "text-indigo-700",
+                      indicatorColor: "bg-indigo-500",
+                      description: "Kelompok kesejahteraan 60-70% teratas. Mapan secara finansial, memiliki aset transportasi motor layak roda dua lebih dari satu.",
+                      income: "Penghasilan berkisar Rp 1.500.000,- s.d Rp 2.500.000,- per orang per bulan. PNS golongan rendah, karyawan swasta menengah, aparatur desa.",
+                      papan: "Rumah milik pribadi berlantai keramik berkualitas, dapur modern ber-exhaust, kamar mandi pancuran/wc duduk bersih, memiliki alat elektronik lengkap (TV, Kulkas, AC).",
+                      bansos: "Keluarga Mandiri Bebas Bansos: Dilarang keras menerima semua bentuk bansos kemiskinan. Menjadi peserta BPJS Kesehatan Mandiri aktif.",
+                      tag: "mampu"
+                    },
+                    {
+                      id: 8,
+                      percentile: "70% - 80%",
+                      badge: "Desil 8: Menengah Atas",
+                      color: "bg-purple-50 text-purple-700 border-purple-100/80",
+                      cardClass: "bg-purple-50/20 border-purple-100/70 hover:bg-purple-50/30 hover:border-purple-200",
+                      textColor: "text-purple-700",
+                      indicatorColor: "bg-purple-500",
+                      description: "Kelompok kesejahteraan 70-80% teratas nasional. Mampu menyisihkan tabungan aset, memiliki jaminan perlindungan finansial mapan.",
+                      income: "Penghasilan berkisar Rp 2.500.000,- s.d Rp 4.500.000,- per orang per bulan. ASN/Polri/TNI menengah, pengusaha ruko komersial, manajer kantor cabang.",
+                      papan: "Rumah besar dengan sertifikat SHM, garasi kendaraan mandiri, pembuangan tangki septik beton modern, listrik daya 1300W s.d 2200W.",
+                      bansos: "Kategori Sejahtera Mandiri: Pembayar pajak aktif PPh dan PBB, dilarang menikmati produk bansos, peserta BPJS mandiri kelas 1/asuransi swasta premium.",
+                      tag: "mampu"
+                    },
+                    {
+                      id: 9,
+                      percentile: "80% - 90%",
+                      badge: "Desil 9: Keluarga Makmur",
+                      color: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100/80",
+                      cardClass: "bg-fuchsia-50/20 border-fuchsia-100/70 hover:bg-fuchsia-50/30 hover:border-fuchsia-200",
+                      textColor: "text-fuchsia-700",
+                      indicatorColor: "bg-fuchsia-500",
+                      description: "Kelompok kesejahteraan 80-90% teratas. Sangat berkecukupan, memiliki kendaraan mobil pribadi bernilai tinggi.",
+                      income: "Penghasilan berkisar Rp 4.500.000,- s.d Rp 7.500.000,- per orang per bulan. Pejabat institusi, pengusaha skala wilayah, eksekutif madya.",
+                      papan: "Rumah mewah berarsitektur modern atau klaster elit, sanitasi berkualitas tinggi, daya listrik di atas 2200W, memiliki aset investasi finansial (emas/deposito).",
+                      bansos: "Kategori Makmur Konvensional: Secara otomatis tereleminasi total dari desil DTKS bantuan masyarakat miskin. Donatur/Pembayar pajak aktif nasional.",
+                      tag: "mampu"
+                    },
+                    {
+                      id: 10,
+                      percentile: "90% - 100%",
+                      badge: "Desil 10: Sangat Makmur (Elite Elit)",
+                      color: "bg-pink-50 text-pink-700 border-pink-100/80",
+                      cardClass: "bg-pink-50/20 border-pink-100/70 hover:bg-pink-50/30 hover:border-pink-200",
+                      textColor: "text-pink-700",
+                      indicatorColor: "bg-pink-500",
+                      description: "10% golongan terkaya/paling sejahtera di Indonesia. Memiliki tabungan modal tebal guncangan finansial nihil.",
+                      income: "Penghasilan di atas Rp 7.500.000,- per orang per bulan secara konsisten. Pemilik bisnis skala besar, direksi korporat, investor, konglomerat.",
+                      papan: "Mansion mewah atau beberapa aset tanah komersial berharga miliaran rupiah, kendaraan mewah ganda roda empat ke atas, sistem kelistrikan berdaya tinggi.",
+                      bansos: "Kategori Konglomerat: Secara sistemik diblokir permanen dari penerimaan subsidi gas, BBM jenis tertentu, pupuk pertanian bersubsidi, dan semua bansos.",
+                      tag: "mampu"
+                    }
+                  ];
+
+                  return items.map((item) => (
+                    <div 
+                      key={item.id}
+                      className={`border rounded-2xl overflow-hidden transition-all duration-300 shadow-sm hover:shadow-md ${item.cardClass}`}
+                    >
+                      {/* Top Bar / Header */}
+                      <button
+                        onClick={() => setExpandedDesil(expandedDesil === item.id ? null : item.id)}
+                        className="w-full p-4 flex items-center justify-between text-left focus:outline-none"
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Percentile circle */}
+                          <div className="w-10 h-10 rounded-xl bg-white border border-inherit flex flex-col items-center justify-center text-center shrink-0 shadow-sm">
+                            <span className={`text-[10px] font-black leading-none mb-0.5 ${item.textColor}`}>{item.id}</span>
+                            <span className="text-[5px] font-bold text-slate-400 whitespace-nowrap leading-none mt-0.5">{item.percentile}</span>
+                          </div>
+
+                          <div className="flex-1 min-w-0 font-sans">
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider mb-1 border ${item.color}`}>
+                              {item.badge}
+                            </span>
+                            <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider leading-relaxed truncate max-w-[180px]">
+                              {item.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ml-2 ${expandedDesil === item.id ? "rotate-180 " + item.textColor : "text-slate-400"}`} />
+                      </button>
+
+                      {/* Expandable Details */}
+                      {expandedDesil === item.id && (
+                        <div className="px-4 pb-4 border-t border-inherit pt-3 bg-white/45 space-y-3.5 text-left text-[9px]">
+                          {/* Garis Kesejahteraan */}
+                          <div className="grid grid-cols-1 gap-3 font-sans">
+                            <div className="flex items-start gap-2.5">
+                              <div className="w-6 h-6 bg-emerald-50 rounded-lg flex items-center justify-center shrink-0 border border-emerald-100">
+                                <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                              </div>
+                              <div>
+                                <span className="font-black text-slate-700 uppercase tracking-widest text-[7px] block">Pendapatan & Ekonomi KPM</span>
+                                <p className="text-slate-500 font-bold mt-0.5 leading-normal">{item.income}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-2.5">
+                              <div className="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center shrink-0 border border-blue-100">
+                                <Home className="w-3.5 h-3.5 text-blue-600" />
+                              </div>
+                              <div>
+                                <span className="font-black text-slate-700 uppercase tracking-widest text-[7px] block">Kriteria Tempat Tinggal (Papan/Sanitasi)</span>
+                                <p className="text-slate-500 font-bold mt-0.5 leading-normal">{item.papan}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start gap-2.5">
+                              <div className="w-6 h-6 bg-orange-50 rounded-lg flex items-center justify-center shrink-0 border border-orange-100">
+                                <Gift className="w-3.5 h-3.5 text-[#F15A24]" />
+                              </div>
+                              <div>
+                                <span className="font-black text-[#F15A24] uppercase tracking-widest text-[7px] block">Rekomendasi / Penerimaan Bansos Keamanan</span>
+                                <p className="text-slate-500 font-bold mt-0.5 leading-normal">{item.bansos}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <p className="text-[8px] font-black text-slate-800 uppercase tracking-widest mb-1">Informasi Keamanan</p>
-                      <p className="text-[7px] font-bold text-slate-400 uppercase leading-normal tracking-wider">
-                        Anda akan diarahkan ke domain resmi <span className="text-[#005E6A]">kemensos.go.id</span> untuk memastikan data Anda aman dan valid 100%.
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                  ));
+                })()}
               </div>
 
-              <div className="mt-10 flex items-center justify-center gap-2">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none">Server Kemensos Online</span>
+              {/* Footer Explanation Badge */}
+              <div className="mt-6 flex items-center gap-2 border-t border-slate-100 pt-4 text-left">
+                <Info className="w-4 h-4 text-emerald-600 shrink-0" />
+                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wider leading-relaxed">
+                  P3KE: Pensasaran Percepatan Penghapusan Kemiskinan Ekstrem. DTKS: Data Terpadu Kesejahteraan Sosial Kemensos RI.
+                </p>
               </div>
             </div>
           </div>
@@ -4941,6 +5147,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
   const navigate = useNavigate();
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showSummary, setShowSummary] = useState(false);
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -4973,6 +5180,34 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
   const totalModal = filteredTransactions.reduce((acc, curr) => acc + (parseCurrency(curr.HargaModal) || 0), 0);
   const totalKeuntungan = totalPemasukan - totalModal;
   const totalTransaksi = filteredTransactions.length;
+
+  // Group by Jenis (categories) and calculate totals for each
+  interface GroupedReport {
+    jenis: string;
+    pemasukan: number;
+    keuntungan: number;
+    count: number;
+  }
+
+  const groupedSummary = useMemo(() => {
+    const map: Record<string, GroupedReport> = {};
+    filteredTransactions.forEach(t => {
+      const rawJenis = (t.Jenis || "Lainnya").trim();
+      const jenis = rawJenis.charAt(0).toUpperCase() + rawJenis.slice(1).toLowerCase();
+      
+      const pem = parseCurrency(t.Pemasukan) || 0;
+      const mod = parseCurrency(t.HargaModal) || 0;
+      const keu = pem - mod;
+
+      if (!map[jenis]) {
+        map[jenis] = { jenis, pemasukan: 0, keuntungan: 0, count: 0 };
+      }
+      map[jenis].pemasukan += pem;
+      map[jenis].keuntungan += keu;
+      map[jenis].count += 1;
+    });
+    return Object.values(map).sort((a, b) => b.pemasukan - a.pemasukan);
+  }, [filteredTransactions]);
 
   return (
     <motion.div 
@@ -5013,6 +5248,88 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Total Keuntungan</p>
               <h4 className="text-xl font-black text-green-600 tracking-tight">Rp {totalKeuntungan.toLocaleString('id-ID')}</h4>
             </div>
+          </div>
+
+          {/* Collapsible summary section of transaction types */}
+          <div className="mt-6 border-t border-slate-100 pt-6">
+            <button 
+              onClick={() => setShowSummary(!showSummary)}
+              className="w-full flex items-center justify-between text-left focus:outline-none group"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-[#005E6A]/10 flex items-center justify-center">
+                  <ClipboardList className="w-3.5 h-3.5 text-[#005E6A]" />
+                </div>
+                <span className="text-[9px] font-black text-slate-600 uppercase tracking-wider group-hover:text-[#005E6A] transition-colors">
+                  Ringkasan Kategori
+                </span>
+                <span className="text-[8px] font-bold text-slate-400 uppercase">
+                  ({groupedSummary.length} Jenis)
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-50 group-hover:bg-[#005E6A]/5 px-2.5 py-1 rounded-xl transition-colors">
+                <span className="text-[8px] font-black text-[#005E6A] uppercase tracking-wider">
+                  {showSummary ? "Tutup" : "Buka"}
+                </span>
+                {showSummary ? (
+                  <ChevronUp className="w-3 w-3 text-[#005E6A]" />
+                ) : (
+                  <ChevronDown className="w-3 w-3 text-[#005E6A]" />
+                )}
+              </div>
+            </button>
+
+            <AnimatePresence>
+              {showSummary && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-4 space-y-2.5">
+                    {groupedSummary.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-1">
+                        {groupedSummary.map((item, idx) => (
+                          <div 
+                            key={idx} 
+                            className="bg-slate-50/40 hover:bg-slate-50/80 p-3 rounded-2xl border border-slate-100/70 transition-colors flex flex-col justify-between"
+                          >
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wide truncate max-w-[150px]">
+                                {item.jenis}
+                              </span>
+                              <span className="text-[8px] font-bold text-slate-400 bg-white border border-slate-100 px-2 py-0.5 rounded-lg shrink-0">
+                                {item.count} Transaksi
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[9px] border-t border-slate-100/60 pt-2 mt-1">
+                              <div>
+                                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Pemasukan</p>
+                                <p className="text-[10px] font-black text-[#005E6A] mt-0.5">
+                                  Rp {item.pemasukan.toLocaleString('id-ID')}
+                                </p>
+                              </div>
+                              <div className="border-l border-slate-200/50 pl-2">
+                                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Keuntungan</p>
+                                <p className="text-[10px] font-black text-green-600 mt-0.5">
+                                  Rp {item.keuntungan.toLocaleString('id-ID')}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-slate-400 text-[8px] font-black uppercase tracking-widest">
+                        Tidak ada transaksi pada tanggal ini
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -5770,6 +6087,7 @@ const AdminManagementPage = ({
   colorClass,
   onItemClick,
   stats,
+  statsRight,
   showLegend = true,
   showBadges = true,
   extraContent,
@@ -5796,6 +6114,7 @@ const AdminManagementPage = ({
   colorClass: string,
   onItemClick?: (name: string) => void,
   stats?: { label: string, value: number, count: number, color: string }[],
+  statsRight?: { label: string, value: number, count: number, color: string }[],
   showLegend?: boolean,
   showBadges?: boolean,
   extraContent?: React.ReactNode,
@@ -5838,40 +6157,130 @@ const AdminManagementPage = ({
                 </div>
               </div>
 
-              <div className="h-48 w-full relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={stats}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={70}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {stats.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0].payload;
-                          return (
-                            <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50">
-                              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">{data.label}</p>
-                              <p className="text-xs font-black text-[#005E6A]">Rp {data.value.toLocaleString('id-ID')}</p>
-                              <p className="text-[7px] font-bold text-slate-500">{data.count} Orang</p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+              {statsRight ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                  {/* Left Chart: Status */}
+                  <div className="flex flex-col items-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1 w-full text-center">Status Transaksi</p>
+                    <div className="h-44 w-full relative flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={stats}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={45}
+                            outerRadius={65}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {stats.map((entry, index) => (
+                              <Cell key={`cell-left-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload;
+                                return (
+                                  <div className="bg-white p-2.5 rounded-xl shadow-xl border border-slate-50 text-[10px]">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-[#005E6A] mb-0.5">{data.label}</p>
+                                    <p className="text-xs font-black text-slate-800">Rp {data.value.toLocaleString('id-ID')}</p>
+                                    <p className="text-[7px] font-bold text-slate-500">{data.count} Antrean</p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Status</p>
+                        <p className="text-[10px] font-black text-[#005E6A]">{stats.length} Grup</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Chart: Customer Name */}
+                  <div className="flex flex-col items-center">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1 w-full text-center">Proporsi Pelanggan</p>
+                    <div className="h-44 w-full relative flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={statsRight}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={45}
+                            outerRadius={65}
+                            paddingAngle={3}
+                            dataKey="value"
+                          >
+                            {statsRight.map((entry, index) => (
+                              <Cell key={`cell-right-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload;
+                                return (
+                                  <div className="bg-white p-2.5 rounded-xl shadow-xl border border-slate-50 text-[10px]">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-[#005E6A] mb-0.5">{data.label}</p>
+                                    <p className="text-xs font-black text-slate-800">Rp {data.value.toLocaleString('id-ID')}</p>
+                                    <p className="text-[7px] font-bold text-slate-500">{data.count} Transaksi</p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Nama</p>
+                        <p className="text-[10px] font-black text-[#005E6A]">{statsRight.length} Orang</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-48 w-full relative flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={stats}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {stats.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">{data.label}</p>
+                                <p className="text-xs font-black text-[#005E6A]">Rp {data.value.toLocaleString('id-ID')}</p>
+                                <p className="text-[7px] font-bold text-slate-500">{data.count} Orang</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
 
               {extraContent && (
                 <div className="flex justify-center -mt-2 pb-2">
@@ -7803,6 +8212,13 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
     { label: "Diproses", value: statsBreakdown.proses, count: pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "DIPROSES").length, color: "#f59e0b" }
   ];
 
+  const statsRight = items.map(item => ({
+    label: item.name,
+    value: item.value,
+    count: item.transactionCount || 0,
+    color: item.color || "#ccc"
+  }));
+
   const handleItemClick = (name: string) => {
     navigate(`/lainnya/${encodeURIComponent(name)}`);
   };
@@ -7818,6 +8234,7 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
       colorClass="text-[#F15A24]"
       onItemClick={handleItemClick}
       stats={stats}
+      statsRight={statsRight}
       showLegend={true}
       showBadges={false}
       listTitle="Antrean Transaksi"
@@ -13220,7 +13637,13 @@ export default function App() {
             return {
               ...c,
               id: getVal(c, ['id']) || Math.random().toString(36).substr(2, 9),
-              id_pelanggan: `CUST-${customerIdPart}`,
+              id_pelanggan: (() => {
+                const sheetId = String(getVal(c, ['id_pelanggan', 'id pel', 'pelanggan id']) || '').trim();
+                if (sheetId && sheetId.toLowerCase() !== 'nan' && !sheetId.includes('NaN')) {
+                  return sheetId;
+                }
+                return `CUST-${customerIdPart}`;
+              })(),
               Nama: name,
               PIN: getVal(c, ['pin']) || "",
               Poin: activePoints,

@@ -81,13 +81,24 @@ function doPost(e) {
 
 function generateNextId(data) {
   if (data.length <= 1) return "CUST-0001";
-  // Cari baris terakhir yang memiliki ID
-  const lastRow = data[data.length - 1];
-  const lastId = lastRow[0]; 
-  const match = lastId.match(/CUST-(\d+)/);
-  if (!match) return "CUST-0001";
-  const nextNum = parseInt(match[1]) + 1;
-  return "CUST-" + nextNum.toString().padStart(4, '0');
+  
+  let maxId = 0;
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (row && row.length > 0) {
+      const idVal = String(row[0] || '').trim();
+      const match = idVal.match(/CUST-(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxId) {
+          maxId = num;
+        }
+      }
+    }
+  }
+  
+  const nextNum = maxId + 1;
+  return "CUST-" + String(nextNum).padStart(4, '0');
 }
 
 function response(obj) {

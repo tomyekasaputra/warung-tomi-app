@@ -17,6 +17,13 @@ interface Customer {
   foto: string;
 }
 
+const LEVEL_METADATA: Record<string, { color: string }> = {
+  'Bronze': { color: '#CD7F32' },
+  'Silver': { color: '#94a3b8' },
+  'Gold': { color: '#F59E0B' },
+  'Platinum': { color: '#1e293b' }
+};
+
 interface CustomerManagementProps {
   onSyncComplete?: (data: Customer[]) => void;
   salesTransactions?: any[];
@@ -147,7 +154,22 @@ export default function CustomerManagement({
     try {
       const response = await fetch(scriptUrl);
       const data = await response.json();
-      setCustomers(data);
+      
+      // Clean and sanitize incoming customer objects to heal any "NaN" or malformed IDs
+      const cleanedData = (data || []).map((c: any, index: number) => {
+        let cleanId = String(c.id_pelanggan || c.id || '').trim();
+        if (!cleanId || cleanId.toLowerCase() === 'nan' || cleanId.includes('NaN')) {
+          cleanId = 'CUST-' + String(index + 1).padStart(4, '0');
+        }
+        return {
+          ...c,
+          id_pelanggan: cleanId
+        };
+      });
+      setCustomers(cleanedData);
+      if (onSyncComplete) {
+        onSyncComplete(cleanedData);
+      }
     } catch (err) {
       console.error('Error fetching customers:', err);
     } finally {
@@ -276,17 +298,10 @@ export default function CustomerManagement({
       return acc;
     }, {});
 
-    const COLORS: any = {
-      'Bronze': '#CD7F32',
-      'Silver': '#94a3b8',
-      'Gold': '#F59E0B',
-      'Platinum': '#1e293b'
-    };
-
     return ['Bronze', 'Silver', 'Gold', 'Platinum'].map(level => ({
       name: level,
       value: counts[level] || 0,
-      color: COLORS[level]
+      color: (LEVEL_METADATA[level] || LEVEL_METADATA['Bronze']).color
     }));
   }, [customersWithStats]);
 
@@ -488,33 +503,31 @@ export default function CustomerManagement({
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl bg-slate-50 overflow-hidden border flex-shrink-0 flex items-center justify-center transition-colors ${
-                        customer.level === 'Platinum' ? 'border-slate-800' :
-                        customer.level === 'Gold' ? 'border-amber-400' :
-                        customer.level === 'Silver' ? 'border-slate-300' :
-                        'border-amber-900/30'
-                      }`}>
+                      <div 
+                        className="w-12 h-12 rounded-2xl bg-slate-50 overflow-hidden border flex-shrink-0 flex items-center justify-center transition-all"
+                        style={{ borderColor: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color }}
+                      >
                         {customer.foto ? (
                           <img src={customer.foto} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <User className={`w-6 h-6 ${
-                            customer.level === 'Platinum' ? 'text-slate-800' :
-                            customer.level === 'Gold' ? 'text-amber-500' :
-                            customer.level === 'Silver' ? 'text-slate-400' :
-                            'text-amber-900'
-                          }`} />
+                          <User 
+                            className="w-6 h-6 animate-pulse" 
+                            style={{ color: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color }}
+                          />
                         )}
                       </div>
                       <div>
                         <h4 className="text-xs font-black text-[#005E6A] uppercase leading-none mb-1 group-hover:text-teal-600 transition-colors">{customer.nama}</h4>
                         <div className="flex items-center gap-2">
                           <p className="text-[8px] font-black font-mono text-slate-400 uppercase tracking-[0.2em]">{customer.id_pelanggan}</p>
-                          <span className={`text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${
-                            customer.level === 'Platinum' ? 'bg-slate-900 text-white' :
-                            customer.level === 'Gold' ? 'bg-amber-100 text-amber-700' :
-                            customer.level === 'Silver' ? 'bg-slate-200 text-slate-600' :
-                            'bg-amber-900 text-white'
-                          }`}>
+                          <span 
+                            className="text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border"
+                            style={{ 
+                              backgroundColor: `${(LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color}1A`,
+                              color: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color,
+                              borderColor: `${(LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color}33`,
+                            }}
+                          >
                             {customer.level || 'Bronze'}
                           </span>
                         </div>
