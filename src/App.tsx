@@ -2010,7 +2010,6 @@ const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setAc
     { id: "beranda", label: "Beranda", icon: Home },
     { id: "riwayat", label: "Riwayat", icon: History, protected: true },
     { id: "belanja", label: "Belanja", icon: ShoppingCart },
-    { id: "aset", label: "Aset", icon: Wallet, protected: true },
     { id: "settings", label: "Profil", icon: User },
   ];
 
@@ -5446,11 +5445,15 @@ const AdminDashboard = ({
       }
     });
 
+    const sortedWeeks = Array.from(weekSet).sort((a, b) => b.localeCompare(a));
+    const sortedMonths = Array.from(monthSet).sort((a, b) => b.localeCompare(a));
+    const sortedYears = Array.from(yearSet).sort((a, b) => b.localeCompare(a));
+
     return {
       days: Array.from(daySet),
-      weeks: Array.from(weekSet),
-      months: Array.from(monthSet),
-      years: Array.from(yearSet)
+      weeks: sortedWeeks,
+      months: sortedMonths,
+      years: sortedYears
     };
   }, [transactions]);
 
@@ -5738,7 +5741,7 @@ const AdminDashboard = ({
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Nominal']}
+                  formatter={(value: number, name: string) => [`Rp ${value.toLocaleString('id-ID')}`, name]}
                   contentStyle={{ 
                     borderRadius: '1rem', 
                     border: 'none', 
@@ -5803,22 +5806,6 @@ const AdminDashboard = ({
                     <option value="Bulan ini">Bulan ini</option>
                     <option value="Tahun ini">Tahun ini</option>
                     <option value="Semua">Semua Waktu</option>
-                  </optgroup>
-                  <optgroup label="Hari">
-                    {filterOptions.days.map(d => {
-                      const date = new Date(d);
-                      const label = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                      return <option key={d} value={`day:${d}`}>{label}</option>;
-                    })}
-                  </optgroup>
-                  <optgroup label="Minggu">
-                    {filterOptions.weeks.map(w => {
-                      const start = new Date(w);
-                      const end = new Date(start);
-                      end.setDate(start.getDate() + 6);
-                      const label = `${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`;
-                      return <option key={w} value={`week:${w}`}>{label}</option>;
-                    })}
                   </optgroup>
                   <optgroup label="Bulan">
                     {filterOptions.months.map(m => {
@@ -13375,7 +13362,7 @@ const HomePage = ({
     const hutVal = parseCurrency(loggedInUser.Hutang);
     
     const saldoBersih = tabVal + invVal + lainVal - hutVal;
-    const hasAssets = tabVal > 0 || invVal > 0 || lainVal > 0 || hutVal > 0;
+    const hasAssets = true;
 
     const assets = [
       { 
@@ -13410,7 +13397,7 @@ const HomePage = ({
         icon: CreditCard,
         path: `/hutang/${encodeURIComponent(loggedInUser.Nama)}` 
       },
-    ].filter(item => item.value > 0);
+    ];
 
     return {
       tabVal,
@@ -13446,7 +13433,7 @@ const HomePage = ({
             <section className="px-6 py-2">
               <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
                 <div className="flex items-center justify-between mb-4">
-                  {portfolioData && portfolioData.hasAssets ? (
+                  {portfolioData ? (
                     <motion.div 
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -13459,7 +13446,7 @@ const HomePage = ({
                       </span>
                     </motion.div>
                   ) : (
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Belum Ada Aset Aktif</span>
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Aset Aktif</span>
                   )}
                   <button 
                     onClick={() => setActiveTab("aset")}
@@ -13471,80 +13458,55 @@ const HomePage = ({
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  {portfolioData && portfolioData.assets.length === 0 ? (
-                    <div className="py-6 px-4 flex flex-col items-center text-center">
-                      <p className="text-[10px] sm:text-[11px] font-medium text-slate-400 max-w-[200px] mb-4 leading-normal">
-                        Ayo mulai langkah finansialmu bersama kami!
-                      </p>
-                      <div className="flex gap-3">
-                        <button 
-                          onClick={() => {
-                            if (loggedInUser) navigate(`/tabungan/${encodeURIComponent(loggedInUser.Nama)}`);
-                            else navigate('/tabungan');
-                          }}
-                          className="px-5 py-2.5 bg-gradient-to-r from-[#2ecc71] to-[#27ae60] text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-md shadow-[#27ae60]/20 active:scale-95 transition-transform"
-                        >
-                          Menabung
-                        </button>
-                        <button 
-                          onClick={() => {
-                            if (loggedInUser) navigate(`/investasi/${encodeURIComponent(loggedInUser.Nama)}`);
-                            else navigate('/investasi');
-                          }}
-                          className="px-5 py-2.5 bg-gradient-to-r from-[#9b59b6] to-[#8e44ad] text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-md shadow-[#8e44ad]/20 active:scale-95 transition-transform"
-                        >
-                          Investasi
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0, scaleY: 0.8 }}
-                      animate={{ height: "auto", opacity: 1, scaleY: 1 }}
-                      transition={{ 
-                        duration: 1, 
-                        ease: [0.16, 1, 0.3, 1], // Custom bounce-like ease
-                        delay: 0.2
-                      }}
-                      className="origin-top overflow-hidden"
-                    >
-                      <div className="grid grid-cols-4 gap-2.5 sm:gap-4 pb-2 pt-1">
-                        {portfolioData?.assets.map((item, i) => (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    transition={{ 
+                      duration: 0.5, 
+                      ease: "easeOut",
+                      delay: 0.1
+                    }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pb-2 pt-1">
+                      {portfolioData?.assets.map((item, i) => {
+                        const colors: Record<string, { bg: string, text: string }> = {
+                          "Tabungan": { bg: "bg-emerald-50 text-emerald-600", text: "text-emerald-600" },
+                          "Investasi": { bg: "bg-indigo-50 text-indigo-600", text: "text-indigo-600" },
+                          "Lainnya": { bg: "bg-amber-50 text-amber-600", text: "text-amber-600" },
+                          "Hutang": { bg: "bg-rose-50 text-rose-600", text: "text-rose-600" }
+                        };
+                        const color = colors[item.name] || colors["Tabungan"];
+                        return (
                           <motion.div 
                             key={i} 
-                            initial={{ rotateY: -90, opacity: 0, scale: 0.8 }}
-                            animate={{ rotateY: 0, opacity: 1, scale: 1 }}
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
                             transition={{ 
-                              duration: 0.8, 
-                              delay: i * 0.12 + 0.3, 
+                              duration: 0.4, 
+                              delay: i * 0.05 + 0.1, 
                               ease: "easeOut"
                             }}
                             onClick={() => navigate(item.path)}
-                            className="flex flex-col items-center cursor-pointer group/wallet w-full"
+                            className="bg-slate-50/50 hover:bg-slate-50 border border-slate-100/80 rounded-2xl p-4 flex items-center gap-3.5 cursor-pointer transition-all duration-200 active:scale-[0.98] group/item"
                           >
-                            {/* Circle displaying only the icon with premium styled leather pattern and gradient */}
-                            <div className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} w-full aspect-square rounded-full flex items-center justify-center shadow-lg shadow-slate-200/30 border-t border-white/20 transition-all duration-300 group-hover/wallet:scale-105 group-hover/wallet:shadow-xl`}>
-                              {/* Subtle Texture for Premium Leather Circular Feel */}
-                              <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/leather.png')]" />
-                              
-                              {/* Centered Icon without inner circle frame */}
-                              <item.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white shrink-0 group-hover/wallet:scale-110 transition-transform duration-300" />
+                            <div className={`p-2.5 rounded-xl ${color.bg} shrink-0 group-hover/item:scale-105 transition-transform duration-200`}>
+                              <item.icon className="w-5 h-5 shrink-0" />
                             </div>
-
-                            {/* Description and Nominal text below the circle */}
-                            <div className="mt-2 text-center w-full">
-                              <p className="text-[8px] sm:text-[9.5px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
                                 {item.name}
-                              </p>
-                              <p className={`text-[10px] sm:text-[12px] font-black tracking-tight mt-1 leading-none truncate px-0.5 ${item.textColorClass}`}>
+                              </span>
+                              <span className="text-[11.5px] sm:text-[13px] font-black text-slate-800 block truncate">
                                 Rp{formatCurrency(item.value)}
-                              </p>
+                              </span>
                             </div>
+                            <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover/item:opacity-100 group-hover/item:translate-x-0.5 transition-all duration-200 shrink-0" />
                           </motion.div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
+                        );
+                      })}
+                    </div>
+                  </motion.div>
                 </div>
               </div>
             </section>
