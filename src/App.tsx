@@ -13432,28 +13432,36 @@ const HomePage = ({
           {loggedInUser && (
             <section className="px-6 py-2">
               <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-end justify-between mb-6 pb-4 border-b border-slate-100/65">
                   {portfolioData ? (
                     <motion.div 
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 bg-gradient-to-r from-[#005E6A]/10 to-transparent rounded-full border border-[#005E6A]/10 shrink-0"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex flex-col min-w-0"
                     >
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#005E6A] animate-pulse shrink-0" />
-                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.1em]">Saldo Bersih</span>
-                      <span className="text-[11px] font-black text-[#005E6A] drop-shadow-sm">
-                        Rp {portfolioData.saldoBersih.toLocaleString('id-ID')}
-                      </span>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="relative flex h-2 w-2 shrink-0">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </div>
+                        <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-[0.18em] leading-none">Aset Bersih</span>
+                      </div>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="text-xs sm:text-sm font-black text-[#005E6A]/75 italic">Rp</span>
+                        <span className="text-xl sm:text-2xl font-black text-[#005E6A] tracking-tight leading-none">
+                          {portfolioData.saldoBersih.toLocaleString('id-ID')}
+                        </span>
+                      </div>
                     </motion.div>
                   ) : (
                     <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Aset Aktif</span>
                   )}
                   <button 
                     onClick={() => setActiveTab("aset")}
-                    className="flex items-center gap-1 text-[10px] font-black text-[#F15A24] uppercase tracking-widest active:scale-95 transition-transform"
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F15A24]/5 hover:bg-[#F15A24]/10 text-[9.5px] font-black text-[#F15A24] uppercase tracking-widest active:scale-95 transition-all duration-205 shrink-0"
                   >
-                    Lihat Semua
-                    <ChevronRight className="w-3 h-3" />
+                    Selengkapnya
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
@@ -13468,40 +13476,56 @@ const HomePage = ({
                     }}
                     className="overflow-hidden"
                   >
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pb-2 pt-1">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-2 pt-1">
                       {portfolioData?.assets.map((item, i) => {
-                        const colors: Record<string, { bg: string, text: string }> = {
-                          "Tabungan": { bg: "bg-emerald-50 text-emerald-600", text: "text-emerald-600" },
-                          "Investasi": { bg: "bg-indigo-50 text-indigo-600", text: "text-indigo-600" },
-                          "Lainnya": { bg: "bg-amber-50 text-amber-600", text: "text-amber-600" },
-                          "Hutang": { bg: "bg-rose-50 text-rose-600", text: "text-rose-600" }
-                        };
-                        const color = colors[item.name] || colors["Tabungan"];
                         return (
                           <motion.div 
                             key={i} 
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
+                            initial={{ rotateX: -30, opacity: 0, translateY: 20 }}
+                            animate={{ rotateX: 0, opacity: 1, translateY: 0 }}
                             transition={{ 
-                              duration: 0.4, 
-                              delay: i * 0.05 + 0.1, 
+                              duration: 0.7, 
+                              delay: i * 0.1,
                               ease: "easeOut"
                             }}
                             onClick={() => navigate(item.path)}
-                            className="bg-slate-50/50 hover:bg-slate-50 border border-slate-100/80 rounded-2xl p-4 flex items-center gap-3.5 cursor-pointer transition-all duration-200 active:scale-[0.98] group/item"
+                            className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} py-3.5 px-4.5 rounded-[1.8rem] flex flex-col justify-between shadow-md shadow-slate-200/40 min-h-[102px] cursor-pointer active:scale-95 transition-all group/wallet hover:shadow-lg hover:-translate-y-0.5 border-t border-white/20`}
                           >
-                            <div className={`p-2.5 rounded-xl ${color.bg} shrink-0 group-hover/item:scale-105 transition-transform duration-200`}>
-                              <item.icon className="w-5 h-5 shrink-0" />
+                            {/* Wallet Closure Strap Design */}
+                            <motion.div 
+                              initial={{ x: 20, opacity: 0 }}
+                              animate={{ x: 0, opacity: 1 }}
+                              transition={{ delay: i * 0.1 + 0.5, type: "spring", stiffness: 200, damping: 15 }}
+                              className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-9 bg-black/5 backdrop-blur-sm border-l border-t border-b border-white/20 rounded-l-xl z-0 transition-all group-hover/wallet:w-8" 
+                            />
+                            <motion.div 
+                              initial={{ scale: 0, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              transition={{ delay: i * 0.1 + 0.8 }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white/40 rounded-full z-10 shadow-sm border border-white/20" 
+                            />
+                            
+                            {/* Subtle Texture for Wallet Feel */}
+                            <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/leather.png')]" />
+
+                            <div className="flex justify-between items-start relative z-10 mb-2">
+                              <div className="w-8.5 h-8.5 bg-white/25 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30 shadow-inner">
+                                <item.icon className="w-4.5 h-4.5 text-white" />
+                              </div>
+                              <div className="w-5.5 h-5.5 bg-white/15 rounded-lg flex items-center justify-center border border-white/10 group-hover/wallet:bg-white/30 transition-colors">
+                                <ChevronRight className="w-2.5 h-2.5 text-white" />
+                              </div>
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">
-                                {item.name}
-                              </span>
-                              <span className="text-[11.5px] sm:text-[13px] font-black text-slate-800 block truncate">
-                                Rp{formatCurrency(item.value)}
-                              </span>
+
+                            <div className="relative z-10 mt-1">
+                              <p className="text-[7.5px] font-black text-white/80 uppercase tracking-[0.2em] leading-none mb-1">{item.name}</p>
+                              <div className="flex items-baseline gap-0.5">
+                                <span className="text-[7.5px] font-black text-white/50 italic">Rp</span>
+                                <p className="text-[12px] sm:text-[13px] font-black text-white tracking-tight leading-none uppercase truncate">
+                                  {formatCurrency(item.value)}
+                                </p>
+                              </div>
                             </div>
-                            <ChevronRight className="w-4 h-4 text-slate-300 opacity-0 group-hover/item:opacity-100 group-hover/item:translate-x-0.5 transition-all duration-200 shrink-0" />
                           </motion.div>
                         );
                       })}
