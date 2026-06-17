@@ -151,6 +151,53 @@ const formatCurrency = (val: number | string | undefined) => {
   return num.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
+const DigitRoller = ({ targetDigit, delay = 0 }: { targetDigit: number; delay?: number; key?: any }) => {
+  const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  return (
+    <span className="relative inline-flex w-[0.62em] h-[1em] overflow-hidden select-none tabular-nums justify-center text-center leading-none">
+      <motion.span
+        initial={{ y: "0%" }}
+        animate={{ y: `-${targetDigit * 10}%` }}
+        transition={{
+          type: "spring",
+          stiffness: 75,
+          damping: 14,
+          delay: delay,
+        }}
+        className="absolute left-0 top-0 flex flex-col w-full h-[1000%] leading-none"
+      >
+        {digits.map((d) => (
+          <span key={d} className="h-[10%] flex items-center justify-center shrink-0 leading-none">
+            {d}
+          </span>
+        ))}
+      </motion.span>
+    </span>
+  );
+};
+
+const RollingNumber = ({ value }: { value: number }) => {
+  const formatted = formatCurrency(value);
+  return (
+    <span className="inline-flex overflow-hidden items-center h-[1em] leading-none select-none tabular-nums">
+      {formatted.split("").map((char, index) => {
+        if (/\d/.test(char)) {
+          const digit = parseInt(char, 10);
+          return (
+            <DigitRoller key={index} targetDigit={digit} delay={index * 0.03} />
+          );
+        } else {
+          return (
+            <span key={index} className="inline-block px-[0.02em] select-none leading-none">
+              {char}
+            </span>
+          );
+        }
+      })}
+    </span>
+  );
+};
+
 const qrisUrl = "https://lh3.googleusercontent.com/d/1P7Itn82Za-1G1a_4wpEa5BmarzCPvtn_";
 
 const parseDateForProgress = (dateStr: string) => {
@@ -602,7 +649,9 @@ const Header = ({
   setActiveTab,
   isLoading,
   salesTransactions,
-  redeemedPoints
+  redeemedPoints,
+  cart,
+  setShowCart
 }: { 
   customers: Customer[], 
   loggedInUser: Customer | null, 
@@ -611,7 +660,9 @@ const Header = ({
   setActiveTab: (id: string) => void,
   isLoading: boolean,
   salesTransactions: SalesTransaction[],
-  redeemedPoints: RedeemedPoint[]
+  redeemedPoints: RedeemedPoint[],
+  cart: { product: StockItem, qty: number }[],
+  setShowCart: (show: boolean) => void
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -696,34 +747,69 @@ const Header = ({
             </div>
           </Link>
 
-          {/* BNI 46 Badge or Points Badge */}
-          <motion.div 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => loggedInUser ? navigate('/poin') : setIsAgenInfoOpen(true)}
-            className={`${loggedInUser ? "bg-[#E6F4F5] border-[#005E6A]/20" : "bg-[#E6F4F5] border-[#005E6A]/5"} px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm border cursor-pointer`}
-          >
-            {loggedInUser ? (
-              <>
-                <span className="text-[10px] font-black tabular-nums tracking-widest flex items-center gap-1">
-                  {(() => {
-                    const points = calculateActivePoints(loggedInUser.Nama, salesTransactions, redeemedPoints);
-                    return (
-                      <>
-                        <span className={points < 0 ? "text-red-500" : "text-[#005E6A]"}>{points}</span>
-                        <span className="text-[#F15A24]">POIN</span>
-                      </>
-                    );
-                  })()}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
-                <span className="text-[10px] font-black text-[#F15A24]">46</span>
-              </>
-            )}
-          </motion.div>
+          <div className="flex items-center gap-2">
+            {/* BNI 46 Badge or Points Badge */}
+            <motion.div 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => loggedInUser ? navigate('/poin') : setIsAgenInfoOpen(true)}
+              className={`${loggedInUser ? "bg-[#E6F4F5] border-[#005E6A]/20" : "bg-[#E6F4F5] border-[#005E6A]/5"} px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm border cursor-pointer`}
+            >
+              {loggedInUser ? (
+                <>
+                  <span className="text-[10px] font-black tabular-nums tracking-widest flex items-center gap-1">
+                    {(() => {
+                      const points = calculateActivePoints(loggedInUser.Nama, salesTransactions, redeemedPoints);
+                      return (
+                        <>
+                          <span className={points < 0 ? "text-red-500" : "text-[#005E6A]"}>{points}</span>
+                          <span className="text-[#F15A24]">POIN</span>
+                        </>
+                      );
+                    })()}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
+                  <span className="text-[10px] font-black text-[#F15A24]">46</span>
+                </>
+              )}
+            </motion.div>
+
+            {/* Universal Shopping Cart button next to Points */}
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setShowCart(true);
+              }}
+              className="relative p-2 bg-[#005E6A] text-white w-9.5 h-9.5 rounded-full flex items-center justify-center shrink-0 hover:bg-[#004d57] transition-colors cursor-pointer shadow-lg shadow-[#005E6A]/25"
+              title="Keranjang Belanja"
+            >
+              <ShoppingCart className="w-4 h-4 text-white" />
+              <AnimatePresence>
+                {cart.length > 0 && (
+                  <motion.div 
+                    key="cart-count"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    className="absolute -top-1 -right-1 w-4.5 h-4.5 bg-[#F15A24] text-white text-[9px] font-black flex items-center justify-center rounded-full shadow-md border-2 border-white leading-none z-10 animate-pulse"
+                  >
+                    <motion.span
+                      key={cart.reduce((acc, item) => acc + item.qty, 0)}
+                      initial={{ y: -5, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      className="absolute text-[8px]"
+                    >
+                      {cart.reduce((acc, item) => acc + item.qty, 0)}
+                    </motion.span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.button>
+          </div>
         </div>
       </header>
 
@@ -9012,16 +9098,27 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
   );
 };
 
-const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | null }) => {
+const CatalogPage = ({ 
+  stock, 
+  user, 
+  activePoints = 0,
+  cart,
+  setCart,
+  setShowCart
+}: { 
+  stock: StockItem[], 
+  user: Customer | null, 
+  activePoints?: number,
+  cart: { product: StockItem, qty: number }[],
+  setCart: React.Dispatch<React.SetStateAction<{ product: StockItem, qty: number }[]>>,
+  setShowCart: (show: boolean) => void
+}) => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
-  const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua");
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showCart, setShowCart] = useState(false);
   const [tick, setTick] = useState(0);
   const [lastAddedId, setLastAddedId] = useState<string | null>(null);
 
@@ -9051,18 +9148,6 @@ const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | nul
     setLastAddedId(product.id);
     setTick(t => t + 1);
   };
-
-  const updateQty = (id: string, delta: number) => {
-    setCart(prev => prev.map(item => {
-      if (item.product.id === id) {
-        const newQty = Math.max(0, item.qty + delta);
-        return { ...item, qty: newQty };
-      }
-      return item;
-    }).filter(item => item.qty > 0));
-  };
-
-  const total = cart.reduce((acc, item) => acc + (item.product.HargaJual * item.qty), 0);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
@@ -9101,34 +9186,6 @@ const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | nul
                   <ChevronDown className="w-3 h-3 absolute right-0 top-1/2 -translate-y-1/2 text-[#005E6A] pointer-events-none" />
                 </div>
               </div>
-              
-              <motion.button 
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setShowCart(true)}
-                className="relative p-3 bg-[#005E6A] rounded-xl shadow-lg shadow-[#005E6A]/20 text-white flex items-center justify-center shrink-0"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                <AnimatePresence>
-                  {cart.length > 0 && (
-                    <motion.div 
-                      key="cart-count"
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#F15A24] text-white text-[10px] font-black flex items-center justify-center rounded-full shadow-lg border-2 border-white"
-                    >
-                      <motion.span
-                        key={cart.reduce((acc, item) => acc + item.qty, 0)}
-                        initial={{ y: -10, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        className="absolute"
-                      >
-                        {cart.reduce((acc, item) => acc + item.qty, 0)}
-                      </motion.span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.button>
             </div>
           </div>
         </div>
@@ -9217,174 +9274,6 @@ const CatalogPage = ({ stock, user }: { stock: StockItem[], user: Customer | nul
         </div>
       </div>
 
-      <AnimatePresence>
-        {showCart && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowCart(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            />
-            <motion.div 
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              className="relative w-full max-w-lg bg-white rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl overflow-hidden px-6 py-5"
-            >
-              <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6 sm:hidden" />
-              
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-tight">Keranjang Saya</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{cart.length} Item Terpilih</p>
-                </div>
-                <button 
-                  onClick={() => setShowCart(false)}
-                  className="p-2 bg-slate-50 rounded-full text-slate-400"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {cart.length === 0 ? (
-                <div className="py-12 flex flex-col items-center text-center">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                    <ShoppingCart className="w-8 h-8 text-slate-200" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-400">Keranjang Anda kosong</p>
-                </div>
-              ) : (
-                <>
-                  <div className="max-h-[60vh] overflow-y-auto mb-4 pr-2 scrollbar-thin divide-y divide-slate-100">
-                    {cart.map((item) => (
-                      <div key={item.product.id} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
-                        <div className="w-12 h-12 rounded-lg bg-slate-50 overflow-hidden shadow-sm flex-shrink-0">
-                          {item.product.Image ? (
-                            <img src={item.product.Image} alt={item.product.Nama} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-200">
-                              <Package className="w-6 h-6" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-black text-[#005E6A] uppercase truncate">{item.product.Nama}</p>
-                          <p className="text-[10px] font-bold text-[#F15A24]">Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button 
-                            onClick={() => updateQty(item.product.id, -1)}
-                            className="w-8 h-8 flex items-center justify-center text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <span className="text-[12px] font-black text-[#005E6A] w-6 text-center">{item.qty}</span>
-                          <button 
-                            onClick={() => updateQty(item.product.id, 1)}
-                            className="w-8 h-8 flex items-center justify-center text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="border-t border-slate-100 pt-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Bayar</span>
-                      <span className="text-xl font-black text-[#F15A24]">Rp {total.toLocaleString('id-ID')}</span>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        setShowCart(false);
-                        setShowConfirm(true);
-                      }}
-                      className="w-full py-3.5 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-[#005E6A]/20 flex items-center justify-center gap-3 active:scale-95 transition-transform"
-                    >
-                      <ShoppingCart className="w-4 h-4" /> PESAN SEKARANG
-                    </button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          </div>
-        )}
-
-        {showConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowConfirm(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Konfirmasi Pesanan</h2>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Detail Belanjaan Anda</p>
-                  </div>
-                  <button 
-                    onClick={() => setShowConfirm(false)}
-                    className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin mb-8">
-                  {cart.map((item) => (
-                    <div key={item.product.id} className="flex justify-between items-start gap-4">
-                      <div className="flex-1">
-                        <p className="text-xs font-black text-[#005E6A] uppercase leading-tight mb-1">{item.product.Nama}</p>
-                        <p className="text-[10px] font-bold text-slate-400">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
-                      </div>
-                      <p className="text-xs font-black text-[#F15A24] whitespace-nowrap">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
-                    </div>
-                  ))}
-                  <div className="pt-4 border-t border-dashed border-slate-200">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Total Pembayaran</span>
-                      <span className="text-lg font-black text-[#F15A24]">Rp {total.toLocaleString('id-ID')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={() => setShowConfirm(false)}
-                    className="py-3 px-4 rounded-xl border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-colors"
-                  >
-                    Batal
-                  </button>
-                  <button 
-                    onClick={() => {
-                      const userGreeting = user ? `Nama Pelanggan: *${user.Nama}*\n\n` : "";
-                      const message = `Halo Warung Tomi, saya ingin pesan:\n\n${userGreeting}${cart.map(item => `- ${item.product.Nama} (${item.qty}x) = Rp ${(item.product.HargaJual * item.qty).toLocaleString('id-ID')}`).join('\n')}\n\n*Total: Rp ${total.toLocaleString('id-ID')}*`;
-                      window.open(`https://wa.me/6287774138090?text=${encodeURIComponent(message)}`, '_blank');
-                      setShowConfirm(false);
-                      setCart([]);
-                    }}
-                    className="py-3 px-4 rounded-xl bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-[#005E6A]/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-                  >
-                    <MessageCircle className="w-4 h-4" /> Kirim WA
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };
@@ -11656,16 +11545,16 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
         {activeTab === "trend" ? (
           <div className="mb-8">
             {/* 6-Month Trend Chart with Integrated Total */}
-            <div className="bg-[#005E6A] rounded-[2.5rem] p-8 shadow-xl border border-[#005E6A]/10 mb-6 relative overflow-hidden">
+            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 mb-6 relative overflow-hidden">
               <div className="relative z-10 mb-6 flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Total Transaksi {selectedMonthLabel}</p>
-                  <h4 className="text-xl font-black text-white">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Transaksi {selectedMonthLabel}</p>
+                  <h4 className="text-xl font-black text-[#005E6A]">
                     Rp {formatCurrency(totalSelectedMonth)}
                   </h4>
                 </div>
-                <div className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-[#005E6A]" />
                 </div>
               </div>
 
@@ -11682,21 +11571,21 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
                         <stop offset="100%" stopColor="#F15A24" stopOpacity={0.4} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226,232,240,0.4)" />
                     <XAxis 
                       dataKey="label" 
                       axisLine={false} 
                       tickLine={false} 
-                      tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: 900 }}
+                      tick={{ fill: '#64748B', fontSize: 9, fontWeight: 900 }}
                       dy={10}
                     />
                     <Tooltip 
-                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                      cursor={{ fill: 'rgba(0,94,106,0.03)' }}
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="bg-white/10 backdrop-blur-xl p-3 rounded-2xl border border-white/20 shadow-2xl text-[10px] font-black">
-                              <p className="text-white/60 uppercase mb-1">{payload[0].payload.label}</p>
+                            <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xl text-[10px] font-black">
+                              <p className="text-slate-400 uppercase mb-1">{payload[0].payload.label}</p>
                               <p className="text-[#F15A24] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
                             </div>
                           );
@@ -11715,9 +11604,9 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
                         return (
                           <Cell 
                             key={`cell-${index}`} 
-                            fill={isActive ? "#FFFFFF" : "url(#barGradientTrend)"}
+                            fill={isActive ? "#005E6A" : "url(#barGradientTrend)"}
                             style={{
-                              filter: isActive ? 'drop-shadow(0 0 12px rgba(255, 255, 255, 0.9))' : 'none',
+                              filter: isActive ? 'drop-shadow(0 0 10px rgba(0, 94, 106, 0.35))' : 'none',
                               transition: 'all 0.5s ease'
                             }}
                           />
@@ -13249,7 +13138,6 @@ const Layout = ({
         { id: "beranda", protected: false },
         { id: "riwayat", protected: true },
         { id: "belanja", protected: false },
-        { id: "aset", protected: true },
         { id: "settings", protected: false },
       ];
       const activeTabs = allNavItems.filter(item => !item.protected || user).map(item => item.id);
@@ -13301,7 +13189,10 @@ const HomePage = ({
   stock,
   onLogin,
   redeemedPoints,
-  onUpdatePhoto
+  onUpdatePhoto,
+  cart,
+  setCart,
+  setShowCart
 }: { 
   activeTab: string, 
   setActiveTab: (id: string) => void,
@@ -13313,7 +13204,10 @@ const HomePage = ({
   stock: StockItem[],
   onLogin: (user: Customer) => void,
   redeemedPoints: RedeemedPoint[],
-  onUpdatePhoto: (nama: string, base64: string) => void
+  onUpdatePhoto: (nama: string, base64: string) => void,
+  cart: { product: StockItem, qty: number }[],
+  setCart: React.Dispatch<React.SetStateAction<{ product: StockItem, qty: number }[]>>,
+  setShowCart: (show: boolean) => void
 }) => {
   const { subPage, customerName } = useParams();
   const navigate = useNavigate();
@@ -13432,37 +13326,41 @@ const HomePage = ({
           {loggedInUser && (
             <section className="px-6 py-2">
               <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
-                <div className="flex items-end justify-between mb-6 pb-4 border-b border-slate-100/65">
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100/65">
                   {portfolioData ? (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex flex-col min-w-0"
-                    >
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <div className="relative flex h-2 w-2 shrink-0">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </div>
-                        <span className="text-[9.5px] font-black text-slate-400 uppercase tracking-[0.18em] leading-none">Aset Bersih</span>
-                      </div>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="text-xs sm:text-sm font-black text-[#005E6A]/75 italic">Rp</span>
-                        <span className="text-xl sm:text-2xl font-black text-[#005E6A] tracking-tight leading-none">
-                          {portfolioData.saldoBersih.toLocaleString('id-ID')}
+                    <>
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex flex-col min-w-0"
+                      >
+                        <h2 className="text-base font-black text-black uppercase tracking-[0.2em] leading-none mb-1.5">Aset Bersih</h2>
+                        <span className="text-[9px] font-bold text-slate-400 leading-tight">
+                          Tabungan + Investasi + Lainnya - Hutang
                         </span>
-                      </div>
-                    </motion.div>
+                      </motion.div>
+
+                      {(() => {
+                        const isNegative = portfolioData.saldoBersih < 0;
+                        const mainColorClass = isNegative ? "text-[#F15A24]" : "text-[#005E6A]";
+                        const bgColorClass = isNegative ? "bg-[#F15A24]/10 border-[#F15A24]/15" : "bg-[#005E6A]/5 border-slate-100/80";
+                        return (
+                          <motion.div 
+                            initial={{ opacity: 0, x: 15 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl ${bgColorClass} border shadow-inner shrink-0`}
+                          >
+                            <span className={`text-[11px] font-black ${isNegative ? "text-[#F15A24]/70" : "text-[#005E6A]/75"} italic leading-none`}>Rp</span>
+                            <span className={`text-[15px] sm:text-[17px] font-black leading-none ${mainColorClass} tracking-tight`}>
+                              <RollingNumber value={portfolioData.saldoBersih} />
+                            </span>
+                          </motion.div>
+                        );
+                      })()}
+                    </>
                   ) : (
                     <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Aset Aktif</span>
                   )}
-                  <button 
-                    onClick={() => setActiveTab("aset")}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F15A24]/5 hover:bg-[#F15A24]/10 text-[9.5px] font-black text-[#F15A24] uppercase tracking-widest active:scale-95 transition-all duration-205 shrink-0"
-                  >
-                    Selengkapnya
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -13481,49 +13379,48 @@ const HomePage = ({
                         return (
                           <motion.div 
                             key={i} 
-                            initial={{ rotateX: -30, opacity: 0, translateY: 20 }}
+                            initial={{ rotateX: -15, opacity: 0, translateY: 15 }}
                             animate={{ rotateX: 0, opacity: 1, translateY: 0 }}
                             transition={{ 
-                              duration: 0.7, 
-                              delay: i * 0.1,
+                              duration: 0.5, 
+                              delay: i * 0.08,
                               ease: "easeOut"
                             }}
                             onClick={() => navigate(item.path)}
-                            className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} py-3.5 px-4.5 rounded-[1.8rem] flex flex-col justify-between shadow-md shadow-slate-200/40 min-h-[102px] cursor-pointer active:scale-95 transition-all group/wallet hover:shadow-lg hover:-translate-y-0.5 border-t border-white/20`}
+                            className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} py-3 px-3.5 rounded-[1.4rem] flex items-center gap-3 shadow-md shadow-slate-200/35 cursor-pointer active:scale-95 transition-all group/wallet hover:shadow-lg hover:-translate-y-0.5 border-t border-white/20`}
                           >
                             {/* Wallet Closure Strap Design */}
                             <motion.div 
                               initial={{ x: 20, opacity: 0 }}
                               animate={{ x: 0, opacity: 1 }}
-                              transition={{ delay: i * 0.1 + 0.5, type: "spring", stiffness: 200, damping: 15 }}
-                              className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-9 bg-black/5 backdrop-blur-sm border-l border-t border-b border-white/20 rounded-l-xl z-0 transition-all group-hover/wallet:w-8" 
+                              transition={{ delay: i * 0.08 + 0.3, type: "spring", stiffness: 200, damping: 15 }}
+                              className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-8 bg-black/5 backdrop-blur-sm border-l border-t border-b border-white/20 rounded-l-lg z-0 transition-all group-hover/wallet:w-7" 
                             />
                             <motion.div 
                               initial={{ scale: 0, opacity: 0 }}
                               animate={{ scale: 1, opacity: 1 }}
-                              transition={{ delay: i * 0.1 + 0.8 }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white/40 rounded-full z-10 shadow-sm border border-white/20" 
+                              transition={{ delay: i * 0.08 + 0.5 }}
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white/40 rounded-full z-10 shadow-sm border border-white/20" 
                             />
-                            
+
                             {/* Subtle Texture for Wallet Feel */}
                             <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/leather.png')]" />
 
-                            <div className="flex justify-between items-start relative z-10 mb-2">
-                              <div className="w-8.5 h-8.5 bg-white/25 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30 shadow-inner">
-                                <item.icon className="w-4.5 h-4.5 text-white" />
-                              </div>
-                              <div className="w-5.5 h-5.5 bg-white/15 rounded-lg flex items-center justify-center border border-white/10 group-hover/wallet:bg-white/30 transition-colors">
-                                <ChevronRight className="w-2.5 h-2.5 text-white" />
-                              </div>
+                            {/* Left Side: Icon Container */}
+                            <div className="w-8.5 h-8.5 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/25 shadow-inner shrink-0 relative z-10 group-hover/wallet:scale-105 transition-transform duration-250">
+                              <item.icon className="w-4.5 h-4.5 text-white" />
                             </div>
 
-                            <div className="relative z-10 mt-1">
-                              <p className="text-[7.5px] font-black text-white/80 uppercase tracking-[0.2em] leading-none mb-1">{item.name}</p>
+                            {/* Right Side: Text & Value */}
+                            <div className="min-w-0 flex-1 relative z-10 flex flex-col pr-4">
+                              <p className="text-[7.5px] font-black text-white/80 uppercase tracking-[0.16em] leading-none mb-1">
+                                {item.name}
+                              </p>
                               <div className="flex items-baseline gap-0.5">
-                                <span className="text-[7.5px] font-black text-white/50 italic">Rp</span>
-                                <p className="text-[12px] sm:text-[13px] font-black text-white tracking-tight leading-none uppercase truncate">
-                                  {formatCurrency(item.value)}
-                                </p>
+                                <span className="text-[7px] font-black text-white/50 italic leading-none">Rp</span>
+                                <span className="text-[11.5px] sm:text-[12.5px] font-black text-white tracking-tight leading-none uppercase truncate">
+                                  <RollingNumber value={item.value} />
+                                </span>
                               </div>
                             </div>
                           </motion.div>
@@ -13592,17 +13489,6 @@ const HomePage = ({
           </section>
         </motion.div>
       )}
-      {activeTab === "aset" && (
-        <motion.div
-          key="aset"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-        >
-          <AsetPage user={loggedInUser} transactions={salesTransactions} investmentTransactions={investmentTransactions} redeemedPoints={redeemedPoints} customers={customers} onLogin={onLogin} setActiveTab={setActiveTab} />
-        </motion.div>
-      )}
       {activeTab === "belanja" && (
         <motion.div
           key="belanja"
@@ -13611,7 +13497,14 @@ const HomePage = ({
           exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
         >
-          <CatalogPage stock={stock} user={loggedInUser} />
+          <CatalogPage 
+            stock={stock} 
+            user={loggedInUser} 
+            activePoints={activePoints} 
+            cart={cart}
+            setCart={setCart}
+            setShowCart={setShowCart}
+          />
         </motion.div>
       )}
       {activeTab === "riwayat" && (
@@ -13827,6 +13720,9 @@ const InstallPrompt = ({ onInstall, onDismiss }: { onInstall: () => void, onDism
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("beranda");
+  const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
+  const [showCart, setShowCart] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [savingsTransactions, setSavingsTransactions] = useState<SavingTransaction[]>([]);
   const [debtTransactions, setDebtTransactions] = useState<DebtTransaction[]>([]);
@@ -13845,6 +13741,18 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
+  const updateQty = (id: string, delta: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.product.id === id) {
+        const newQty = Math.max(0, item.qty + delta);
+        return { ...item, qty: newQty };
+      }
+      return item;
+    }).filter(item => item.qty > 0));
+  };
+
+  const totalCart = cart.reduce((acc, item) => acc + (item.product.HargaJual * item.qty), 0);
 
   useEffect(() => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -14428,6 +14336,8 @@ export default function App() {
               isLoading={isLoading}
               salesTransactions={salesTransactions}
               redeemedPoints={redeemedPoints}
+              cart={cart}
+              setShowCart={setShowCart}
             />
 
 
@@ -14450,6 +14360,9 @@ export default function App() {
               onLogin={handleLogin}
               redeemedPoints={redeemedPoints}
               onUpdatePhoto={handleUpdatePhoto}
+              cart={cart}
+              setCart={setCart}
+              setShowCart={setShowCart}
             />
           </Layout>
         } />
@@ -14471,6 +14384,9 @@ export default function App() {
               onLogin={handleLogin}
               redeemedPoints={redeemedPoints}
               onUpdatePhoto={handleUpdatePhoto}
+              cart={cart}
+              setCart={setCart}
+              setShowCart={setShowCart}
             />
           </Layout>
         } />
@@ -14492,6 +14408,9 @@ export default function App() {
               onLogin={handleLogin}
               redeemedPoints={redeemedPoints}
               onUpdatePhoto={handleUpdatePhoto}
+              cart={cart}
+              setCart={setCart}
+              setShowCart={setShowCart}
             />
           </Layout>
         } />
@@ -14667,6 +14586,175 @@ export default function App() {
         } />
       </Routes>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showCart && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCart(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              className="relative w-full max-w-lg bg-white rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl overflow-hidden px-6 py-5"
+            >
+              <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6 sm:hidden" />
+              
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-tight">Keranjang Saya</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{cart.length} Item Terpilih</p>
+                </div>
+                <button 
+                  onClick={() => setShowCart(false)}
+                  className="p-2 bg-slate-50 rounded-full text-slate-400 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {cart.length === 0 ? (
+                <div className="py-12 flex flex-col items-center text-center">
+                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                    <ShoppingCart className="w-8 h-8 text-slate-200" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-400">Keranjang Anda kosong</p>
+                </div>
+              ) : (
+                <>
+                  <div className="max-h-[60vh] overflow-y-auto mb-4 pr-2 scrollbar-thin divide-y divide-slate-100">
+                    {cart.map((item) => (
+                      <div key={item.product.id} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                        <div className="w-12 h-12 rounded-lg bg-slate-50 overflow-hidden shadow-sm flex-shrink-0">
+                          {item.product.Image ? (
+                            <img src={item.product.Image} alt={item.product.Nama} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-200 bg-[#005E6A]/5">
+                              <Package className="w-6 h-6" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-black text-[#005E6A] uppercase truncate">{item.product.Nama}</p>
+                          <p className="text-[10px] font-bold text-[#F15A24]">Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => updateQty(item.product.id, -1)}
+                            className="w-8 h-8 flex items-center justify-center text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-[12px] font-black text-[#005E6A] w-6 text-center">{item.qty}</span>
+                          <button 
+                            onClick={() => updateQty(item.product.id, 1)}
+                            className="w-8 h-8 flex items-center justify-center text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Bayar</span>
+                      <span className="text-xl font-black text-[#F15A24]">Rp {totalCart.toLocaleString('id-ID')}</span>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setShowCart(false);
+                        setShowConfirm(true);
+                      }}
+                      className="w-full py-4 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-[#005E6A]/20 flex items-center justify-center gap-3 active:scale-95 transition-transform cursor-pointer"
+                    >
+                      <ShoppingCart className="w-4 h-4" /> PESAN SEKARANG
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+
+        {showConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowConfirm(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100"
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Konfirmasi Pesanan</h2>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Detail Belanjaan Anda</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowConfirm(false)}
+                    className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin mb-8">
+                  {cart.map((item) => (
+                    <div key={item.product.id} className="flex justify-between items-start gap-4">
+                      <div className="flex-1">
+                        <p className="text-xs font-black text-[#005E6A] uppercase leading-tight mb-1">{item.product.Nama}</p>
+                        <p className="text-[10px] font-bold text-slate-400">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
+                      </div>
+                      <p className="text-xs font-black text-[#F15A24] whitespace-nowrap">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
+                    </div>
+                  ))}
+                  <div className="pt-4 border-t border-dashed border-slate-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Total Pembayaran</span>
+                      <span className="text-lg font-black text-[#F15A24]">Rp {totalCart.toLocaleString('id-ID')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => setShowConfirm(false)}
+                    className="py-3 px-4 rounded-xl border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const userGreeting = loggedInUser ? `Nama Pelanggan: *${loggedInUser.Nama}*\n\n` : "";
+                      const message = `Halo Warung Tomi, saya ingin pesan:\n\n${userGreeting}${cart.map(item => `- ${item.product.Nama} (${item.qty}x) = Rp ${(item.product.HargaJual * item.qty).toLocaleString('id-ID')}`).join('\n')}\n\n*Total: Rp ${totalCart.toLocaleString('id-ID')}*`;
+                      window.open(`https://wa.me/6287774138090?text=${encodeURIComponent(message)}`, '_blank');
+                      setShowConfirm(false);
+                      setCart([]);
+                    }}
+                    className="py-3 px-4 rounded-xl bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-[#005E6A]/20 flex items-center justify-center gap-2 active:scale-95 transition-transform cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" /> Kirim WA
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </BrowserRouter>
