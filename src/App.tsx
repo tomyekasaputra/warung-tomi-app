@@ -2282,157 +2282,162 @@ const ProtectedPage = ({
         initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
         animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="px-6 py-12 flex flex-col items-center min-h-[80vh]"
+        className="px-6 py-12 flex flex-col items-center justify-center min-h-[80vh]"
       >
-        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl shadow-slate-200/50 border-4 border-slate-50 overflow-hidden">
-          <img 
-            src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
-            alt="Warung Tomi Logo" 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-        <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight mb-2">
-          Portal <span className="text-[#F15A24]">Pelanggan</span>
-        </h2>
-        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-8 text-center">
-          Silakan masuk untuk melihat halaman <span className="text-[#F15A24]">{title}</span>
-        </p>
+        <div className="w-full max-w-sm bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-8 flex flex-col items-center relative">
+          {/* Decorative Elements */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />
+          
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl shadow-slate-200/50 border-4 border-slate-50 overflow-hidden relative z-10">
+            <img 
+              src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
+              alt="Warung Tomi Logo" 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight mb-2 relative z-10">
+            Portal <span className="text-[#F15A24]">Pelanggan</span>
+          </h2>
+          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-8 text-center relative z-10">
+            Silakan masuk untuk melihat halaman <span className="text-[#F15A24]">{title}</span>
+          </p>
 
-        <div className="w-full max-w-[300px] space-y-4">
-          {!showPinInput ? (
-            <div className="space-y-4">
-              <div className="relative">
-                <div className="absolute left-5 top-1/2 -translate-y-1/2">
-                  <User className="w-4 h-4 text-slate-400" />
-                </div>
-                <input 
-                  type="text" 
-                  placeholder="NAMA PELANGGAN"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleLoginAttempt();
-                  }}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
-                />
-                
-                <AnimatePresence>
-                  {suggestions.length > 0 && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50"
-                    >
-                      {suggestions.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            if (s.PIN && s.PIN.trim() !== "") {
-                              setCustomerName(s.Nama);
-                              setSelectedCustomer(s);
-                              setShowPinInput(true);
-                              setSuggestions([]);
-                            } else if (onLogin && setActiveTab) {
-                              onLogin(s);
-                              setCustomerName("");
-                              setActiveTab("beranda");
-                            }
-                          }}
-                          className="w-full px-5 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between group"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-6 h-6 bg-slate-50 rounded-full flex items-center justify-center text-[#005E6A] shrink-0 border border-slate-100/50">
-                              <User className="w-3 h-3 text-[#005E6A]" />
-                            </div>
-                            <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{s.Nama}</span>
-                          </div>
-                          <ArrowRight className="w-3 h-3 text-slate-300 group-hover:text-[#F15A24] transition-colors" />
-                        </button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              <button 
-                onClick={handleLoginAttempt}
-                className="w-full bg-[#005E6A] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 active:scale-95 transition-transform"
-              >
-                Lanjutkan
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-[#005E6A] rounded-full flex items-center justify-center text-white font-black text-[10px]">
-                    {selectedCustomer?.Nama?.charAt(0)}
+          <div className="w-full space-y-4 relative z-10">
+            {!showPinInput ? (
+              <div className="space-y-4">
+                <div className="relative">
+                  <div className="absolute left-5 top-1/2 -translate-y-1/2">
+                    <User className="w-4 h-4 text-slate-400" />
                   </div>
-                  <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{selectedCustomer?.Nama}</span>
+                  <input 
+                    type="text" 
+                    placeholder="NAMA PELANGGAN"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleLoginAttempt();
+                    }}
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
+                  />
+                  
+                  <AnimatePresence>
+                    {suggestions.length > 0 && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50"
+                      >
+                        {suggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              if (s.PIN && s.PIN.trim() !== "") {
+                                setCustomerName(s.Nama);
+                                setSelectedCustomer(s);
+                                setShowPinInput(true);
+                                setSuggestions([]);
+                              } else if (onLogin && setActiveTab) {
+                                onLogin(s);
+                                setCustomerName("");
+                                setActiveTab("beranda");
+                              }
+                            }}
+                            className="w-full px-5 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-6 h-6 bg-orange-50/50 rounded-full flex items-center justify-center text-[#F15A24] shrink-0 border border-[#F15A24]/10">
+                                <User className="w-3 h-3 text-[#F15A24]" />
+                              </div>
+                              <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{s.Nama}</span>
+                            </div>
+                            <ArrowRight className="w-3 h-3 text-slate-300 group-hover:text-[#F15A24] transition-colors" />
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
+
                 <button 
-                  onClick={() => {
-                    setShowPinInput(false);
-                    setPinInput("");
-                  }}
-                  className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest"
+                  onClick={handleLoginAttempt}
+                  className="w-full bg-[#005E6A] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 active:scale-95 transition-transform"
                 >
-                  Ganti
+                  Lanjutkan
                 </button>
               </div>
-
-              <div className="relative">
-                <div className="absolute left-5 top-1/2 -translate-y-1/2">
-                  <Lock className="w-4 h-4 text-slate-400" />
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-[#005E6A] rounded-full flex items-center justify-center text-white font-black text-[10px]">
+                      {selectedCustomer?.Nama?.charAt(0)}
+                    </div>
+                    <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{selectedCustomer?.Nama}</span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setShowPinInput(false);
+                      setPinInput("");
+                    }}
+                    className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest"
+                  >
+                    Ganti
+                  </button>
                 </div>
-                <input 
-                  type="password" 
-                  inputMode="numeric"
-                  placeholder="MASUKKAN PIN"
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handlePinSubmit();
-                  }}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
-                />
-              </div>
 
-              <button 
-                onClick={handlePinSubmit}
-                className="w-full bg-[#F15A24] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 active:scale-95 transition-transform"
+                <div className="relative">
+                  <div className="absolute left-5 top-1/2 -translate-y-1/2">
+                    <Lock className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <input 
+                    type="password" 
+                    inputMode="numeric"
+                    placeholder="MASUKKAN PIN"
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handlePinSubmit();
+                    }}
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
+                  />
+                </div>
+
+                <button 
+                  onClick={handlePinSubmit}
+                  className="w-full bg-[#F15A24] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 active:scale-95 transition-transform"
+                >
+                  Masuk Sekarang
+                </button>
+              </div>
+            )}
+
+            {error && (
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center"
               >
-                Masuk Sekarang
+                {error}
+              </motion.p>
+            )}
+
+            {/* Admin Access Link */}
+            <div className="pt-8 flex justify-center">
+              <button 
+                onClick={() => {
+                  if (localStorage.getItem("admin_session") === "true") {
+                    navigate("/admin");
+                  } else {
+                    setIsAdminPopupOpen(true);
+                  }
+                }}
+                className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em] hover:text-slate-400 transition-colors"
+              >
+                Masuk Akses Admin
               </button>
             </div>
-          )}
-
-          {error && (
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center"
-            >
-              {error}
-            </motion.p>
-          )}
-
-          {/* Admin Access Link */}
-          <div className="pt-8 flex justify-center">
-            <button 
-              onClick={() => {
-                if (localStorage.getItem("admin_session") === "true") {
-                  navigate("/admin");
-                } else {
-                  setIsAdminPopupOpen(true);
-                }
-              }}
-              className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em] hover:text-slate-400 transition-colors"
-            >
-              Masuk Akses Admin
-            </button>
           </div>
         </div>
 
