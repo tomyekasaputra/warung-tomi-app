@@ -3343,7 +3343,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
               <h2 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2">
                 Total Aset
               </h2>
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-center gap-1">
                 <span className="text-sm font-black text-[#F15A24] italic opacity-70">Rp</span>
                 <motion.span 
                   key={totalAset}
@@ -3448,8 +3448,8 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
 
                   <div className="relative z-10">
                     <p className="text-[8px] font-black text-white/80 uppercase tracking-[0.2em] leading-none mb-2">{item.name}</p>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-[8px] font-black text-white/50 italic">Rp</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[8px] font-black text-white/50 italic leading-none">Rp</span>
                       <p className="text-[14px] font-black text-white tracking-tight leading-none uppercase">
                         {mask(item.balance)}
                       </p>
@@ -11860,7 +11860,6 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
 
 const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, onLogin, setActiveTab, onUpdatePhoto }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[], onLogout: () => void, customers: Customer[], onLogin: (user: Customer) => void, setActiveTab: (id: string) => void, onUpdatePhoto: (nama: string, base64: string) => void }) => {
   const navigate = useNavigate();
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [showLevelBenefits, setShowLevelBenefits] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -12053,8 +12052,8 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
       {/* Logout Button */}
       <div className="px-2 mb-20">
         <button 
-          onClick={() => setShowLogoutConfirm(true)}
-          className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 p-5 rounded-[2rem] flex items-center justify-center gap-3 transition-all active:scale-95 border border-rose-100 shadow-sm group"
+          onClick={onLogout}
+          className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 p-5 rounded-[2rem] flex items-center justify-center gap-3 transition-all active:scale-95 border border-rose-100 shadow-sm group cursor-pointer"
         >
           <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
           <span className="text-xs font-black uppercase tracking-[0.3em]">Keluar Akun</span>
@@ -12152,46 +12151,6 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
               <div className="p-4 rounded-2xl border border-slate-100 text-center">
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Belanja 3 Bulan</p>
                 <p className="text-sm font-black text-[#F15A24]">Rp {customerLevel.total.toLocaleString('id-ID')}</p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {showLogoutConfirm && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 text-center"
-            >
-              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <LogOut className="w-8 h-8 text-rose-500" />
-              </div>
-              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-2">Konfirmasi Keluar</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-8 leading-relaxed">
-                Apakah Anda yakin ingin keluar dari akun {user?.Nama}?
-              </p>
-              
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={onLogout}
-                  className="w-full bg-rose-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-100 active:scale-95 transition-transform"
-                >
-                  Ya, Keluar
-                </button>
-                <button 
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="w-full bg-slate-50 text-slate-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform"
-                >
-                  Batal
-                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -13348,7 +13307,7 @@ const HomePage = ({
                           <motion.div 
                             initial={{ opacity: 0, x: 15 }}
                             animate={{ opacity: 1, x: 0 }}
-                            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl ${bgColorClass} border shadow-inner shrink-0`}
+                            className={`flex items-center gap-1 px-3.5 py-2 rounded-2xl ${bgColorClass} border shadow-inner shrink-0`}
                           >
                             <span className={`text-[11px] font-black ${isNegative ? "text-[#F15A24]/70" : "text-[#005E6A]/75"} italic leading-none`}>Rp</span>
                             <span className={`text-[15px] sm:text-[17px] font-black leading-none ${mainColorClass} tracking-tight`}>
@@ -13362,7 +13321,7 @@ const HomePage = ({
                     <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Aset Aktif</span>
                   )}
                 </div>
-
+ 
                 <div className="flex flex-col gap-2">
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
@@ -13377,53 +13336,58 @@ const HomePage = ({
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-2 pt-1">
                       {portfolioData?.assets.map((item, i) => {
                         return (
-                          <motion.div 
+                          <div 
                             key={i} 
-                            initial={{ rotateX: -15, opacity: 0, translateY: 15 }}
-                            animate={{ rotateX: 0, opacity: 1, translateY: 0 }}
-                            transition={{ 
-                              duration: 0.5, 
-                              delay: i * 0.08,
-                              ease: "easeOut"
-                            }}
                             onClick={() => navigate(item.path)}
-                            className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} py-3 px-3.5 rounded-[1.4rem] flex items-center gap-3 shadow-md shadow-slate-200/35 cursor-pointer active:scale-95 transition-all group/wallet hover:shadow-lg hover:-translate-y-0.5 border-t border-white/20`}
+                            className="relative flex items-center w-full h-16 cursor-pointer group/wallet active:scale-95 transition-all"
                           >
-                            {/* Wallet Closure Strap Design */}
-                            <motion.div 
-                              initial={{ x: 20, opacity: 0 }}
-                              animate={{ x: 0, opacity: 1 }}
-                              transition={{ delay: i * 0.08 + 0.3, type: "spring", stiffness: 200, damping: 15 }}
-                              className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-8 bg-black/5 backdrop-blur-sm border-l border-t border-b border-white/20 rounded-l-lg z-0 transition-all group-hover/wallet:w-7" 
-                            />
+                            {/* Left Side: Nested circular badge like the attached image */}
                             <motion.div 
                               initial={{ scale: 0, opacity: 0 }}
                               animate={{ scale: 1, opacity: 1 }}
-                              transition={{ delay: i * 0.08 + 0.5 }}
-                              className="absolute right-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white/40 rounded-full z-10 shadow-sm border border-white/20" 
-                            />
-
-                            {/* Subtle Texture for Wallet Feel */}
-                            <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/leather.png')]" />
-
-                            {/* Left Side: Icon Container */}
-                            <div className="w-8.5 h-8.5 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/25 shadow-inner shrink-0 relative z-10 group-hover/wallet:scale-105 transition-transform duration-250">
-                              <item.icon className="w-4.5 h-4.5 text-white" />
-                            </div>
-
-                            {/* Right Side: Text & Value */}
-                            <div className="min-w-0 flex-1 relative z-10 flex flex-col pr-4">
-                              <p className="text-[7.5px] font-black text-white/80 uppercase tracking-[0.16em] leading-none mb-1">
-                                {item.name}
-                              </p>
-                              <div className="flex items-baseline gap-0.5">
-                                <span className="text-[7px] font-black text-white/50 italic leading-none">Rp</span>
-                                <span className="text-[11.5px] sm:text-[12.5px] font-black text-white tracking-tight leading-none uppercase truncate">
-                                  <RollingNumber value={item.value} />
-                                </span>
+                              transition={{ 
+                                type: "spring",
+                                stiffness: 220,
+                                damping: 18,
+                                delay: i * 0.12
+                              }}
+                              className={`absolute left-0 w-14 h-14 rounded-full bg-gradient-to-br ${item.gradient} flex items-center justify-center z-10 shadow-md shadow-slate-200/50 group-hover/wallet:scale-105 transition-transform duration-300`}
+                            >
+                              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-inner">
+                                <item.icon className={`w-5.5 h-5.5 ${item.textColorClass}`} />
                               </div>
-                            </div>
-                          </motion.div>
+                            </motion.div>
+ 
+                            {/* Right Side: Text & Value Pill - Horizontally Split */}
+                            <motion.div 
+                              initial={{ x: -25, opacity: 0, scaleX: 0.6 }}
+                              animate={{ x: 0, opacity: 1, scaleX: 1 }}
+                              transition={{ 
+                                type: "spring",
+                                stiffness: 140,
+                                damping: 16,
+                                delay: i * 0.12 + 0.25
+                              }}
+                              style={{ originX: 0 }}
+                              className="w-full h-11 rounded-full overflow-hidden flex flex-col border border-slate-100 shadow-sm group-hover/wallet:border-slate-200/50 transition-all duration-300"
+                            >
+                              {/* Top Row: Title with matching Logo Gradient Background */}
+                              <div className={`h-[35%] bg-gradient-to-r ${item.gradient} flex items-center justify-center pl-15 pr-4`}>
+                                <p className="text-[7.5px] sm:text-[8px] font-black text-white uppercase tracking-[0.16em] leading-none text-center">
+                                  {item.name}
+                                </p>
+                              </div>
+                              {/* Bottom Row: Nominal with Neutral Background */}
+                              <div className="h-[65%] bg-slate-50 flex items-center justify-center pl-15 pr-4 group-hover/wallet:bg-white transition-colors duration-300">
+                                <div className="flex items-center justify-center gap-0.5 w-full">
+                                  <span className={`text-[7px] font-black ${item.textColorClass}/80 italic leading-none`}>Rp</span>
+                                  <span className={`text-[12px] sm:text-[13px] font-black ${item.textColorClass} tracking-tight leading-none uppercase truncate text-center`}>
+                                    <RollingNumber value={item.value} />
+                                  </span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          </div>
                         );
                       })}
                     </div>
@@ -13723,6 +13687,7 @@ export default function App() {
   const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [savingsTransactions, setSavingsTransactions] = useState<SavingTransaction[]>([]);
   const [debtTransactions, setDebtTransactions] = useState<DebtTransaction[]>([]);
@@ -14331,7 +14296,7 @@ export default function App() {
               customers={customers} 
               loggedInUser={loggedInUser} 
               onLogin={handleLogin} 
-              onLogout={handleLogout} 
+              onLogout={() => setShowLogoutConfirm(true)} 
               setActiveTab={setActiveTab}
               isLoading={isLoading}
               salesTransactions={salesTransactions}
@@ -14352,7 +14317,7 @@ export default function App() {
               activeTab={activeTab} 
               setActiveTab={setActiveTab} 
               loggedInUser={loggedInUser}
-              onLogout={handleLogout}
+              onLogout={() => setShowLogoutConfirm(true)}
               salesTransactions={salesTransactions}
               investmentTransactions={investmentTransactions}
               customers={customers}
@@ -14376,7 +14341,7 @@ export default function App() {
               activeTab={activeTab} 
               setActiveTab={setActiveTab} 
               loggedInUser={loggedInUser}
-              onLogout={handleLogout}
+              onLogout={() => setShowLogoutConfirm(true)}
               salesTransactions={salesTransactions}
               investmentTransactions={investmentTransactions}
               customers={customers}
@@ -14400,7 +14365,7 @@ export default function App() {
               activeTab={activeTab} 
               setActiveTab={setActiveTab} 
               loggedInUser={loggedInUser}
-              onLogout={handleLogout}
+              onLogout={() => setShowLogoutConfirm(true)}
               salesTransactions={salesTransactions}
               investmentTransactions={investmentTransactions}
               customers={customers}
@@ -14752,6 +14717,52 @@ export default function App() {
                     <MessageCircle className="w-4 h-4" /> Kirim WA
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLogoutConfirm(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              className="relative w-full max-w-md bg-white rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl overflow-hidden px-6 py-6 z-[210]"
+            >
+              <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-6 sm:hidden" />
+              
+              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <LogOut className="w-8 h-8 text-rose-500" />
+              </div>
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-2 text-center">Konfirmasi Keluar</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6 leading-relaxed text-center">
+                Apakah Anda yakin ingin keluar dari akun {loggedInUser?.Nama}?
+              </p>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <button 
+                  onClick={() => {
+                    handleLogout();
+                    setShowLogoutConfirm(false);
+                  }}
+                  className="w-full bg-rose-505 bg-rose-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-100 active:scale-95 transition-transform cursor-pointer"
+                >
+                  Ya, Keluar
+                </button>
+                <button 
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="w-full bg-slate-50 text-slate-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform cursor-pointer"
+                >
+                  Batal
+                </button>
               </div>
             </motion.div>
           </div>
