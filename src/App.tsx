@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { BrowserRouter, Routes, Route, useNavigate, Link, useParams, useLocation, useSearchParams, Navigate } from "react-router-dom";
 import Papa from "papaparse";
@@ -2174,7 +2175,7 @@ const ScrollToTop = () => {
 const PageTransition = ({ children }: { children: React.ReactNode }) => (
   <motion.div
     initial={{ opacity: 0, y: 20, scale: 0.98, filter: "blur(4px)" }}
-    animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
+    animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)", transitionEnd: { transform: "none" } }}
     exit={{ opacity: 0, y: -20, scale: 0.98, filter: "blur(4px)" }}
     transition={{ 
       duration: 0.5, 
@@ -9217,40 +9218,37 @@ const CatalogPage = ({
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      {/* Sticky Header Section */}
-      <div className="sticky top-0 z-[40] bg-slate-50/80 backdrop-blur-md border-b border-slate-200">
-        <div className="pt-3.5 pb-3.5 px-6 max-w-7xl mx-auto">
-          <div className="flex flex-col gap-3">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-[#F15A24] text-[10px] font-black uppercase tracking-[0.2em] mb-0.5">Katalog Produk</p>
-                <h1 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Daftar Barang</h1>
-              </div>
-            </div>
+      {/* Static Header Section */}
+      <div className="pt-6 pb-2 px-6 max-w-7xl mx-auto">
+        <p className="text-[#F15A24] text-[10px] font-black uppercase tracking-[0.2em] mb-0.5">Katalog Produk</p>
+        <h1 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Daftar Barang</h1>
+      </div>
 
-            <div className="flex items-center gap-2">
-              <div className="flex-1 min-w-0 bg-white p-2 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2 sm:gap-3">
-                <Search className="w-5 h-5 text-slate-300 shrink-0" />
-                <input 
-                  type="text" 
-                  placeholder="Cari barang..." 
-                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <div className="w-[1px] h-4 bg-slate-200 mx-0.5 shrink-0" />
-                <div className="relative shrink-0 max-w-[80px] sm:max-w-none">
-                  <select 
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="appearance-none bg-transparent border-none outline-none text-[10px] font-black text-[#005E6A] uppercase tracking-tight cursor-pointer pr-4 w-full truncate"
-                  >
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-3 h-3 absolute right-0 top-1/2 -translate-y-1/2 text-[#005E6A] pointer-events-none" />
-                </div>
+      {/* Sticky Search Section */}
+      <div className="sticky top-20 z-[40] bg-slate-50/80 backdrop-blur-md border-b border-slate-200 py-3">
+        <div className="px-6 max-w-7xl mx-auto">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0 bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2 sm:gap-3">
+              <Search className="w-5 h-5 text-slate-300 shrink-0" />
+              <input 
+                type="text" 
+                placeholder="Cari barang..." 
+                className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <div className="w-[1px] h-5 bg-slate-200 mx-0.5 shrink-0" />
+              <div className="relative shrink-0 max-w-[80px] sm:max-w-none">
+                <select 
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="appearance-none bg-transparent border-none outline-none text-[10px] font-black text-[#005E6A] uppercase tracking-tight cursor-pointer pr-4 w-full truncate"
+                >
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3 h-3 absolute right-0 top-1/2 -translate-y-1/2 text-[#005E6A] pointer-events-none" />
               </div>
             </div>
           </div>
@@ -11387,7 +11385,84 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
   const [activeTab, setActiveTab] = useState<"trend" | "rincian">("trend");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTransaction, setSelectedTransaction] = useState<SalesTransaction | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+  const handleShare = async () => {
+    if (!selectedTransaction) return;
+    
+    const itemsText = parseItems(selectedTransaction.Jenis, selectedTransaction.Pemasukan)
+      .map(item => `- ${item.qty}x ${item.name} (Rp ${formatCurrency(item.qty * (item.price || selectedTransaction.Pemasukan / item.qty))})`)
+      .join('\n');
+
+    const shareText = `*NOTA TRANSAKSI WARUNG TOMI*
+-----------------------------
+ID: ${selectedTransaction.id_transaksi || selectedTransaction.id || `TRX-${selectedTransaction.Tanggal.replace(/[^0-9]/g, '').slice(0, 12)}`}
+Tanggal: ${selectedTransaction.Tanggal}
+Pelanggan: ${selectedTransaction.Nama || "Pelanggan Umum"}
+Metode: ${selectedTransaction.Metode || "Tunai"}
+Status: ${selectedTransaction.Status}
+-----------------------------
+*Daftar Belanja:*
+${itemsText}
+-----------------------------
+*Grand Total: Rp ${formatCurrency(selectedTransaction.Pemasukan)}*
+Terima kasih telah berbelanja di Warung Tomi!`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Nota Transaksi Warung Tomi',
+          text: shareText,
+        });
+      } catch (error) {
+        try {
+          await navigator.clipboard.writeText(shareText);
+          setShareCopied(true);
+          setTimeout(() => setShareCopied(false), 2000);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareText);
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const parseItems = (jenis: string, total: number) => {
+    const items: { qty: number; name: string; price?: number }[] = [];
+    const parts = jenis.split(',').map(p => p.trim());
+    
+    parts.forEach(part => {
+      if (!part) return;
+      const match = part.match(/^(\d+)\s*x\s*(.+)$/i) || part.match(/^(.+?)\s*x\s*(\d+)$/i);
+      if (match) {
+        const isQtyFirst = !isNaN(Number(match[1]));
+        const qty = isQtyFirst ? Number(match[1]) : Number(match[2]);
+        const name = isQtyFirst ? match[2].trim() : match[1].trim();
+        items.push({ qty, name });
+      } else {
+        items.push({ qty: 1, name: part });
+      }
+    });
+
+    if (items.length === 1 && total > 0) {
+      items[0].price = total / items[0].qty;
+    } else if (items.length > 1 && total > 0) {
+      items.forEach(item => {
+        item.price = total / items.reduce((acc, curr) => acc + curr.qty, 0);
+      });
+    }
+    
+    return items;
+  };
   
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState<{ month: number, year: number }>({ 
@@ -11607,472 +11682,654 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
     <ProtectedPage user={user} title="Riwayat">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="px-6 py-4"
+        animate={{ opacity: 1, y: 0, transitionEnd: { transform: "none" } }}
+        className="px-6 pt-3 pb-4"
       >
+        {/* Top Stationary Section */}
+        <div className="sticky top-20 z-0 bg-slate-50 pt-2 pb-1">
+          {/* Tabs */}
+          <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-2xl">
+            <button 
+              onClick={() => setActiveTab("trend")}
+              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "trend" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
+            >
+              Trend
+            </button>
+            <button 
+              onClick={() => setActiveTab("rincian")}
+              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "rincian" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
+            >
+              Rincian
+            </button>
+          </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-2xl">
-          <button 
-            onClick={() => setActiveTab("trend")}
-            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "trend" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
-          >
-            Trend
-          </button>
-          <button 
-            onClick={() => setActiveTab("rincian")}
-            className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "rincian" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
-          >
-            Rincian
-          </button>
+          {activeTab === "trend" ? (
+            <div className="mb-2">
+              {/* 6-Month Trend Chart with Integrated Total */}
+              <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 mb-2 relative overflow-hidden">
+                <div className="relative z-10 mb-6 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Transaksi {selectedMonthLabel}</p>
+                    <h4 className="text-xl font-black text-[#005E6A]">
+                      Rp {formatCurrency(totalSelectedMonth)}
+                    </h4>
+                  </div>
+                  <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-[#005E6A]" />
+                  </div>
+                </div>
+
+                <div 
+                  ref={scrollContainerRef}
+                  className="h-48 w-full relative z-10 overflow-x-auto no-scrollbar scroll-smooth"
+                >
+                  <div className="h-full min-w-[450px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData} barCategoryGap="15%">
+                        <defs>
+                          <linearGradient id="barGradientTrend" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#F15A24" stopOpacity={1} />
+                            <stop offset="100%" stopColor="#F15A24" stopOpacity={0.4} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226,232,240,0.4)" />
+                        <XAxis 
+                          dataKey="label" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fill: '#64748B', fontSize: 9, fontWeight: 900 }}
+                          dy={10}
+                        />
+                        <Tooltip 
+                          cursor={{ fill: 'rgba(0,94,106,0.03)' }}
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xl text-[10px] font-black">
+                                  <p className="text-slate-400 uppercase mb-1">{payload[0].payload.label}</p>
+                                  <p className="text-[#F15A24] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Bar 
+                          dataKey="total" 
+                          radius={[6, 6, 6, 6]} 
+                          barSize={12}
+                          animationDuration={1500}
+                        >
+                          {chartData.map((entry, index) => {
+                            const isActive = entry.month === selectedMonth.month && entry.year === selectedMonth.year;
+                            return (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={isActive ? "#005E6A" : "url(#barGradientTrend)"}
+                                style={{
+                                  filter: isActive ? 'drop-shadow(0 0 10px rgba(0, 94, 106, 0.35))' : 'none',
+                                  transition: 'all 0.5s ease'
+                                }}
+                              />
+                            );
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-2">
+              {/* Pie Chart Section with Integrated Total */}
+              <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-slate-100 mb-2 relative overflow-hidden">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Belanja {selectedMonthLabel}</p>
+                    <h4 className="text-xl font-black text-[#005E6A]">
+                      Rp {formatCurrency(totalSelectedMonth)}
+                    </h4>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-2xl">
+                    <PieChart className="w-5 h-5 text-[#005E6A]" />
+                  </div>
+                </div>
+
+                {pieData.length > 0 && (
+                  <div className="mb-4 bg-orange-50/50 p-3 rounded-2xl border border-orange-100/50">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-3 h-3 text-[#F15A24]" />
+                      <p className="text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
+                        Terpopuler: {pieData[0].name} ({Math.round(pieData[0].percentage)}%)
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="h-48 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={70}
+                        paddingAngle={5}
+                        dataKey="value"
+                        animationDuration={1500}
+                      >
+                        {pieData.map((entry: any, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-50 text-[10px] font-black">
+                                <p className="text-slate-400 uppercase mb-1">{payload[0].name}</p>
+                                <p className="text-[#005E6A] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-4 px-2">
+                  {pieData.sort((a,b) => b.value - a.value).map((item: any, i) => (
+                    <div key={i} className="flex items-center justify-between border-b border-slate-50 pb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                        <p className="text-[8px] font-black text-slate-500 uppercase truncate">{item.name}</p>
+                      </div>
+                      <p className="text-[8px] font-black text-slate-400">{Math.round(item.percentage)}%</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {activeTab === "trend" ? (
-          <div className="mb-8">
-            {/* 6-Month Trend Chart with Integrated Total */}
-            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 mb-6 relative overflow-hidden">
-              <div className="relative z-10 mb-6 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Transaksi {selectedMonthLabel}</p>
-                  <h4 className="text-xl font-black text-[#005E6A]">
-                    Rp {formatCurrency(totalSelectedMonth)}
-                  </h4>
-                </div>
-                <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-[#005E6A]" />
-                </div>
-              </div>
-
-              <div 
-                ref={scrollContainerRef}
-                className="h-48 w-full relative z-10 overflow-x-auto no-scrollbar scroll-smooth"
-              >
-                <div className="h-full min-w-[450px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} barCategoryGap="15%">
-                    <defs>
-                      <linearGradient id="barGradientTrend" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#F15A24" stopOpacity={1} />
-                        <stop offset="100%" stopColor="#F15A24" stopOpacity={0.4} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226,232,240,0.4)" />
-                    <XAxis 
-                      dataKey="label" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#64748B', fontSize: 9, fontWeight: 900 }}
-                      dy={10}
-                    />
-                    <Tooltip 
-                      cursor={{ fill: 'rgba(0,94,106,0.03)' }}
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xl text-[10px] font-black">
-                              <p className="text-slate-400 uppercase mb-1">{payload[0].payload.label}</p>
-                              <p className="text-[#F15A24] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Bar 
-                      dataKey="total" 
-                      radius={[6, 6, 6, 6]} 
-                      barSize={12}
-                      animationDuration={1500}
-                    >
-                      {chartData.map((entry, index) => {
-                        const isActive = entry.month === selectedMonth.month && entry.year === selectedMonth.year;
-                        return (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={isActive ? "#005E6A" : "url(#barGradientTrend)"}
-                            style={{
-                              filter: isActive ? 'drop-shadow(0 0 10px rgba(0, 94, 106, 0.35))' : 'none',
-                              transition: 'all 0.5s ease'
-                            }}
-                          />
-                        );
-                      })}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-            {/* Month Tabs */}
-            <div ref={tabContainerRef1} className="relative flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-4 snap-x">
-              {chartData.map((m, i) => {
-                const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
-                return (
-                  <button
-                    key={i}
-                    data-active={isActive}
-                    onClick={() => handleMonthChange({ month: m.month, year: m.year })}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap snap-start transition-all duration-200 border ${
-                      isActive 
-                        ? 'bg-[#005E6A] text-white border-[#005E6A] shadow-sm' 
-                        : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Swipeable Container */}
-            <AnimatePresence initial={false} mode="popLayout" custom={swipeDirection}>
-              <motion.div
-                key={`${selectedMonth.month}-${selectedMonth.year}`}
-                custom={swipeDirection}
-                variants={{
-                  enter: (dir: number) => ({
-                    x: dir > 0 ? 120 : -120,
-                    opacity: 0
-                  }),
-                  center: {
-                    x: 0,
-                    opacity: 1
-                  },
-                  exit: (dir: number) => ({
-                    x: dir < 0 ? 120 : -120,
-                    opacity: 0
-                  })
-                }}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ type: "spring", stiffness: 350, damping: 32 }}
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.4}
-                onDragEnd={(e, info) => {
-                  const swipeThreshold = 55;
-                  const currentIndex = chartData.findIndex(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
-                  if (info.offset.x < -swipeThreshold) {
-                    // Swiped left -> Next month (if exists)
-                    if (currentIndex < chartData.length - 1) {
-                      const nextMonth = chartData[currentIndex + 1];
-                      handleMonthChange({ month: nextMonth.month, year: nextMonth.year });
-                    }
-                  } else if (info.offset.x > swipeThreshold) {
-                    // Swiped right -> Previous month (if exists)
-                    if (currentIndex > 0) {
-                      const prevMonth = chartData[currentIndex - 1];
-                      handleMonthChange({ month: prevMonth.month, year: prevMonth.year });
-                    }
-                  }
-                }}
-                className="space-y-4 touch-pan-y active:cursor-grabbing"
-              >
-                {filteredTransactions.length > 0 ? (
-                  filteredTransactions.map((item, i) => {
-                    let service = MAIN_SERVICES.find(s => 
-                      item.Jenis.toLowerCase().includes(s.name.toLowerCase()) || 
-                      s.name.toLowerCase().includes(item.Jenis.toLowerCase())
-                    );
-
-                    const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
-                      item.Jenis.toLowerCase().includes(wallet.toLowerCase())
-                    );
-
-                    if (isEWalletTopup) {
-                      service = MAIN_SERVICES.find(s => s.name === "E-Walet");
-                    }
-                    
-                    const IconComponent = service ? (service.icon as any).type : ShoppingBag;
-                    const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
-                    const bgColorClass = service ? service.bgColor : 'bg-blue-50';
-
-                    const getStatusColor = (status: string) => {
-                      const s = status.toLowerCase();
-                      if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
-                      if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
-                      if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
-                      if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
-                      return 'bg-slate-400/10 text-slate-500';
-                    };
-
+        {/* Bottom Scrollable Section */}
+        <div className="relative z-10 bg-slate-50 min-h-screen pt-2 pb-24 -mx-6 px-6">
+          {activeTab === "trend" ? (
+            <div>
+              {/* Sticky Month Tabs */}
+              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 mb-4">
+                <div ref={tabContainerRef1} className="relative flex gap-2 overflow-x-auto no-scrollbar snap-x">
+                  {chartData.map((m, i) => {
+                    const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
                     return (
-                      <div key={i} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm relative overflow-hidden">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bgColorClass}`}>
-                            <IconComponent className={`w-5 h-5 ${iconColorClass}`} />
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-slate-800">{item.Jenis}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <p className="text-[8px] text-slate-400 uppercase tracking-widest">{item.Tanggal}</p>
-                              <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full w-fit ${getStatusColor(item.Status)}`}>
-                                {item.Status}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right pr-2">
-                          <p className="text-xs font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
-                        </div>
-                        {Math.floor(item.Pemasukan / 10000) > 0 && (
-                          <div className="absolute bottom-0 right-0 w-20 py-1 rounded-tl-2xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm flex justify-center items-center bg-[#F15A24]">
-                            +{Math.floor(item.Pemasukan / 10000)} Poin
-                          </div>
-                        )}
-                      </div>
+                      <button
+                        key={i}
+                        data-active={isActive}
+                        onClick={() => handleMonthChange({ month: m.month, year: m.year })}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap snap-start transition-all duration-200 border ${
+                          isActive 
+                            ? 'bg-[#005E6A] text-white border-[#005E6A] shadow-sm' 
+                            : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
                     );
-                  })
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-10 opacity-20">
-                    <History className="w-10 h-10 mb-2" />
-                    <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi</p>
-                  </div>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        ) : (
-          <div className="mb-8">
-            {/* Pie Chart Section with Integrated Total */}
-            <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-slate-100 mb-6 relative overflow-hidden">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Belanja {selectedMonthLabel}</p>
-                  <h4 className="text-xl font-black text-[#005E6A]">
-                    Rp {formatCurrency(totalSelectedMonth)}
-                  </h4>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-2xl">
-                  <PieChart className="w-5 h-5 text-[#005E6A]" />
+                  })}
                 </div>
               </div>
 
-              {pieData.length > 0 && (
-                <div className="mb-4 bg-orange-50/50 p-3 rounded-2xl border border-orange-100/50">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-3 h-3 text-[#F15A24]" />
-                    <p className="text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
-                      Terpopuler: {pieData[0].name} ({Math.round(pieData[0].percentage)}%)
-                    </p>
-                  </div>
-                </div>
-              )}
-              
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={70}
-                      paddingAngle={5}
-                      dataKey="value"
-                      animationDuration={1500}
-                    >
-                      {pieData.map((entry: any, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-50 text-[10px] font-black">
-                              <p className="text-slate-400 uppercase mb-1">{payload[0].name}</p>
-                              <p className="text-[#005E6A] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-4 px-2">
-                {pieData.sort((a,b) => b.value - a.value).map((item: any, i) => (
-                  <div key={i} className="flex items-center justify-between border-b border-slate-50 pb-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                      <p className="text-[8px] font-black text-slate-500 uppercase truncate">{item.name}</p>
-                    </div>
-                    <p className="text-[8px] font-black text-slate-400">{Math.round(item.percentage)}%</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Month Tabs */}
-            <div ref={tabContainerRef2} className="relative flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-4 snap-x">
-              {chartData.map((m, i) => {
-                const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
-                return (
-                  <button
-                    key={i}
-                    data-active={isActive}
-                    onClick={() => handleMonthChange({ month: m.month, year: m.year })}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap snap-start transition-all duration-200 border ${
-                      isActive 
-                        ? 'bg-[#005E6A] text-white border-[#005E6A] shadow-sm' 
-                        : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Swipeable Container */}
-            <AnimatePresence initial={false} mode="popLayout" custom={swipeDirection}>
-              <motion.div
-                key={`${selectedMonth.month}-${selectedMonth.year}`}
-                custom={swipeDirection}
-                variants={{
-                  enter: (dir: number) => ({
-                    x: dir > 0 ? 120 : -120,
-                    opacity: 0
-                  }),
-                  center: {
-                    x: 0,
-                    opacity: 1
-                  },
-                  exit: (dir: number) => ({
-                    x: dir < 0 ? 120 : -120,
-                    opacity: 0
-                  })
-                }}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ type: "spring", stiffness: 350, damping: 32 }}
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.4}
-                onDragEnd={(e, info) => {
-                  const swipeThreshold = 55;
-                  const currentIndex = chartData.findIndex(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
-                  if (info.offset.x < -swipeThreshold) {
-                    // Swiped left -> Next month (if exists)
-                    if (currentIndex < chartData.length - 1) {
-                      const nextMonth = chartData[currentIndex + 1];
-                      handleMonthChange({ month: nextMonth.month, year: nextMonth.year });
+              {/* Swipeable Container */}
+              <AnimatePresence initial={false} mode="popLayout" custom={swipeDirection}>
+                <motion.div
+                  key={`${selectedMonth.month}-${selectedMonth.year}`}
+                  custom={swipeDirection}
+                  variants={{
+                    enter: (dir: number) => ({
+                      x: dir > 0 ? 120 : -120,
+                      opacity: 0
+                    }),
+                    center: {
+                      x: 0,
+                      opacity: 1
+                    },
+                    exit: (dir: number) => ({
+                      x: dir < 0 ? 120 : -120,
+                      opacity: 0
+                    })
+                  }}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ type: "spring", stiffness: 350, damping: 32 }}
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.4}
+                  onDragEnd={(e, info) => {
+                    const swipeThreshold = 55;
+                    const currentIndex = chartData.findIndex(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
+                    if (info.offset.x < -swipeThreshold) {
+                      // Swiped left -> Next month (if exists)
+                      if (currentIndex < chartData.length - 1) {
+                        const nextMonth = chartData[currentIndex + 1];
+                        handleMonthChange({ month: nextMonth.month, year: nextMonth.year });
+                      }
+                    } else if (info.offset.x > swipeThreshold) {
+                      // Swiped right -> Previous month (if exists)
+                      if (currentIndex > 0) {
+                        const prevMonth = chartData[currentIndex - 1];
+                        handleMonthChange({ month: prevMonth.month, year: prevMonth.year });
+                      }
                     }
-                  } else if (info.offset.x > swipeThreshold) {
-                    // Swiped right -> Previous month (if exists)
-                    if (currentIndex > 0) {
-                      const prevMonth = chartData[currentIndex - 1];
-                      handleMonthChange({ month: prevMonth.month, year: prevMonth.year });
-                    }
-                  }
-                }}
-                className="space-y-3 touch-pan-y active:cursor-grabbing"
-              >
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Kategori Transaksi</h3>
-                {Object.entries(groupedTransactions).length > 0 ? (
-                  Object.entries(groupedTransactions)
-                    .sort(([, a], [, b]) => (b as any).total - (a as any).total)
-                    .map(([jenis, data]: [string, any], idx) => {
-                    // Find matching service for icon and color
-                    let service = MAIN_SERVICES.find(s => 
-                      jenis.toLowerCase().includes(s.name.toLowerCase()) || 
-                      s.name.toLowerCase().includes(jenis.toLowerCase())
-                    );
+                  }}
+                  className="space-y-4 touch-pan-y active:cursor-grabbing"
+                >
+                  {filteredTransactions.length > 0 ? (
+                    filteredTransactions.map((item, i) => {
+                      let service = MAIN_SERVICES.find(s => 
+                        item.Jenis.toLowerCase().includes(s.name.toLowerCase()) || 
+                        s.name.toLowerCase().includes(item.Jenis.toLowerCase())
+                      );
 
-                    const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
-                      jenis.toLowerCase().includes(wallet.toLowerCase())
-                    );
+                      const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
+                        item.Jenis.toLowerCase().includes(wallet.toLowerCase())
+                      );
 
-                    if (isEWalletTopup) {
-                      service = MAIN_SERVICES.find(s => s.name === "E-Walet");
-                    }
-                    
-                    const IconComponent = service ? (service.icon as any).type : ShoppingBag;
-                    const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
-                    const bgColorClass = service ? service.bgColor : 'bg-blue-50';
+                      if (isEWalletTopup) {
+                        service = MAIN_SERVICES.find(s => s.name === "E-Walet");
+                      }
+                      
+                      const IconComponent = service ? (service.icon as any).type : ShoppingBag;
+                      const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
+                      const bgColorClass = service ? service.bgColor : 'bg-blue-50';
 
-                    const getStatusColor = (status: string) => {
-                      const s = status.toLowerCase();
-                      if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
-                      if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
-                      if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
-                      if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
-                      return 'bg-slate-400/10 text-slate-500';
-                    };
+                      const getStatusColor = (status: string) => {
+                        const s = status.toLowerCase();
+                        if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
+                        if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
+                        if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
+                        if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
+                        return 'bg-slate-400/10 text-slate-500';
+                      };
 
-                    return (
-                      <div key={jenis} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                        <button 
-                          onClick={() => toggleGroup(jenis)}
-                          className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                      return (
+                        <div 
+                          key={i} 
+                          onClick={() => setSelectedTransaction(item)}
+                          className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm relative overflow-hidden cursor-pointer hover:bg-slate-50/80 transition-colors active:scale-[0.99] duration-150"
                         >
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bgColorClass}`}>
-                              <IconComponent className={`w-4 h-4 ${iconColorClass}`} />
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bgColorClass}`}>
+                              <IconComponent className={`w-5 h-5 ${iconColorClass}`} />
                             </div>
-                            <div className="text-left">
-                              <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{jenis}</p>
-                              <p className="text-[9px] text-slate-400 font-bold">{data.items.length} Transaksi</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <p className="text-xs font-black text-[#005E6A]">Rp {formatCurrency(data.total)}</p>
-                            {expandedGroups.includes(jenis) ? <ChevronUp className="w-4 h-4 text-slate-300" /> : <ChevronDown className="w-4 h-4 text-slate-300" />}
-                          </div>
-                        </button>
-
-                        <AnimatePresence>
-                          {expandedGroups.includes(jenis) && (
-                            <motion.div 
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="border-t border-slate-50 bg-slate-50/30"
-                            >
-                              <div className="p-2 space-y-2">
-                                {data.items.map((item, i) => (
-                                  <div key={i} className="bg-white/50 p-3 rounded-xl flex items-center justify-between">
-                                    <div>
-                                      <div className="flex items-center gap-2">
-                                        <p className="text-[10px] font-bold text-slate-600">{item.Tanggal}</p>
-                                        <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${getStatusColor(item.Status)}`}>
-                                          {item.Status}
-                                        </p>
-                                      </div>
-                                      {Math.floor(item.Pemasukan / 10000) > 0 && (
-                                        <p className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest mt-1">+{Math.floor(item.Pemasukan / 10000)} Poin</p>
-                                      )}
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-[10px] font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
-                                    </div>
-                                  </div>
-                                ))}
+                            <div>
+                              <p className="text-xs font-bold text-slate-800">{item.Jenis}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <p className="text-[8px] text-slate-400 uppercase tracking-widest">{item.Tanggal}</p>
+                                <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full w-fit ${getStatusColor(item.Status)}`}>
+                                  {item.Status}
+                                </p>
                               </div>
-                            </motion.div>
+                            </div>
+                          </div>
+                          <div className="text-right pr-2">
+                            <p className="text-xs font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
+                          </div>
+                          {Math.floor(item.Pemasukan / 10000) > 0 && (
+                            <div className="absolute bottom-0 right-0 w-20 py-1 rounded-tl-2xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm flex justify-center items-center bg-[#F15A24]">
+                              +{Math.floor(item.Pemasukan / 10000)} Poin
+                            </div>
                           )}
-                        </AnimatePresence>
-                      </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-10 opacity-20">
+                      <History className="w-10 h-10 mb-2" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi</p>
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          ) : (
+            <div>
+              {/* Sticky Month Tabs */}
+              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 mb-4">
+                <div ref={tabContainerRef2} className="relative flex gap-2 overflow-x-auto no-scrollbar snap-x">
+                  {chartData.map((m, i) => {
+                    const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
+                    return (
+                      <button
+                        key={i}
+                        data-active={isActive}
+                        onClick={() => handleMonthChange({ month: m.month, year: m.year })}
+                        className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap snap-start transition-all duration-200 border ${
+                          isActive 
+                            ? 'bg-[#005E6A] text-white border-[#005E6A] shadow-sm' 
+                            : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
                     );
-                  })
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-10 opacity-20">
-                    <History className="w-10 h-10 mb-2" />
-                    <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada kategori transaksi</p>
-                  </div>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-        )}
+                  })}
+                </div>
+              </div>
+
+              {/* Swipeable Container */}
+              <AnimatePresence initial={false} mode="popLayout" custom={swipeDirection}>
+                <motion.div
+                  key={`${selectedMonth.month}-${selectedMonth.year}`}
+                  custom={swipeDirection}
+                  variants={{
+                    enter: (dir: number) => ({
+                      x: dir > 0 ? 120 : -120,
+                      opacity: 0
+                    }),
+                    center: {
+                      x: 0,
+                      opacity: 1
+                    },
+                    exit: (dir: number) => ({
+                      x: dir < 0 ? 120 : -120,
+                      opacity: 0
+                    })
+                  }}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ type: "spring", stiffness: 350, damping: 32 }}
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.4}
+                  onDragEnd={(e, info) => {
+                    const swipeThreshold = 55;
+                    const currentIndex = chartData.findIndex(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
+                    if (info.offset.x < -swipeThreshold) {
+                      // Swiped left -> Next month (if exists)
+                      if (currentIndex < chartData.length - 1) {
+                        const nextMonth = chartData[currentIndex + 1];
+                        handleMonthChange({ month: nextMonth.month, year: nextMonth.year });
+                      }
+                    } else if (info.offset.x > swipeThreshold) {
+                      // Swiped right -> Previous month (if exists)
+                      if (currentIndex > 0) {
+                        const prevMonth = chartData[currentIndex - 1];
+                        handleMonthChange({ month: prevMonth.month, year: prevMonth.year });
+                      }
+                    }
+                  }}
+                  className="space-y-3 touch-pan-y active:cursor-grabbing"
+                >
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Kategori Transaksi</h3>
+                  {Object.entries(groupedTransactions).length > 0 ? (
+                    Object.entries(groupedTransactions)
+                      .sort(([, a], [, b]) => (b as any).total - (a as any).total)
+                      .map(([jenis, data]: [string, any], idx) => {
+                      // Find matching service for icon and color
+                      let service = MAIN_SERVICES.find(s => 
+                        jenis.toLowerCase().includes(s.name.toLowerCase()) || 
+                        s.name.toLowerCase().includes(jenis.toLowerCase())
+                      );
+
+                      const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
+                        jenis.toLowerCase().includes(wallet.toLowerCase())
+                      );
+
+                      if (isEWalletTopup) {
+                        service = MAIN_SERVICES.find(s => s.name === "E-Walet");
+                      }
+                      
+                      const IconComponent = service ? (service.icon as any).type : ShoppingBag;
+                      const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
+                      const bgColorClass = service ? service.bgColor : 'bg-blue-50';
+
+                      const getStatusColor = (status: string) => {
+                        const s = status.toLowerCase();
+                        if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
+                        if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
+                        if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
+                        if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
+                        return 'bg-slate-400/10 text-slate-500';
+                      };
+
+                      return (
+                        <div key={jenis} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                          <button 
+                            onClick={() => toggleGroup(jenis)}
+                            className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bgColorClass}`}>
+                                <IconComponent className={`w-4 h-4 ${iconColorClass}`} />
+                              </div>
+                              <div className="text-left">
+                                <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{jenis}</p>
+                                <p className="text-[9px] text-slate-400 font-bold">{data.items.length} Transaksi</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <p className="text-xs font-black text-[#005E6A]">Rp {formatCurrency(data.total)}</p>
+                              {expandedGroups.includes(jenis) ? <ChevronUp className="w-4 h-4 text-slate-300" /> : <ChevronDown className="w-4 h-4 text-slate-300" />}
+                            </div>
+                          </button>
+
+                          <AnimatePresence>
+                            {expandedGroups.includes(jenis) && (
+                              <motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="border-t border-slate-50 bg-slate-50/30"
+                              >
+                                <div className="p-2 space-y-2">
+                                  {data.items.map((item, i) => (
+                                    <div 
+                                      key={i} 
+                                      onClick={() => setSelectedTransaction(item)}
+                                      className="bg-white/50 p-3 rounded-xl flex items-center justify-between cursor-pointer hover:bg-slate-100/70 transition-colors active:scale-[0.99] duration-150"
+                                    >
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-[10px] font-bold text-slate-600">{item.Tanggal}</p>
+                                          <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${getStatusColor(item.Status)}`}>
+                                            {item.Status}
+                                          </p>
+                                        </div>
+                                        {Math.floor(item.Pemasukan / 10000) > 0 && (
+                                          <p className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest mt-1">+{Math.floor(item.Pemasukan / 10000)} Poin</p>
+                                        )}
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-[10px] font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-10 opacity-20">
+                      <History className="w-10 h-10 mb-2" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada kategori transaksi</p>
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
 
       </motion.div>
+
+      {/* Invoice Modal Overlay */}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {selectedTransaction && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm print:p-0 print:bg-white">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="bg-white w-full max-w-sm p-6 shadow-2xl relative print:shadow-none print:p-4 print-receipt-modal border-x border-slate-100"
+              >
+                {/* Jagged top edge */}
+                <div className="absolute top-0 left-0 right-0 h-2 flex overflow-hidden -translate-y-[99%] select-none pointer-events-none print:hidden">
+                  {Array.from({ length: 40 }).map((_, i) => (
+                    <div key={i} className="w-3 h-3 bg-white rotate-45 shrink-0 translate-y-1.5 shadow-[0_-1px_1px_rgba(0,0,0,0.03)]" />
+                  ))}
+                </div>
+
+                {/* Jagged bottom edge */}
+                <div className="absolute bottom-0 left-0 right-0 h-2 flex overflow-hidden translate-y-[99%] select-none pointer-events-none print:hidden">
+                  {Array.from({ length: 40 }).map((_, i) => (
+                    <div key={i} className="w-3 h-3 bg-white rotate-45 shrink-0 -translate-y-1.5 shadow-[0_1px_1px_rgba(0,0,0,0.03)]" />
+                  ))}
+                </div>
+                
+                {/* Close Button (Hidden in print) */}
+                <button 
+                  onClick={() => setSelectedTransaction(null)}
+                  className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors print:hidden"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+
+                {/* Brand Header */}
+                <div className="text-center space-y-1 mb-6 pt-2 print:mb-4">
+                  <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-[#005E6A] mx-auto mb-3">
+                    <Receipt className="w-6 h-6" />
+                  </div>
+                  <h2 className="text-sm font-black text-[#005E6A] uppercase tracking-[0.2em]">WARUNG TOMI</h2>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                    Dusun Manis, RT009/RW005<br/>Desa Wilanagara, Kuningan
+                  </p>
+                  <div className="h-[1px] w-12 bg-slate-100 mx-auto my-2" />
+                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-wider">
+                    ID: {selectedTransaction.id_transaksi || selectedTransaction.id || `TRX-${selectedTransaction.Tanggal.replace(/[^0-9]/g, '').slice(0, 12)}`}
+                  </p>
+                </div>
+
+                {/* Invoice Meta Grid */}
+                <div className="grid grid-cols-2 gap-y-2 gap-x-4 border-y border-slate-100 py-3 mb-4 text-[9px]">
+                  <div>
+                    <p className="font-bold text-slate-400 uppercase tracking-wider">Tanggal</p>
+                    <p className="font-black text-slate-700 uppercase tracking-tight mt-0.5">{selectedTransaction.Tanggal}</p>
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-400 uppercase tracking-wider">Pelanggan</p>
+                    <p className="font-black text-[#005E6A] uppercase tracking-tight mt-0.5">{selectedTransaction.Nama || "Pelanggan Umum"}</p>
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-400 uppercase tracking-wider">Metode</p>
+                    <p className="font-black text-[#005E6A] uppercase tracking-tight mt-0.5">{selectedTransaction.Metode || "Tunai"}</p>
+                  </div>
+                  <div>
+                    <p className="font-bold text-slate-400 uppercase tracking-wider">Status</p>
+                    <p className="font-black text-[#005E6A] uppercase tracking-tight mt-0.5">{selectedTransaction.Status}</p>
+                  </div>
+                </div>
+
+                {/* Items Listing */}
+                <div className="space-y-3 mb-5">
+                  <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1.5">
+                    <span>Deskripsi Layanan / Produk</span>
+                    <span>Total</span>
+                  </div>
+                  
+                  <div className="space-y-2.5 max-h-[160px] overflow-y-auto no-scrollbar">
+                    {parseItems(selectedTransaction.Jenis, selectedTransaction.Pemasukan).map((item, idx) => (
+                      <div key={idx} className="flex justify-between items-baseline gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-black text-[#005E6A] uppercase truncate">{item.name}</p>
+                          {item.qty > 1 && item.price && (
+                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                              {item.qty} x Rp {formatCurrency(item.price)}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-black text-slate-700 shrink-0">
+                          Rp {formatCurrency(item.qty * (item.price || selectedTransaction.Pemasukan / item.qty))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Total & Points Summary */}
+                <div className="space-y-2 py-3.5 border-t border-dashed border-slate-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Grand Total</span>
+                    <span className="text-base font-black text-[#F15A24]">Rp {formatCurrency(selectedTransaction.Pemasukan)}</span>
+                  </div>
+                  {Math.floor(selectedTransaction.Pemasukan / 10000) > 0 && (
+                    <div className="flex justify-between items-center pt-0.5">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Poin Diperoleh</span>
+                      <span className="text-[8px] font-black text-white bg-[#F15A24] px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                        +{Math.floor(selectedTransaction.Pemasukan / 10000)} Poin
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center pt-0.5">
+                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Operator</span>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">
+                      {selectedTransaction.Melalui || "Sistem"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Thank you note */}
+                <div className="mt-5 text-center space-y-2">
+                  <p className="text-[8px] font-black text-[#005E6A] uppercase tracking-[0.2em]">TERIMA KASIH TELAH BERBELANJA</p>
+                  <div className="flex items-center justify-center gap-1.5 opacity-20">
+                    <Package className="w-2.5 h-2.5" />
+                    <span className="text-[7px] font-black uppercase tracking-widest">Belanja Hemat Setiap Hari</span>
+                    <Package className="w-2.5 h-2.5" />
+                  </div>
+                </div>
+
+                {/* Actions (Hidden in print) */}
+                <div className="mt-6 flex gap-3 print:hidden">
+                  {user ? (
+                    <button 
+                      onClick={handleShare}
+                      className="flex-1 py-2.5 bg-[#F15A24] text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 hover:scale-[1.02] transition-transform active:scale-98"
+                    >
+                      {shareCopied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+                      {shareCopied ? "Berhasil Disalin" : "Bagikan"}
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => window.print()}
+                      className="flex-1 py-2.5 bg-[#005E6A] text-white rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 hover:scale-[1.02] transition-transform active:scale-98"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      Cetak Nota
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setSelectedTransaction(null)}
+                    className="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-colors"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </ProtectedPage>
   );
 };
