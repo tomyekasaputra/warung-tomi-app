@@ -673,7 +673,7 @@ const Header = ({
 
   return (
     <>
-      <header className="bg-white/80 backdrop-blur-xl sticky top-0 z-50 border-b border-slate-100 shadow-sm transition-all duration-300">
+      <header className="bg-white/80 backdrop-blur-xl fixed top-0 left-0 right-0 z-50 border-b border-slate-100 shadow-sm transition-all duration-300">
         <div className="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
           <Link to="/" className="flex items-center gap-3 group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
             <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg border border-white bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-95 shadow-slate-200/50">
@@ -812,6 +812,7 @@ const Header = ({
           </div>
         </div>
       </header>
+      <div className="h-20" />
 
       {/* Agen BNI 46 Info Popup */}
       <AnimatePresence>
@@ -2286,7 +2287,9 @@ const ProtectedPage = ({
       >
         <div className="w-full max-w-sm bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-8 flex flex-col items-center relative">
           {/* Decorative Elements */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />
+          <div className="absolute inset-0 overflow-hidden rounded-[2.5rem] pointer-events-none">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />
+          </div>
           
           <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl shadow-slate-200/50 border-4 border-slate-50 overflow-hidden relative z-10">
             <img 
@@ -11921,23 +11924,15 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
 
       {/* Unified Profile Card */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-8 group">
-        <div className="bg-gradient-to-r from-[#00B4C4] to-[#005E6A] px-6 py-4 flex items-center justify-between">
-          <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.3em]">Identity Hub</p>
-          <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/10">
-            <CheckCircle2 className="w-3 h-3 text-cyan-200 fill-cyan-200/10" />
-            <span className="text-[9px] font-black text-white uppercase tracking-wider">Terverifikasi</span>
-          </div>
-        </div>
-        
         <div className="p-8 relative">
           {/* Decorative Elements */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />
           
           {/* Profile Header Section */}
-          <div className="flex flex-col items-center mb-10 relative">
+          <div className="flex flex-col items-center mb-6 relative">
             <div 
               onClick={handlePhotoClick}
-              className="w-28 h-28 rounded-[2rem] border-4 border-white shadow-2xl overflow-hidden bg-slate-100 mb-5 relative group flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-300 ring-1 ring-slate-100"
+              className="w-28 h-28 rounded-full border-4 border-white overflow-hidden bg-slate-100 mb-5 relative group flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-300 ring-1 ring-slate-100"
             >
               {user?.Foto ? (
                 <img src={user.Foto} alt={user.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -11948,24 +11943,129 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
                 <Camera className="w-8 h-8 text-white" />
               </div>
             </div>
-            
-            <button 
-              onClick={() => setShowQR(true)}
-              className="absolute top-0 right-0 w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-[#005E6A] shadow-lg shadow-slate-200/50 border border-slate-50 active:scale-90 transition-transform z-10 hover:bg-slate-50"
-            >
-              <QrCode className="w-6 h-6" />
-            </button>
 
             <h1 className="text-3xl font-black text-[#005E6A] uppercase tracking-tighter leading-none mb-1">{user?.Nama}</h1>
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Digital Merchant ID: WT-{Math.abs(user?.Nama?.length || 0)}-{user?.Nama?.substring(0,2).toUpperCase()}</p>
-            </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-100 space-y-8">
+          <div className="space-y-8">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Poin Saya Card */}
+              <div 
+                onClick={() => navigate(`/poin/${encodeURIComponent(user?.Nama || '')}`)}
+                className="relative flex items-center w-full h-16 cursor-pointer group/wallet active:scale-95 transition-all"
+              >
+                {/* Left Side: Nested circular badge */}
+                <motion.div 
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 220,
+                    damping: 18,
+                    delay: 0.1
+                  }}
+                  className="absolute left-0 w-14 h-14 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center z-10 shadow-md shadow-amber-200/50 group-hover/wallet:scale-105 transition-transform duration-300"
+                >
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-inner">
+                    <Star className="w-5.5 h-5.5 text-amber-500 fill-amber-500" />
+                  </div>
+                </motion.div>
+
+                {/* Right Side: Text & Value Pill - Horizontally Split */}
+                <motion.div 
+                  initial={{ x: -25, opacity: 0, scaleX: 0.6 }}
+                  animate={{ x: 0, opacity: 1, scaleX: 1 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 140,
+                    damping: 16,
+                    delay: 0.25
+                  }}
+                  style={{ originX: 0 }}
+                  className="w-full h-11 rounded-full overflow-hidden flex flex-col border border-slate-100 shadow-sm group-hover/wallet:border-amber-200/50 transition-all duration-300"
+                >
+                  {/* Top Row: Title with matching Logo Gradient Background */}
+                  <div className="h-[35%] bg-gradient-to-r from-amber-400 to-amber-600 flex items-center justify-center pl-15 pr-4">
+                    <p className="text-[7.5px] sm:text-[8px] font-black text-white uppercase tracking-[0.16em] leading-none text-center">
+                      Poin Saya
+                    </p>
+                  </div>
+
+                  {/* Bottom Row: Nominal with Neutral Background */}
+                  <div className="h-[65%] bg-slate-50 flex items-center justify-center pl-15 pr-4 group-hover/wallet:bg-white transition-colors duration-300">
+                    <div className="flex items-center justify-center gap-1 w-full px-1">
+                      <span className="text-[12px] sm:text-[13px] font-black text-amber-600 tracking-tight leading-none uppercase truncate text-center">
+                        {activePoints.toLocaleString('id-ID')}
+                      </span>
+                      <span className="text-[8px] font-black text-amber-600/80 uppercase tracking-wider leading-none shrink-0">Poin</span>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Transaksi Card */}
+              <div 
+                onClick={() => {
+                  setActiveTab("riwayat");
+                  navigate(`/${encodeURIComponent(user?.Nama || '')}`);
+                }}
+                className="relative flex items-center w-full h-16 cursor-pointer group/wallet active:scale-95 transition-all"
+              >
+                {/* Left Side: Nested circular badge */}
+                <motion.div 
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 220,
+                    damping: 18,
+                    delay: 0.2
+                  }}
+                  className="absolute left-0 w-14 h-14 rounded-full bg-gradient-to-br from-[#00B4C4] to-[#005E6A] flex items-center justify-center z-10 shadow-md shadow-slate-200/50 group-hover/wallet:scale-105 transition-transform duration-300"
+                >
+                  <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-inner">
+                    <CreditCard className="w-5.5 h-5.5 text-[#005E6A]" />
+                  </div>
+                </motion.div>
+
+                {/* Right Side: Text & Value Pill - Horizontally Split */}
+                <motion.div 
+                  initial={{ x: -25, opacity: 0, scaleX: 0.6 }}
+                  animate={{ x: 0, opacity: 1, scaleX: 1 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 140,
+                    damping: 16,
+                    delay: 0.35
+                  }}
+                  style={{ originX: 0 }}
+                  className="w-full h-11 rounded-full overflow-hidden flex flex-col border border-slate-100 shadow-sm group-hover/wallet:border-teal-200/50 transition-all duration-300"
+                >
+                  {/* Top Row: Title with matching Logo Gradient Background */}
+                  <div className="h-[35%] bg-gradient-to-r from-[#00B4C4] to-[#005E6A] flex items-center justify-center pl-15 pr-4">
+                    <p className="text-[7.5px] sm:text-[8px] font-black text-white uppercase tracking-[0.16em] leading-none text-center">
+                      Transaksi
+                    </p>
+                  </div>
+
+                  {/* Bottom Row: Nominal with Neutral Background */}
+                  <div className="h-[65%] bg-slate-50 flex items-center justify-center pl-15 pr-4 group-hover/wallet:bg-white transition-colors duration-300">
+                    <div className="flex items-center justify-center gap-1 w-full px-1">
+                      <span className="text-[12px] sm:text-[13px] font-black text-[#005E6A] tracking-tight leading-none uppercase truncate text-center">
+                        {transactions.filter(t => t.Nama.toLowerCase() === user?.Nama?.toLowerCase()).length}
+                      </span>
+                      <span className="text-[8px] font-black text-[#005E6A]/80 uppercase tracking-wider leading-none shrink-0">Transaksi</span>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+
             {/* Level Progress */}
-            <div className="space-y-3">
+            <div 
+              onClick={() => setShowLevelBenefits(true)}
+              className="space-y-3 cursor-pointer hover:bg-slate-50/50 p-2 -m-2 rounded-2xl transition-colors duration-200"
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className={`p-2 rounded-lg bg-orange-50`}>
@@ -11984,9 +12084,9 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
               </div>
               <div className="h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
                 <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.round(progressPercentage)}%` }}
-                  className="h-full bg-gradient-to-r from-[#F15A24] to-[#ff8c42] rounded-full shadow-[0_0_10px_rgba(241,90,36,0.3)]"
+                   initial={{ width: 0 }}
+                   animate={{ width: `${Math.round(progressPercentage)}%` }}
+                   className="h-full bg-gradient-to-r from-[#F15A24] to-[#ff8c42] rounded-full shadow-[0_0_10px_rgba(241,90,36,0.3)]"
                 />
               </div>
               {LEVELS[currentLevelIndex + 1] && (
@@ -11995,33 +12095,9 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
                 </p>
               )}
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div 
-                onClick={() => navigate(`/poin/${encodeURIComponent(user?.Nama || '')}`)}
-                className="bg-slate-50/50 rounded-3xl p-4 flex flex-col items-center gap-1 group transition-all cursor-pointer active:scale-95 border border-slate-50 hover:border-amber-200 hover:bg-amber-50/30"
-              >
-                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-                  <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                </div>
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Poin Saya</p>
-                <p className={`text-sm font-black uppercase tracking-tight ${activePoints < 0 ? 'text-red-500' : 'text-[#005E6A]'}`}>{activePoints.toLocaleString('id-ID')} Poin</p>
-              </div>
-              
-              <div 
-                onClick={() => setShowLevelBenefits(true)}
-                className="bg-slate-50/50 rounded-3xl p-4 flex flex-col items-center gap-1 group transition-all cursor-pointer active:scale-95 border border-slate-50 hover:border-[#005E6A]/20 hover:bg-[#005E6A]/5"
-              >
-                <div className="w-10 h-10 bg-[#005E6A]/10 rounded-xl flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-                  <CreditCard className="w-5 h-5 text-[#005E6A]" />
-                </div>
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Transaksi</p>
-                <p className="text-sm font-black text-[#005E6A] uppercase tracking-tight">{transactions.filter(t => t.Nama.toLowerCase() === user?.Nama?.toLowerCase()).length} Kali</p>
-              </div>
-            </div>
+          </div>
           </div>
         </div>
-      </div>
 
       <div className="space-y-6 mb-8">
         <div className="px-2">
@@ -12065,55 +12141,7 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
         </button>
       </div>
 
-      {/* Logout Confirmation Popup */}
-      <AnimatePresence>
-        {showQR && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 text-center relative"
-            >
-              <button 
-                onClick={() => setShowQR(false)}
-                className="absolute top-6 right-6 text-slate-300 hover:text-slate-500"
-              >
-                <X className="w-6 h-6" />
-              </button>
-              <div className="w-16 h-16 bg-[#005E6A]/5 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <QrCode className="w-8 h-8 text-[#005E6A]" />
-              </div>
-              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-1">ID Digital Pelanggan</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6">Pindai di kasir Warung Tomi</p>
-              
-              <div className="bg-white p-4 rounded-3xl border-4 border-slate-50 shadow-inner mb-6 flex items-center justify-center">
-                <div className="w-48 h-48 bg-slate-50 rounded-2xl flex items-center justify-center relative overflow-hidden">
-                  <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=WARUNGTOMI-${user?.Nama}`}
-                    alt="Customer QR Code"
-                    className="w-40 h-40 object-contain mix-blend-multiply"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-md">
-                    <img src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" alt="Logo" className="w-6 h-6 object-contain" />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-slate-50 p-4 rounded-2xl">
-                <p className="text-[11px] font-black text-[#005E6A] tracking-tighter uppercase">{user?.Nama}</p>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">WT-{Math.abs(user?.Nama?.length || 0)}-{user?.Nama?.substring(0,2).toUpperCase()}</p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
 
       {/* Level Benefits Modal */}
       <AnimatePresence>
