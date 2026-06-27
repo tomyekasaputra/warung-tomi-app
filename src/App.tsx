@@ -3733,7 +3733,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
     if (userTransactions.length === 0) {
       const now = new Date();
       return [{
-        label: now.toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
+        label: now.toLocaleString('id-ID', { month: 'long' }),
         value: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
         month: now.getMonth(),
         year: now.getFullYear()
@@ -3753,7 +3753,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
     let tempDate = new Date(startYear, startMonth, 1);
     while (tempDate <= now) {
       result.push({
-        label: tempDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
+        label: tempDate.toLocaleString('id-ID', { month: 'long' }),
         value: `${tempDate.getFullYear()}-${String(tempDate.getMonth() + 1).padStart(2, '0')}`,
         month: tempDate.getMonth(),
         year: tempDate.getFullYear()
@@ -3782,6 +3782,34 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
   const [typeFilter, setTypeFilter] = useState<'SEMUA' | 'SETOR' | 'TARIK'>('SEMUA');
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const chartScrollRef = useRef<HTMLDivElement>(null);
+
+  const [swipeDirection, setSwipeDirection] = useState(0);
+
+  const handleMonthChange = React.useCallback((newValue: string) => {
+    const currentIndex = allMonths.findIndex(m => m.value === selectedMonth);
+    const newIndex = allMonths.findIndex(m => m.value === newValue);
+    if (newIndex !== -1 && currentIndex !== -1) {
+      setSwipeDirection(newIndex > currentIndex ? 1 : -1);
+    }
+    setSelectedMonth(newValue);
+  }, [allMonths, selectedMonth]);
+
+  const tabContainerRef = React.useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      setTimeout(() => {
+        const activeChild = node.querySelector('[data-active="true"]') as HTMLElement | null;
+        if (activeChild) {
+          const containerWidth = node.clientWidth;
+          const elementLeft = activeChild.offsetLeft;
+          const elementWidth = activeChild.clientWidth;
+          node.scrollTo({
+            left: elementLeft - (containerWidth / 2) + (elementWidth / 2),
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+    }
+  }, [selectedMonth]);
 
   useEffect(() => {
     const scrollToRight = () => {
@@ -3853,7 +3881,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-gradient-to-br from-[#2ecc71] to-[#27ae60] rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden border-t border-white/20"
+              className="sticky top-[88px] z-0 bg-gradient-to-br from-[#2ecc71] to-[#27ae60] rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden border-t border-white/20"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
               <div className="absolute -bottom-4 -right-4 opacity-10">
@@ -3903,7 +3931,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm mb-8"
+              className="sticky top-[88px] z-0 bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm mb-8"
             >
               <div className="flex items-center justify-between mb-6">
                 <div>
@@ -3968,109 +3996,139 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
 
         {/* Removed old tabs from here */}
 
-        <div className="space-y-4">
-          <div className="px-2">
-            <h3 className="text-[10px] font-black text-green-600 uppercase tracking-widest mb-4">
-              {activeTab === 'riwayat' ? 'Riwayat Mutasi' : 'Statistik Bulanan'}
-            </h3>
-            
-            {activeTab === 'riwayat' && (
-              <div className="flex flex-col gap-4">
-                {/* Quick Filters */}
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  {(['SEMUA', 'SETOR', 'TARIK'] as const).map((f) => (
+        <div className="relative z-10 bg-slate-50 rounded-t-[2.5rem] pt-6 pb-24 -mx-6 px-6 min-h-[100vh] space-y-4 shadow-[0_-12px_30px_rgba(0,0,0,0.03)]">
+
+          
+          {activeTab === 'riwayat' && (
+            <div className="sticky top-[80px] z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50">
+              {/* Month Tabs */}
+              <div ref={tabContainerRef} className="relative flex gap-2 overflow-x-auto no-scrollbar pb-1 snap-x">
+                {allMonths.map((m, i) => {
+                  const isActive = selectedMonth === m.value;
+                  return (
                     <button
-                      key={f}
-                      onClick={() => setTypeFilter(f)}
-                      className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 ${
-                        typeFilter === f 
-                          ? 'bg-[#005E6A] text-white shadow-md shadow-teal-100' 
-                          : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'
+                      key={i}
+                      data-active={isActive}
+                      onClick={() => handleMonthChange(m.value)}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap snap-start transition-all duration-200 border ${
+                        isActive 
+                          ? 'bg-[#005E6A] text-white border-[#005E6A] shadow-sm' 
+                          : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
                       }`}
                     >
-                      {f}
+                      {m.label}
                     </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-bold text-slate-400">Menampilkan {filteredTransactions.length} transaksi</p>
-                  <div className="relative">
-                    <select 
-                      value={selectedMonth}
-                      onChange={(e) => setSelectedMonth(e.target.value)}
-                      className="appearance-none bg-slate-50 border border-slate-100 rounded-lg px-3 py-1.5 pr-8 text-[10px] font-black text-slate-600 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                    >
-                      {months.map(m => (
-                        <option key={m.value} value={m.value}>{m.label}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
           
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-hidden">
             {activeTab === 'riwayat' ? (
-              filteredTransactions.length > 0 ? (
-                filteredTransactions.map((t, i) => (
-                  <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden relative">
-                    <div className="p-4 flex items-center gap-4">
-                      {/* Icon Left */}
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        t.Tipe === 'SETOR' ? 'bg-green-50' : 'bg-red-50'
-                      }`}>
-                        {t.Tipe === 'SETOR' ? (
-                          <ArrowUpRight className="w-5 h-5 text-green-600" />
-                        ) : (
-                          <ArrowDownLeft className="w-5 h-5 text-red-600" />
-                        )}
-                      </div>
+              <AnimatePresence initial={false} mode="popLayout" custom={swipeDirection}>
+                <motion.div
+                  key={selectedMonth}
+                  custom={swipeDirection}
+                  variants={{
+                    enter: (dir: number) => ({
+                      x: dir > 0 ? 120 : -120,
+                      opacity: 0
+                    }),
+                    center: {
+                      x: 0,
+                      opacity: 1
+                    },
+                    exit: (dir: number) => ({
+                      x: dir < 0 ? 120 : -120,
+                      opacity: 0
+                    })
+                  }}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ type: "spring", stiffness: 350, damping: 32 }}
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.4}
+                  onDragEnd={(e, info) => {
+                    const swipeThreshold = 55;
+                    const currentIndex = allMonths.findIndex(m => m.value === selectedMonth);
+                    if (info.offset.x < -swipeThreshold) {
+                      // Swiped left -> Next month (if exists)
+                      if (currentIndex < allMonths.length - 1) {
+                        const nextMonth = allMonths[currentIndex + 1];
+                        handleMonthChange(nextMonth.value);
+                      }
+                    } else if (info.offset.x > swipeThreshold) {
+                      // Swiped right -> Previous month (if exists)
+                      if (currentIndex > 0) {
+                        const prevMonth = allMonths[currentIndex - 1];
+                        handleMonthChange(prevMonth.value);
+                      }
+                    }
+                  }}
+                  className="space-y-3 touch-pan-y active:cursor-grabbing"
+                >
+                  {filteredTransactions.length > 0 ? (
+                    filteredTransactions.map((t, i) => (
+                      <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden relative">
+                        <div className="p-4 flex items-center gap-4">
+                          {/* Icon Left */}
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                            t.Tipe === 'SETOR' ? 'bg-green-50' : 'bg-red-50'
+                          }`}>
+                            {t.Tipe === 'SETOR' ? (
+                              <ArrowUpRight className="w-5 h-5 text-green-600" />
+                            ) : (
+                              <ArrowDownLeft className="w-5 h-5 text-red-600" />
+                            )}
+                          </div>
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center">
-                          <div className="space-y-1">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center gap-2">
-                                <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-widest leading-none">{t.Tipe}</p>
-                                {t.Berita && t.Berita !== t.Tipe && (
-                                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest truncate max-w-[120px]">| {t.Berita}</span>
-                                )}
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-center">
+                              <div className="space-y-1">
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-widest leading-none">{t.Tipe}</p>
+                                    {t.Berita && t.Berita !== t.Tipe && (
+                                      <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest truncate max-w-[120px]">| {t.Berita}</span>
+                                    )}
+                                  </div>
+                                  <p className="text-[9px] font-bold text-slate-400 leading-none">{t.Tanggal}</p>
+                                </div>
                               </div>
-                              <p className="text-[9px] font-bold text-slate-400 leading-none">{t.Tanggal}</p>
+                              <div className="text-right">
+                                <p className={`text-sm font-black leading-none mb-1 ${
+                                  t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'
+                                }}`}>
+                                  {t.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(t.Nominal)}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className={`text-sm font-black leading-none mb-1 ${
-                              t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {t.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(t.Nominal)}
-                            </p>
+                        </div>
+
+                        {/* Horizontal Ribbon at bottom right */}
+                        <div className="absolute bottom-0 right-0 bg-[#F15A24] w-40 py-0.5 rounded-tl-2xl rounded-br-2xl shadow-sm flex items-center justify-center">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[5px] font-black text-white/50 uppercase tracking-widest">Saldo Akhir</span>
+                            <span className="text-[9px] font-black text-white">Rp {formatCurrency(t.SaldoAkhir)}</span>
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Horizontal Ribbon at bottom right */}
-                    <div className="absolute bottom-0 right-0 bg-[#F15A24] w-40 py-0.5 rounded-tl-2xl rounded-br-2xl shadow-sm flex items-center justify-center">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[5px] font-black text-white/50 uppercase tracking-widest">Saldo Akhir</span>
-                        <span className="text-[9px] font-black text-white">Rp {formatCurrency(t.SaldoAkhir)}</span>
+                    ))
+                  ) : (
+                    <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
+                      <div className="flex flex-col items-center gap-2 opacity-20">
+                        <History className="w-8 h-8" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada mutasi</p>
                       </div>
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
-                  <div className="flex flex-col items-center gap-2 opacity-20">
-                    <History className="w-8 h-8" />
-                    <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada mutasi</p>
-                  </div>
-                </div>
-              )
+                  )}
+                </motion.div>
+              </AnimatePresence>
             ) : (
               /* Statistik List - 6 Months */
               [...chartData].reverse().map((data, i) => {
@@ -11337,6 +11395,40 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
     year: now.getFullYear() 
   });
 
+  const tabContainerRef1 = React.useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      setTimeout(() => {
+        const activeChild = node.querySelector('[data-active="true"]') as HTMLElement | null;
+        if (activeChild) {
+          const containerWidth = node.clientWidth;
+          const elementLeft = activeChild.offsetLeft;
+          const elementWidth = activeChild.clientWidth;
+          node.scrollTo({
+            left: elementLeft - (containerWidth / 2) + (elementWidth / 2),
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+    }
+  }, [selectedMonth]);
+
+  const tabContainerRef2 = React.useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      setTimeout(() => {
+        const activeChild = node.querySelector('[data-active="true"]') as HTMLElement | null;
+        if (activeChild) {
+          const containerWidth = node.clientWidth;
+          const elementLeft = activeChild.offsetLeft;
+          const elementWidth = activeChild.clientWidth;
+          node.scrollTo({
+            left: elementLeft - (containerWidth / 2) + (elementWidth / 2),
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
+    }
+  }, [selectedMonth]);
+
   React.useEffect(() => {
     if (activeTab === "trend" && scrollContainerRef.current) {
       scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
@@ -11405,6 +11497,17 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
 
     return labels;
   }, [transactions, user]);
+
+  const [swipeDirection, setSwipeDirection] = useState(0);
+
+  const handleMonthChange = React.useCallback((newMonth: { month: number, year: number }) => {
+    const currentIndex = chartData.findIndex(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
+    const newIndex = chartData.findIndex(m => m.month === newMonth.month && m.year === newMonth.year);
+    if (newIndex !== -1 && currentIndex !== -1) {
+      setSwipeDirection(newIndex > currentIndex ? 1 : -1);
+    }
+    setSelectedMonth(newMonth);
+  }, [chartData, selectedMonth]);
 
   const filteredTransactions = React.useMemo(() => {
     let base = transactions.filter(t => t.Nama.toLowerCase() === user?.Nama?.toLowerCase());
@@ -11507,32 +11610,6 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
         animate={{ opacity: 1, y: 0 }}
         className="px-6 py-4"
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-black uppercase tracking-wider">Riwayat Belanja</h2>
-        </div>
-
-        {/* Shared Month Selector Dropdown */}
-        <div className="mb-6">
-          <div className="relative">
-            <select
-              value={`${selectedMonth.month}-${selectedMonth.year}`}
-              onChange={(e) => {
-                const [m, y] = e.target.value.split('-').map(Number);
-                setSelectedMonth({ month: m, year: y });
-              }}
-              className="w-full bg-white border-2 border-slate-100 rounded-2xl px-5 py-4 text-xs font-black uppercase tracking-widest text-[#005E6A] appearance-none focus:outline-none focus:border-[#005E6A]/20 transition-all shadow-sm"
-            >
-              {[...chartData].reverse().map((m, i) => (
-                <option key={i} value={`${m.month}-${m.year}`}>
-                  {m.label} {m.year}
-                </option>
-              ))}
-            </select>
-            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none">
-              <ChevronDown className="w-4 h-4 text-slate-400" />
-            </div>
-          </div>
-        </div>
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-2xl">
@@ -11627,73 +11704,135 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
             </div>
           </div>
 
-            {/* Transaction List for Trend Tab */}
-            <div className="space-y-4">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">
-                Daftar Transaksi {chartData.find(m => m.month === selectedMonth.month && m.year === selectedMonth.year)?.label}
-              </h3>
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((item, i) => {
-                  let service = MAIN_SERVICES.find(s => 
-                    item.Jenis.toLowerCase().includes(s.name.toLowerCase()) || 
-                    s.name.toLowerCase().includes(item.Jenis.toLowerCase())
-                  );
+            {/* Month Tabs */}
+            <div ref={tabContainerRef1} className="relative flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-4 snap-x">
+              {chartData.map((m, i) => {
+                const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
+                return (
+                  <button
+                    key={i}
+                    data-active={isActive}
+                    onClick={() => handleMonthChange({ month: m.month, year: m.year })}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap snap-start transition-all duration-200 border ${
+                      isActive 
+                        ? 'bg-[#005E6A] text-white border-[#005E6A] shadow-sm' 
+                        : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
 
-                  const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
-                    item.Jenis.toLowerCase().includes(wallet.toLowerCase())
-                  );
-
-                  if (isEWalletTopup) {
-                    service = MAIN_SERVICES.find(s => s.name === "E-Walet");
+            {/* Swipeable Container */}
+            <AnimatePresence initial={false} mode="popLayout" custom={swipeDirection}>
+              <motion.div
+                key={`${selectedMonth.month}-${selectedMonth.year}`}
+                custom={swipeDirection}
+                variants={{
+                  enter: (dir: number) => ({
+                    x: dir > 0 ? 120 : -120,
+                    opacity: 0
+                  }),
+                  center: {
+                    x: 0,
+                    opacity: 1
+                  },
+                  exit: (dir: number) => ({
+                    x: dir < 0 ? 120 : -120,
+                    opacity: 0
+                  })
+                }}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ type: "spring", stiffness: 350, damping: 32 }}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.4}
+                onDragEnd={(e, info) => {
+                  const swipeThreshold = 55;
+                  const currentIndex = chartData.findIndex(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
+                  if (info.offset.x < -swipeThreshold) {
+                    // Swiped left -> Next month (if exists)
+                    if (currentIndex < chartData.length - 1) {
+                      const nextMonth = chartData[currentIndex + 1];
+                      handleMonthChange({ month: nextMonth.month, year: nextMonth.year });
+                    }
+                  } else if (info.offset.x > swipeThreshold) {
+                    // Swiped right -> Previous month (if exists)
+                    if (currentIndex > 0) {
+                      const prevMonth = chartData[currentIndex - 1];
+                      handleMonthChange({ month: prevMonth.month, year: prevMonth.year });
+                    }
                   }
-                  
-                  const IconComponent = service ? (service.icon as any).type : ShoppingBag;
-                  const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
-                  const bgColorClass = service ? service.bgColor : 'bg-blue-50';
+                }}
+                className="space-y-4 touch-pan-y active:cursor-grabbing"
+              >
+                {filteredTransactions.length > 0 ? (
+                  filteredTransactions.map((item, i) => {
+                    let service = MAIN_SERVICES.find(s => 
+                      item.Jenis.toLowerCase().includes(s.name.toLowerCase()) || 
+                      s.name.toLowerCase().includes(item.Jenis.toLowerCase())
+                    );
 
-                  const getStatusColor = (status: string) => {
-                    const s = status.toLowerCase();
-                    if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
-                    if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
-                    if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
-                    if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
-                    return 'bg-slate-400/10 text-slate-500';
-                  };
+                    const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
+                      item.Jenis.toLowerCase().includes(wallet.toLowerCase())
+                    );
 
-                  return (
-                    <div key={i} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm relative overflow-hidden">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bgColorClass}`}>
-                          <IconComponent className={`w-5 h-5 ${iconColorClass}`} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-800">{item.Jenis}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className="text-[8px] text-slate-400 uppercase tracking-widest">{item.Tanggal}</p>
-                            <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full w-fit ${getStatusColor(item.Status)}`}>
-                              {item.Status}
-                            </p>
+                    if (isEWalletTopup) {
+                      service = MAIN_SERVICES.find(s => s.name === "E-Walet");
+                    }
+                    
+                    const IconComponent = service ? (service.icon as any).type : ShoppingBag;
+                    const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
+                    const bgColorClass = service ? service.bgColor : 'bg-blue-50';
+
+                    const getStatusColor = (status: string) => {
+                      const s = status.toLowerCase();
+                      if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
+                      if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
+                      if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
+                      if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
+                      return 'bg-slate-400/10 text-slate-500';
+                    };
+
+                    return (
+                      <div key={i} className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm relative overflow-hidden">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bgColorClass}`}>
+                            <IconComponent className={`w-5 h-5 ${iconColorClass}`} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">{item.Jenis}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-[8px] text-slate-400 uppercase tracking-widest">{item.Tanggal}</p>
+                              <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full w-fit ${getStatusColor(item.Status)}`}>
+                                {item.Status}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="text-right pr-2">
-                        <p className="text-xs font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
-                      </div>
-                      {Math.floor(item.Pemasukan / 10000) > 0 && (
-                        <div className="absolute bottom-0 right-0 w-20 py-1 rounded-tl-2xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm flex justify-center items-center bg-[#F15A24]">
-                          +{Math.floor(item.Pemasukan / 10000)} Poin
+                        <div className="text-right pr-2">
+                          <p className="text-xs font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
                         </div>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="flex flex-col items-center justify-center py-10 opacity-20">
-                  <History className="w-10 h-10 mb-2" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi</p>
-                </div>
-              )}
-            </div>
+                        {Math.floor(item.Pemasukan / 10000) > 0 && (
+                          <div className="absolute bottom-0 right-0 w-20 py-1 rounded-tl-2xl text-[7px] font-black uppercase tracking-widest text-white shadow-sm flex justify-center items-center bg-[#F15A24]">
+                            +{Math.floor(item.Pemasukan / 10000)} Poin
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-10 opacity-20">
+                    <History className="w-10 h-10 mb-2" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi</p>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         ) : (
           <div className="mb-8">
@@ -11769,95 +11908,167 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
               </div>
             </div>
 
-            {/* Expandable Categorized List */}
-            <div className="space-y-3">
-              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Kategori Transaksi</h3>
-              {Object.entries(groupedTransactions)
-                .sort(([, a], [, b]) => (b as any).total - (a as any).total)
-                .map(([jenis, data]: [string, any], idx) => {
-                // Find matching service for icon and color
-                let service = MAIN_SERVICES.find(s => 
-                  jenis.toLowerCase().includes(s.name.toLowerCase()) || 
-                  s.name.toLowerCase().includes(jenis.toLowerCase())
-                );
-
-                const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
-                  jenis.toLowerCase().includes(wallet.toLowerCase())
-                );
-
-                if (isEWalletTopup) {
-                  service = MAIN_SERVICES.find(s => s.name === "E-Walet");
-                }
-                
-                const IconComponent = service ? (service.icon as any).type : ShoppingBag;
-                const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
-                const bgColorClass = service ? service.bgColor : 'bg-blue-50';
-
-                const getStatusColor = (status: string) => {
-                  const s = status.toLowerCase();
-                  if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
-                  if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
-                  if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
-                  if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
-                  return 'bg-slate-400/10 text-slate-500';
-                };
-
+            {/* Month Tabs */}
+            <div ref={tabContainerRef2} className="relative flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-4 snap-x">
+              {chartData.map((m, i) => {
+                const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
                 return (
-                  <div key={jenis} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                    <button 
-                      onClick={() => toggleGroup(jenis)}
-                      className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bgColorClass}`}>
-                          <IconComponent className={`w-4 h-4 ${iconColorClass}`} />
-                        </div>
-                        <div className="text-left">
-                          <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{jenis}</p>
-                          <p className="text-[9px] text-slate-400 font-bold">{data.items.length} Transaksi</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <p className="text-xs font-black text-[#005E6A]">Rp {formatCurrency(data.total)}</p>
-                        {expandedGroups.includes(jenis) ? <ChevronUp className="w-4 h-4 text-slate-300" /> : <ChevronDown className="w-4 h-4 text-slate-300" />}
-                      </div>
-                    </button>
-
-                    <AnimatePresence>
-                      {expandedGroups.includes(jenis) && (
-                        <motion.div 
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="border-t border-slate-50 bg-slate-50/30"
-                        >
-                          <div className="p-2 space-y-2">
-                            {data.items.map((item, i) => (
-                              <div key={i} className="bg-white/50 p-3 rounded-xl flex items-center justify-between">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-[10px] font-bold text-slate-600">{item.Tanggal}</p>
-                                    <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${getStatusColor(item.Status)}`}>
-                                      {item.Status}
-                                    </p>
-                                  </div>
-                                  {Math.floor(item.Pemasukan / 10000) > 0 && (
-                                    <p className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest mt-1">+{Math.floor(item.Pemasukan / 10000)} Poin</p>
-                                  )}
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-[10px] font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <button
+                    key={i}
+                    data-active={isActive}
+                    onClick={() => handleMonthChange({ month: m.month, year: m.year })}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap snap-start transition-all duration-200 border ${
+                      isActive 
+                        ? 'bg-[#005E6A] text-white border-[#005E6A] shadow-sm' 
+                        : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
                 );
               })}
             </div>
+
+            {/* Swipeable Container */}
+            <AnimatePresence initial={false} mode="popLayout" custom={swipeDirection}>
+              <motion.div
+                key={`${selectedMonth.month}-${selectedMonth.year}`}
+                custom={swipeDirection}
+                variants={{
+                  enter: (dir: number) => ({
+                    x: dir > 0 ? 120 : -120,
+                    opacity: 0
+                  }),
+                  center: {
+                    x: 0,
+                    opacity: 1
+                  },
+                  exit: (dir: number) => ({
+                    x: dir < 0 ? 120 : -120,
+                    opacity: 0
+                  })
+                }}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ type: "spring", stiffness: 350, damping: 32 }}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.4}
+                onDragEnd={(e, info) => {
+                  const swipeThreshold = 55;
+                  const currentIndex = chartData.findIndex(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
+                  if (info.offset.x < -swipeThreshold) {
+                    // Swiped left -> Next month (if exists)
+                    if (currentIndex < chartData.length - 1) {
+                      const nextMonth = chartData[currentIndex + 1];
+                      handleMonthChange({ month: nextMonth.month, year: nextMonth.year });
+                    }
+                  } else if (info.offset.x > swipeThreshold) {
+                    // Swiped right -> Previous month (if exists)
+                    if (currentIndex > 0) {
+                      const prevMonth = chartData[currentIndex - 1];
+                      handleMonthChange({ month: prevMonth.month, year: prevMonth.year });
+                    }
+                  }
+                }}
+                className="space-y-3 touch-pan-y active:cursor-grabbing"
+              >
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Kategori Transaksi</h3>
+                {Object.entries(groupedTransactions).length > 0 ? (
+                  Object.entries(groupedTransactions)
+                    .sort(([, a], [, b]) => (b as any).total - (a as any).total)
+                    .map(([jenis, data]: [string, any], idx) => {
+                    // Find matching service for icon and color
+                    let service = MAIN_SERVICES.find(s => 
+                      jenis.toLowerCase().includes(s.name.toLowerCase()) || 
+                      s.name.toLowerCase().includes(jenis.toLowerCase())
+                    );
+
+                    const isEWalletTopup = ["dana", "ovo", "gopay", "shopeepay"].some(wallet => 
+                      jenis.toLowerCase().includes(wallet.toLowerCase())
+                    );
+
+                    if (isEWalletTopup) {
+                      service = MAIN_SERVICES.find(s => s.name === "E-Walet");
+                    }
+                    
+                    const IconComponent = service ? (service.icon as any).type : ShoppingBag;
+                    const iconColorClass = service ? (service.icon as any).props.className.split(' ').find((c: string) => c.startsWith('text-')) : 'text-blue-600';
+                    const bgColorClass = service ? service.bgColor : 'bg-blue-50';
+
+                    const getStatusColor = (status: string) => {
+                      const s = status.toLowerCase();
+                      if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
+                      if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
+                      if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
+                      if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
+                      return 'bg-slate-400/10 text-slate-500';
+                    };
+
+                    return (
+                      <div key={jenis} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                        <button 
+                          onClick={() => toggleGroup(jenis)}
+                          className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${bgColorClass}`}>
+                              <IconComponent className={`w-4 h-4 ${iconColorClass}`} />
+                            </div>
+                            <div className="text-left">
+                              <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{jenis}</p>
+                              <p className="text-[9px] text-slate-400 font-bold">{data.items.length} Transaksi</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <p className="text-xs font-black text-[#005E6A]">Rp {formatCurrency(data.total)}</p>
+                            {expandedGroups.includes(jenis) ? <ChevronUp className="w-4 h-4 text-slate-300" /> : <ChevronDown className="w-4 h-4 text-slate-300" />}
+                          </div>
+                        </button>
+
+                        <AnimatePresence>
+                          {expandedGroups.includes(jenis) && (
+                            <motion.div 
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="border-t border-slate-50 bg-slate-50/30"
+                            >
+                              <div className="p-2 space-y-2">
+                                {data.items.map((item, i) => (
+                                  <div key={i} className="bg-white/50 p-3 rounded-xl flex items-center justify-between">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-[10px] font-bold text-slate-600">{item.Tanggal}</p>
+                                        <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${getStatusColor(item.Status)}`}>
+                                          {item.Status}
+                                        </p>
+                                      </div>
+                                      {Math.floor(item.Pemasukan / 10000) > 0 && (
+                                        <p className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest mt-1">+{Math.floor(item.Pemasukan / 10000)} Poin</p>
+                                      )}
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-[10px] font-black text-green-600">Rp {formatCurrency(item.Pemasukan)}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-10 opacity-20">
+                    <History className="w-10 h-10 mb-2" />
+                    <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada kategori transaksi</p>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         )}
 
@@ -13087,78 +13298,12 @@ const Layout = ({
   const location = useLocation();
   const isBansosPage = location.pathname.includes("/bansos");
 
-  const touchStartX = React.useRef<number | null>(null);
-  const touchStartY = React.useRef<number | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const target = e.target as HTMLElement;
-    // Ignore swiping if target is inside an input, select, button, scrollable area or drag area
-    if (!target || 
-        target.closest('input') || 
-        target.closest('textarea') || 
-        target.closest('select') || 
-        target.closest('button') || 
-        target.closest('a') ||
-        target.closest('.no-scrollbar') || 
-        target.closest('.overflow-x-auto') || 
-        target.closest('.scrollbar-hide') ||
-        target.closest('[drag="x"]') ||
-        target.closest('.touch-none') ||
-        target.closest('[data-no-swipe="true"]')
-    ) {
-      touchStartX.current = null;
-      touchStartY.current = null;
-      return;
-    }
-    
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null || touchStartY.current === null) return;
-    
-    const diffX = e.changedTouches[0].clientX - touchStartX.current;
-    const diffY = e.changedTouches[0].clientY - touchStartY.current;
-    
-    touchStartX.current = null;
-    touchStartY.current = null;
-    
-    const minDistance = 60; // minimum swipe distance in px
-    if (Math.abs(diffX) > Math.abs(diffY) * 1.5 && Math.abs(diffX) > minDistance) {
-      const allNavItems = [
-        { id: "beranda", protected: false },
-        { id: "riwayat", protected: true },
-        { id: "belanja", protected: false },
-        { id: "settings", protected: false },
-      ];
-      const activeTabs = allNavItems.filter(item => !item.protected || user).map(item => item.id);
-      const currentIndex = activeTabs.indexOf(activeTab);
-      
-      if (currentIndex !== -1) {
-        if (diffX < 0) {
-          // Left swipe -> Next Tab
-          if (currentIndex < activeTabs.length - 1) {
-            setActiveTab(activeTabs[currentIndex + 1]);
-          }
-        } else {
-          // Right swipe -> Previous Tab
-          if (currentIndex > 0) {
-            setActiveTab(activeTabs[currentIndex - 1]);
-          }
-        }
-      }
-    }
-  };
-
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname, activeTab]);
 
   return (
     <div 
-      onTouchStart={handleTouchStart} 
-      onTouchEnd={handleTouchEnd}
       className={`min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans ${isBansosPage ? '' : 'pb-28'}`}
     >
       <main className="container mx-auto max-w-lg">
