@@ -3099,6 +3099,7 @@ const LoyaltyPointsDetailPage = ({ user, transactions, redeemedPoints, customers
 const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
   const navigate = useNavigate();
   const [showPopup, setShowPopup] = useState(false);
+  const [selectedReward, setSelectedReward] = useState<{ id: number; name: string; points: number; image: string } | null>(null);
   
   if (!user) return null;
 
@@ -3134,115 +3135,158 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Custo
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="px-6 py-4"
+        className="px-6 py-4 pb-20 min-h-screen bg-white max-w-lg mx-auto relative"
       >
         <button 
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-slate-500 mb-6 group"
+          className="flex items-center gap-2 text-slate-500 mb-6 group cursor-pointer"
         >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
           <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
         </button>
 
-        <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm mb-8 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Aktif Anda</p>
-            <p className={`text-2xl font-black tracking-tight ${activePoints < 0 ? 'text-red-600' : 'text-[#005E6A]'}`}>{activePoints} Poin</p>
-          </div>
-          <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center">
-            <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
+        {/* Sticky points card so it is static/motionless and doesn't scroll with page */}
+        <div className="sticky top-0 z-0 bg-white pb-6">
+          <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Aktif Anda</p>
+                <p className={`text-2xl font-black tracking-tight ${activePoints < 0 ? 'text-red-600' : 'text-[#005E6A]'}`}>{activePoints} Poin</p>
+              </div>
+              <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center">
+                <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
+              </div>
+            </div>
+            
+            {/* Added Points Information below the main active points */}
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-dashed border-slate-100">
+              <div>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Ditukar</p>
+                <p className="text-sm font-black text-[#005E6A]">{totalRedeemed.toLocaleString('id-ID')} Poin</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Hangus</p>
+                <p className="text-sm font-black text-red-500">{totalExpired.toLocaleString('id-ID')} Poin</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Daftar Hadiah Tersedia</h3>
-        
-        <div className="grid grid-cols-1 gap-4">
-          {REWARDS.map((reward) => {
-            const isAvailable = activePoints >= reward.points;
-            
-            return (
-              <div 
-                key={reward.id}
-                className={`bg-white rounded-lg border p-4 flex items-center gap-4 transition-all ${
-                  isAvailable ? "border-slate-100 shadow-sm" : "border-slate-50 opacity-60 grayscale"
-                }`}
-              >
-                <div className="w-20 h-20 bg-slate-50 rounded-lg overflow-hidden shrink-0">
-                  <img 
-                    src={reward.image} 
-                    alt={reward.name} 
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-black text-black uppercase tracking-tight mb-1 truncate">{reward.name}</p>
-                  <div className="flex items-center gap-1.5">
-                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                    <p className="text-[10px] font-black text-[#F15A24]">{reward.points.toLocaleString('id-ID')} Poin</p>
+        {/* Rewards list container that scrolls UP and overlays the points card */}
+        <div className="relative z-10 bg-slate-50 rounded-t-[2.5rem] pt-6 pb-24 -mx-6 px-6 min-h-[100vh] space-y-4 shadow-[0_-12px_30px_rgba(0,0,0,0.03)] -mt-4">
+          {/* Sticky rewards header section */}
+          <div className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50 mb-2">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Daftar Hadiah Tersedia</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-4 pt-2">
+            {REWARDS.map((reward) => {
+              const isAvailable = activePoints >= reward.points;
+              
+              return (
+                <div 
+                  key={reward.id}
+                  className={`bg-white rounded-lg border p-4 flex items-center gap-4 transition-all ${
+                    isAvailable ? "border-slate-100 shadow-sm" : "border-slate-50 opacity-60 grayscale"
+                  }`}
+                >
+                  <div className="w-20 h-20 bg-slate-50 rounded-lg overflow-hidden shrink-0">
+                    <img 
+                      src={reward.image} 
+                      alt={reward.name} 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
                   </div>
-                  
-                  {!isAvailable && (
-                    <div className="mt-2 bg-slate-100 rounded-full h-1.5 w-full overflow-hidden">
-                      <div 
-                        className="bg-slate-300 h-full rounded-full" 
-                        style={{ width: `${(activePoints / reward.points) * 100}%` }}
-                      />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-black text-black uppercase tracking-tight mb-1 truncate">{reward.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                      <p className="text-[10px] font-black text-[#F15A24]">{reward.points.toLocaleString('id-ID')} Poin</p>
                     </div>
-                  )}
+                    
+                    {!isAvailable && (
+                      <div className="mt-2 bg-slate-100 rounded-full h-1.5 w-full overflow-hidden">
+                        <div 
+                          className="bg-slate-300 h-full rounded-full" 
+                          style={{ width: `${(activePoints / reward.points) * 100}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    {isAvailable ? (
+                      <button 
+                        onClick={() => {
+                          setSelectedReward(reward);
+                          setShowPopup(true);
+                        }}
+                        className="bg-[#005E6A] text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm shadow-teal-100 active:scale-95 transition-transform"
+                      >
+                        Tukar
+                      </button>
+                    ) : (
+                      <div className="bg-slate-50 text-slate-300 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100">
+                        Kurang {reward.points - activePoints}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  {isAvailable ? (
-                    <button 
-                      onClick={() => setShowPopup(true)}
-                      className="bg-[#005E6A] text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm shadow-teal-100 active:scale-95 transition-transform"
-                    >
-                      Tukar
-                    </button>
-                  ) : (
-                    <div className="bg-slate-50 text-slate-300 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100">
-                      Kurang {reward.points - activePoints}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </motion.div>
 
       {/* Info Popup */}
-      <AnimatePresence>
-        {showPopup && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 text-center"
-            >
-              <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Info className="w-8 h-8 text-blue-500" />
-              </div>
-              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-3">Cara Penukaran</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed mb-8">
-                Silakan hubungi admin Warung Tomi untuk melakukan penukaran poin dengan hadiah yang Anda pilih.
-              </p>
-              <button 
-                onClick={() => setShowPopup(false)}
-                className="w-full bg-[#005E6A] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 active:scale-95 transition-transform"
+      {createPortal(
+        <AnimatePresence>
+          {showPopup && selectedReward && (
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6">
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 text-center relative"
               >
-                Saya Mengerti
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                <button 
+                  onClick={() => {
+                    setShowPopup(false);
+                    setSelectedReward(null);
+                  }}
+                  className="absolute top-5 right-5 p-2 hover:bg-slate-50 rounded-full transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-400" />
+                </button>
+
+                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Gift className="w-8 h-8 text-emerald-600" />
+                </div>
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-3">Tukar Hadiah</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed mb-8">
+                  Apakah Anda yakin ingin menukarkan poin untuk <span className="text-[#F15A24] font-black">{selectedReward.name}</span>? Klik tombol WhatsApp di bawah untuk menghubungi admin.
+                </p>
+                <a 
+                  href={`https://wa.me/6287774138090?text=${encodeURIComponent(
+                    `Hai... Warung Tomi\nSaya *${user.Nama}*, saat ini saya memiliki ${activePoints} poin ingin menukar :\n\n* *${selectedReward.points} poin* saya dengan\n* *${selectedReward.name}*\n\nApakah hadiahnya masih tersedia?`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    setShowPopup(false);
+                    setSelectedReward(null);
+                  }}
+                  className="w-full bg-[#25D366] hover:bg-[#20BA56] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-transform active:scale-95 text-center block"
+                >
+                  WhatsApp
+                </a>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </ProtectedPage>
   );
 };
@@ -11389,12 +11433,41 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
   const [shareCopied, setShareCopied] = useState(false);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
+  const getIsCashOut = (jenis: string) => {
+    const upperJenis = jenis.trim().toUpperCase();
+    const cashOutServices = ["TARIK TUNAI", "PKH", "BPNT"];
+    return cashOutServices.some(service => 
+      upperJenis === service || upperJenis.startsWith(service) || upperJenis.includes(service)
+    );
+  };
+
+  const getIsEdcBni = (melalui?: string) => {
+    return melalui?.trim().toUpperCase() === "EDC BNI";
+  };
+
   const handleShare = async () => {
     if (!selectedTransaction) return;
     
-    const itemsText = parseItems(selectedTransaction.Jenis, selectedTransaction.Pemasukan)
-      .map(item => `- ${item.qty}x ${item.name} (Rp ${formatCurrency(item.qty * (item.price || selectedTransaction.Pemasukan / item.qty))})`)
+    const isEdcBni = getIsEdcBni(selectedTransaction.Melalui) && selectedTransaction.HargaModal > 0;
+    const isCashOut = getIsCashOut(selectedTransaction.Jenis) && selectedTransaction.HargaModal > 0;
+    
+    const itemsText = parseItems(selectedTransaction.Jenis, selectedTransaction.Pemasukan, selectedTransaction.HargaModal, selectedTransaction.Melalui)
+      .map(item => {
+        const itemPrice = item.price !== undefined ? item.price : (selectedTransaction.Pemasukan / item.qty);
+        return `- ${item.qty}x ${item.name} (Rp ${formatCurrency(itemPrice)})`;
+      })
       .join('\n');
+
+    let totalLabel = "Grand Total";
+    let totalValue = selectedTransaction.Pemasukan;
+
+    if (isEdcBni) {
+      totalLabel = "Total Diterima";
+      totalValue = selectedTransaction.HargaModal - 1500;
+    } else if (isCashOut) {
+      totalLabel = "Total Diterima";
+      totalValue = selectedTransaction.HargaModal;
+    }
 
     const shareText = `*NOTA TRANSAKSI WARUNG TOMI*
 -----------------------------
@@ -11407,7 +11480,7 @@ Status: ${selectedTransaction.Status}
 *Daftar Belanja:*
 ${itemsText}
 -----------------------------
-*Grand Total: Rp ${formatCurrency(selectedTransaction.Pemasukan)}*
+*${totalLabel}: Rp ${formatCurrency(totalValue)}*
 Terima kasih telah berbelanja di Warung Tomi!`;
 
     if (navigator.share) {
@@ -11436,7 +11509,54 @@ Terima kasih telah berbelanja di Warung Tomi!`;
     }
   };
 
-  const parseItems = (jenis: string, total: number) => {
+  const parseItems = (jenis: string, total: number, hargaModal?: number, melalui?: string) => {
+    const upperJenis = jenis.trim().toUpperCase();
+    const isEdcBni = getIsEdcBni(melalui);
+
+    if (isEdcBni && hargaModal !== undefined && hargaModal > 0) {
+      const modal = hargaModal;
+      const adminFee = total - (modal + 1500);
+      const items = [
+        { qty: 1, name: jenis, price: total },
+        { qty: 1, name: "BIAYA EDC", price: 3000 }
+      ];
+      if (adminFee > 0) {
+        items.push({ qty: 1, name: "BIAYA ADMIN", price: adminFee });
+      }
+      return items;
+    }
+
+    const specialServices = ["QRIS", "TRANSFER", "TOPUP DANA", "TOPUP OVO", "TOPUP GOPAY", "TOPUP SHOPEEPAY"];
+    
+    const isSpecial = specialServices.some(service => 
+      upperJenis === service || upperJenis.startsWith(service) || upperJenis.includes(service)
+    );
+
+    if (isSpecial && hargaModal !== undefined && hargaModal > 0) {
+      const modal = hargaModal;
+      const adminFee = total - modal;
+      const items = [
+        { qty: 1, name: jenis, price: modal }
+      ];
+      if (adminFee > 0) {
+        items.push({ qty: 1, name: "BIAYA ADMIN", price: adminFee });
+      }
+      return items;
+    }
+
+    const isCashOut = getIsCashOut(jenis);
+    if (isCashOut && hargaModal !== undefined && hargaModal > 0) {
+      const modal = hargaModal;
+      const adminFee = total - modal;
+      const items = [
+        { qty: 1, name: jenis, price: total }
+      ];
+      if (adminFee > 0) {
+        items.push({ qty: 1, name: "BIAYA ADMIN", price: adminFee });
+      }
+      return items;
+    }
+
     const items: { qty: number; name: string; price?: number }[] = [];
     const parts = jenis.split(',').map(p => p.trim());
     
@@ -12248,7 +12368,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                   </div>
                   
                   <div className="space-y-2.5 max-h-[160px] overflow-y-auto no-scrollbar">
-                    {parseItems(selectedTransaction.Jenis, selectedTransaction.Pemasukan).map((item, idx) => (
+                    {parseItems(selectedTransaction.Jenis, selectedTransaction.Pemasukan, selectedTransaction.HargaModal, selectedTransaction.Melalui).map((item, idx) => (
                       <div key={idx} className="flex justify-between items-baseline gap-4">
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] font-black text-[#005E6A] uppercase truncate">{item.name}</p>
@@ -12269,8 +12389,22 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                 {/* Total & Points Summary */}
                 <div className="space-y-2 py-3.5 border-t border-dashed border-slate-200">
                   <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Grand Total</span>
-                    <span className="text-base font-black text-[#F15A24]">Rp {formatCurrency(selectedTransaction.Pemasukan)}</span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                      {getIsEdcBni(selectedTransaction.Melalui) && selectedTransaction.HargaModal > 0
+                        ? "Total Diterima"
+                        : getIsCashOut(selectedTransaction.Jenis) && selectedTransaction.HargaModal > 0
+                        ? "Total Diterima"
+                        : "Grand Total"}
+                    </span>
+                    <span className="text-base font-black text-[#F15A24]">
+                      Rp {formatCurrency(
+                        getIsEdcBni(selectedTransaction.Melalui) && selectedTransaction.HargaModal > 0
+                          ? selectedTransaction.HargaModal - 1500
+                          : getIsCashOut(selectedTransaction.Jenis) && selectedTransaction.HargaModal > 0
+                          ? selectedTransaction.HargaModal
+                          : selectedTransaction.Pemasukan
+                      )}
+                    </span>
                   </div>
                   {Math.floor(selectedTransaction.Pemasukan / 10000) > 0 && (
                     <div className="flex justify-between items-center pt-0.5">
