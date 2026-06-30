@@ -753,7 +753,7 @@ const Header = ({
             <motion.div 
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => loggedInUser ? navigate('/poin') : setIsAgenInfoOpen(true)}
+              onClick={() => loggedInUser ? navigate('/tukar-poin') : setIsAgenInfoOpen(true)}
               className={`${loggedInUser ? "bg-[#E6F4F5] border-[#005E6A]/20" : "bg-[#E6F4F5] border-[#005E6A]/5"} px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm border cursor-pointer`}
             >
               {loggedInUser ? (
@@ -2635,7 +2635,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
             <motion.div 
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              onClick={() => navigate(`/poin/${encodeURIComponent(user.Nama)}`)}
+              onClick={() => navigate(`/tukar-poin`)}
               className="bg-gradient-to-br from-[#005E6A] to-[#00899B] p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group cursor-pointer active:scale-95 transition-all"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:scale-120 transition-transform duration-700" />
@@ -2657,7 +2657,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
                 </div>
               )}
               <div className="mt-4 flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-white/40">
-                <span>Klik untuk detail riwayat</span>
+                <span>Klik untuk Tukar Hadiah & Riwayat</span>
                 <ArrowRight className="w-3 h-3" />
               </div>
             </motion.div>
@@ -2688,7 +2688,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
                         {suggestions.map((s, i) => (
                           <button
                             key={i}
-                            onClick={() => navigate(`/poin/${encodeURIComponent(s.Nama)}`)}
+                            onClick={() => navigate(`/tukar-poin/${encodeURIComponent(s.Nama)}`)}
                             className="w-full px-5 py-4 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 flex items-center justify-between group transition-colors"
                           >
                             <div className="flex items-center gap-3">
@@ -2839,11 +2839,15 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
   );
 };
 
-const LoyaltyPointsDetailPage = ({ user, transactions, redeemedPoints, customers }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[], customers?: Customer[] }) => {
+
+
+const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[], customers?: Customer[] }) => {
   const navigate = useNavigate();
   const { customerName } = useParams();
-  const [activeTab, setActiveTab] = useState<"RIWAYAT" | "TUKAR">("RIWAYAT");
-
+  const [showPopup, setShowPopup] = useState(false);
+  const [selectedReward, setSelectedReward] = useState<{ id: number; name: string; points: number; image: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'tukar' | 'riwayat'>('tukar');
+  
   const displayUser = useMemo(() => {
     if (customerName && customers) {
       return customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user;
@@ -2856,257 +2860,7 @@ const LoyaltyPointsDetailPage = ({ user, transactions, redeemedPoints, customers
   const now = new Date();
   const startDate = new Date(2025, 10, 1);
   const userSales = transactions.filter(t => t.Nama.toLowerCase() === displayUser.Nama.toLowerCase());
-  const userRedeemed = redeemedPoints
-    .filter(r => r.Nama.toLowerCase() === displayUser.Nama.toLowerCase())
-    .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
-  const totalEarned = useMemo(() => {
-    let earned = 0;
-    userSales.forEach(t => {
-      const tDate = parseDate(t.Tanggal);
-      if (tDate >= startDate) {
-        earned += Math.floor(t.Pemasukan / 10000);
-      }
-    });
-    return earned;
-  }, [userSales]);
-
-  const totalExpired = useMemo(() => {
-    let expired = 0;
-    userSales.forEach(t => {
-      const tDate = parseDate(t.Tanggal);
-      if (tDate >= startDate) {
-        const points = Math.floor(t.Pemasukan / 10000);
-        const expiryDate = new Date(tDate);
-        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-        if (expiryDate < now) {
-          expired += points;
-        }
-      }
-    });
-    return expired;
-  }, [userSales, now]);
-
-  const pointsHistory = useMemo(() => {
-    const history: { tanggal: string, poin: number, keterangan: string }[] = [];
-    userSales.forEach(t => {
-      const tDate = parseDate(t.Tanggal);
-      if (tDate >= startDate) {
-        const points = Math.floor(t.Pemasukan / 10000);
-        if (points > 0) {
-          history.push({
-            tanggal: t.Tanggal,
-            poin: points,
-            keterangan: t.Jenis
-          });
-        }
-      }
-    });
-    return history.sort((a, b) => parseDate(b.tanggal).getTime() - parseDate(a.tanggal).getTime());
-  }, [userSales]);
-
-  const totalRedeemed = userRedeemed.reduce((acc, curr) => acc + curr.Poin, 0);
-  const activePoints = totalEarned - totalExpired - totalRedeemed;
-
-  const getExpiryInfo = (dateStr: string) => {
-    const d = parseDate(dateStr);
-    const exp = new Date(d);
-    exp.setFullYear(exp.getFullYear() + 1);
-    const isExpired = exp < now;
-    const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
-    let color = "bg-green-500";
-    if (diffDays < 30) color = "bg-orange-500";
-    if (diffDays < 7) color = "bg-red-500";
-    if (isExpired) color = "bg-slate-400";
-
-    return {
-      date: exp.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
-      isExpired,
-      color
-    };
-  };
-
-  return (
-    <ProtectedPage user={displayUser} title="Detail Poin" allowGuest={true}>
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        className="min-h-screen bg-white"
-      >
-        {/* Hero Section */}
-        <div className="relative h-[40vh] overflow-hidden mb-10">
-          <img 
-            src="https://lh3.googleusercontent.com/d/1BK2wG7qAlYgTJyX3yLk4BdGi-IEjkbpc" 
-            alt="Loyalty Banner" 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
-          
-          <div className="absolute top-6 left-6 flex items-center justify-between right-6">
-            <button 
-              onClick={() => navigate(-1)}
-              className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white border border-white/20 active:scale-95 transition-transform"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="absolute bottom-10 left-6 right-6 text-white translate-z-0">
-             <div className="flex items-center gap-4 mb-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${activePoints < 0 ? 'bg-red-500/40' : 'bg-white/20'} backdrop-blur-md border border-white/20 shadow-lg`}>
-                  <Star className={`w-6 h-6 ${activePoints < 0 ? 'text-red-400 fill-red-400' : 'text-amber-400 fill-amber-400'}`} />
-                </div>
-                <div>
-                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 mb-0.5">Total Poin Aktif</p>
-                   <h2 className={`text-4xl font-black tracking-tighter leading-none ${activePoints < 0 ? 'text-red-300' : 'text-white'}`}>{activePoints.toLocaleString('id-ID')}</h2>
-                </div>
-             </div>
-
-             {activePoints < 0 && (
-                <div className="mt-2 p-3 bg-red-500/30 border border-red-500/20 rounded-xl flex items-start gap-3 backdrop-blur-md">
-                  <Info className="w-4 h-4 text-red-200 shrink-0 mt-0.5" />
-                  <p className="text-[8px] font-bold text-red-50 uppercase tracking-[0.1em] leading-relaxed">
-                    Poin Anda minus karena pernah menukar lebih dari yang didapat.
-                  </p>
-                </div>
-             )}
-          </div>
-        </div>
-
-        <div className="px-6 pb-24">
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden mb-10 flex divide-x divide-slate-50">
-            <div className="flex-1 p-5 text-center">
-               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Ditukar</p>
-               <p className="text-xl font-black text-[#F15A24] tabular-nums">{totalRedeemed.toLocaleString('id-ID')}</p>
-            </div>
-            <div className="flex-1 p-5 text-center">
-               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Hangus</p>
-               <p className="text-xl font-black text-slate-900 tabular-nums">{totalExpired.toLocaleString('id-ID')}</p>
-            </div>
-          </div>
-
-        {/* Small Cards Removed - Moved Inside Above */}
-
-        {/* Redeem Invitation Card */}
-        {activePoints >= 300 && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            onClick={() => navigate("/tukar-poin")}
-            className="bg-gradient-to-r from-[#F15A24] to-[#FF8C00] p-5 rounded-lg text-white mb-8 shadow-lg shadow-orange-100 flex items-center justify-between cursor-pointer active:scale-95 transition-all group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                <Star className="w-6 h-6 text-white fill-amber-400" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest mb-0.5">Poin Anda Cukup!</p>
-                <p className="text-[8px] font-bold opacity-80 uppercase tracking-widest">Tukarkan dengan hadiah menarik</p>
-              </div>
-            </div>
-            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center group-hover:translate-x-1 transition-transform">
-              <ChevronRight className="w-4 h-4" />
-            </div>
-          </motion.div>
-        )}
-
-        {/* Tabs */}
-        <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
-          <button
-            onClick={() => setActiveTab("RIWAYAT")}
-            className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-              activeTab === "RIWAYAT" ? "bg-white text-[#005E6A] shadow-md" : "text-slate-400"
-            }`}
-          >
-            Riwayat Poin
-          </button>
-          <button
-            onClick={() => setActiveTab("TUKAR")}
-            className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
-              activeTab === "TUKAR" ? "bg-white text-[#F15A24] shadow-md" : "text-slate-400"
-            }`}
-          >
-            Riwayat Tukar
-          </button>
-        </div>
-
-        {/* List */}
-        <div className="space-y-3">
-          {activeTab === "RIWAYAT" ? (
-            pointsHistory.length > 0 ? (
-              pointsHistory.map((item, i) => {
-                const expiry = getExpiryInfo(item.tanggal);
-                if (expiry.isExpired) return null;
-                
-                return (
-                  <div key={i} className="bg-white p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm relative overflow-hidden">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-teal-50 rounded-lg flex items-center justify-center">
-                        <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">Dari transaksi {item.keterangan}</p>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.tanggal}</p>
-                      </div>
-                    </div>
-                    <p className="text-xs font-black text-[#005E6A]">+{item.poin} Poin</p>
-                    
-                    {/* Expiry Ribbon */}
-                    <div className={`absolute bottom-0 right-0 px-3 py-0.5 ${expiry.color} text-white text-[6px] font-black uppercase tracking-widest rounded-tl-lg`}>
-                      Exp: {expiry.date}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="py-12 text-center">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Belum ada riwayat poin</p>
-              </div>
-            )
-          ) : (
-            userRedeemed.length > 0 ? (
-              userRedeemed.map((item, i) => (
-                <div key={i} className="bg-white p-4 rounded-xl border border-slate-100 flex items-center justify-between shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-50 rounded-lg flex items-center justify-center">
-                      <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-[#F15A24] uppercase tracking-tight">{item.Hadiah}</p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
-                        {item.Tanggal.split(',')[0]}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs font-black text-[#F15A24]">{item.Poin} Poin</p>
-                </div>
-              ))
-            ) : (
-              <div className="py-12 text-center">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Belum ada riwayat tukar</p>
-              </div>
-            )
-          )}
-        </div>
-      </div>
-    </motion.div>
-  </ProtectedPage>
-);
-};
-
-const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Customer | null, transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
-  const navigate = useNavigate();
-  const [showPopup, setShowPopup] = useState(false);
-  const [selectedReward, setSelectedReward] = useState<{ id: number; name: string; points: number; image: string } | null>(null);
-  
-  if (!user) return null;
-
-  const now = new Date();
-  const startDate = new Date(2025, 10, 1);
-  const userSales = transactions.filter(t => t.Nama.toLowerCase() === user.Nama.toLowerCase());
-  const userRedeemed = redeemedPoints.filter(r => r.Nama.toLowerCase() === user.Nama.toLowerCase());
+  const userRedeemed = redeemedPoints.filter(r => r.Nama.toLowerCase() === displayUser.Nama.toLowerCase());
 
   let totalEarned = 0;
   let totalExpired = 0;
@@ -3129,112 +2883,260 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Custo
   const totalRedeemed = userRedeemed.reduce((acc, curr) => acc + curr.Poin, 0);
   const activePoints = totalEarned - totalExpired - totalRedeemed;
 
+  // Build unified point history
+  const pointHistory: { type: 'earn' | 'redeem' | 'expire'; date: string; points: number; title: string; description: string }[] = [];
+
+  // Earned & Expired
+  userSales.forEach(t => {
+    const tDate = parseDate(t.Tanggal);
+    if (tDate >= startDate) {
+      const points = Math.floor(t.Pemasukan / 10000);
+      if (points > 0) {
+        pointHistory.push({
+          type: 'earn',
+          date: t.Tanggal,
+          points: points,
+          title: 'Poin Masuk',
+          description: `Belanja Rp ${t.Pemasukan.toLocaleString('id-ID')} (${t.Jenis || 'Transaksi'})`
+        });
+
+        const expiryDate = new Date(tDate);
+        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        if (expiryDate < now) {
+          const d = expiryDate.getDate().toString().padStart(2, '0');
+          const m = (expiryDate.getMonth() + 1).toString().padStart(2, '0');
+          const y = expiryDate.getFullYear();
+          pointHistory.push({
+            type: 'expire',
+            date: `${d}/${m}/${y}`,
+            points: points,
+            title: 'Poin Hangus',
+            description: `Masa aktif 1 tahun dari transaksi (${t.Tanggal}) berakhir`
+          });
+        }
+      }
+    }
+  });
+
+  // Redeemed
+  userRedeemed.forEach(r => {
+    pointHistory.push({
+      type: 'redeem',
+      date: r.Tanggal,
+      points: r.Poin,
+      title: 'Tukar Hadiah',
+      description: `Tukar dengan: ${r.Hadiah}`
+    });
+  });
+
+  // Sort descending by date
+  pointHistory.sort((a, b) => {
+    return parseDate(b.date).getTime() - parseDate(a.date).getTime();
+  });
+
   return (
-    <ProtectedPage user={user} title="Tukar Hadiah">
+    <ProtectedPage user={displayUser} title="Tukar Hadiah" allowGuest={true}>
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="px-6 py-4 pb-20 min-h-screen bg-white max-w-lg mx-auto relative"
       >
-        <button 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-slate-500 mb-6 group cursor-pointer"
-        >
-          <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          <span className="text-xs font-bold uppercase tracking-widest">Kembali</span>
-        </button>
-
         {/* Sticky points card so it is static/motionless and doesn't scroll with page */}
-        <div className="sticky top-0 z-0 bg-white pb-6">
-          <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+        <div className="sticky top-[80px] z-0 bg-white pb-6 pt-2">
+          <div className="relative overflow-hidden bg-gradient-to-br from-[#005E6A] via-[#028090] to-[#E25C3E] rounded-[2rem] py-8 px-7 text-white shadow-xl shadow-[#005E6A]/20">
+            {/* Subtle background glow decorative elements */}
+            <div className="absolute -right-8 -top-8 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
+            <div className="absolute -left-10 -bottom-10 w-28 h-28 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
+            
+            <div className="relative flex items-center justify-between mb-6">
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Aktif Anda</p>
-                <p className={`text-2xl font-black tracking-tight ${activePoints < 0 ? 'text-red-600' : 'text-[#005E6A]'}`}>{activePoints} Poin</p>
+                <p className="text-[10px] font-black text-teal-100/95 uppercase tracking-widest mb-1.5">Poin Aktif Anda</p>
+                <p className="text-3xl font-black tracking-tight">{activePoints.toLocaleString('id-ID')} <span className="text-xs font-bold text-teal-100 uppercase tracking-widest ml-1">Poin</span></p>
               </div>
-              <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center">
-                <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
+              <div className="w-14 h-14 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10 shadow-inner">
+                <Star className="w-7 h-7 text-amber-300 fill-amber-300" />
               </div>
             </div>
             
             {/* Added Points Information below the main active points */}
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-dashed border-slate-100">
+            <div className="relative grid grid-cols-2 gap-4 pt-5 border-t border-dashed border-white/20">
               <div>
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Ditukar</p>
-                <p className="text-sm font-black text-[#005E6A]">{totalRedeemed.toLocaleString('id-ID')} Poin</p>
+                <p className="text-[9px] font-black text-teal-100/80 uppercase tracking-widest mb-1">Poin Ditukar</p>
+                <p className="text-base font-black text-white">{totalRedeemed.toLocaleString('id-ID')} <span className="text-[10px] font-medium text-teal-100">Poin</span></p>
               </div>
               <div className="text-right">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Poin Hangus</p>
-                <p className="text-sm font-black text-red-500">{totalExpired.toLocaleString('id-ID')} Poin</p>
+                <p className="text-[9px] font-black text-teal-100/80 uppercase tracking-widest mb-1">Poin Hangus</p>
+                <p className="text-base font-black text-rose-200">{totalExpired.toLocaleString('id-ID')} <span className="text-[10px] font-medium text-rose-200">Poin</span></p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Rewards list container that scrolls UP and overlays the points card */}
-        <div className="relative z-10 bg-slate-50 rounded-t-[2.5rem] pt-6 pb-24 -mx-6 px-6 min-h-[100vh] space-y-4 shadow-[0_-12px_30px_rgba(0,0,0,0.03)] -mt-4">
-          {/* Sticky rewards header section */}
-          <div className="sticky top-0 z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50 mb-2">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Daftar Hadiah Tersedia</h3>
+        <div className="relative z-10 bg-slate-50 rounded-t-[2.5rem] pt-6 pb-24 -mx-6 px-6 min-h-[100vh] space-y-4 shadow-[0_-12px_30px_rgba(0,0,0,0.03)] mt-6">
+          {/* Sticky dual tabs selector */}
+          <div className="sticky top-[80px] z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50 mb-4">
+            <div className="flex bg-slate-200/60 p-1 rounded-2xl relative">
+              <button
+                onClick={() => setActiveTab('tukar')}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
+                  activeTab === 'tukar' ? 'text-[#005E6A]' : 'text-slate-400'
+                }`}
+              >
+                Tukar Hadiah
+                {activeTab === 'tukar' && (
+                  <motion.div
+                    layoutId="activeRewardTab"
+                    className="absolute inset-0 bg-white rounded-xl shadow-sm z-[-1]"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab('riwayat')}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
+                  activeTab === 'riwayat' ? 'text-[#005E6A]' : 'text-slate-400'
+                }`}
+              >
+                Riwayat Poin
+                {activeTab === 'riwayat' && (
+                  <motion.div
+                    layoutId="activeRewardTab"
+                    className="absolute inset-0 bg-white rounded-xl shadow-sm z-[-1]"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </button>
+            </div>
           </div>
           
-          <div className="grid grid-cols-1 gap-4 pt-2">
-            {REWARDS.map((reward) => {
-              const isAvailable = activePoints >= reward.points;
-              
-              return (
-                <div 
-                  key={reward.id}
-                  className={`bg-white rounded-lg border p-4 flex items-center gap-4 transition-all ${
-                    isAvailable ? "border-slate-100 shadow-sm" : "border-slate-50 opacity-60 grayscale"
-                  }`}
-                >
-                  <div className="w-20 h-20 bg-slate-50 rounded-lg overflow-hidden shrink-0">
-                    <img 
-                      src={reward.image} 
-                      alt={reward.name} 
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-black text-black uppercase tracking-tight mb-1 truncate">{reward.name}</p>
-                    <div className="flex items-center gap-1.5">
-                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                      <p className="text-[10px] font-black text-[#F15A24]">{reward.points.toLocaleString('id-ID')} Poin</p>
-                    </div>
-                    
-                    {!isAvailable && (
-                      <div className="mt-2 bg-slate-100 rounded-full h-1.5 w-full overflow-hidden">
-                        <div 
-                          className="bg-slate-300 h-full rounded-full" 
-                          style={{ width: `${(activePoints / reward.points) * 100}%` }}
+          <AnimatePresence mode="wait">
+            {activeTab === 'tukar' ? (
+              <motion.div
+                key="rewards-list"
+                initial={{ opacity: 0, x: -15 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 15 }}
+                transition={{ duration: 0.25 }}
+                className="grid grid-cols-1 gap-4 pt-2"
+              >
+                {REWARDS.map((reward) => {
+                  const isAvailable = activePoints >= reward.points;
+                  
+                  return (
+                    <div 
+                      key={reward.id}
+                      className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4 transition-all hover:border-slate-200"
+                    >
+                      <div className="w-20 h-20 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100">
+                        <img 
+                          src={reward.image} 
+                          alt={reward.name} 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
                         />
                       </div>
-                    )}
-                  </div>
-                  <div>
-                    {isAvailable ? (
-                      <button 
-                        onClick={() => {
-                          setSelectedReward(reward);
-                          setShowPopup(true);
-                        }}
-                        className="bg-[#005E6A] text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm shadow-teal-100 active:scale-95 transition-transform"
-                      >
-                        Tukar
-                      </button>
-                    ) : (
-                      <div className="bg-slate-50 text-slate-300 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100">
-                        Kurang {reward.points - activePoints}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-black text-black uppercase tracking-tight mb-1 truncate">{reward.name}</p>
+                        <div className="flex items-center gap-1.5">
+                          <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                          <p className="text-[10px] font-black text-[#F15A24]">{reward.points.toLocaleString('id-ID')} Poin</p>
+                        </div>
+                        
+                        {!isAvailable && (
+                          <div className="mt-2">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Progress</span>
+                              <span className="text-[9px] font-bold text-slate-400">
+                                kurang {(reward.points - activePoints).toLocaleString('id-ID')} poin lagi
+                              </span>
+                            </div>
+                            <div className="bg-slate-100 rounded-full h-1.5 w-full overflow-hidden">
+                              <div 
+                                className="bg-gradient-to-r from-amber-400 to-amber-500 h-full rounded-full" 
+                                style={{ width: `${(activePoints / reward.points) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                      {isAvailable && (
+                        <div>
+                          <button 
+                            onClick={() => {
+                              setSelectedReward(reward);
+                              setShowPopup(true);
+                            }}
+                            className="px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm bg-[#005E6A] hover:bg-[#004e58] text-white shadow-teal-100 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            Tukar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="history-list"
+                initial={{ opacity: 0, x: 15 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -15 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-3 pt-2"
+              >
+                {pointHistory.length === 0 ? (
+                  <div className="bg-white rounded-2xl p-8 border border-slate-100 text-center text-slate-400 space-y-2">
+                    <History className="w-8 h-8 mx-auto text-slate-300" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Belum Ada Riwayat Poin</p>
+                    <p className="text-[9px] text-slate-400 normal-case leading-relaxed">Transaksi belanja Anda akan otomatis menghasilkan poin aktif di sini.</p>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                ) : (
+                  pointHistory.map((item, idx) => {
+                    const isEarn = item.type === 'earn';
+                    const isRedeem = item.type === 'redeem';
+                    const isExpire = item.type === 'expire';
+                    
+                    return (
+                      <div 
+                        key={idx}
+                        className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center justify-between gap-4 shadow-sm"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                            isEarn ? 'bg-emerald-50 text-emerald-600' :
+                            isRedeem ? 'bg-amber-50 text-amber-600' :
+                            'bg-rose-50 text-rose-600'
+                          }`}>
+                            {isEarn && <PlusCircle className="w-5 h-5" />}
+                            {isRedeem && <Gift className="w-5 h-5" />}
+                            {isExpire && <AlertTriangle className="w-5 h-5" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-black text-slate-800 truncate">{item.title}</p>
+                            <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5 leading-relaxed">{item.description}</p>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-1">{item.date}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right shrink-0">
+                          <span className={`text-xs font-black tracking-tight ${
+                            isEarn ? 'text-emerald-600' :
+                            isRedeem ? 'text-amber-600' :
+                            'text-rose-600'
+                          }`}>
+                            {isEarn ? '+' : '-'}{item.points.toLocaleString('id-ID')} Poin
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
 
@@ -3260,27 +3162,53 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints }: { user: Custo
                   <X className="w-4 h-4 text-slate-400" />
                 </button>
 
-                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Gift className="w-8 h-8 text-emerald-600" />
-                </div>
-                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-3">Tukar Hadiah</h3>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed mb-8">
-                  Apakah Anda yakin ingin menukarkan poin untuk <span className="text-[#F15A24] font-black">{selectedReward.name}</span>? Klik tombol WhatsApp di bawah untuk menghubungi admin.
-                </p>
-                <a 
-                  href={`https://wa.me/6287774138090?text=${encodeURIComponent(
-                    `Hai... Warung Tomi\nSaya *${user.Nama}*, saat ini saya memiliki ${activePoints} poin ingin menukar :\n\n* *${selectedReward.points} poin* saya dengan\n* *${selectedReward.name}*\n\nApakah hadiahnya masih tersedia?`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => {
-                    setShowPopup(false);
-                    setSelectedReward(null);
-                  }}
-                  className="w-full bg-[#25D366] hover:bg-[#20BA56] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-transform active:scale-95 text-center block"
-                >
-                  WhatsApp
-                </a>
+                {activePoints >= selectedReward.points ? (
+                  <>
+                    <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Gift className="w-8 h-8 text-emerald-600" />
+                    </div>
+                    <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-3">Tukar Hadiah</h3>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed mb-8">
+                      Apakah Anda yakin ingin menukarkan poin untuk <span className="text-[#F15A24] font-black">{selectedReward.name}</span>? Klik tombol WhatsApp di bawah untuk menghubungi admin.
+                    </p>
+                    <a 
+                      href={`https://wa.me/6287774138090?text=${encodeURIComponent(
+                        `Hai... Warung Tomi\nSaya *${displayUser.Nama}*, saat ini saya memiliki ${activePoints} poin ingin menukar :\n\n* *${selectedReward.points} poin* saya dengan\n* *${selectedReward.name}*\n\nApakah hadiahnya masih tersedia?`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        setShowPopup(false);
+                        setSelectedReward(null);
+                      }}
+                      className="w-full bg-[#25D366] hover:bg-[#20BA56] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-transform active:scale-95 text-center block"
+                    >
+                      WhatsApp
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <AlertTriangle className="w-8 h-8 text-amber-500 animate-pulse" />
+                    </div>
+                    <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest mb-3">Poin Kurang</h3>
+                    <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest leading-relaxed mb-4">
+                      Poin Anda kurang <span className="text-red-500 font-black">{(selectedReward.points - activePoints).toLocaleString('id-ID')} poin</span> untuk menukar dengan hadiah <span className="text-[#005E6A] font-black">{selectedReward.name}</span>.
+                    </p>
+                    <p className="text-[9px] text-slate-400 mb-8 normal-case leading-relaxed">
+                      Kumpulkan lebih banyak poin dengan meningkatkan transaksi belanja Anda di Warung Tomi!
+                    </p>
+                    <button 
+                      onClick={() => {
+                        setShowPopup(false);
+                        setSelectedReward(null);
+                      }}
+                      className="w-full bg-[#005E6A] hover:bg-[#004e58] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 transition-transform active:scale-95"
+                    >
+                      Mengerti
+                    </button>
+                  </>
+                )}
               </motion.div>
             </div>
           )}
@@ -12553,7 +12481,7 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
             <div className="grid grid-cols-2 gap-4">
               {/* Poin Saya Card */}
               <div 
-                onClick={() => navigate(`/poin/${encodeURIComponent(user?.Nama || '')}`)}
+                onClick={() => navigate(`/tukar-poin`)}
                 className="relative flex items-center w-full h-16 cursor-pointer group/wallet active:scale-95 transition-all"
               >
                 {/* Left Side: Nested circular badge */}
@@ -14979,11 +14907,11 @@ export default function App() {
         <Route path="/poin" element={
           <LoyaltyPointsPage user={loggedInUser} customers={customers} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
         } />
-        <Route path="/poin/:customerName" element={
-          <LoyaltyPointsDetailPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} customers={customers} />
-        } />
         <Route path="/tukar-poin" element={
-          <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
+          <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} customers={customers} />
+        } />
+        <Route path="/tukar-poin/:customerName" element={
+          <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} customers={customers} />
         } />
         <Route path="/qris" element={<QRISPage />} />
         <Route path="/tariktunai" element={<TarikTunaiPage />} />
