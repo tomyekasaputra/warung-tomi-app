@@ -531,7 +531,7 @@ const LEVELS = [
     name: "Platinum", 
     min: 20000000, 
     max: Infinity, 
-    color: "from-blue-400 to-indigo-600", 
+    color: "from-slate-800 to-black", 
     icon: <Trophy className="w-6 h-6 text-white" />,
     benefits: [
       "Dapat 1 Poin (Tiap kelipatan Rp10.000)",
@@ -753,7 +753,7 @@ const Header = ({
             <motion.div 
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => loggedInUser ? navigate('/tukar-poin') : setIsAgenInfoOpen(true)}
+              onClick={() => loggedInUser ? navigate(`/poin/${encodeURIComponent(loggedInUser.Nama)}`) : setIsAgenInfoOpen(true)}
               className={`${loggedInUser ? "bg-[#E6F4F5] border-[#005E6A]/20" : "bg-[#E6F4F5] border-[#005E6A]/5"} px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm border cursor-pointer`}
             >
               {loggedInUser ? (
@@ -2597,7 +2597,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
         className="min-h-screen bg-white pb-24"
       >
         {/* Hero Section */}
-        <div className="relative h-[40vh] overflow-hidden mb-8">
+        <div className="relative h-[40vh] overflow-hidden mb-0">
           <img 
             src="https://lh3.googleusercontent.com/d/1BK2wG7qAlYgTJyX3yLk4BdGi-IEjkbpc" 
             alt="Loyalty Banner" 
@@ -2615,7 +2615,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
             </button>
           </div>
 
-          <div className="absolute bottom-12 left-6 right-6 text-white">
+          <div className="absolute bottom-16 left-6 right-6 text-white">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -2629,84 +2629,54 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
 
         <div className="px-6">
 
-        {/* Session Sensitive Header */}
-        <div className="mb-8">
-          {user ? (
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              onClick={() => navigate(`/tukar-poin`)}
-              className="bg-gradient-to-br from-[#005E6A] to-[#00899B] p-6 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group cursor-pointer active:scale-95 transition-all"
-            >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 group-hover:scale-120 transition-transform duration-700" />
-              <div className="relative z-10 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black text-white/60 uppercase tracking-widest mb-1">Poin Aktif Anda</p>
-                  <h3 className={`text-2xl font-black tracking-tight ${activePoints < 0 ? 'text-red-200' : 'text-white'}`}>{activePoints} Poin</h3>
-                </div>
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
-                  <Star className={`w-6 h-6 ${activePoints < 0 ? 'text-red-400 fill-red-400' : 'text-amber-400 fill-amber-400'}`} />
-                </div>
-              </div>
-              {activePoints < 0 && (
-                <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-xl flex items-start gap-3 backdrop-blur-sm">
-                  <Info className="w-4 h-4 text-red-200 shrink-0 mt-0.5" />
-                  <p className="text-[8px] font-bold text-red-50 text-left uppercase tracking-wider leading-relaxed">
-                    Poin Anda minus karena pernah menukar poin melebihi poin yang didapat.
-                  </p>
-                </div>
-              )}
-              <div className="mt-4 flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-white/40">
-                <span>Klik untuk Tukar Hadiah & Riwayat</span>
-                <ArrowRight className="w-3 h-3" />
-              </div>
-            </motion.div>
-          ) : (
-            <div className="space-y-4">
-              <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-visible">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Cek Poin Pelanggan</p>
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                    <Search className="w-4 h-4 text-slate-400" />
-                  </div>
-                  <input 
-                    type="text"
-                    placeholder="MASUKKAN NAMA ANDA..."
-                    value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-xs font-black text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all uppercase placeholder:text-slate-300"
-                  />
-                  
-                  <AnimatePresence>
-                    {suggestions.length > 0 && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-[100]"
-                      >
-                        {suggestions.map((s, i) => (
-                          <button
-                            key={i}
-                            onClick={() => navigate(`/tukar-poin/${encodeURIComponent(s.Nama)}`)}
-                            className="w-full px-5 py-4 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 flex items-center justify-between group transition-colors"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-teal-50 rounded-full flex items-center justify-center text-[#005E6A] shrink-0">
-                                <User className="w-4 h-4" />
-                              </div>
-                              <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{s.Nama}</span>
-                            </div>
-                            <ArrowRight className="w-4 h-4 text-slate-200 group-hover:text-[#F15A24] group-hover:translate-x-1 transition-all" />
-                          </button>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Search Customer Input (Direct Layout) */}
+        <div className="-mt-7 mb-8 relative z-20">
+          <div className="absolute left-4.5 top-1/2 -translate-y-1/2 z-10">
+            <Search className="w-4 h-4 text-slate-400" />
+          </div>
+          <input 
+            type="text"
+            placeholder={user ? "Cari nama pelanggan lain..." : "CARI NAMA PELANGGAN DI SINI..."}
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full bg-white border-2 border-slate-100 rounded-3xl pl-12 pr-6 py-4.5 text-xs font-black text-[#005E6A] focus:outline-none focus:border-[#005E6A] transition-all uppercase placeholder:text-slate-300 shadow-sm"
+          />
+          
+          <AnimatePresence>
+            {suggestions.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-[100]"
+              >
+                {suggestions.map((s, i) => {
+                  const sPoints = calculateActivePoints(s.Nama, transactions, redeemedPoints);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => navigate(`/poin/${encodeURIComponent(s.Nama)}`)}
+                      className="w-full px-5 py-4 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 flex items-center justify-between group transition-colors"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center text-[#005E6A] shrink-0 border border-teal-500/10">
+                          <User className="w-4.5 h-4.5" />
+                        </div>
+                        <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{s.Nama}</span>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <span className="inline-flex items-center gap-1 text-[8px] font-black uppercase text-amber-600 bg-amber-50/80 px-3 py-1 rounded-full border border-amber-500/10 tracking-wider">
+                          <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-500" />
+                          {sPoints.toLocaleString('id-ID')} Poin
+                        </span>
+                        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#F15A24] group-hover:translate-x-1 transition-all" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Tabs */}
@@ -2731,46 +2701,41 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
 
         {activeTab === "HADIAH" ? (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               {REWARDS.map((reward) => (
-                <div key={reward.id} className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm flex flex-col group active:scale-[0.98] transition-transform">
-                  <div className="relative h-32 bg-slate-50 overflow-hidden">
+                <motion.div 
+                  key={reward.id}
+                  whileHover={{ y: -3 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
+                  className="group relative bg-white rounded-[2rem] border p-5 flex items-center gap-5 transition-all duration-300 border-slate-100 shadow-sm hover:border-slate-200"
+                >
+                  {/* Image container */}
+                  <div className="relative w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100/80 flex items-center justify-center group-hover:shadow-inner transition-all duration-300">
                     <img 
                       src={reward.image} 
                       alt={reward.name} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-md px-2 py-1 rounded-lg shadow-sm flex items-center gap-1">
-                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                      <span className="text-[8px] font-black text-amber-600">{reward.points}</span>
-                    </div>
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300 pointer-events-none" />
                   </div>
-                  <div className="p-4 flex-1 flex flex-col">
-                    <div className="mb-4 flex-1 flex items-center justify-center">
-                      <p className="text-[9px] font-black text-slate-900 uppercase leading-tight text-center line-clamp-3">{reward.name}</p>
-                    </div>
+
+                  {/* Content Section */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center h-24 py-1">
                     <div>
-                      {user ? (
-                        activePoints >= reward.points ? (
-                          <button 
-                            onClick={() => navigate("/tukar-poin")}
-                            className="w-full py-2 bg-amber-50 text-amber-600 rounded-xl text-[8px] font-black uppercase tracking-widest hover:bg-amber-100 transition-colors shadow-sm active:scale-95"
-                          >
-                            Tukarkan
-                          </button>
-                        ) : (
-                          <button 
-                            disabled
-                            className="w-full py-2 bg-slate-50 text-slate-400 rounded-xl text-[8px] font-black uppercase tracking-widest cursor-not-allowed opacity-60"
-                          >
-                            Poin Kurang
-                          </button>
-                        )
-                      ) : null}
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight mb-2 truncate leading-tight group-hover:text-black transition-colors">
+                        {reward.name}
+                      </h4>
+
+                      {/* Points badge */}
+                      <div className="inline-flex items-center gap-1 bg-gradient-to-r from-[#F15A24]/5 to-[#FF8C00]/5 border border-[#F15A24]/10 px-2.5 py-0.5 rounded-full">
+                        <Star className="w-3 h-3 text-[#F15A24] fill-[#F15A24]" />
+                        <span className="text-[10px] font-black text-[#F15A24] tracking-tight">{reward.points.toLocaleString('id-ID')}</span>
+                        <span className="text-[8px] font-bold text-[#F15A24]/70 uppercase tracking-wider ml-0.5">Poin</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
@@ -2941,8 +2906,11 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
     return item.type === historyFilter;
   });
 
+  const availableRewards = REWARDS.filter(reward => activePoints >= reward.points);
+  const lockedRewards = REWARDS.filter(reward => activePoints < reward.points);
+
   return (
-    <ProtectedPage user={displayUser} title="Tukar Hadiah" allowGuest={true}>
+    <ProtectedPage user={displayUser} title="Detail Poin" allowGuest={true}>
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -3053,62 +3021,133 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                 transition={{ duration: 0.25 }}
                 className="grid grid-cols-1 gap-4 pt-2"
               >
-                {REWARDS.map((reward) => {
-                  const isAvailable = activePoints >= reward.points;
-                  
-                  return (
-                    <div 
-                      key={reward.id}
-                      className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4 transition-all hover:border-slate-200"
-                    >
-                      <div className="w-20 h-20 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100">
-                        <img 
-                          src={reward.image} 
-                          alt={reward.name} 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-black text-black uppercase tracking-tight mb-1 truncate">{reward.name}</p>
-                        <div className="flex items-center gap-1.5">
-                          <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                          <p className="text-[10px] font-black text-[#F15A24]">{reward.points.toLocaleString('id-ID')} Poin</p>
+                {availableRewards.length > 0 && (
+                  <>
+                    <div className="pt-2 pb-1 flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-500/10">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Siap Ditukar
+                      </span>
+                      <div className="h-px bg-slate-100 flex-1" />
+                    </div>
+                    {availableRewards.map((reward) => (
+                      <motion.div 
+                        key={reward.id}
+                        whileHover={{ y: -3 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        className="group relative bg-white rounded-[2rem] border p-5 flex items-center gap-5 transition-all duration-300 border-emerald-100 shadow-sm hover:shadow-md hover:border-emerald-200"
+                      >
+                        {/* Image container with subtle badge */}
+                        <div className="relative w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100/80 flex items-center justify-center group-hover:shadow-inner transition-all duration-300">
+                          <img 
+                            src={reward.image} 
+                            alt={reward.name} 
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300 pointer-events-none" />
                         </div>
-                        
-                        {!isAvailable && (
-                          <div className="mt-2">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-[8px] font-black uppercase text-slate-400 tracking-wider">Progress</span>
-                              <span className="text-[9px] font-bold text-slate-400">
-                                kurang {(reward.points - activePoints).toLocaleString('id-ID')} poin
-                              </span>
-                            </div>
-                            <div className="bg-slate-100 rounded-full h-1.5 w-full overflow-hidden">
-                              <div 
-                                className="bg-gradient-to-r from-amber-400 to-amber-500 h-full rounded-full" 
-                                style={{ width: `${(activePoints / reward.points) * 100}%` }}
-                              />
+
+                        {/* Content Section */}
+                        <div className="flex-1 min-w-0 flex flex-col justify-center h-24 py-1">
+                          <div>
+                            <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight mb-2 truncate leading-tight group-hover:text-black transition-colors">
+                              {reward.name}
+                            </h4>
+
+                            {/* Points badge */}
+                            <div className="inline-flex items-center gap-1 bg-gradient-to-r from-[#F15A24]/5 to-[#FF8C00]/5 border border-[#F15A24]/10 px-2.5 py-0.5 rounded-full">
+                              <Star className="w-3 h-3 text-[#F15A24] fill-[#F15A24]" />
+                              <span className="text-[10px] font-black text-[#F15A24] tracking-tight">{reward.points.toLocaleString('id-ID')}</span>
+                              <span className="text-[8px] font-bold text-[#F15A24]/70 uppercase tracking-wider ml-0.5">Poin</span>
                             </div>
                           </div>
-                        )}
-                      </div>
-                      {isAvailable && (
-                        <div>
+                        </div>
+
+                        {/* Right side CTA Button */}
+                        <div className="shrink-0 pl-1">
                           <button 
                             onClick={() => {
                               setSelectedReward(reward);
                               setShowPopup(true);
                             }}
-                            className="px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm bg-[#005E6A] hover:bg-[#004e58] text-white shadow-teal-100 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                            className="h-10 px-4.5 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 bg-[#005E6A] hover:bg-[#004e58] text-white flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95 hover:shadow-[#005E6A]/25 cursor-pointer whitespace-nowrap group/btn"
                           >
-                            Tukar
+                            <span>Tukar</span>
+                            <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
                           </button>
                         </div>
-                      )}
+                      </motion.div>
+                    ))}
+                  </>
+                )}
+
+                {lockedRewards.length > 0 && (
+                  <>
+                    <div className="pt-4 pb-1 flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-slate-500 bg-slate-50 px-3 py-1 rounded-full border border-slate-500/10">
+                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        Belum Cukup
+                      </span>
+                      <div className="h-px bg-slate-100 flex-1" />
                     </div>
-                  );
-                })}
+                    {lockedRewards.map((reward) => {
+                      const progressPercentage = Math.min(100, Math.max(0, (activePoints / reward.points) * 100));
+                      
+                      return (
+                        <motion.div 
+                          key={reward.id}
+                          whileHover={{ y: -3 }}
+                          transition={{ duration: 0.25, ease: "easeOut" }}
+                          className="group relative bg-white rounded-[2rem] border p-5 flex items-center gap-5 transition-all duration-300 border-slate-100 shadow-sm hover:border-slate-200"
+                        >
+                          {/* Image container */}
+                          <div className="relative w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100/80 flex items-center justify-center group-hover:shadow-inner transition-all duration-300">
+                            <img 
+                              src={reward.image} 
+                              alt={reward.name} 
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300 pointer-events-none" />
+                          </div>
+
+                          {/* Content Section */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-between h-24 py-1">
+                            <div>
+                              <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight mb-2 truncate leading-tight group-hover:text-black transition-colors">
+                                {reward.name}
+                              </h4>
+
+                              {/* Points badge */}
+                              <div className="inline-flex items-center gap-1 bg-gradient-to-r from-[#F15A24]/5 to-[#FF8C00]/5 border border-[#F15A24]/10 px-2.5 py-0.5 rounded-full">
+                                <Star className="w-3 h-3 text-[#F15A24] fill-[#F15A24]" />
+                                <span className="text-[10px] font-black text-[#F15A24] tracking-tight">{reward.points.toLocaleString('id-ID')}</span>
+                                <span className="text-[8px] font-bold text-[#F15A24]/70 uppercase tracking-wider ml-0.5">Poin</span>
+                              </div>
+                            </div>
+
+                            {/* Progress bar */}
+                            <div className="mt-1">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className="text-[8px] font-bold uppercase text-slate-400 tracking-wider">Progress</span>
+                                <span className="text-[9px] font-black text-slate-500">
+                                  kurang <span className="text-rose-500">{(reward.points - activePoints).toLocaleString('id-ID')}</span> poin
+                                </span>
+                              </div>
+                              <div className="bg-slate-100 rounded-full h-1.5 w-full overflow-hidden relative border border-slate-200/20">
+                                <div 
+                                  className="bg-gradient-to-r from-amber-400 via-amber-500 to-[#F15A24] h-full rounded-full transition-all duration-500" 
+                                  style={{ width: `${progressPercentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </>
+                )}
               </motion.div>
             ) : (
               <motion.div
@@ -11360,41 +11399,132 @@ const AdminSettingsPage = () => {
   );
 };
 
-const LevelPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
+const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | null, transactions: SalesTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadedCustomers, setLoadedCustomers] = useState<Customer[]>([]);
+
   const currentLevelInfo = calculateCustomerLevel(transactions, user?.Nama || "");
   const currentLevelIndex = LEVELS.findIndex(l => l.name === currentLevelInfo.name);
 
-  useEffect(() => {
+  const getModalStyle = () => {
+    switch (activeIndex) {
+      case 0: // Bronze
+        return {
+          borderColor: "#CD7F32",
+          accentColor: "#CD7F32",
+          badgeBg: "bg-[#CD7F32]/10 text-[#A57164]",
+          itemBg: "bg-orange-50/40 border-orange-100/60"
+        };
+      case 1: // Silver
+        return {
+          borderColor: "#94A3B8",
+          accentColor: "#475569",
+          badgeBg: "bg-slate-100 text-slate-600",
+          itemBg: "bg-slate-50/50 border-slate-100"
+        };
+      case 2: // Gold
+        return {
+          borderColor: "#B8860B",
+          accentColor: "#D97706",
+          badgeBg: "bg-amber-50 text-amber-700",
+          itemBg: "bg-amber-50/30 border-amber-100/50"
+        };
+      case 3: // Platinum
+        return {
+          borderColor: "#475569",
+          accentColor: "#1E293B",
+          badgeBg: "bg-slate-100 text-slate-800",
+          itemBg: "bg-slate-50/60 border-slate-200/40"
+        };
+      default:
+        return {
+          borderColor: "#e2e8f0",
+          accentColor: "#0ea5e9",
+          badgeBg: "bg-sky-50 text-sky-600",
+          itemBg: "bg-slate-50/50 border-slate-100"
+        };
+    }
+  };
+
+  const handleLoadCustomers = () => {
+    setIsModalOpen(true);
+    setIsLoading(true);
+    setLoadedCustomers([]);
+    
+    setTimeout(() => {
+      const filtered = (customers || []).filter(customer => 
+        calculateCustomerLevel(transactions, customer.Nama).name === LEVELS[activeIndex].name
+      );
+      setLoadedCustomers(filtered);
+      setIsLoading(false);
+    }, 800);
+  };
+
+  const scrollToIndex = (index: number) => {
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current;
-      const cardWidth = 260 - 100; 
-      const scrollAmount = currentLevelIndex * cardWidth;
-      
-      const containerWidth = container.offsetWidth;
-      const centerOffset = (containerWidth - 260) / 2;
-      
-      container.scrollTo({
-        left: scrollAmount - centerOffset + 40,
-        behavior: 'smooth'
-      });
-      setActiveIndex(currentLevelIndex);
+      const card = container.children[index] as HTMLElement;
+      if (card) {
+        const scrollAmount = card.offsetLeft - (container.offsetWidth - card.offsetWidth) / 2;
+        container.scrollTo({
+          left: scrollAmount,
+          behavior: 'smooth'
+        });
+        setActiveIndex(index);
+      }
     }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToIndex(currentLevelIndex);
+    }, 150);
+    return () => clearTimeout(timer);
   }, [currentLevelIndex]);
 
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current;
       const scrollLeft = container.scrollLeft;
-      const cardWidth = 260 - 100;
-      const containerWidth = container.offsetWidth;
-      const centerOffset = (containerWidth - 260) / 2;
-      const index = Math.round((scrollLeft + centerOffset - 40) / cardWidth);
-      if (index >= 0 && index < LEVELS.length) {
-        setActiveIndex(index);
+      const containerCenter = scrollLeft + container.offsetWidth / 2;
+      
+      let closestIndex = 0;
+      let minDistance = Infinity;
+      
+      for (let i = 0; i < container.children.length; i++) {
+        const child = container.children[i] as HTMLElement;
+        if (child) {
+          const childCenter = child.offsetLeft + child.offsetWidth / 2;
+          const distance = Math.abs(containerCenter - childCenter);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestIndex = i;
+          }
+        }
       }
+      
+      setActiveIndex(closestIndex);
+    }
+  };
+
+  const isDarkBg = true;
+
+  const getPageBgStyle = () => {
+    switch (activeIndex) {
+      case 0:
+        return { background: "linear-gradient(135deg, #CD7F32, #A57164)" }; // Bronze
+      case 1:
+        return { background: "linear-gradient(135deg, #94a3b8, #475569)" }; // Silver
+      case 2:
+        return { background: "linear-gradient(135deg, #b8860b, #996515)" }; // Gold
+      case 3:
+        return { background: "linear-gradient(135deg, #1e293b, #020617)" }; // Platinum
+      default:
+        return { background: "linear-gradient(135deg, #1e293b, #020617)" };
     }
   };
 
@@ -11404,7 +11534,8 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className="min-h-screen bg-slate-50 pb-24 overflow-hidden"
+        className="min-h-screen pb-24 overflow-hidden transition-all duration-700 bg-gradient-to-br"
+        style={getPageBgStyle()}
       >
         {/* Hero Section */}
         <div className="relative h-[35vh] overflow-hidden mb-0">
@@ -11414,7 +11545,12 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-50 via-slate-50/20 to-transparent" />
+          <div className={`absolute inset-0 bg-gradient-to-t transition-all duration-700 ${
+            activeIndex === 0 ? "from-[#A57164] via-[#A57164]/20" :
+            activeIndex === 1 ? "from-[#475569] via-[#475569]/20" :
+            activeIndex === 2 ? "from-[#996515] via-[#996515]/20" :
+            "from-black via-black/20"
+          } to-transparent`} />
           
           <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
             <button 
@@ -11425,142 +11561,332 @@ const LevelPage = ({ user, transactions }: { user: Customer | null, transactions
             </button>
           </div>
 
-          <div className="absolute bottom-8 left-6 right-6">
+          <div className="absolute bottom-12 left-6 right-6">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-1 text-[#005E6A]">Member Level</h1>
-              <p className="text-xs font-bold text-[#005E6A]/50 uppercase tracking-[0.2em]">Warung Tomi Loyalty Program</p>
+              <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-1 text-white">Member Level</h1>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/60">Warung Tomi Loyalty Program</p>
             </motion.div>
           </div>
         </div>
 
-        <div className="px-6 pt-2">
+        <div className="px-6">
 
-        {/* Carousel Container with Progressive Stack Effect */}
-        <div 
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
-          className="relative overflow-x-auto flex px-[30%] pb-12 snap-x snap-mandatory no-scrollbar items-center py-12" 
-          style={{ 
-            scrollbarWidth: 'none', 
-            msOverflowStyle: 'none',
-          }}
-        >
-          {LEVELS.map((level, i) => {
-            const isLocked = i > currentLevelIndex;
-            const isCompleted = i < currentLevelIndex;
-            const distance = Math.abs(i - activeIndex);
-            const zIndex = 50 - distance;
-            
-            return (
-              <motion.div 
-                key={i}
-                initial={{ scale: 0.6, opacity: 1 }}
-                whileInView={{ 
-                  scale: 1, 
-                  opacity: 1,
-                  transition: { type: "spring", stiffness: 300, damping: 25 }
-                }}
-                viewport={{ once: false, amount: 0.8 }}
-                className={`flex-shrink-0 w-[260px] -mx-[50px] snap-center bg-gradient-to-br ${level.color} rounded-[2.5rem] p-6 text-white shadow-2xl relative overflow-hidden flex flex-col min-h-[460px] transition-all duration-500`}
-                style={{
-                  zIndex: zIndex,
-                }}
-              >
-                {/* Decorative Elements */}
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
-                <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-black/10 rounded-full blur-3xl" />
+          {/* Trophy Selector Card - sitting halfway above Hero Section and halfway below */}
+          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-4.5 -mt-7 mb-6 relative z-20 transition-all duration-500 text-slate-800">
+            <div className="flex justify-around items-center gap-2">
+              {LEVELS.map((level, i) => {
+                const isActive = activeIndex === i;
+                const isUserCurrentLevel = currentLevelIndex === i;
                 
-                <div className="relative z-10 h-full flex flex-col flex-grow">
-                  <div className="flex justify-between items-start mb-6">
-                    <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-inner">
-                      {isLocked ? <Lock className="w-6 h-6 text-white/60" /> : level.icon}
+                // Color mapping for trophies based on their level colors
+                let iconColorClass = "";
+                let bgActiveGradient = "";
+                if (i === 0) {
+                  iconColorClass = "text-[#CD7F32]";
+                  bgActiveGradient = "from-[#CD7F32] to-[#A57164]";
+                } else if (i === 1) {
+                  iconColorClass = "text-slate-400";
+                  bgActiveGradient = "from-slate-400 to-slate-600";
+                } else if (i === 2) {
+                  iconColorClass = "text-amber-500";
+                  bgActiveGradient = "from-yellow-500 to-amber-600";
+                } else {
+                  iconColorClass = "text-slate-600";
+                  bgActiveGradient = "from-slate-800 to-black";
+                }
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => scrollToIndex(i)}
+                    className="flex flex-col items-center gap-1.5 flex-1 focus:outline-none relative"
+                  >
+                    <div className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
+                      isActive 
+                        ? `bg-gradient-to-br ${bgActiveGradient} text-white shadow-lg scale-110 -translate-y-0.5` 
+                        : "bg-slate-50 text-slate-400 hover:bg-slate-100 border border-slate-100/60"
+                    }`}>
+                      <Trophy className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'text-white' : iconColorClass}`} />
+                      
+                      {isUserCurrentLevel && (
+                        <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-teal-50 border-2 border-white animate-pulse"></span>
+                        </span>
+                      )}
                     </div>
-                    {level.name === currentLevelInfo.name && (
-                      <Badge className="bg-white/20 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 backdrop-blur-sm">
-                        Level Anda
-                      </Badge>
+                    <span className={`text-[9px] font-black uppercase tracking-wider transition-colors duration-300 ${
+                      isActive ? "text-slate-800" : "text-slate-400"
+                    }`}>
+                      {level.name}
+                    </span>
+                    {isActive && (
+                      <motion.div 
+                        layoutId="activeTrophyIndicator"
+                        className="absolute -bottom-1 w-4 h-1 rounded-full bg-slate-800 shadow-sm"
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
                     )}
-                    {isLocked && (
-                      <Badge className="bg-black/20 text-white/60 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 backdrop-blur-sm">
-                        Terkunci
-                      </Badge>
-                    )}
-                    {isCompleted && (
-                      <Badge className="bg-white/20 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 backdrop-blur-sm">
-                        Tercapai
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="mb-6">
-                    <h3 className="text-3xl font-black mb-1 tracking-tight">{level.name}</h3>
-                    <p className="text-[10px] font-bold text-white/70 uppercase tracking-widest">
-                      {level.max === Infinity ? `Min Rp ${formatCurrency(level.min)}` : `Rp ${formatCurrency(level.min)} - ${formatCurrency(level.max)}`}
-                    </p>
-                  </div>
-
-                  {/* Integrated Transaction Card */}
-                  <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-5 border border-white/10 mb-6 shadow-inner">
-                    <div className="flex justify-between items-end mb-4">
-                      <div>
-                        <p className="text-[8px] font-black text-white/50 uppercase tracking-widest mb-1">Total Transaksi</p>
-                        <h4 className="text-sm font-black">Rp {formatCurrency(currentLevelInfo.total)}</h4>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[8px] font-black text-white/50 uppercase tracking-widest mb-1">Target</p>
-                        <p className="text-[10px] font-bold">Rp {formatCurrency(level.min)}</p>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar for this specific level */}
-                    <div className="space-y-2">
-                      <div className="h-2 bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/5">
-                        <motion.div 
-                          initial={{ width: 0 }}
-                          animate={{ 
-                            width: isCompleted ? "100%" : 
-                                   isLocked ? `${Math.min(100, Math.max(0, (currentLevelInfo.total / level.min) * 100))}%` :
-                                   `${Math.min(100, Math.max(0, (currentLevelInfo.total / (LEVELS[i+1]?.min || level.min)) * 100))}%`
-                          }}
-                          transition={{ duration: 1.5, ease: "easeOut" }}
-                          className={`h-full rounded-full bg-white shadow-sm`}
-                        />
-                      </div>
-                      <p className="text-[8px] font-bold text-white/60 text-center italic">
-                        {isCompleted ? "Level telah terlampaui" : 
-                         isLocked ? `Butuh Rp ${formatCurrency(level.min - currentLevelInfo.total)} lagi` :
-                         i < LEVELS.length - 1 ? `Butuh Rp ${formatCurrency(LEVELS[i+1].min - currentLevelInfo.total)} lagi ke ${LEVELS[i+1].name}` : 
-                         "Anda berada di level tertinggi"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-auto space-y-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Keuntungan:</p>
-                    <ul className="space-y-2.5">
-                      {level.benefits.map((benefit, idx) => (
-                        <li key={idx} className="flex items-center gap-2 text-[11px] font-bold">
-                          <div className="w-4 h-4 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                            <ShieldCheck className="w-2.5 h-2.5" />
-                          </div>
-                          <span className={isLocked ? "opacity-50" : ""}>{benefit}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
-    </motion.div>
-  </ProtectedPage>
-);
+
+        {/* Carousel Section without Navigation Arrow Buttons */}
+        <div className="relative">
+          <div 
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="relative overflow-x-auto flex pb-12 snap-x snap-mandatory no-scrollbar items-center" 
+            style={{ 
+              scrollbarWidth: 'none', 
+              msOverflowStyle: 'none',
+            }}
+          >
+            {LEVELS.map((level, i) => {
+              const isLocked = i > currentLevelIndex;
+              const isCompleted = i < currentLevelIndex;
+              const distance = Math.abs(i - activeIndex);
+              const zIndex = 50 - distance;
+              
+              return (
+                <div key={i} className="flex-shrink-0 w-full snap-center px-6">
+                  <motion.div 
+                    animate={{ 
+                      scale: activeIndex === i ? 1 : 0.94,
+                      opacity: activeIndex === i ? 1 : 0.3,
+                    }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    className="relative flex flex-col min-h-[420px] transition-all duration-500 py-4 px-2"
+                    style={{
+                      zIndex: zIndex,
+                    }}
+                  >
+                    <div className="relative z-10 h-full flex flex-col flex-grow text-white">
+                      <div className="flex justify-between items-start mb-6">
+                        <div className="w-14 h-14 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-lg">
+                          {isLocked ? <Lock className="w-6 h-6 text-white/60" /> : level.icon}
+                        </div>
+                        {level.name === currentLevelInfo.name && (
+                          <Badge className="bg-white/25 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1.5 backdrop-blur-md">
+                            Level Anda
+                          </Badge>
+                        )}
+                        {isLocked && (
+                          <Badge className="bg-white/10 text-white/60 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1.5 backdrop-blur-md">
+                            Terkunci
+                          </Badge>
+                        )}
+                        {isCompleted && (
+                          <Badge className="bg-white/25 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1.5 backdrop-blur-md">
+                            Tercapai
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="mb-6">
+                        <h3 className="text-4xl font-black mb-1.5 tracking-tight">{level.name}</h3>
+                        <p className="text-[11px] font-bold text-white/70 uppercase tracking-widest">
+                          {level.max === Infinity ? `Min Rp ${formatCurrency(level.min)}` : `Rp ${formatCurrency(level.min)} - ${formatCurrency(level.max)}`}
+                        </p>
+                      </div>
+
+                      {/* Integrated Transaction Card - Only displayed for current level */}
+                      {i === currentLevelIndex && (
+                        <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-6 border border-white/15 mb-6 shadow-xl">
+                          <div className="flex justify-between items-end mb-4">
+                            <div>
+                              <p className="text-[8px] font-black text-white/50 uppercase tracking-widest mb-1.5">Total Transaksi</p>
+                              <h4 className="text-base font-black">Rp {formatCurrency(currentLevelInfo.total)}</h4>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[8px] font-black text-white/50 uppercase tracking-widest mb-1.5">Target</p>
+                              <p className="text-[11px] font-bold">
+                                {LEVELS[i+1] ? `Rp ${formatCurrency(LEVELS[i+1].min)}` : "Maksimal"}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Progress Bar for this specific level */}
+                          <div className="space-y-3">
+                            <div className="h-2.5 bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/5">
+                              <motion.div 
+                                initial={{ width: 0 }}
+                                animate={{ 
+                                  width: `${Math.min(100, Math.max(0, (currentLevelInfo.total / (LEVELS[i+1]?.min || level.min)) * 100))}%`
+                                }}
+                                transition={{ duration: 1.5, ease: "easeOut" }}
+                                className="h-full rounded-full bg-white shadow-sm"
+                              />
+                            </div>
+                            <p className="text-[9px] font-bold text-white/70 text-center italic">
+                              {i < LEVELS.length - 1 ? `Butuh Rp ${formatCurrency(LEVELS[i+1].min - currentLevelInfo.total)} lagi ke ${LEVELS[i+1].name}` : 
+                               "Anda berada di level tertinggi"}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-auto space-y-4">
+                        <p className="text-[11px] font-black uppercase tracking-widest opacity-70">Keuntungan:</p>
+                        <ul className="space-y-3">
+                          {level.benefits.map((benefit, idx) => (
+                            <li key={idx} className="flex items-center gap-3 text-[12px] font-bold leading-snug">
+                              <div className="w-5 h-5 bg-white/25 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                                <ShieldCheck className="w-3.5 h-3.5" />
+                              </div>
+                              <span className={isLocked ? "opacity-50" : ""}>{benefit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Customer List Section - Button only */}
+        <div className="mt-8 px-6 pb-12 flex justify-center">
+          <button
+            onClick={handleLoadCustomers}
+            className="w-full max-w-md py-4 px-6 bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-[2rem] border border-white/15 text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-lg"
+          >
+            <Users className="w-5 h-5 text-white/80" />
+            <span>Lihat Daftar Pelanggan {LEVELS[activeIndex].name}</span>
+          </button>
+        </div>
+
+        {/* Customer List Popup Modal */}
+        <AnimatePresence>
+          {isModalOpen && (() => {
+            const modalTheme = getModalStyle();
+            const totalCustomersCount = (customers || []).filter(customer => 
+              calculateCustomerLevel(transactions, customer.Nama).name === LEVELS[activeIndex].name
+            ).length;
+
+            return (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                {/* Backdrop */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsModalOpen(false)}
+                  className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                />
+
+                {/* Modal Container */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                  transition={{ type: "spring", duration: 0.5 }}
+                  className="relative w-full max-w-md bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-2xl text-slate-800 z-10 overflow-hidden"
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-slate-50 border border-slate-100">
+                        <Users className="w-5 h-5" style={{ color: modalTheme.accentColor }} />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-black tracking-tight text-slate-900">Pelanggan {LEVELS[activeIndex].name}</h4>
+                        <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Warung Tomi Loyalty</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setIsModalOpen(false)}
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Total Count Banner */}
+                  <div className="mb-4 p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-500">Total Pelanggan:</span>
+                    <span className="px-3 py-1 text-xs font-black rounded-full" style={{ backgroundColor: `${modalTheme.accentColor}15`, color: modalTheme.accentColor }}>
+                      {totalCustomersCount} Pelanggan
+                    </span>
+                  </div>
+
+                  {/* Content */}
+                  {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                      <RefreshCw className="w-8 h-8 animate-spin" style={{ color: modalTheme.accentColor }} />
+                      <p className="text-xs font-bold animate-pulse uppercase tracking-wider" style={{ color: modalTheme.accentColor }}>Memuat data pelanggan...</p>
+                    </div>
+                  ) : (
+                    <div>
+                      {loadedCustomers.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400 text-xs italic">
+                          Belum ada pelanggan di level ini
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
+                          {loadedCustomers.map((cust, idx) => {
+                            const custLevelInfo = calculateCustomerLevel(transactions, cust.Nama);
+                            return (
+                              <div 
+                                key={cust.id || idx} 
+                                className="flex items-center justify-between p-3.5 rounded-2xl border transition-all duration-200"
+                                style={{
+                                  backgroundColor: '#ffffff',
+                                  borderColor: '#f1f5f9'
+                                }}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center border border-slate-100 bg-slate-50">
+                                    {cust.Foto ? (
+                                      <img src={cust.Foto} alt={cust.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                    ) : (
+                                      <span className="font-bold text-sm" style={{ color: modalTheme.accentColor }}>
+                                        {cust.Nama.charAt(0).toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-sm text-slate-800">{cust.Nama}</p>
+                                    <p className="text-[9px] text-slate-400">ID: {cust.id_pelanggan || cust.id || '-'}</p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-[9px] text-slate-400 uppercase tracking-widest">Transaksi (3 Bln)</p>
+                                  <p className="text-xs font-black" style={{ color: modalTheme.accentColor }}>Rp {formatCurrency(custLevelInfo.total)}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      
+                      <div className="mt-6 flex justify-end border-t border-slate-100 pt-4">
+                        <button
+                          onClick={() => setIsModalOpen(false)}
+                          className="px-6 py-2.5 font-bold text-xs rounded-xl transition-all text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 active:scale-95 shadow-sm"
+                        >
+                          Tutup
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+            );
+          })()}
+        </AnimatePresence>
+      </motion.div>
+    </ProtectedPage>
+  );
 };
 
 const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
@@ -12691,7 +13017,7 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
             <div className="grid grid-cols-2 gap-4">
               {/* Poin Saya Card */}
               <div 
-                onClick={() => navigate(`/tukar-poin`)}
+                onClick={() => navigate(user ? `/poin/${encodeURIComponent(user.Nama)}` : '/poin')}
                 className="relative flex items-center w-full h-16 cursor-pointer group/wallet active:scale-95 transition-all"
               >
                 {/* Left Side: Nested circular badge */}
@@ -15117,6 +15443,9 @@ export default function App() {
         <Route path="/poin" element={
           <LoyaltyPointsPage user={loggedInUser} customers={customers} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
         } />
+        <Route path="/poin/:customerName" element={
+          <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} customers={customers} />
+        } />
         <Route path="/tukar-poin" element={
           <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} customers={customers} />
         } />
@@ -15126,7 +15455,7 @@ export default function App() {
         <Route path="/qris" element={<QRISPage />} />
         <Route path="/tariktunai" element={<TarikTunaiPage />} />
         <Route path="/bantuan" element={<HelpPage />} />
-        <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} />} />
+        <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} customers={customers} />} />
         <Route path="/bansos" element={
           <Layout 
             activeTab={activeTab} 
