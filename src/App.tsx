@@ -4006,6 +4006,17 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
   const chartScrollRef = useRef<HTMLDivElement>(null);
 
   const [swipeDirection, setSwipeDirection] = useState(0);
+  const [selectedSavingTx, setSelectedSavingTx] = useState<SavingTransaction | null>(null);
+
+  const getMotivationMessage = (nominal: number) => {
+    if (nominal >= 100000) {
+      return "Luar biasa! Tabungan besar hari ini akan menjadi pondasi kesuksesan finansialmu di masa depan! 🚀✨";
+    } else if (nominal >= 50000) {
+      return "Mantap sekali! Semakin rajin menabung, impianmu akan semakin cepat terwujud! Semangat terus ya! 💪🌟";
+    } else {
+      return "Hebat! Sedikit demi sedikit, lama-lama menjadi bukit. Setiap rupiah yang kamu tabung sangat berarti! 🏆💖";
+    }
+  };
 
   const handleMonthChange = React.useCallback((newValue: string) => {
     const currentIndex = allMonths.findIndex(m => m.value === selectedMonth);
@@ -4294,12 +4305,16 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                 >
                   {filteredTransactions.length > 0 ? (
                     filteredTransactions.map((t, i) => (
-                      <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden relative">
+                      <div 
+                        key={i} 
+                        onClick={() => setSelectedSavingTx(t)}
+                        className="bg-white rounded-2xl border border-slate-100 hover:border-green-100 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all duration-200 overflow-hidden relative group"
+                      >
                         <div className="p-4 flex items-center gap-4">
                           {/* Icon Left */}
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                            t.Tipe === 'SETOR' ? 'bg-green-50' : 'bg-red-50'
-                          }`}>
+                            t.Tipe === 'SETOR' ? 'bg-green-50 group-hover:bg-green-100' : 'bg-red-50 group-hover:bg-red-100'
+                          } transition-colors`}>
                             {t.Tipe === 'SETOR' ? (
                               <ArrowUpRight className="w-5 h-5 text-green-600" />
                             ) : (
@@ -4324,7 +4339,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                               <div className="text-right">
                                 <p className={`text-sm font-black leading-none mb-1 ${
                                   t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'
-                                }}`}>
+                                }`}>
                                   {t.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(t.Nominal)}
                                 </p>
                               </div>
@@ -4333,7 +4348,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                         </div>
 
                         {/* Horizontal Ribbon at bottom right */}
-                        <div className="absolute bottom-0 right-0 bg-[#F15A24] w-40 py-0.5 rounded-tl-2xl rounded-br-2xl shadow-sm flex items-center justify-center">
+                        <div className="absolute bottom-0 right-0 bg-[#F15A24] group-hover:bg-[#d64a1a] transition-colors w-40 py-0.5 rounded-tl-2xl rounded-br-2xl shadow-sm flex items-center justify-center">
                           <div className="flex items-center gap-2">
                             <span className="text-[5px] font-black text-white/50 uppercase tracking-widest">Saldo Akhir</span>
                             <span className="text-[9px] font-black text-white">Rp {formatCurrency(t.SaldoAkhir)}</span>
@@ -4398,7 +4413,11 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                           <div className="px-4 pb-4 pt-2 border-t border-slate-50 space-y-2">
                             {monthTransactions.length > 0 ? (
                               monthTransactions.map((mt, j) => (
-                                <div key={j} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                                <div 
+                                  key={j} 
+                                  onClick={() => setSelectedSavingTx(mt)}
+                                  className="flex items-center justify-between py-2 px-2 border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50 rounded-xl transition-all duration-200"
+                                >
                                   <div className="space-y-1">
                                     <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{mt.Tipe}</p>
                                     <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{mt.Tanggal}</p>
@@ -4451,6 +4470,145 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
           </button>
         </div>
       )}
+
+      {/* Detail Saving Transaction Modal Overlay */}
+      <AnimatePresence>
+        {selectedSavingTx && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative border border-slate-100 flex flex-col overflow-hidden"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                    selectedSavingTx.Tipe === 'SETOR' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+                  }`}>
+                    <PiggyBank className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                    {selectedSavingTx.Tipe === 'SETOR' ? 'Rincian Setor Tabungan' : 'Rincian Tarik Tabungan'}
+                  </h3>
+                </div>
+                <button 
+                  onClick={() => setSelectedSavingTx(null)}
+                  className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Date Tag */}
+              <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-black uppercase tracking-widest mb-4">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>{selectedSavingTx.Tanggal}</span>
+              </div>
+
+              {/* Details Content */}
+              <div className="space-y-4 relative">
+                {selectedSavingTx.Tipe === 'SETOR' ? (
+                  /* SETOR (DEPOSIT) CASE */
+                  <div className="space-y-4 relative">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Saldo Awal</p>
+                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedSavingTx.SaldoAkhir - selectedSavingTx.Nominal)}</p>
+                      </div>
+                      <div className="p-3 bg-green-50/50 rounded-2xl border border-green-100/30">
+                        <p className="text-[8px] font-black text-green-400 uppercase tracking-widest mb-0.5">Tambah Setor</p>
+                        <p className="text-xs font-black text-green-600">+Rp {formatCurrency(selectedSavingTx.Nominal)}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
+                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Saldo Akhir</span>
+                      <span className="text-sm font-black text-emerald-400">Rp {formatCurrency(selectedSavingTx.SaldoAkhir)}</span>
+                    </div>
+
+                    {/* Encouraging Section with Animation */}
+                    <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50/30 rounded-2xl border border-emerald-100/50 flex flex-col items-center text-center space-y-2 relative overflow-hidden">
+                      {/* Floating Animated Stars */}
+                      {[...Array(3)].map((_, i) => (
+                        <motion.div
+                          key={i}
+                          className="absolute text-yellow-400 pointer-events-none"
+                          initial={{ opacity: 0, scale: 0, y: 15, x: i === 0 ? -40 : i === 1 ? 40 : 0 }}
+                          animate={{ 
+                            opacity: [0, 1, 1, 0], 
+                            scale: [0.5, 1.3, 1, 0.5], 
+                            y: [-10, -35, -55],
+                            x: i === 0 ? [-40, -50, -55] : i === 1 ? [40, 50, 55] : [0, -10, 15]
+                          }}
+                          transition={{ 
+                            duration: 2.5, 
+                            repeat: Infinity, 
+                            delay: i * 0.7,
+                            ease: "easeOut"
+                          }}
+                        >
+                          <Star className="w-3.5 h-3.5 fill-yellow-400" />
+                        </motion.div>
+                      ))}
+
+                      <motion.div
+                        animate={{ rotate: [0, 8, -8, 8, 0], scale: [1, 1.1, 1.1, 1, 1] }}
+                        transition={{ repeat: Infinity, duration: 2.2, repeatDelay: 0.8 }}
+                        className="text-emerald-500 bg-white p-2.5 rounded-full shadow-sm relative z-10"
+                      >
+                        <Trophy className="w-6 h-6 text-yellow-500 animate-bounce" />
+                      </motion.div>
+                      <p className="text-[10px] font-black uppercase text-emerald-800 tracking-wider relative z-10">Luar Biasa!</p>
+                      <p className="text-[10px] font-bold text-emerald-700 leading-relaxed max-w-[240px] relative z-10">
+                        {getMotivationMessage(selectedSavingTx.Nominal)}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* TARIK (WITHDRAWAL) CASE */
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Saldo Awal</p>
+                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedSavingTx.SaldoAkhir + selectedSavingTx.Nominal)}</p>
+                      </div>
+                      <div className="p-3 bg-red-50/50 rounded-2xl border border-red-100/30">
+                        <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-0.5">Ditarik</p>
+                        <p className="text-xs font-black text-red-600">-Rp {formatCurrency(selectedSavingTx.Nominal)}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
+                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Sisa Saldo</span>
+                      <span className="text-sm font-black text-orange-400">Rp {formatCurrency(selectedSavingTx.SaldoAkhir)}</span>
+                    </div>
+
+                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100/50 flex flex-col items-center text-center space-y-2 relative overflow-hidden">
+                      <div className="text-amber-500 bg-white p-2.5 rounded-full shadow-sm">
+                        <PiggyBank className="w-6 h-6 text-amber-500 animate-pulse" />
+                      </div>
+                      <p className="text-[10px] font-black uppercase text-amber-800 tracking-wider">Catatan Tabungan</p>
+                      <p className="text-[10px] font-bold text-amber-700 leading-relaxed max-w-[240px]">
+                        Penarikan tabungan berhasil dicatat. Yuk, sisihkan lagi sebagian rezeki mu untuk ditabung nanti! 😉
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Close Button */}
+              <button 
+                onClick={() => setSelectedSavingTx(null)}
+                className="mt-6 w-full py-3 bg-[#005E6A] hover:bg-[#004D57] text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-md active:scale-[0.98]"
+              >
+                Tutup Rincian
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 };
@@ -4460,19 +4618,22 @@ const DebtDetailPage = ({
   transactions, 
   customers, 
   fetchData, 
-  dataSource 
+  dataSource,
+  salesTransactions
 }: { 
   user: Customer | null, 
   transactions: DebtTransaction[], 
   customers?: Customer[],
   fetchData?: (showLoading?: boolean) => void,
-  dataSource?: string
+  dataSource?: string,
+  salesTransactions?: SalesTransaction[]
 }) => {
   const navigate = useNavigate();
   const { customerName } = useParams();
   const [activeTab, setActiveTab] = useState<'riwayat' | 'statistik'>('riwayat');
   const [expandedPeriod, setExpandedPeriod] = useState<number | null>(null);
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState<string>('all');
+  const [selectedTx, setSelectedTx] = useState<DebtTransaction | null>(null);
   const isAdmin = localStorage.getItem("admin_session") === "true";
 
   const displayUser = customerName && customers 
@@ -4484,6 +4645,97 @@ const DebtDetailPage = ({
       .filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase())
       .reverse();
   }, [transactions, displayUser]);
+
+  // Matching Sales Transaction for a TAMBAH Debt Transaction
+  const matchingSalesTx = useMemo(() => {
+    if (!selectedTx || !salesTransactions || selectedTx.Tipe !== 'TAMBAH') return null;
+    return salesTransactions.find(st => {
+      const sameName = st.Nama.toLowerCase() === selectedTx.Nama.toLowerCase();
+      const date1 = st.Tanggal.replace(/[^0-9]/g, '');
+      const date2 = selectedTx.Tanggal.replace(/[^0-9]/g, '');
+      const sameDate = date1 === date2 || date1.includes(date2) || date2.includes(date1);
+      const sameAmount = Math.abs(st.Pemasukan - selectedTx.Jumlah) < 10 || Math.abs(st.Sebagian - selectedTx.Jumlah) < 10;
+      return sameName && (sameDate || sameAmount);
+    });
+  }, [selectedTx, salesTransactions]);
+
+  const getIsCashOut = (jenis: string) => {
+    const upperJenis = jenis.trim().toUpperCase();
+    const cashOutServices = ["TARIK TUNAI", "PKH", "BPNT"];
+    return cashOutServices.some(service => 
+      upperJenis === service || upperJenis.startsWith(service) || upperJenis.includes(service)
+    );
+  };
+
+  const getIsEdcBni = (melalui?: string) => {
+    return melalui?.trim().toUpperCase() === "EDC BNI";
+  };
+
+  const parseItems = (jenis: string, total: number, hargaModal?: number, melalui?: string) => {
+    const upperJenis = jenis.trim().toUpperCase();
+    const isEdcBni = getIsEdcBni(melalui);
+
+    if (isEdcBni && hargaModal !== undefined && hargaModal > 0) {
+      const modal = hargaModal;
+      const adminFee = total - (modal + 1500);
+      const items = [
+        { qty: 1, name: jenis, price: total },
+        { qty: 1, name: "BIAYA EDC", price: 3000 }
+      ];
+      if (adminFee > 0) {
+        items.push({ qty: 1, name: "BIAYA ADMIN", price: adminFee });
+      }
+      return items;
+    }
+
+    const specialServices = ["QRIS", "TRANSFER", "TOPUP DANA", "TOPUP OVO", "TOPUP GOPAY", "TOPUP SHOPEEPAY"];
+    const isSpecial = specialServices.some(service => 
+      upperJenis === service || upperJenis.startsWith(service) || upperJenis.includes(service)
+    );
+
+    if (isSpecial && hargaModal !== undefined && hargaModal > 0) {
+      const modal = hargaModal;
+      const adminFee = total - modal;
+      const items = [
+        { qty: 1, name: jenis, price: modal }
+      ];
+      if (adminFee > 0) {
+        items.push({ qty: 1, name: "BIAYA ADMIN", price: adminFee });
+      }
+      return items;
+    }
+
+    const isCashOut = getIsCashOut(jenis);
+    if (isCashOut && hargaModal !== undefined && hargaModal > 0) {
+      const modal = hargaModal;
+      const adminFee = total - modal;
+      const items = [
+        { qty: 1, name: jenis, price: total }
+      ];
+      if (adminFee > 0) {
+        items.push({ qty: 1, name: "BIAYA ADMIN", price: adminFee });
+      }
+      return items;
+    }
+
+    const items: { qty: number; name: string; price?: number }[] = [];
+    const parts = jenis.split(',').map(p => p.trim());
+    
+    parts.forEach(part => {
+      if (!part) return;
+      const match = part.match(/^(\d+)\s*x\s*(.+)$/i) || part.match(/^(.+?)\s*x\s*(\d+)$/i);
+      if (match) {
+        const isQtyFirst = !isNaN(Number(match[1]));
+        const qty = isQtyFirst ? Number(match[1]) : Number(match[2]);
+        const name = isQtyFirst ? match[2].trim() : match[1].trim();
+        items.push({ qty, name });
+      } else {
+        items.push({ qty: 1, name: part });
+      }
+    });
+
+    return items;
+  };
 
   // Calculate Debt Periods
   const debtPeriods = useMemo(() => {
@@ -4758,12 +5010,13 @@ const DebtDetailPage = ({
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex items-center justify-between group active:scale-[0.98] transition-all relative overflow-hidden"
+                    onClick={() => setSelectedTx(t)}
+                    className="bg-white rounded-2xl p-4 border border-slate-100 hover:border-red-100 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all duration-200 flex items-center justify-between group relative overflow-hidden"
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
-                      }`}>
+                        t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600 group-hover:bg-red-100' : 'bg-green-50 text-green-600 group-hover:bg-green-100'
+                      } transition-colors`}>
                         {t.Tipe === 'TAMBAH' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownLeft className="w-5 h-5" />}
                       </div>
                       <div className="min-w-0">
@@ -4865,7 +5118,11 @@ const DebtDetailPage = ({
                         >
                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Detail Mutasi Periode Ini</p>
                            {period.transactions.map((mt, j) => (
-                              <div key={j} className="flex items-center justify-between py-2 border-b border-white last:border-0">
+                              <div 
+                                key={j} 
+                                onClick={() => setSelectedTx(mt)}
+                                className="flex items-center justify-between py-2 border-b border-white last:border-0 cursor-pointer hover:bg-white/40 p-1.5 -mx-1.5 rounded-xl transition-all"
+                              >
                                 <div className="space-y-0.5">
                                   <p className="text-[9px] font-black text-slate-700 uppercase">{mt.Tipe === 'TAMBAH' ? 'KASBON' : 'BAYAR'}</p>
                                   <p className="text-[7px] font-bold text-slate-400">{mt.Tanggal}</p>
@@ -4918,6 +5175,167 @@ const DebtDetailPage = ({
         </button>
       </div>
     )}
+
+    {/* Detail Transaction Modal Overlay */}
+    <AnimatePresence>
+      {selectedTx && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative border border-slate-100 flex flex-col overflow-visible"
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                  selectedTx.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                }`}>
+                  {selectedTx.Tipe === 'TAMBAH' ? <PlusCircle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                </div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                  {selectedTx.Tipe === 'TAMBAH' ? 'Rincian Kasbon' : 'Rincian Pembayaran'}
+                </h3>
+              </div>
+              <button 
+                onClick={() => setSelectedTx(null)}
+                className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Date Tag */}
+            <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-black uppercase tracking-widest mb-4">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>{selectedTx.Tanggal}</span>
+            </div>
+
+            {/* Details Content */}
+            <div className="space-y-4 relative">
+              {selectedTx.Tipe === 'TAMBAH' ? (
+                /* KASBON CASE */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Hutang Awal</p>
+                      <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedTx.SaldoAkhir - selectedTx.Jumlah)}</p>
+                    </div>
+                    <div className="p-3 bg-red-50/50 rounded-2xl border border-red-100/30">
+                      <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-0.5">Tambah</p>
+                      <p className="text-xs font-black text-red-600">+Rp {formatCurrency(selectedTx.Jumlah)}</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
+                    <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Total Hutang</span>
+                    <span className="text-sm font-black text-orange-400">Rp {formatCurrency(selectedTx.SaldoAkhir)}</span>
+                  </div>
+
+                  {/* Transaction details */}
+                  {matchingSalesTx ? (
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                      <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
+                        <Receipt className="w-3.5 h-3.5 text-[#005E6A]" />
+                        <span>Detail Item Belanja</span>
+                      </div>
+                      <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1 no-scrollbar">
+                        {parseItems(matchingSalesTx.Jenis, matchingSalesTx.Pemasukan, matchingSalesTx.HargaModal, matchingSalesTx.Melalui).map((item, idx) => (
+                          <div key={idx} className="flex justify-between items-baseline gap-2 text-[10px]">
+                            <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]">{item.name}</span>
+                            <div className="flex gap-2 shrink-0">
+                              {item.qty > 1 && item.price && (
+                                <span className="text-slate-400 font-medium">({item.qty}x Rp {formatCurrency(item.price)})</span>
+                              )}
+                              <span className="text-slate-900 font-black">
+                                Rp {formatCurrency(item.qty * (item.price || matchingSalesTx.Pemasukan / item.qty))}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between text-[9px]">
+                        <span className="font-bold text-slate-400 uppercase tracking-wider">ID Transaksi</span>
+                        <span className="font-black text-[#005E6A] uppercase tracking-wider">
+                          {matchingSalesTx.id_transaksi || `TRX-${matchingSalesTx.Tanggal.replace(/[^0-9]/g, '').slice(0, 10)}`}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Fallback Details */
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                      <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
+                        <Info className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Keterangan Tambah</span>
+                      </div>
+                      <p className="text-[10px] font-black text-slate-700 uppercase leading-relaxed pt-1">
+                        {selectedTx.Keterangan && selectedTx.Keterangan !== "-" ? selectedTx.Keterangan : "Penambahan Kasbon Manual"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* BAYAR CASE */
+                <div className="space-y-3 relative">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Hutang Awal</p>
+                      <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedTx.SaldoAkhir + selectedTx.Jumlah)}</p>
+                    </div>
+                    <div className="p-3 bg-green-50/50 rounded-2xl border border-green-100/30">
+                      <p className="text-[8px] font-black text-green-400 uppercase tracking-widest mb-0.5">Bayar</p>
+                      <p className="text-xs font-black text-green-600">-Rp {formatCurrency(selectedTx.Jumlah)}</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
+                    <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Sisa Hutang</span>
+                    <span className="text-sm font-black text-emerald-400">Rp {formatCurrency(selectedTx.SaldoAkhir)}</span>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
+                      <Info className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Keterangan Bayar</span>
+                    </div>
+                    <p className="text-[10px] font-black text-slate-700 uppercase leading-relaxed pt-1">
+                      {selectedTx.Keterangan && selectedTx.Keterangan !== "-" ? selectedTx.Keterangan : "Pelunasan Hutang Tunai"}
+                    </p>
+                  </div>
+
+                  {/* LUNAS ANIMATED STAMP */}
+                  {selectedTx.SaldoAkhir === 0 && (
+                    <motion.div 
+                      initial={{ scale: 4, opacity: 0, rotate: -45 }}
+                      animate={{ scale: 1, opacity: 0.9, rotate: -15 }}
+                      transition={{ 
+                        type: "spring", 
+                        damping: 11, 
+                        stiffness: 140, 
+                        delay: 0.25 
+                      }}
+                      className="absolute right-0 top-16 border-4 border-double border-red-500 text-red-500 font-extrabold text-lg px-5 py-1.5 rounded-xl tracking-[0.2em] uppercase select-none pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.15)] bg-white/65 backdrop-blur-[1px] rotate-[-15deg]"
+                      style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                    >
+                      LUNAS
+                    </motion.div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <button 
+              onClick={() => setSelectedTx(null)}
+              className="mt-6 w-full py-3 bg-[#005E6A] hover:bg-[#004D57] text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-md active:scale-[0.98]"
+            >
+              Tutup Rincian
+            </button>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
     </>
   );
 };
@@ -11715,14 +12133,25 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
 
                           {/* Progress Bar for this specific level */}
                           <div className="space-y-3">
-                            <div className="h-2.5 bg-white/10 rounded-full overflow-hidden p-0.5 border border-white/5">
+                            <div className="h-5 bg-white/15 rounded-full overflow-hidden p-1 border border-white/10 shadow-inner">
                               <motion.div 
                                 initial={{ width: 0 }}
                                 animate={{ 
                                   width: `${Math.min(100, Math.max(0, (currentLevelInfo.total / (LEVELS[i+1]?.min || level.min)) * 100))}%`
                                 }}
                                 transition={{ duration: 1.5, ease: "easeOut" }}
-                                className="h-full rounded-full bg-white shadow-sm"
+                                className={`h-full rounded-full ${
+                                  i === 0 ? "bg-gradient-to-r from-amber-600 via-orange-400 to-[#CD7F32]" :
+                                  i === 1 ? "bg-gradient-to-r from-slate-400 via-slate-200 to-slate-100" :
+                                  i === 2 ? "bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-600" :
+                                  "bg-gradient-to-r from-slate-500 via-slate-300 to-slate-100"
+                                }`}
+                                style={{
+                                  boxShadow: i === 0 ? "0 0 12px rgba(249, 115, 22, 0.6)" :
+                                             i === 1 ? "0 0 12px rgba(226, 232, 240, 0.6)" :
+                                             i === 2 ? "0 0 12px rgba(245, 158, 11, 0.6)" :
+                                             "0 0 12px rgba(255, 255, 255, 0.7)"
+                                }}
                               />
                             </div>
                             <p className="text-[9px] font-bold text-white/70 text-center italic">
@@ -13129,8 +13558,8 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
 
             {/* Level Progress */}
             <div 
-              onClick={() => setShowLevelBenefits(true)}
-              className="space-y-3 cursor-pointer hover:bg-slate-50/50 p-2 -m-2 rounded-2xl transition-colors duration-200"
+              onClick={() => navigate("/level")}
+              className="space-y-3 cursor-pointer hover:bg-slate-50 p-3 -m-3 rounded-[2rem] transition-all duration-200 group/tier"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -13142,10 +13571,11 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
                     <p className="text-xs font-black text-[#F15A24] uppercase tracking-tight">{customerLevel.name}</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="flex items-center gap-1.5">
                    <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight">
                     {Math.round(progressPercentage)}%
                    </p>
+                   <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover/tier:translate-x-0.5 group-hover/tier:text-[#005E6A] transition-all" />
                 </div>
               </div>
               <div className="h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
@@ -15417,7 +15847,7 @@ export default function App() {
           <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} customers={customers} />
         } />
         <Route path="/hutang" element={
-          <DebtDetailPage user={loggedInUser} transactions={debtTransactions} />
+          <DebtDetailPage user={loggedInUser} transactions={debtTransactions} salesTransactions={salesTransactions} />
         } />
         <Route path="/hutang/:customerName" element={
           <DebtDetailPage 
@@ -15426,6 +15856,7 @@ export default function App() {
             customers={customers} 
             fetchData={fetchData} 
             dataSource={dataSource} 
+            salesTransactions={salesTransactions}
           />
         } />
         <Route path="/lainnya" element={
