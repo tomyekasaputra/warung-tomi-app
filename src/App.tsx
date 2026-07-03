@@ -5460,18 +5460,69 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                     <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-full -mr-20 -mt-20 blur-3xl opacity-50" />
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-slate-50 rounded-full -ml-16 -mb-16 blur-2xl opacity-50" />
 
+                    {/* Cap Stempel Selesai */}
+                    {!isA_Aktif && (
+                      <div className="absolute right-12 top-10 pointer-events-none z-20 select-none">
+                        <motion.div
+                          initial={{ opacity: 0, scale: 3.5, rotate: -45 }}
+                          animate={{ opacity: 0.85, scale: 1, rotate: -15 }}
+                          transition={{ 
+                            type: "spring", 
+                            stiffness: 140, 
+                            damping: 11,
+                            delay: i * 0.15 + 0.5 
+                          }}
+                          className="border-4 border-red-500/40 text-red-500/50 font-extrabold text-[10px] tracking-widest rounded-xl px-4 py-1.5 uppercase border-double border-[6px] bg-red-50/[0.02] flex flex-col items-center"
+                        >
+                          <span className="text-[7px] font-bold tracking-normal opacity-70 mb-0.5">KONTRAK</span>
+                          <span className="text-sm font-black tracking-widest text-red-500/60">SELESAI</span>
+                          <span className="text-[6px] font-bold tracking-normal opacity-60 mt-0.5">SUKSES CAIR</span>
+                        </motion.div>
+                      </div>
+                    )}
+
                     <div className="p-7 space-y-8 relative z-10">
                       {/* Top Summary Row */}
                       <div className="flex items-center justify-between gap-4">
                         <span className="text-[8px] sm:text-[10px] font-black tracking-[0.1em] text-slate-400 uppercase truncate flex-1">{refId}</span>
-                        {isA_Aktif ? (
-                          <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 text-[8px] sm:text-[9px] font-black py-1 px-3 rounded-full hover:bg-green-500/20 transition-colors uppercase tracking-widest whitespace-nowrap">
-                            {t.Status.toUpperCase()}
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-red-500/10 text-red-600 border border-red-500/20 text-[8px] sm:text-[9px] font-black py-1 px-3 rounded-full uppercase tracking-widest whitespace-nowrap">
-                            SELESAI
-                          </Badge>
+                        {isA_Aktif && (
+                          <div className="flex items-center gap-2">
+                            {/* Growing Money Animation */}
+                            <div className="relative w-7 h-7 flex items-center justify-center overflow-visible">
+                              {[...Array(3)].map((_, idx) => (
+                                <motion.span
+                                  key={idx}
+                                  initial={{ y: 6, opacity: 0, scale: 0.2 }}
+                                  animate={{ 
+                                    y: [-10, -22], 
+                                    opacity: [0, 1, 1, 0], 
+                                    scale: [0.3, 1.1, 1.3, 0.7],
+                                    x: [0, idx % 2 === 0 ? 6 : -6, idx % 2 === 0 ? 10 : -10] 
+                                  }}
+                                  transition={{
+                                    duration: 2.2,
+                                    repeat: Infinity,
+                                    delay: idx * 0.7,
+                                    ease: "easeInOut"
+                                  }}
+                                  className="absolute text-[10px] font-black text-emerald-500 select-none pointer-events-none"
+                                >
+                                  {idx % 3 === 0 ? "Rp" : idx % 3 === 1 ? "📈" : "💰"}
+                                </motion.span>
+                              ))}
+                              <motion.div
+                                animate={{ scale: [1, 1.12, 1] }}
+                                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                                className="text-emerald-500 bg-emerald-50 p-1 rounded-full border border-emerald-100/30 flex items-center justify-center"
+                              >
+                                <TrendingUp className="w-3 h-3" />
+                              </motion.div>
+                            </div>
+
+                            <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 text-[8px] sm:text-[9px] font-black py-1 px-3 rounded-full hover:bg-green-500/20 transition-colors uppercase tracking-widest whitespace-nowrap">
+                              {t.Status.toUpperCase()}
+                            </Badge>
+                          </div>
                         )}
                       </div>
                       
