@@ -5369,19 +5369,262 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
     return dateA - dateB;
   });
 
+  const chronologicalTransactions = [...userTransactions].sort((a, b) => {
+    const dateA = parseDateForProgress(a.Tanggal).getTime();
+    const dateB = parseDateForProgress(b.Tanggal).getTime();
+    return dateA - dateB;
+  });
+
+  const activeTransactions = sortedTransactions.filter(t => {
+    const s = t.Status.toLowerCase();
+    return s.includes("aktif") || s.includes("active");
+  });
+
+  const completedTransactions = sortedTransactions.filter(t => {
+    const s = t.Status.toLowerCase();
+    return !(s.includes("aktif") || s.includes("active"));
+  });
+
+  const activeCount = activeTransactions.length;
+  const completedCount = completedTransactions.length;
+
+  const renderTransactionCard = (t: InvestmentTransaction, i: number) => {
+    const estimate = calculateEstimatedReturn(t.Nominal, t.Nisbah, t.Tanggal, t.JatuhTempo);
+    const progress = calculateProgress(t.Tanggal, t.JatuhTempo);
+    const invYear = parseDateForProgress(t.Tanggal).getFullYear();
+    const invMonth = parseDateForProgress(t.Tanggal).getMonth() + 1;
+    const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+    
+    const chronoIndex = chronologicalTransactions.indexOf(t);
+    const seqNumber = chronoIndex !== -1 ? chronoIndex + 1 : i + 1;
+    const refId = `INV-${String(seqNumber).padStart(3, '0')}/WT/${romanMonths[invMonth - 1]}/${invYear}`;
+    const isExpanded = expandedIndex === i;
+    const statusLower = t.Status.toLowerCase();
+    const isA_Aktif = statusLower.includes("aktif") || statusLower.includes("active");
+
+    return (
+      <div key={i} className="px-2">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.1 }}
+          onClick={() => setExpandedIndex(isExpanded ? null : i)}
+          className="bg-white rounded-[2.5rem] text-slate-900 shadow-xl relative overflow-hidden cursor-pointer transition-all border border-slate-100"
+        >
+          {/* Background Decorative Elements */}
+          <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-full -mr-20 -mt-20 blur-3xl opacity-50" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-slate-50 rounded-full -ml-16 -mb-16 blur-2xl opacity-50" />
+
+          {/* Cap Stempel Selesai */}
+          {!isA_Aktif && (
+            <div className="absolute right-12 top-10 pointer-events-none z-20 select-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 3.5, rotate: -45 }}
+                animate={{ opacity: 0.85, scale: 1, rotate: -15 }}
+                transition={{ 
+                  type: "spring", 
+                  stiffness: 140, 
+                  damping: 11,
+                  delay: i * 0.15 + 0.5 
+                }}
+                className="border-4 border-red-500/40 text-red-500/50 font-extrabold text-[10px] tracking-widest rounded-xl px-4 py-1.5 uppercase border-double border-[6px] bg-red-50/[0.02] flex flex-col items-center"
+              >
+                <span className="text-[7px] font-bold tracking-normal opacity-70 mb-0.5">KONTRAK</span>
+                <span className="text-sm font-black tracking-widest text-red-500/60">SELESAI</span>
+                <span className="text-[6px] font-bold tracking-normal opacity-60 mt-0.5">SUKSES CAIR</span>
+              </motion.div>
+            </div>
+          )}
+
+          <div className="p-7 space-y-8 relative z-10">
+            {/* Top Summary Row */}
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[8px] sm:text-[10px] font-black tracking-[0.1em] text-slate-400 uppercase truncate flex-1">{refId}</span>
+              {isA_Aktif && (
+                <div className="flex items-center gap-2">
+                  {/* Growing Money Animation */}
+                  <div className="relative w-7 h-7 flex items-center justify-center overflow-visible">
+                    {[...Array(3)].map((_, idx) => (
+                      <motion.span
+                        key={idx}
+                        initial={{ y: 6, opacity: 0, scale: 0.2 }}
+                        animate={{ 
+                          y: [-10, -22], 
+                          opacity: [0, 1, 1, 0], 
+                          scale: [0.3, 1.1, 1.3, 0.7],
+                          x: [0, idx % 2 === 0 ? 6 : -6, idx % 2 === 0 ? 10 : -10] 
+                        }}
+                        transition={{
+                          duration: 2.2,
+                          repeat: Infinity,
+                          delay: idx * 0.7,
+                          ease: "easeInOut"
+                        }}
+                        className="absolute text-[10px] font-black text-emerald-500 select-none pointer-events-none"
+                      >
+                        {idx % 3 === 0 ? "Rp" : idx % 3 === 1 ? "📈" : "💰"}
+                      </motion.span>
+                    ))}
+                    <motion.div
+                      animate={{ scale: [1, 1.12, 1] }}
+                      transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                      className="text-emerald-500 bg-emerald-50 p-1 rounded-full border border-emerald-100/30 flex items-center justify-center"
+                    >
+                      <TrendingUp className="w-3 h-3" />
+                    </motion.div>
+                  </div>
+
+                  <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 text-[8px] sm:text-[9px] font-black py-1 px-3 rounded-full hover:bg-green-500/20 transition-colors uppercase tracking-widest whitespace-nowrap">
+                    {t.Status.toUpperCase()}
+                  </Badge>
+                </div>
+              )}
+            </div>
+            
+            {/* Estimate Section */}
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                  {isA_Aktif ? "Estimasi Pengembalian Total" : "Sudah Dicairkan Ke Tabungan"}
+                </p>
+                <h4 className="text-4xl font-black tracking-tight tabular-nums text-[#6D28D9] font-black">Rp {formatCurrency(estimate.total)}</h4>
+                
+                {isA_Aktif && (
+                  <div className="space-y-3 pt-2">
+                    {t.Keterangan && (
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{t.Keterangan}</p>
+                    )}
+                    
+                    {/* Progress Bar moved here */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h5 className="text-[8px] font-black uppercase tracking-widest text-[#6D28D9]">Progress <span className="text-slate-400 ml-1">({progress}% Berjalan)</span></h5>
+                      </div>
+                      <div className="relative pt-0.5">
+                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${progress}%` }}
+                            transition={{ duration: 1.2, ease: "easeOut" }}
+                            className="h-full bg-[#6D28D9] rounded-full"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between opacity-60">
+                         <div className="flex flex-col">
+                           <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Akad</span>
+                           <span className="text-[8px] font-black text-slate-900">{t.Tanggal}</span>
+                         </div>
+                         <div className="flex flex-col text-right">
+                           <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Tempo</span>
+                           <span className="text-[8px] font-black text-slate-900">{t.JatuhTempo}</span>
+                         </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 rounded-full">
+                  <p className="text-[9px] font-bold text-slate-500">
+                    {isA_Aktif 
+                      ? (<>+Rp {formatCurrency(estimate.profit)} <span className="text-[#6D28D9] font-black">(Est. {estimate.rateYearly}% pertahun)</span></>)
+                      : `Pada Tanggal ${t.JatuhTempo}`
+                    }
+                  </p>
+                </div>
+
+                <motion.div
+                  animate={{ rotate: isExpanded ? 180 : 0 }}
+                  className="cursor-pointer"
+                >
+                  <ChevronDown className="w-5 h-5 text-[#6D28D9]" />
+                </motion.div>
+              </div>
+            </div>
+
+            {/* Expansion Content */}
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-2 space-y-8">
+                    {/* Sharpened Detail Cards (Slightly off-white for depth) */}
+                    <div className="space-y-3 pt-2">
+                      <div className="bg-slate-50 rounded-xl p-5 shadow-sm flex items-center gap-4 border border-slate-100">
+                        <div className="flex-1 space-y-3">
+                          <h6 className="text-[11px] font-black text-[#6D28D9] uppercase tracking-widest">Pokok & Keuntungan</h6>
+                          <div className="grid grid-cols-1 gap-2">
+                            <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                              <span className="text-[10px] font-bold text-slate-400">Nilai Pokok</span>
+                              <span className="text-[10px] font-black text-slate-800 tracking-tight text-lg">Rp {formatCurrency(t.Nominal)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-bold text-slate-400">Bagi Hasil ({estimate.rateYearly}% pertahun)</span>
+                              <span className="text-[10px] font-black text-green-600">Rp {formatCurrency(estimate.profit)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 rounded-xl p-5 shadow-sm flex items-center gap-4 border border-slate-100">
+                        <div className="flex-1 space-y-3">
+                          <h6 className="text-[11px] font-black text-[#6D28D9] uppercase tracking-widest">Waktu Kontrak</h6>
+                          <div className="grid grid-cols-1 gap-2 text-slate-600">
+                            <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                              <span className="text-[10px] font-bold text-slate-400">Jangka Waktu</span>
+                              <span className="text-[10px] font-black tracking-tight">{t.Tenor}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-bold text-slate-400">Masa Berakhir</span>
+                              <span className="text-[10px] font-black tracking-tight">{t.JatuhTempo}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {!isA_Aktif && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const targetDate = parseDate(t.JatuhTempo);
+                              const monthVal = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+                              navigate(`/tabungan?month=${monthVal}`);
+                            }}
+                            className="w-full bg-[#6D28D9] text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-[#5b21b6] transition-all flex items-center justify-center mt-4 active:scale-[0.98]"
+                          >
+                            Cek Riwayat Tabungan
+                          </button>
+                      )}
+
+                      {!isA_Aktif && t.Keterangan && (
+                         <div className="px-5 py-4 bg-slate-100/50 border border-slate-200 rounded-xl">
+                            <p className="text-[10px] font-medium italic text-slate-500 leading-relaxed text-center">{t.Keterangan}</p>
+                         </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
   const totalInvestasi = userTransactions
     .filter(t => t.Status.toLowerCase() !== "sukses dicairkan")
     .reduce((acc, curr) => {
       const estimate = calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo);
       return acc + estimate.total;
     }, 0);
-
-  const activeCount = userTransactions.filter(t => {
-    const s = t.Status.toLowerCase();
-    return s.includes("aktif") || s.includes("active");
-  }).length;
-
-  const completedCount = userTransactions.length - activeCount;
 
   return (
     <ProtectedPage user={displayUser} title="Investasi">
@@ -5434,240 +5677,41 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
           </div>
         </div>
 
-        <div className="space-y-8 pb-12">
+        <div className="space-y-10 pb-12">
           {sortedTransactions.length > 0 ? (
-            sortedTransactions.map((t, i) => {
-              const estimate = calculateEstimatedReturn(t.Nominal, t.Nisbah, t.Tanggal, t.JatuhTempo);
-              const progress = calculateProgress(t.Tanggal, t.JatuhTempo);
-              const invYear = parseDateForProgress(t.Tanggal).getFullYear();
-              const invMonth = parseDateForProgress(t.Tanggal).getMonth() + 1;
-              const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-              const refId = `INV-${String(i + 1).padStart(3, '0')}/WT/${romanMonths[invMonth - 1]}/${invYear}`;
-              const isExpanded = expandedIndex === i;
-              const statusLower = t.Status.toLowerCase();
-              const isA_Aktif = statusLower.includes("aktif") || statusLower.includes("active");
-
-              return (
-                <div key={i} className="px-2">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    onClick={() => setExpandedIndex(isExpanded ? null : i)}
-                    className="bg-white rounded-[2.5rem] text-slate-900 shadow-xl relative overflow-hidden cursor-pointer transition-all border border-slate-100"
-                  >
-                    {/* Background Decorative Elements */}
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-full -mr-20 -mt-20 blur-3xl opacity-50" />
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-slate-50 rounded-full -ml-16 -mb-16 blur-2xl opacity-50" />
-
-                    {/* Cap Stempel Selesai */}
-                    {!isA_Aktif && (
-                      <div className="absolute right-12 top-10 pointer-events-none z-20 select-none">
-                        <motion.div
-                          initial={{ opacity: 0, scale: 3.5, rotate: -45 }}
-                          animate={{ opacity: 0.85, scale: 1, rotate: -15 }}
-                          transition={{ 
-                            type: "spring", 
-                            stiffness: 140, 
-                            damping: 11,
-                            delay: i * 0.15 + 0.5 
-                          }}
-                          className="border-4 border-red-500/40 text-red-500/50 font-extrabold text-[10px] tracking-widest rounded-xl px-4 py-1.5 uppercase border-double border-[6px] bg-red-50/[0.02] flex flex-col items-center"
-                        >
-                          <span className="text-[7px] font-bold tracking-normal opacity-70 mb-0.5">KONTRAK</span>
-                          <span className="text-sm font-black tracking-widest text-red-500/60">SELESAI</span>
-                          <span className="text-[6px] font-bold tracking-normal opacity-60 mt-0.5">SUKSES CAIR</span>
-                        </motion.div>
-                      </div>
-                    )}
-
-                    <div className="p-7 space-y-8 relative z-10">
-                      {/* Top Summary Row */}
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="text-[8px] sm:text-[10px] font-black tracking-[0.1em] text-slate-400 uppercase truncate flex-1">{refId}</span>
-                        {isA_Aktif && (
-                          <div className="flex items-center gap-2">
-                            {/* Growing Money Animation */}
-                            <div className="relative w-7 h-7 flex items-center justify-center overflow-visible">
-                              {[...Array(3)].map((_, idx) => (
-                                <motion.span
-                                  key={idx}
-                                  initial={{ y: 6, opacity: 0, scale: 0.2 }}
-                                  animate={{ 
-                                    y: [-10, -22], 
-                                    opacity: [0, 1, 1, 0], 
-                                    scale: [0.3, 1.1, 1.3, 0.7],
-                                    x: [0, idx % 2 === 0 ? 6 : -6, idx % 2 === 0 ? 10 : -10] 
-                                  }}
-                                  transition={{
-                                    duration: 2.2,
-                                    repeat: Infinity,
-                                    delay: idx * 0.7,
-                                    ease: "easeInOut"
-                                  }}
-                                  className="absolute text-[10px] font-black text-emerald-500 select-none pointer-events-none"
-                                >
-                                  {idx % 3 === 0 ? "Rp" : idx % 3 === 1 ? "📈" : "💰"}
-                                </motion.span>
-                              ))}
-                              <motion.div
-                                animate={{ scale: [1, 1.12, 1] }}
-                                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-                                className="text-emerald-500 bg-emerald-50 p-1 rounded-full border border-emerald-100/30 flex items-center justify-center"
-                              >
-                                <TrendingUp className="w-3 h-3" />
-                              </motion.div>
-                            </div>
-
-                            <Badge className="bg-green-500/10 text-green-600 border border-green-500/20 text-[8px] sm:text-[9px] font-black py-1 px-3 rounded-full hover:bg-green-500/20 transition-colors uppercase tracking-widest whitespace-nowrap">
-                              {t.Status.toUpperCase()}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Estimate Section */}
-                      <div className="space-y-4">
-                        <div className="space-y-1">
-                          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                            {isA_Aktif ? "Estimasi Pengembalian Total" : "Sudah Dicairkan Ke Tabungan"}
-                          </p>
-                          <h4 className="text-4xl font-black tracking-tight tabular-nums text-[#6D28D9] font-black">Rp {formatCurrency(estimate.total)}</h4>
-                          
-                          {isA_Aktif && (
-                            <div className="space-y-3 pt-2">
-                              {t.Keterangan && (
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{t.Keterangan}</p>
-                              )}
-                              
-                              {/* Progress Bar moved here */}
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <h5 className="text-[8px] font-black uppercase tracking-widest text-[#6D28D9]">Progress <span className="text-slate-400 ml-1">({progress}% Berjalan)</span></h5>
-                                </div>
-                                <div className="relative pt-0.5">
-                                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                    <motion.div 
-                                      initial={{ width: 0 }}
-                                      animate={{ width: `${progress}%` }}
-                                      transition={{ duration: 1.2, ease: "easeOut" }}
-                                      className="h-full bg-[#6D28D9] rounded-full"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-between opacity-60">
-                                   <div className="flex flex-col">
-                                     <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Akad</span>
-                                     <span className="text-[8px] font-black text-slate-900">{t.Tanggal}</span>
-                                   </div>
-                                   <div className="flex flex-col text-right">
-                                     <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Tempo</span>
-                                     <span className="text-[8px] font-black text-slate-900">{t.JatuhTempo}</span>
-                                   </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 rounded-full">
-                            <p className="text-[9px] font-bold text-slate-500">
-                              {isA_Aktif 
-                                ? (<>+Rp {formatCurrency(estimate.profit)} <span className="text-[#6D28D9] font-black">(Est. {estimate.rateYearly}% pertahun)</span></>)
-                                : `Pada Tanggal ${t.JatuhTempo}`
-                              }
-                            </p>
-                          </div>
-
-                          <motion.div
-                            animate={{ rotate: isExpanded ? 180 : 0 }}
-                            className="cursor-pointer"
-                          >
-                            <ChevronDown className="w-5 h-5 text-[#6D28D9]" />
-                          </motion.div>
-                        </div>
-                      </div>
-
-                      {/* Expansion Content */}
-                      <AnimatePresence>
-                        {isExpanded && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-                            className="overflow-hidden"
-                          >
-                            <div className="pt-2 space-y-8">
-                              {/* Integrated Progress Section - REMOVED from here as it is now below nominal */}
-
-                              {/* Sharpened Detail Cards (Slightly off-white for depth) */}
-                              <div className="space-y-3 pt-2">
-                                <div className="bg-slate-50 rounded-xl p-5 shadow-sm flex items-center gap-4 border border-slate-100">
-                                  <div className="flex-1 space-y-3">
-                                    <h6 className="text-[11px] font-black text-[#6D28D9] uppercase tracking-widest">Pokok & Keuntungan</h6>
-                                    <div className="grid grid-cols-1 gap-2">
-                                      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                                        <span className="text-[10px] font-bold text-slate-400">Nilai Pokok</span>
-                                        <span className="text-[10px] font-black text-slate-800 tracking-tight text-lg">Rp {formatCurrency(t.Nominal)}</span>
-                                      </div>
-                                      <div className="flex justify-between items-center">
-                                        <span className="text-[10px] font-bold text-slate-400">Bagi Hasil ({estimate.rateYearly}% pertahun)</span>
-                                        <span className="text-[10px] font-black text-green-600">Rp {formatCurrency(estimate.profit)}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="bg-slate-50 rounded-xl p-5 shadow-sm flex items-center gap-4 border border-slate-100">
-                                  <div className="flex-1 space-y-3">
-                                    <h6 className="text-[11px] font-black text-[#6D28D9] uppercase tracking-widest">Waktu Kontrak</h6>
-                                    <div className="grid grid-cols-1 gap-2 text-slate-600">
-                                      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                                        <span className="text-[10px] font-bold text-slate-400">Jangka Waktu</span>
-                                        <span className="text-[10px] font-black tracking-tight">{t.Tenor}</span>
-                                      </div>
-                                      <div className="flex justify-between items-center">
-                                        <span className="text-[10px] font-bold text-slate-400">Masa Berakhir</span>
-                                        <span className="text-[10px] font-black tracking-tight">{t.JatuhTempo}</span>
-                                      </div>
-                                    </div>
-
-                                  </div>
-                                </div>
-
-                                {!isA_Aktif && (
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const targetDate = parseDate(t.JatuhTempo);
-                                        const monthVal = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
-                                        navigate(`/tabungan?month=${monthVal}`);
-                                      }}
-                                      className="w-full bg-[#6D28D9] text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-[#5b21b6] transition-all flex items-center justify-center mt-4 active:scale-[0.98]"
-                                    >
-                                      Cek Riwayat Tabungan
-                                    </button>
-                                )}
-
-                                {!isA_Aktif && t.Keterangan && (
-                                   <div className="px-5 py-4 bg-slate-100/50 border border-slate-200 rounded-xl">
-                                      <p className="text-[10px] font-medium italic text-slate-500 leading-relaxed text-center">{t.Keterangan}</p>
-                                    </div>
-                                )}
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </motion.div>
+            <>
+              {activeTransactions.length > 0 && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 px-2">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6D28D9]">Investasi Berjalan</span>
+                    <div className="h-px bg-slate-200 flex-1" />
+                  </div>
+                  <div className="space-y-6">
+                    {activeTransactions.map((t) => {
+                      const globalIndex = sortedTransactions.indexOf(t);
+                      return renderTransactionCard(t, globalIndex);
+                    })}
+                  </div>
                 </div>
-              );
-            })
+              )}
 
-
+              {completedTransactions.length > 0 && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 px-2">
+                    <div className="h-2 w-2 rounded-full bg-slate-400" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Riwayat Investasi Selesai</span>
+                    <div className="h-px bg-slate-200 flex-1" />
+                  </div>
+                  <div className="space-y-6">
+                    {completedTransactions.map((t) => {
+                      const globalIndex = sortedTransactions.indexOf(t);
+                      return renderTransactionCard(t, globalIndex);
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="bg-white rounded-[2.5rem] p-16 text-center border border-slate-100 border-dashed shadow-inner bg-slate-50/20">
               <div className="flex flex-col items-center gap-4 opacity-30">
@@ -11879,6 +11923,36 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
   const currentLevelInfo = calculateCustomerLevel(transactions, user?.Nama || "");
   const currentLevelIndex = LEVELS.findIndex(l => l.name === currentLevelInfo.name);
 
+  const last3MonthsData = React.useMemo(() => {
+    const months = [];
+    const now = new Date();
+    // Get last 3 months
+    for (let j = 2; j >= 0; j--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - j, 1);
+      months.push({
+        year: d.getFullYear(),
+        month: d.getMonth(),
+        label: d.toLocaleDateString("id-ID", { month: "long" }),
+        total: 0
+      });
+    }
+
+    const userTransactions = transactions.filter(t => t.Nama.toLowerCase() === (user?.Nama || "").toLowerCase());
+
+    userTransactions.forEach(t => {
+      const tDate = parseDate(t.Tanggal);
+      const tYear = tDate.getFullYear();
+      const tMonth = tDate.getMonth();
+
+      const matched = months.find(m => m.year === tYear && m.month === tMonth);
+      if (matched) {
+        matched.total += (parseCurrency(t.Pemasukan) || 0);
+      }
+    });
+
+    return months;
+  }, [transactions, user]);
+
   const getModalStyle = () => {
     switch (activeIndex) {
       case 0: // Bronze
@@ -12169,6 +12243,73 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                       {/* Integrated Transaction Card - Only displayed for current level */}
                       {i === currentLevelIndex && (
                         <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-6 border border-white/15 mb-6 shadow-xl">
+                          {/* Mini Area Chart of last 3 months */}
+                          <div className="mb-6">
+                            <div className="flex justify-between items-center mb-2">
+                              <p className="text-[8px] font-black text-white/50 uppercase tracking-widest">Transaksi 3 Bulan Terakhir</p>
+                              <span className="text-[8px] font-bold text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full uppercase tracking-widest">Real-time</span>
+                            </div>
+                            <div className="h-28 w-full -ml-2">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={last3MonthsData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                                  <defs>
+                                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                                      <stop offset="5%" stopColor="#2DD4BF" stopOpacity={0.4}/>
+                                      <stop offset="95%" stopColor="#2DD4BF" stopOpacity={0}/>
+                                    </linearGradient>
+                                  </defs>
+                                  <XAxis 
+                                    dataKey="label" 
+                                    stroke="rgba(255,255,255,0.3)" 
+                                    fontSize={8} 
+                                    tickLine={false} 
+                                    axisLine={false}
+                                  />
+                                  <YAxis 
+                                    stroke="rgba(255,255,255,0.3)" 
+                                    fontSize={7} 
+                                    tickLine={false} 
+                                    axisLine={false}
+                                    tickFormatter={(val) => val >= 1000000 ? `${(val / 1000000).toFixed(1)}M` : val >= 1000 ? `${(val / 1000).toFixed(0)}K` : val}
+                                  />
+                                  <Tooltip 
+                                    contentStyle={{ 
+                                      backgroundColor: "rgba(15, 23, 42, 0.95)", 
+                                      border: "1px solid rgba(255,255,255,0.15)", 
+                                      borderRadius: "1rem",
+                                      color: "#fff",
+                                      fontSize: "10px",
+                                      fontWeight: "bold",
+                                      padding: "8px 12px"
+                                    }}
+                                    formatter={(value: any) => [`Rp ${formatCurrency(Number(value))}`, "Belanja"]}
+                                    labelStyle={{ color: "rgba(255,255,255,0.5)", marginBottom: "2px" }}
+                                  />
+                                  <Area 
+                                    type="monotone" 
+                                    dataKey="total" 
+                                    stroke="#2DD4BF" 
+                                    strokeWidth={2.5}
+                                    fillOpacity={1} 
+                                    fill="url(#colorTotal)" 
+                                  />
+                                </AreaChart>
+                              </ResponsiveContainer>
+                            </div>
+
+                            {/* Monthly Breakdown Grid */}
+                            <div className="mt-4 pt-3 border-t border-white/10 grid grid-cols-3 gap-2">
+                              {last3MonthsData.map((m, idx) => (
+                                <div key={idx} className="text-center p-2 rounded-xl bg-white/[0.03] border border-white/5">
+                                  <p className="text-[9px] font-bold text-white/50 uppercase tracking-wider mb-0.5 truncate">{m.label}</p>
+                                  <p className="text-[10px] font-black text-teal-300 tracking-tight">
+                                    Rp {formatCurrency(m.total)}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
                           <div className="flex justify-between items-end mb-4">
                             <div>
                               <p className="text-[8px] font-black text-white/50 uppercase tracking-widest mb-1.5">Total Transaksi</p>
@@ -13476,17 +13617,21 @@ const ProfilPage = ({ user, transactions, redeemedPoints, onLogout, customers, o
           
           {/* Profile Header Section */}
           <div className="flex flex-col items-center mb-6 relative">
-            <div 
-              onClick={handlePhotoClick}
-              className="w-28 h-28 rounded-full border-4 border-white overflow-hidden bg-slate-100 mb-5 relative group flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-300 ring-1 ring-slate-100"
-            >
-              {user?.Foto ? (
-                <img src={user.Foto} alt={user.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <User className="w-14 h-14 text-slate-300" />
-              )}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                <Camera className="w-8 h-8 text-white" />
+            <div className={`p-1 rounded-full bg-gradient-to-br ${customerLevel.color || 'from-slate-100 to-slate-200'} shadow-lg mb-5 relative`}>
+              <div 
+                onClick={handlePhotoClick}
+                className="w-28 h-28 rounded-full border-4 border-white overflow-hidden bg-slate-100 relative group flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-300"
+              >
+                {user?.Foto ? (
+                  <img src={user.Foto} alt={user.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className={`w-full h-full bg-gradient-to-br ${customerLevel.color || 'from-slate-100 to-slate-200'} flex items-center justify-center`}>
+                    <User className="w-14 h-14 text-white/95 drop-shadow-md" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                  <Camera className="w-8 h-8 text-white" />
+                </div>
               </div>
             </div>
 
