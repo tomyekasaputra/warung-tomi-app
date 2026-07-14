@@ -106,6 +106,9 @@ import {
   Edit2,
   Edit3,
   Ticket,
+  Scissors,
+  Coins,
+  Percent,
   Image as ImageIcon,
   Palette,
   Type,
@@ -6586,6 +6589,32 @@ const AdminDashboard = ({
           </button>
         </div>
 
+        {/* Kartu Input Data tepat diatas Distribusi Aset */}
+        <div 
+          onClick={() => navigate("/admin/manajemen-input-data")}
+          className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 hover:border-[#F15A24]/30 hover:shadow-2xl cursor-pointer transition-all duration-300 group relative overflow-hidden"
+        >
+          {/* Subtle background decoration */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:scale-110 transition-transform" />
+          
+          <div className="flex items-center justify-between gap-4 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center border border-orange-100 flex-shrink-0 group-hover:scale-105 transition-transform shadow-sm">
+                <FileSpreadsheet className="w-6 h-6 text-[#F15A24]" />
+              </div>
+              <div className="text-left">
+                <h4 className="text-sm font-black text-slate-800 tracking-tight">Manajemen Input Data</h4>
+                <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
+                  Klik untuk masuk ke form penginputan data keuangan
+                </p>
+              </div>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-orange-50 group-hover:border-orange-100 transition-all shrink-0">
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#F15A24]" />
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,400px),1fr))] gap-6">
           {/* Asset Distribution Chart */}
           <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 h-full">
@@ -6945,6 +6974,106 @@ const AdminDashboard = ({
             ))}
           </div>
         </div>
+      </div>
+    </motion.div>
+  );
+};
+
+const AdminManajemenInputData = () => {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'input' | 'koreksi'>('input');
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="min-h-screen bg-slate-50 pb-24"
+    >
+      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
+        
+        <div className="relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div>
+                <h1 className="text-2xl font-black tracking-tight uppercase">MANAJEMEN INPUT DATA</h1>
+                <p className="text-xs font-medium text-white/60 uppercase tracking-widest mt-0.5">Input data melalui Google Form Terintegrasi</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Overlapping Tab Selector */}
+      <div className="px-6 -mt-8 relative z-30">
+        <div className="w-full bg-white p-1.5 rounded-2xl shadow-xl border border-slate-200/50 flex gap-2">
+          <button
+            onClick={() => setActiveTab('input')}
+            className={`flex-1 relative py-3.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden ${
+              activeTab === 'input' 
+                ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/20' 
+                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>INPUT DATA</span>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('koreksi')}
+            className={`flex-1 relative py-3.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden ${
+              activeTab === 'koreksi' 
+                ? 'text-white bg-[#F15A24] shadow-md shadow-[#F15A24]/20' 
+                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>KOREKSI DATA</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Frame without card wrapper, takes full width of screen container */}
+      <div className="px-6 mt-6 relative z-20 w-full overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, x: activeTab === 'input' ? -50 : 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: activeTab === 'input' ? 50 : -50 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="w-full"
+          >
+            {activeTab === 'input' ? (
+              <iframe 
+                src="https://docs.google.com/forms/d/e/1FAIpQLSeif9lMa1cctzF1M9D7S1bf-uRCPK5RtblaqWW3w70h6hTShg/viewform?fbzx=1599839160045911533&pli=1&embedded=true"
+                className="w-full h-[1800px] border-0 bg-transparent"
+                title="Google Form Input Data"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 px-6 max-w-lg mx-auto text-center mt-8">
+                <div className="w-16 h-16 bg-[#107C41]/10 rounded-2xl flex items-center justify-center text-[#107C41] mb-6">
+                  <FileSpreadsheet className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Koreksi Data Terintegrasi</h3>
+                <p className="text-xs text-slate-500 mt-2 mb-8 leading-relaxed max-w-sm">
+                  Koreksi data dilakukan langsung menggunakan aplikasi Google Sheets agar lebih cepat, responsif, dan mudah diedit secara real-time.
+                </p>
+                <a 
+                  href="https://docs.google.com/spreadsheets/d/1qHJxnD6OicjmNvyA7EhRpQ-omOO92pX9zvjGprdagbg/edit?usp=drivesdk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-[#107C41] hover:bg-[#0c5c30] text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-green-100 hover:-translate-y-0.5 duration-200"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Buka Google Sheets</span>
+                </a>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </motion.div>
   );
@@ -11912,6 +12041,30 @@ const AdminSettingsPage = () => {
   );
 };
 
+const AnimatedCounter = ({ value }: { value: number }) => {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp: number | null = null;
+    const duration = 1500; // 1.5 seconds
+
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const easedProgress = progress * (2 - progress); // easeOutQuad
+      setCount(Math.floor(easedProgress * value));
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+
+    const animFrame = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(animFrame);
+  }, [value]);
+
+  return <>{formatCurrency(count)}</>;
+};
+
 const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | null, transactions: SalesTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -11920,8 +12073,52 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
   const [isLoading, setIsLoading] = useState(false);
   const [loadedCustomers, setLoadedCustomers] = useState<Customer[]>([]);
 
+  const scrollToIndex = (index: number) => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const card = container.children[index] as HTMLElement;
+      if (card) {
+        const scrollAmount = card.offsetLeft - (container.offsetWidth - card.offsetWidth) / 2;
+        container.scrollTo({
+          left: scrollAmount,
+          behavior: 'smooth'
+        });
+        setActiveIndex(index);
+      }
+    }
+  };
+
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const scrollLeft = container.scrollLeft;
+      const containerCenter = scrollLeft + container.offsetWidth / 2;
+      
+      let closestIndex = 0;
+      let minDistance = Infinity;
+      
+      for (let i = 0; i < container.children.length; i++) {
+        const child = container.children[i] as HTMLElement;
+        if (child) {
+          const childCenter = child.offsetLeft + child.offsetWidth / 2;
+          const distance = Math.abs(containerCenter - childCenter);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestIndex = i;
+          }
+        }
+      }
+      
+      setActiveIndex(closestIndex);
+    }
+  };
+
   const currentLevelInfo = calculateCustomerLevel(transactions, user?.Nama || "");
-  const currentLevelIndex = LEVELS.findIndex(l => l.name === currentLevelInfo.name);
+  const currentLevelIndex = Math.max(0, LEVELS.findIndex(l => l.name === currentLevelInfo.name));
+
+  const maxTargetForGauge = LEVELS[currentLevelIndex + 1]?.min || LEVELS[currentLevelIndex].min || 1;
+  const currentTotalForGauge = currentLevelInfo.total;
+  const percentage = Math.min(100, Math.max(0, (currentLevelInfo.total / 20000000) * 100));
 
   const last3MonthsData = React.useMemo(() => {
     const months = [];
@@ -12007,52 +12204,12 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
     }, 800);
   };
 
-  const scrollToIndex = (index: number) => {
-    if (scrollContainerRef.current) {
-      const container = scrollContainerRef.current;
-      const card = container.children[index] as HTMLElement;
-      if (card) {
-        const scrollAmount = card.offsetLeft - (container.offsetWidth - card.offsetWidth) / 2;
-        container.scrollTo({
-          left: scrollAmount,
-          behavior: 'smooth'
-        });
-        setActiveIndex(index);
-      }
-    }
-  };
-
   useEffect(() => {
     const timer = setTimeout(() => {
       scrollToIndex(currentLevelIndex);
     }, 150);
     return () => clearTimeout(timer);
   }, [currentLevelIndex]);
-
-  const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const container = scrollContainerRef.current;
-      const scrollLeft = container.scrollLeft;
-      const containerCenter = scrollLeft + container.offsetWidth / 2;
-      
-      let closestIndex = 0;
-      let minDistance = Infinity;
-      
-      for (let i = 0; i < container.children.length; i++) {
-        const child = container.children[i] as HTMLElement;
-        if (child) {
-          const childCenter = child.offsetLeft + child.offsetWidth / 2;
-          const distance = Math.abs(containerCenter - childCenter);
-          if (distance < minDistance) {
-            minDistance = distance;
-            closestIndex = i;
-          }
-        }
-      }
-      
-      setActiveIndex(closestIndex);
-    }
-  };
 
   const isDarkBg = true;
 
@@ -12080,22 +12237,9 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
         className="min-h-screen pb-24 overflow-hidden transition-all duration-700 bg-gradient-to-br"
         style={getPageBgStyle()}
       >
-        {/* Hero Section */}
-        <div className="relative h-[35vh] overflow-hidden mb-0">
-          <img 
-            src="https://lh3.googleusercontent.com/d/1q06qTXISxLvOMCQnTT4f3MATAmBo5is-" 
-            alt="Level Banner" 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-          <div className={`absolute inset-0 bg-gradient-to-t transition-all duration-700 ${
-            activeIndex === 0 ? "from-[#A57164] via-[#A57164]/20" :
-            activeIndex === 1 ? "from-[#475569] via-[#475569]/20" :
-            activeIndex === 2 ? "from-[#996515] via-[#996515]/20" :
-            "from-black via-black/20"
-          } to-transparent`} />
-          
-          <div className="absolute top-6 left-6 right-6 flex items-center justify-between">
+        {/* Hero Section with Speedometer Progress */}
+        <div className="relative pt-16 pb-8 flex flex-col items-center justify-center text-white">
+          <div className="absolute top-6 left-6 right-6 flex items-center justify-between z-30">
             <button 
               onClick={() => navigate(-1)}
               className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white border border-white/20 active:scale-90 transition-transform"
@@ -12104,23 +12248,183 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
             </button>
           </div>
 
-          <div className="absolute bottom-12 left-6 right-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-            >
-              <h1 className="text-3xl font-black uppercase tracking-tighter leading-none mb-1 text-white">Member Level</h1>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/60">Warung Tomi Loyalty Program</p>
-            </motion.div>
+          {/* Speedometer Gauge Container */}
+          <div className="relative flex flex-col items-center justify-center w-full max-w-sm mx-auto z-10 pt-4">
+            <svg width="350" height="210" viewBox="0 0 280 170" className="drop-shadow-2xl overflow-visible">
+              <defs>
+                <linearGradient id="speedometerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#EF4444" />
+                  <stop offset="50%" stopColor="#EAB308" />
+                  <stop offset="100%" stopColor="#22C55E" />
+                </linearGradient>
+                <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="6" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+              
+              {/* Background Arc */}
+              <path 
+                d="M 30 140 A 110 110 0 0 1 250 140" 
+                fill="none" 
+                stroke="rgba(255, 255, 255, 0.15)" 
+                strokeWidth="12" 
+                strokeLinecap="round" 
+              />
+              
+              {/* Glowing Outer Shadow Arc for realistic neon effect */}
+              <motion.path 
+                d="M 30 140 A 110 110 0 0 1 250 140" 
+                fill="none" 
+                stroke="url(#speedometerGradient)" 
+                strokeWidth="18" 
+                strokeLinecap="round" 
+                opacity="0.3"
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: percentage / 100 }}
+                transition={{ duration: 1.8, ease: "easeOut" }}
+                className="blur-[4px]"
+              />
+
+              {/* Active Progress Arc */}
+              <motion.path 
+                d="M 30 140 A 110 110 0 0 1 250 140" 
+                fill="none" 
+                stroke="url(#speedometerGradient)" 
+                strokeWidth="12" 
+                strokeLinecap="round" 
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: percentage / 100 }}
+                transition={{ duration: 1.8, ease: "easeOut" }}
+              />
+
+              {/* Ticks & Limit Markers for Level Thresholds */}
+              {/* Rp 0 (Bronze Start) */}
+              <line x1="38" y1="140" x2="26" y2="140" stroke="rgba(255, 255, 255, 0.55)" strokeWidth="2" />
+              <text x="20" y="144" fill="rgba(255,255,255,0.75)" className="text-[9px] font-black" textAnchor="end">0</text>
+              
+              {/* Rp 1jt (Silver Start) */}
+              <line x1="39.3" y1="124" x2="27.4" y2="122.2" stroke="rgba(255, 255, 255, 0.55)" strokeWidth="2" />
+              <text x="21" y="121" fill="#94A3B8" className="text-[9px] font-black" textAnchor="end">1jt</text>
+              
+              {/* Rp 10jt (Gold Start) */}
+              <line x1="140" y1="38" x2="140" y2="26" stroke="rgba(255, 255, 255, 0.55)" strokeWidth="2" />
+              <text x="140" y="20" fill="#F59E0B" className="text-[9px] font-black" textAnchor="middle">10jt</text>
+              
+              {/* Rp 20jt (Platinum Start) */}
+              <line x1="242" y1="140" x2="254" y2="140" stroke="rgba(255, 255, 255, 0.55)" strokeWidth="2" />
+              <text x="260" y="144" fill="#E2E8F0" className="text-[9px] font-black" textAnchor="start">20jt</text>
+            </svg>
+
+            {/* Inner Speedometer Content */}
+            <div className="absolute top-[126px] flex flex-col items-center justify-center text-center">
+              <span className="text-[7px] font-bold uppercase tracking-widest text-white/70 px-3 text-center leading-none">TRANSAKSI 3 BULAN TERAKHIR</span>
+              <span className="text-2xl font-black text-white leading-none mt-2 tracking-tight">
+                Rp <AnimatedCounter value={currentLevelInfo.total} />
+              </span>
+            </div>
+          </div>
+
+          {/* Subtitle / Header Title */}
+          <div className="text-center mt-3 px-6 z-10">
+            <h1 className="text-xl font-black uppercase tracking-tight text-white">LEVEL {currentLevelInfo.name.toUpperCase()}</h1>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">
+              {currentLevelIndex < LEVELS.length - 1 ? (
+                <>
+                  Kurang <span className="text-yellow-300">Rp {formatCurrency(LEVELS[currentLevelIndex + 1].min - currentLevelInfo.total)}</span> lagi ke {LEVELS[currentLevelIndex + 1].name}
+                </>
+              ) : (
+                "Anda telah mencapai level tertinggi! 🎉"
+              )}
+            </p>
           </div>
         </div>
 
         <div className="px-6">
 
-          {/* Trophy Selector Card - sitting halfway above Hero Section and halfway below */}
-          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl p-4.5 -mt-7 mb-6 relative z-20 transition-all duration-500 text-slate-800">
-            <div className="flex justify-around items-center gap-2">
+          {/* Graph Card */}
+          <div className="bg-white rounded-xl border border-slate-100 shadow-xl p-6 mt-6 mb-6 relative z-20 text-slate-800">
+            <div className="px-1.5">
+              <div className="flex justify-between items-center mb-3">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-slate-800 leading-none">TREND AKUMULASI</h4>
+                </div>
+                <span className="text-[8px] font-black text-[#F15A24] bg-orange-50 border border-orange-100/50 px-2 py-0.5 rounded-full uppercase tracking-widest leading-none">Real-time</span>
+              </div>
+              <div className="h-28 w-full -ml-3">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={last3MonthsData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorTotalTrophyCard" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#F15A24" stopOpacity={0.25}/>
+                        <stop offset="95%" stopColor="#F15A24" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis 
+                      dataKey="label" 
+                      stroke="#94A3B8" 
+                      fontSize={8} 
+                      tickLine={false} 
+                      axisLine={false}
+                    />
+                    <YAxis 
+                      stroke="#94A3B8" 
+                      fontSize={7} 
+                      tickLine={false} 
+                      axisLine={false}
+                      tickFormatter={(val) => val >= 1000000 ? `${(val / 1000000).toFixed(1)}M` : val >= 1000 ? `${(val / 1000).toFixed(0)}K` : val}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: "rgba(15, 23, 42, 0.95)", 
+                        border: "1px solid rgba(15, 23, 42, 0.05)", 
+                        borderRadius: "1rem",
+                        color: "#fff",
+                        fontSize: "10px",
+                        fontWeight: "bold",
+                        padding: "8px 12px"
+                      }}
+                      formatter={(value: any) => [`Rp ${formatCurrency(Number(value))}`, "Belanja"]}
+                      labelStyle={{ color: "rgba(255,255,255,0.5)", marginBottom: "2px" }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="total" 
+                      stroke="#F15A24" 
+                      strokeWidth={2.5}
+                      fillOpacity={1} 
+                      fill="url(#colorTotalTrophyCard)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Monthly Breakdown Grid for light theme */}
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {last3MonthsData.map((m, idx) => (
+                  <div key={idx} className="text-center p-2 rounded-xl bg-slate-50 border border-slate-100/60">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 truncate">{m.label}</p>
+                    <p className="text-[10px] font-black text-[#F15A24] tracking-tight">
+                      Rp {formatCurrency(m.total)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Trophy & Keuntungan Card */}
+          <div className="bg-white rounded-xl border border-slate-100 shadow-xl p-6 mb-6 relative z-20 transition-all duration-500 text-slate-800">
+            {/* Title / Header of the card */}
+            <div className="flex justify-between items-center mb-4 px-1">
+              <h4 className="text-sm font-black text-slate-800 leading-none">JENIS LEVEL</h4>
+              <span className="text-[8.5px] font-bold text-[#005E6A] flex items-center gap-1 bg-[#005E6A]/5 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                Geser Level ⇄
+              </span>
+            </div>
+
+            {/* Deretan Tropi */}
+            <div className="flex justify-around items-center gap-2 mb-5">
               {LEVELS.map((level, i) => {
                 const isActive = activeIndex === i;
                 const isUserCurrentLevel = currentLevelIndex === i;
@@ -12150,7 +12454,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                   >
                     <div className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
                       isActive 
-                        ? `bg-gradient-to-br ${bgActiveGradient} text-white shadow-lg scale-110 -translate-y-0.5` 
+                        ? `bg-gradient-to-br ${bgActiveGradient} text-white shadow-lg scale-110 -translate-y-0.5 ring-2 ring-[#F15A24] ring-offset-2` 
                         : "bg-slate-50 text-slate-400 hover:bg-slate-100 border border-slate-100/60"
                     }`}>
                       <Trophy className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'text-white' : iconColorClass}`} />
@@ -12170,7 +12474,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                     {isActive && (
                       <motion.div 
                         layoutId="activeTrophyIndicator"
-                        className="absolute -bottom-1 w-4 h-1 rounded-full bg-slate-800 shadow-sm"
+                        className="absolute -bottom-1.5 w-8 h-1 rounded-full bg-[#F15A24] shadow-[0_2px_8px_rgba(241,90,36,0.5)]"
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                       />
                     )}
@@ -12178,213 +12482,184 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                 );
               })}
             </div>
-          </div>
-        </div>
 
-        {/* Carousel Section without Navigation Arrow Buttons */}
-        <div className="relative">
-          <div 
-            ref={scrollContainerRef}
-            onScroll={handleScroll}
-            className="relative overflow-x-auto flex pb-12 snap-x snap-mandatory no-scrollbar items-center" 
-            style={{ 
-              scrollbarWidth: 'none', 
-              msOverflowStyle: 'none',
-            }}
-          >
-            {LEVELS.map((level, i) => {
-              const isLocked = i > currentLevelIndex;
-              const isCompleted = i < currentLevelIndex;
-              const distance = Math.abs(i - activeIndex);
-              const zIndex = 50 - distance;
-              
-              return (
-                <div key={i} className="flex-shrink-0 w-full snap-center px-6">
-                  <motion.div 
-                    animate={{ 
-                      scale: activeIndex === i ? 1 : 0.94,
-                      opacity: activeIndex === i ? 1 : 0.3,
-                    }}
-                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                    className="relative flex flex-col min-h-[420px] transition-all duration-500 py-4 px-2"
-                    style={{
-                      zIndex: zIndex,
-                    }}
-                  >
-                    <div className="relative z-10 h-full flex flex-col flex-grow text-white">
-                      <div className="flex justify-between items-start mb-6">
-                        <div className="w-14 h-14 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20 shadow-lg">
-                          {isLocked ? <Lock className="w-6 h-6 text-white/60" /> : level.icon}
+            {/* Divider */}
+            <div className="border-t border-slate-100/80 my-4" />
+
+            {/* Swipable Level Benefits Container */}
+            <div 
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="flex overflow-x-auto gap-8 snap-x snap-mandatory no-scrollbar -mx-6 px-6"
+              style={{ 
+                scrollbarWidth: 'none', 
+                msOverflowStyle: 'none',
+              }}
+            >
+              {LEVELS.map((level, i) => {
+                const isLocked = i > currentLevelIndex;
+                const isCompleted = i < currentLevelIndex;
+                
+                return (
+                  <div key={i} className="w-full flex-shrink-0 snap-center">
+                    <div className="space-y-4">
+                      {/* Selected Level Info */}
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                        <div className="space-y-1">
+                          <p className="text-sm font-black uppercase tracking-wider text-slate-800">KEUNTUNGAN {level.name.toUpperCase()}</p>
+                          <p className="text-[10px] font-bold text-slate-500">
+                            {level.max === Infinity ? `Syarat: ≥ Rp ${formatCurrency(level.min)}` : `Syarat: Rp ${formatCurrency(level.min)} - ${formatCurrency(level.max)}`}
+                          </p>
                         </div>
-                        {level.name === currentLevelInfo.name && (
-                          <Badge className="bg-white/25 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1.5 backdrop-blur-md">
-                            Level Anda
-                          </Badge>
-                        )}
-                        {isLocked && (
-                          <Badge className="bg-white/10 text-white/60 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1.5 backdrop-blur-md">
-                            Terkunci
-                          </Badge>
-                        )}
-                        {isCompleted && (
-                          <Badge className="bg-white/25 text-white border-none text-[8px] font-black uppercase tracking-widest px-3 py-1.5 backdrop-blur-md">
-                            Tercapai
-                          </Badge>
-                        )}
+                        <div className="flex flex-col items-end gap-1">
+                          {level.name === currentLevelInfo.name && (
+                            <Badge className="bg-[#005E6A] hover:bg-[#005E6A] text-white border border-[#005E6A]/20 text-[8px] font-black uppercase tracking-widest px-2.5 py-1 shadow-sm">
+                              Level Anda
+                            </Badge>
+                          )}
+                          {isLocked && (
+                            <Badge className="bg-slate-100 text-slate-500 border border-slate-200/50 text-[8px] font-black uppercase tracking-widest px-2.5 py-1">
+                              Terkunci
+                            </Badge>
+                          )}
+                          {isCompleted && (
+                            <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[8px] font-black uppercase tracking-widest px-2.5 py-1">
+                              Tercapai
+                            </Badge>
+                          )}
+                        </div>
                       </div>
 
-                      <div className="mb-6">
-                        <h3 className="text-4xl font-black mb-1.5 tracking-tight">{level.name}</h3>
-                        <p className="text-[11px] font-bold text-white/70 uppercase tracking-widest">
-                          {level.max === Infinity ? `Min Rp ${formatCurrency(level.min)}` : `Rp ${formatCurrency(level.min)} - ${formatCurrency(level.max)}`}
-                        </p>
-                      </div>
+                      {/* Benefit Vouchers list */}
+                      <div className="space-y-3">
+                        {level.benefits.map((benefit, idx) => {
+                          // Determine style based on category
+                          let benefitIcon = <Ticket className="w-5 h-5 text-slate-500" />;
+                          let benefitBg = "bg-slate-50";
+                          let textAccentColor = "text-slate-600";
+                          const textLower = benefit.toLowerCase();
+                          
+                          if (textLower.includes("tabungan")) {
+                            benefitIcon = <PiggyBank className="w-5 h-5 text-emerald-600" />;
+                            benefitBg = "bg-emerald-50/70";
+                            textAccentColor = "text-emerald-600";
+                          } else if (textLower.includes("investasi")) {
+                            benefitIcon = <TrendingUp className="w-5 h-5 text-amber-600" />;
+                            benefitBg = "bg-amber-50/70";
+                            textAccentColor = "text-amber-600";
+                          } else if (textLower.includes("poin")) {
+                            benefitIcon = <Coins className="w-5 h-5 text-yellow-600" />;
+                            benefitBg = "bg-yellow-50/70";
+                            textAccentColor = "text-yellow-600";
+                          } else if (textLower.includes("admin") || textLower.includes("gratis")) {
+                            benefitIcon = <Percent className="w-5 h-5 text-cyan-600" />;
+                            benefitBg = "bg-cyan-50/70";
+                            textAccentColor = "text-cyan-600";
+                          }
 
-                      {/* Integrated Transaction Card - Only displayed for current level */}
-                      {i === currentLevelIndex && (
-                        <div className="bg-white/10 backdrop-blur-md rounded-[2rem] p-6 border border-white/15 mb-6 shadow-xl">
-                          {/* Mini Area Chart of last 3 months */}
-                          <div className="mb-6">
-                            <div className="flex justify-between items-center mb-2">
-                              <p className="text-[8px] font-black text-white/50 uppercase tracking-widest">Transaksi 3 Bulan Terakhir</p>
-                              <span className="text-[8px] font-bold text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full uppercase tracking-widest">Real-time</span>
-                            </div>
-                            <div className="h-28 w-full -ml-2">
-                              <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={last3MonthsData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                                  <defs>
-                                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                                      <stop offset="5%" stopColor="#2DD4BF" stopOpacity={0.4}/>
-                                      <stop offset="95%" stopColor="#2DD4BF" stopOpacity={0}/>
-                                    </linearGradient>
-                                  </defs>
-                                  <XAxis 
-                                    dataKey="label" 
-                                    stroke="rgba(255,255,255,0.3)" 
-                                    fontSize={8} 
-                                    tickLine={false} 
-                                    axisLine={false}
-                                  />
-                                  <YAxis 
-                                    stroke="rgba(255,255,255,0.3)" 
-                                    fontSize={7} 
-                                    tickLine={false} 
-                                    axisLine={false}
-                                    tickFormatter={(val) => val >= 1000000 ? `${(val / 1000000).toFixed(1)}M` : val >= 1000 ? `${(val / 1000).toFixed(0)}K` : val}
-                                  />
-                                  <Tooltip 
-                                    contentStyle={{ 
-                                      backgroundColor: "rgba(15, 23, 42, 0.95)", 
-                                      border: "1px solid rgba(255,255,255,0.15)", 
-                                      borderRadius: "1rem",
-                                      color: "#fff",
-                                      fontSize: "10px",
-                                      fontWeight: "bold",
-                                      padding: "8px 12px"
-                                    }}
-                                    formatter={(value: any) => [`Rp ${formatCurrency(Number(value))}`, "Belanja"]}
-                                    labelStyle={{ color: "rgba(255,255,255,0.5)", marginBottom: "2px" }}
-                                  />
-                                  <Area 
-                                    type="monotone" 
-                                    dataKey="total" 
-                                    stroke="#2DD4BF" 
-                                    strokeWidth={2.5}
-                                    fillOpacity={1} 
-                                    fill="url(#colorTotal)" 
-                                  />
-                                </AreaChart>
-                              </ResponsiveContainer>
-                            </div>
+                          // Match the page gradient to punch out the card holes elegantly
+                          const cutOutBgColor = activeIndex === 0 ? "#A57164" :
+                                                activeIndex === 1 ? "#475569" :
+                                                activeIndex === 2 ? "#996515" :
+                                                "#020617";
 
-                            {/* Monthly Breakdown Grid */}
-                            <div className="mt-4 pt-3 border-t border-white/10 grid grid-cols-3 gap-2">
-                              {last3MonthsData.map((m, idx) => (
-                                <div key={idx} className="text-center p-2 rounded-xl bg-white/[0.03] border border-white/5">
-                                  <p className="text-[9px] font-bold text-white/50 uppercase tracking-wider mb-0.5 truncate">{m.label}</p>
-                                  <p className="text-[10px] font-black text-teal-300 tracking-tight">
-                                    Rp {formatCurrency(m.total)}
-                                  </p>
+                          return (
+                            <div 
+                              key={idx} 
+                              className={`relative flex items-stretch bg-white rounded-lg border border-slate-100 shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden min-h-[90px] ${isLocked ? "opacity-60" : ""}`}
+                            >
+                              {/* Left Section - Voucher Info (70%) */}
+                              <div className="flex-1 p-3.5 flex items-start gap-3.5 pr-4 text-slate-800">
+                                {/* Icon Holder */}
+                                <div className={`w-11 h-11 rounded-md ${benefitBg} flex items-center justify-center flex-shrink-0 relative shadow-inner overflow-hidden border border-black/5 mt-0.5`}>
+                                  {benefitIcon}
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="flex justify-between items-end mb-4">
-                            <div>
-                              <p className="text-[8px] font-black text-white/50 uppercase tracking-widest mb-1.5">Total Transaksi</p>
-                              <h4 className="text-base font-black">Rp {formatCurrency(currentLevelInfo.total)}</h4>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[8px] font-black text-white/50 uppercase tracking-widest mb-1.5">Target</p>
-                              <p className="text-[11px] font-bold">
-                                {LEVELS[i+1] ? `Rp ${formatCurrency(LEVELS[i+1].min)}` : "Maksimal"}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Progress Bar for this specific level */}
-                          <div className="space-y-3">
-                            <div className="h-5 bg-white/15 rounded-full overflow-hidden p-1 border border-white/10 shadow-inner">
-                              <motion.div 
-                                initial={{ width: 0 }}
-                                animate={{ 
-                                  width: `${Math.min(100, Math.max(0, (currentLevelInfo.total / (LEVELS[i+1]?.min || level.min)) * 100))}%`
-                                }}
-                                transition={{ duration: 1.5, ease: "easeOut" }}
-                                className={`h-full rounded-full ${
-                                  i === 0 ? "bg-gradient-to-r from-amber-600 via-orange-400 to-[#CD7F32]" :
-                                  i === 1 ? "bg-gradient-to-r from-slate-400 via-slate-200 to-slate-100" :
-                                  i === 2 ? "bg-gradient-to-r from-amber-500 via-yellow-300 to-amber-600" :
-                                  "bg-gradient-to-r from-slate-500 via-slate-300 to-slate-100"
-                                }`}
-                                style={{
-                                  boxShadow: i === 0 ? "0 0 12px rgba(249, 115, 22, 0.6)" :
-                                             i === 1 ? "0 0 12px rgba(226, 232, 240, 0.6)" :
-                                             i === 2 ? "0 0 12px rgba(245, 158, 11, 0.6)" :
-                                             "0 0 12px rgba(255, 255, 255, 0.7)"
-                                }}
-                              />
-                            </div>
-                            <p className="text-[9px] font-bold text-white/70 text-center italic">
-                              {i < LEVELS.length - 1 ? `Butuh Rp ${formatCurrency(LEVELS[i+1].min - currentLevelInfo.total)} lagi ke ${LEVELS[i+1].name}` : 
-                               "Anda berada di level tertinggi"}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="mt-auto space-y-4">
-                        <p className="text-[11px] font-black uppercase tracking-widest opacity-70">Keuntungan:</p>
-                        <ul className="space-y-3">
-                          {level.benefits.map((benefit, idx) => (
-                            <li key={idx} className="flex items-center gap-3 text-[12px] font-bold leading-snug">
-                              <div className="w-5 h-5 bg-white/25 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-                                <ShieldCheck className="w-3.5 h-3.5" />
+                                
+                                {/* Benefit details */}
+                                <div className="space-y-1">
+                                  <span className={`text-[7.5px] font-black uppercase tracking-[0.2em] ${textAccentColor} leading-none block`}>
+                                    VOUCHER LEVEL {level.name.toUpperCase()}
+                                  </span>
+                                  <p className="text-[11px] font-black leading-snug text-slate-800 line-clamp-2">
+                                    {benefit}
+                                  </p>
+                                  <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest block">
+                                    Berlaku Selamanya • S&K Berlaku
+                                  </span>
+                                </div>
                               </div>
-                              <span className={isLocked ? "opacity-50" : ""}>{benefit}</span>
-                            </li>
-                          ))}
-                        </ul>
+
+                              {/* Voucher Tear Divider */}
+                              <div className="relative w-3 flex items-center justify-center">
+                                {/* Top semi-circle cut-out */}
+                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-b border-slate-100/40 z-10" style={{ backgroundColor: cutOutBgColor }} />
+                                
+                                {/* Vertical Dashed Line */}
+                                <div className="h-[70%] w-0 border-l border-dashed border-slate-200" />
+                                
+                                {/* Bottom semi-circle cut-out */}
+                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-t border-slate-100/40 z-10" style={{ backgroundColor: cutOutBgColor }} />
+                              </div>
+
+                              {/* Right Section - Voucher Action (30%) */}
+                              <div className="w-24 bg-slate-50/50 flex flex-col items-center justify-center px-2 text-center border-l border-slate-100">
+                                {isLocked ? (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <Lock className="w-4 h-4 text-slate-400" />
+                                    <span className="text-[8px] font-black tracking-wider text-slate-400 uppercase">Locked</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col items-center gap-1">
+                                    <span className="text-[9px] font-black tracking-widest text-teal-600 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-100/50 animate-pulse">
+                                      KLAIM
+                                    </span>
+                                    <span className="text-[6.5px] font-black text-slate-400 tracking-widest uppercase mt-0.5">
+                                      PAKAI SEKARANG
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Diagonal sheen shimmer effect */}
+                              <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-40 group-hover:animate-shine" />
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-                  </motion.div>
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Customer List Card matching style with elements above */}
+          <div 
+            onClick={handleLoadCustomers}
+            className="bg-white rounded-xl border border-slate-100 shadow-xl p-6 mb-10 relative z-20 text-slate-800 hover:border-[#F15A24]/30 hover:shadow-2xl cursor-pointer transition-all duration-300 group"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center border border-orange-100 flex-shrink-0 group-hover:scale-105 transition-transform">
+                  <Users className="w-5 h-5 text-[#F15A24]" />
+                </div>
+                <div className="text-left">
+                  <h4 className="text-sm font-black text-slate-800 leading-snug">DAFTAR PELANGGAN {LEVELS[activeIndex].name.toUpperCase()}</h4>
+                  <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
+                    LIHAT NASABAH DI LEVEL INI
+                  </p>
+                </div>
+              </div>
+              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-orange-50 group-hover:border-orange-100 transition-all">
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#F15A24]" />
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        {/* Customer List Section - Button only */}
-        <div className="mt-8 px-6 pb-12 flex justify-center">
-          <button
-            onClick={handleLoadCustomers}
-            className="w-full max-w-md py-4 px-6 bg-white/10 hover:bg-white/15 backdrop-blur-md rounded-[2rem] border border-white/15 text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-lg"
-          >
-            <Users className="w-5 h-5 text-white/80" />
-            <span>Lihat Daftar Pelanggan {LEVELS[activeIndex].name}</span>
-          </button>
-        </div>
+        {/* Bottom spacer for layout padding */}
+        <div className="pb-12" />
 
         {/* Customer List Popup Modal */}
         <AnimatePresence>
@@ -12395,7 +12670,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
             ).length;
 
             return (
-              <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
                 {/* Backdrop */}
                 <motion.div
                   initial={{ opacity: 0 }}
@@ -12407,12 +12682,14 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
 
                 {/* Modal Container */}
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                  transition={{ type: "spring", duration: 0.5 }}
-                  className="relative w-full max-w-md bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-2xl text-slate-800 z-10 overflow-hidden"
+                  initial={{ y: "100%" }}
+                  animate={{ y: 0 }}
+                  exit={{ y: "100%" }}
+                  transition={{ type: "spring", damping: 28, stiffness: 240 }}
+                  className="relative w-full max-w-xl bg-white border border-slate-100 rounded-t-[2rem] sm:rounded-2xl p-6 pb-8 sm:pb-6 shadow-2xl text-slate-800 z-10 overflow-hidden"
                 >
+                  {/* Bottom sheet indicator line for mobile only */}
+                  <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-4 sm:hidden" />
                   {/* Header */}
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2.5">
@@ -16104,6 +16381,11 @@ export default function App() {
               redeemedPoints={redeemedPoints}
               stock={stock}
             />
+          </AdminLayout>
+        } />
+        <Route path="/admin/manajemen-input-data" element={
+          <AdminLayout activeTab="dashboard">
+            <AdminManajemenInputData />
           </AdminLayout>
         } />
         <Route path="/admin/report" element={
