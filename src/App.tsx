@@ -1835,45 +1835,48 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
 
 
       {/* PKH Info Modal */}
-      <AnimatePresence>
-        {showPKHInfo && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
-          >
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {showPKHInfo && (
             <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
             >
-              <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-6">
-                <HelpCircle className="w-6 h-6 text-[#005E6A]" />
-              </div>
-              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-4">Informasi Dana PKH</h3>
-              <p className="text-[10px] text-slate-500 font-bold leading-relaxed mb-6">
-                Nominal PKH berbeda untuk setiap KPM karena bergantung pada komponen keluarga:
-              </p>
-              <ul className="space-y-2 mb-8">
-                {["Anak Sekolah (SD, SMP, SMA)", "Balita / Ibu Hamil", "Lansia / Disabilitas"].map((item, i) => (
-                  <li key={i} className="flex items-center gap-2 text-[9px] font-black text-slate-400 bg-slate-50 p-2 rounded-lg">
-                    <CheckCircle2 className="w-3 h-3 text-green-500" />
-                    {item.toUpperCase()}
-                  </li>
-                ))}
-              </ul>
-              <button 
-                onClick={() => setShowPKHInfo(false)}
-                className="w-full bg-[#005E6A] text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 transition-transform active:scale-95"
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100"
               >
-                Mengerti
-              </button>
+                <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-6">
+                  <HelpCircle className="w-6 h-6 text-[#005E6A]" />
+                </div>
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-4">Informasi Dana PKH</h3>
+                <p className="text-[10px] text-slate-500 font-bold leading-relaxed mb-6">
+                  Nominal PKH berbeda untuk setiap KPM karena bergantung pada komponen keluarga:
+                </p>
+                <ul className="space-y-2 mb-8">
+                  {["Anak Sekolah (SD, SMP, SMA)", "Balita / Ibu Hamil", "Lansia / Disabilitas"].map((item, i) => (
+                    <li key={i} className="flex items-center gap-2 text-[9px] font-black text-slate-400 bg-slate-50 p-2 rounded-lg">
+                      <CheckCircle2 className="w-3 h-3 text-green-500" />
+                      {item.toUpperCase()}
+                    </li>
+                  ))}
+                </ul>
+                <button 
+                  onClick={() => setShowPKHInfo(false)}
+                  className="w-full bg-[#005E6A] text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 transition-transform active:scale-95"
+                >
+                  Mengerti
+                </button>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </motion.div>
   );
 };
@@ -1973,6 +1976,11 @@ const PromoSection = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
 
 const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
   const navigate = useNavigate();
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Default to 8 items (fills 2 rows perfectly on mobile 4-column layout)
+  const displayedServices = isExpanded ? MAIN_SERVICES : MAIN_SERVICES.slice(0, 8);
+
   return (
     <section className="px-6 py-1">
       <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 relative z-10">
@@ -1994,34 +2002,63 @@ const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
         </div>
         <div className="h-px bg-slate-100 w-full mb-6" />
         
-        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-y-8 gap-x-2">
-          {MAIN_SERVICES.map((service) => (
-            <motion.button
-              key={service.id}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                if (service.name === "Investasi") {
-                  if (loggedInUser) navigate(`/investasi/${encodeURIComponent(loggedInUser.Nama)}`);
-                  else navigate("/investasi");
-                }
-                else if (service.name === "Tabungan") {
-                  if (loggedInUser) navigate(`/tabungan/${encodeURIComponent(loggedInUser.Nama)}`);
-                  else navigate("/tabungan");
-                }
-                else if (service.name === "Poin Loyalitas") navigate("/poin");
-                else if (service.name === "QRIS") navigate("/qris");
-                else if (service.name === "Tarik Tunai") navigate("/tariktunai");
-                else if (service.id === 1) navigate("/admin");
-              }}
-              className="flex flex-col items-center gap-2 group"
-            >
-              <div className={`w-12 h-12 ${service.bgColor} rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all`}>
-                {service.icon}
-              </div>
-              <span className="text-[9px] font-bold text-slate-500 text-center leading-tight px-0.5">{service.name}</span>
-            </motion.button>
-          ))}
+        {/* Animated container to handle smooth expanding/collapsing height */}
+        <motion.div 
+          layout
+          className="overflow-hidden"
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        >
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-y-8 gap-x-2">
+            <AnimatePresence initial={false}>
+              {displayedServices.map((service) => (
+                <motion.button
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.15 }}
+                  key={service.id}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    if (service.name === "Investasi") {
+                      if (loggedInUser) navigate(`/investasi/${encodeURIComponent(loggedInUser.Nama)}`);
+                      else navigate("/investasi");
+                    }
+                    else if (service.name === "Tabungan") {
+                      if (loggedInUser) navigate(`/tabungan/${encodeURIComponent(loggedInUser.Nama)}`);
+                      else navigate("/tabungan");
+                    }
+                    else if (service.name === "Poin Loyalitas") navigate("/poin");
+                    else if (service.name === "QRIS") navigate("/qris");
+                    else if (service.name === "Tarik Tunai") navigate("/tariktunai");
+                    else if (service.id === 1) navigate("/admin");
+                  }}
+                  className="flex flex-col items-center gap-2 group"
+                >
+                  <div className={`w-12 h-12 ${service.bgColor} rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all`}>
+                    {service.icon}
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-500 text-center leading-tight px-0.5">{service.name}</span>
+                </motion.button>
+              ))}
+            </AnimatePresence>
+          </div>
+        </motion.div>
+
+        {/* Toggle Button */}
+        <div className="flex justify-center mt-6 pt-2 border-t border-slate-50">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 hover:bg-slate-100 active:scale-95 text-[10px] font-black text-[#005E6A] uppercase tracking-wider rounded-full transition-all duration-200 border border-slate-100"
+          >
+            <span>{isExpanded ? "Tampilkan Lebih Sedikit" : "Tampilkan Semua"}</span>
+            {isExpanded ? (
+              <ChevronUp className="w-3.5 h-3.5 text-[#005E6A]" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 text-[#005E6A]" />
+            )}
+          </button>
         </div>
       </div>
     </section>
@@ -5180,173 +5217,234 @@ const DebtDetailPage = ({
     )}
 
     {/* Detail Transaction Modal Overlay */}
-    <AnimatePresence>
-      {selectedTx && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative border border-slate-100 flex flex-col overflow-visible"
-          >
-            {/* Header */}
-            <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                  selectedTx.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
-                }`}>
-                  {selectedTx.Tipe === 'TAMBAH' ? <PlusCircle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+    {typeof document !== "undefined" && createPortal(
+      <AnimatePresence>
+        {selectedTx && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative border border-slate-100 flex flex-col overflow-visible"
+            >
+              {/* Header */}
+              <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                    selectedTx.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                  }`}>
+                    {selectedTx.Tipe === 'TAMBAH' ? <PlusCircle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                  </div>
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                    {selectedTx.Tipe === 'TAMBAH' ? 'Rincian Kasbon' : 'Rincian Pembayaran'}
+                  </h3>
                 </div>
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                  {selectedTx.Tipe === 'TAMBAH' ? 'Rincian Kasbon' : 'Rincian Pembayaran'}
-                </h3>
+                <button 
+                  onClick={() => setSelectedTx(null)}
+                  className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <button 
-                onClick={() => setSelectedTx(null)}
-                className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {/* Date Tag */}
-            <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-black uppercase tracking-widest mb-4">
-              <Calendar className="w-3.5 h-3.5" />
-              <span>{selectedTx.Tanggal}</span>
-            </div>
+              {/* Date Tag */}
+              <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-black uppercase tracking-widest mb-4">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>{selectedTx.Tanggal}</span>
+              </div>
 
-            {/* Details Content */}
-            <div className="space-y-4 relative">
-              {selectedTx.Tipe === 'TAMBAH' ? (
-                /* KASBON CASE */
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Hutang Awal</p>
-                      <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedTx.SaldoAkhir - selectedTx.Jumlah)}</p>
-                    </div>
-                    <div className="p-3 bg-red-50/50 rounded-2xl border border-red-100/30">
-                      <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-0.5">Tambah</p>
-                      <p className="text-xs font-black text-red-600">+Rp {formatCurrency(selectedTx.Jumlah)}</p>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
-                    <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Total Hutang</span>
-                    <span className="text-sm font-black text-orange-400">Rp {formatCurrency(selectedTx.SaldoAkhir)}</span>
-                  </div>
-
-                  {/* Transaction details */}
-                  {matchingSalesTx ? (
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                      <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
-                        <Receipt className="w-3.5 h-3.5 text-[#005E6A]" />
-                        <span>Detail Item Belanja</span>
+              {/* Details Content */}
+              <div className="space-y-4 relative">
+                {selectedTx.Tipe === 'TAMBAH' ? (
+                  /* KASBON CASE */
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Hutang Awal</p>
+                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedTx.SaldoAkhir - selectedTx.Jumlah)}</p>
                       </div>
-                      <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1 no-scrollbar">
-                        {parseItems(matchingSalesTx.Jenis, matchingSalesTx.Pemasukan, matchingSalesTx.HargaModal, matchingSalesTx.Melalui).map((item, idx) => (
-                          <div key={idx} className="flex justify-between items-baseline gap-2 text-[10px]">
-                            <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]">{item.name}</span>
-                            <div className="flex gap-2 shrink-0">
-                              {item.qty > 1 && item.price && (
-                                <span className="text-slate-400 font-medium">({item.qty}x Rp {formatCurrency(item.price)})</span>
-                              )}
-                              <span className="text-slate-900 font-black">
-                                Rp {formatCurrency(item.qty * (item.price || matchingSalesTx.Pemasukan / item.qty))}
-                              </span>
+                      <div className="p-3 bg-red-50/50 rounded-2xl border border-red-100/30">
+                        <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-0.5">Tambah</p>
+                        <p className="text-xs font-black text-red-600">+Rp {formatCurrency(selectedTx.Jumlah)}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
+                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Total Hutang</span>
+                      <span className="text-sm font-black text-orange-400">Rp {formatCurrency(selectedTx.SaldoAkhir)}</span>
+                    </div>
+
+                    {/* Transaction details */}
+                    {matchingSalesTx ? (
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                        <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
+                          <Receipt className="w-3.5 h-3.5 text-[#005E6A]" />
+                          <span>Detail Item Belanja</span>
+                        </div>
+                        <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1 no-scrollbar">
+                          {parseItems(matchingSalesTx.Jenis, matchingSalesTx.Pemasukan, matchingSalesTx.HargaModal, matchingSalesTx.Melalui).map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-baseline gap-2 text-[10px]">
+                              <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]">{item.name}</span>
+                              <div className="flex gap-2 shrink-0">
+                                {item.qty > 1 && item.price && (
+                                  <span className="text-slate-400 font-medium">({item.qty}x Rp {formatCurrency(item.price)})</span>
+                                )}
+                                <span className="text-slate-900 font-black">
+                                  Rp {formatCurrency(item.qty * (item.price || matchingSalesTx.Pemasukan / item.qty))}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
+                        <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between text-[9px]">
+                          <span className="font-bold text-slate-400 uppercase tracking-wider">ID Transaksi</span>
+                          <span className="font-black text-[#005E6A] uppercase tracking-wider">
+                            {matchingSalesTx.id_transaksi || `TRX-${matchingSalesTx.Tanggal.replace(/[^0-9]/g, '').slice(0, 10)}`}
+                          </span>
+                        </div>
                       </div>
-                      <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between text-[9px]">
-                        <span className="font-bold text-slate-400 uppercase tracking-wider">ID Transaksi</span>
-                        <span className="font-black text-[#005E6A] uppercase tracking-wider">
-                          {matchingSalesTx.id_transaksi || `TRX-${matchingSalesTx.Tanggal.replace(/[^0-9]/g, '').slice(0, 10)}`}
-                        </span>
+                    ) : (
+                      /* Fallback Details */
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                        <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
+                          <Info className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Keterangan Tambah</span>
+                        </div>
+                        <p className="text-[10px] font-black text-slate-700 uppercase leading-relaxed pt-1">
+                          {selectedTx.Keterangan && selectedTx.Keterangan !== "-" ? selectedTx.Keterangan : "Penambahan Kasbon Manual"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* BAYAR CASE */
+                  <div className="space-y-3 relative">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Hutang Awal</p>
+                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedTx.SaldoAkhir + selectedTx.Jumlah)}</p>
+                      </div>
+                      <div className="p-3 bg-green-50/50 rounded-2xl border border-green-100/30">
+                        <p className="text-[8px] font-black text-green-400 uppercase tracking-widest mb-0.5">Bayar</p>
+                        <p className="text-xs font-black text-green-600">-Rp {formatCurrency(selectedTx.Jumlah)}</p>
                       </div>
                     </div>
-                  ) : (
-                    /* Fallback Details */
+
+                    <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
+                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Sisa Hutang</span>
+                      <span className="text-sm font-black text-emerald-400">Rp {formatCurrency(selectedTx.SaldoAkhir)}</span>
+                    </div>
+
                     <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
                       <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
                         <Info className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Keterangan Tambah</span>
+                        <span>Keterangan Bayar</span>
                       </div>
                       <p className="text-[10px] font-black text-slate-700 uppercase leading-relaxed pt-1">
-                        {selectedTx.Keterangan && selectedTx.Keterangan !== "-" ? selectedTx.Keterangan : "Penambahan Kasbon Manual"}
+                        {selectedTx.Keterangan && selectedTx.Keterangan !== "-" ? selectedTx.Keterangan : "Pelunasan Hutang Tunai"}
                       </p>
                     </div>
-                  )}
-                </div>
-              ) : (
-                /* BAYAR CASE */
-                <div className="space-y-3 relative">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Hutang Awal</p>
-                      <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedTx.SaldoAkhir + selectedTx.Jumlah)}</p>
-                    </div>
-                    <div className="p-3 bg-green-50/50 rounded-2xl border border-green-100/30">
-                      <p className="text-[8px] font-black text-green-400 uppercase tracking-widest mb-0.5">Bayar</p>
-                      <p className="text-xs font-black text-green-600">-Rp {formatCurrency(selectedTx.Jumlah)}</p>
-                    </div>
+
+                    {/* LUNAS ANIMATED STAMP */}
+                    {selectedTx.SaldoAkhir === 0 && (
+                      <motion.div 
+                        initial={{ scale: 4, opacity: 0, rotate: -45 }}
+                        animate={{ scale: 1, opacity: 0.9, rotate: -15 }}
+                        transition={{ 
+                          type: "spring", 
+                          damping: 11, 
+                          stiffness: 140, 
+                          delay: 0.25 
+                        }}
+                        className="absolute right-0 top-16 border-4 border-double border-red-500 text-red-500 font-extrabold text-lg px-5 py-1.5 rounded-xl tracking-[0.2em] uppercase select-none pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.15)] bg-white/65 backdrop-blur-[1px] rotate-[-15deg]"
+                        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                      >
+                        LUNAS
+                      </motion.div>
+                    )}
                   </div>
+                )}
+              </div>
 
-                  <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
-                    <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Sisa Hutang</span>
-                    <span className="text-sm font-black text-emerald-400">Rp {formatCurrency(selectedTx.SaldoAkhir)}</span>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                    <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
-                      <Info className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Keterangan Bayar</span>
-                    </div>
-                    <p className="text-[10px] font-black text-slate-700 uppercase leading-relaxed pt-1">
-                      {selectedTx.Keterangan && selectedTx.Keterangan !== "-" ? selectedTx.Keterangan : "Pelunasan Hutang Tunai"}
-                    </p>
-                  </div>
-
-                  {/* LUNAS ANIMATED STAMP */}
-                  {selectedTx.SaldoAkhir === 0 && (
-                    <motion.div 
-                      initial={{ scale: 4, opacity: 0, rotate: -45 }}
-                      animate={{ scale: 1, opacity: 0.9, rotate: -15 }}
-                      transition={{ 
-                        type: "spring", 
-                        damping: 11, 
-                        stiffness: 140, 
-                        delay: 0.25 
-                      }}
-                      className="absolute right-0 top-16 border-4 border-double border-red-500 text-red-500 font-extrabold text-lg px-5 py-1.5 rounded-xl tracking-[0.2em] uppercase select-none pointer-events-none shadow-[0_0_15px_rgba(239,68,68,0.15)] bg-white/65 backdrop-blur-[1px] rotate-[-15deg]"
-                      style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                    >
-                      LUNAS
-                    </motion.div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <button 
-              onClick={() => setSelectedTx(null)}
-              className="mt-6 w-full py-3 bg-[#005E6A] hover:bg-[#004D57] text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-md active:scale-[0.98]"
-            >
-              Tutup Rincian
-            </button>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+              {/* Footer */}
+              <button 
+                onClick={() => setSelectedTx(null)}
+                className="mt-6 w-full py-3 bg-[#005E6A] hover:bg-[#004D57] text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-all shadow-md active:scale-[0.98]"
+              >
+                Tutup Rincian
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>,
+      document.body
+    )}
     </>
   );
 };
+
+const INVESTMENT_OFFERS = [
+  {
+    tenor: "3 Bulan",
+    rate: "10% p.a.",
+    periodRate: "2.50%",
+    min: "Rp 100.000",
+    desc: "Investasi berjangka pendek dengan likuiditas tinggi untuk mengamankan kas jangka pendek Anda.",
+    bgGrad: "from-blue-500 to-indigo-600"
+  },
+  {
+    tenor: "6 Bulan",
+    rate: "10% p.a.",
+    periodRate: "5.00%",
+    min: "Rp 100.000",
+    desc: "Pilihan terbaik dan terpopuler dengan bagi hasil optimal untuk rencana keuangan jangka menengah.",
+    bgGrad: "from-purple-500 to-indigo-600"
+  },
+  {
+    tenor: "9 Bulan",
+    rate: "10% p.a.",
+    periodRate: "7.50%",
+    min: "Rp 100.000",
+    desc: "Perpaduan jangka waktu strategis dan tingkat keuntungan tinggi untuk akumulasi modal optimal.",
+    bgGrad: "from-amber-500 to-orange-600"
+  },
+  {
+    tenor: "12 Bulan",
+    rate: "10% p.a.",
+    periodRate: "10.00%",
+    min: "Rp 100.000",
+    desc: "Maksimalkan pertumbuhan aset Anda dalam jangka panjang dengan imbal hasil tertinggi yang dijamin optimal.",
+    bgGrad: "from-emerald-500 to-teal-600"
+  }
+];
 
 const InvestasiPage = ({ user, transactions, customers }: { user: Customer | null, transactions: InvestmentTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
   const { customerName } = useParams();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [showOffers, setShowOffers] = useState(true);
+  const [calcAmount, setCalcAmount] = useState<string>("");
+  const [selectedOffer, setSelectedOffer] = useState<{
+    tenor: string;
+    rate: string;
+    periodRate: string;
+    min: string;
+    desc: string;
+    bgGrad: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (selectedOffer) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [selectedOffer]);
+
+  const OFFERS = INVESTMENT_OFFERS;
   
   const displayUser = customerName && customers 
     ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
@@ -5680,6 +5778,105 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
           </div>
         </div>
 
+        {/* Card Penawaran Investasi yang Bisa Dibuka Tutup */}
+        <div className="bg-gradient-to-br from-purple-300/90 via-purple-100/70 to-white/95 rounded-2xl border border-purple-300/50 shadow-xl overflow-hidden mb-8 relative z-30">
+          <div 
+            onClick={() => setShowOffers(!showOffers)}
+            className="p-7 flex items-center justify-between cursor-pointer hover:bg-purple-100/10 transition-colors"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-purple-100/60 rounded-xl flex items-center justify-center text-[#6D28D9] border border-purple-200/50">
+                <Gift className="w-6 h-6" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider">Penawaran Investasi Spesial</h3>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Pilihan Tenor & Imbal Hasil Menarik</p>
+              </div>
+            </div>
+            <motion.div
+              animate={{ rotate: showOffers ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-100"
+            >
+              <ChevronDown className="w-4 h-4 text-slate-500" />
+            </motion.div>
+          </div>
+
+          <AnimatePresence initial={false}>
+            {showOffers && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                <div className="p-7 pt-5">
+                  {/* Horizontal Scrollable Row containing introduction and offer cards */}
+                  <div className="flex overflow-x-auto gap-3.5 pb-4 snap-x -mx-7 px-7 scrollbar-hide items-stretch">
+                    {/* Left side introduction text - placed inline inside scrollable container, no card wrapper */}
+                    <div className="flex-shrink-0 w-44 flex flex-col justify-start items-start text-left space-y-3 snap-start py-4 pl-7">
+                      <span className="text-[10px] font-black text-[#6D28D9] uppercase tracking-[0.15em] bg-white border border-purple-100 px-3 py-1 rounded-md shadow-sm">
+                        PILIHAN TERBAIK
+                      </span>
+                      <div className="space-y-1.5">
+                        <h4 className="text-sm font-black text-slate-800 leading-tight uppercase tracking-tight">
+                          Kembangkan Dana Anda
+                        </h4>
+                        <div className="h-0.5 w-10 bg-[#6D28D9] rounded-full" />
+                      </div>
+                      <p className="text-[9px] font-bold text-slate-500 leading-relaxed uppercase tracking-wider">
+                        Investasikan dana dengan imbal hasil optimal 10% setiap tahunnya.
+                      </p>
+                    </div>
+
+                    {OFFERS.map((offer, idx) => (
+                      <motion.div
+                        key={idx}
+                        whileHover={{ y: -4, scale: 1.01 }}
+                        onClick={() => {
+                          setSelectedOffer(offer);
+                          setCalcAmount("");
+                        }}
+                        className="flex-shrink-0 w-44 bg-white border border-slate-100 rounded-xl p-4 relative overflow-hidden cursor-pointer shadow-sm hover:shadow-md hover:border-purple-300 transition-all snap-start flex flex-col justify-between"
+                      >
+                        <div className="space-y-4">
+                          <div className="text-left">
+                            <h4 className="text-base font-black text-[#6D28D9] leading-none">{offer.tenor}</h4>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Tenor Investasi</p>
+                          </div>
+
+                          <div className="py-2 border-y border-dashed border-slate-200 text-left">
+                            <div className="flex items-baseline justify-between gap-1">
+                              <span className="text-xl font-black text-emerald-600 tracking-tight">{offer.periodRate}</span>
+                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">{offer.rate}</span>
+                            </div>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Keuntungan Periode</p>
+                          </div>
+                        </div>
+
+                        {/* Purple Select Button */}
+                        <div className="mt-5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOffer(offer);
+                              setCalcAmount("");
+                            }}
+                            className="w-full py-2.5 bg-[#6D28D9] hover:bg-[#5b21b6] text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 shadow-md hover:shadow-purple-100/50 flex items-center justify-center"
+                          >
+                            <span>PILIH</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         <div className="space-y-10 pb-12">
           {sortedTransactions.length > 0 ? (
             <>
@@ -5730,6 +5927,149 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
           )}
         </div>
       </motion.div>
+
+      {/* Selected Offer Detail Modal */}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {selectedOffer && (() => {
+            const parsedAmount = parseCurrency(calcAmount);
+            const tenorMonths = parseInt(selectedOffer.tenor) || 3;
+            const interestRate = 0.10; // 10%
+            const calculatedProfit = Math.round(parsedAmount * interestRate * (tenorMonths / 12));
+            const totalPayout = parsedAmount + calculatedProfit;
+
+            return (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                {/* Backdrop */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setSelectedOffer(null)}
+                  className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
+                />
+ 
+                 {/* Modal content - Centered Style */}
+                 <motion.div
+                   initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                   animate={{ scale: 1, opacity: 1, y: 0 }}
+                   exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                   transition={{ type: "spring", damping: 25, stiffness: 250 }}
+                   className="bg-white rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative z-50 border-t-4 border-purple-500"
+                 >
+                   {/* Header Banner - Elegant Purple Theme */}
+                   <div className="bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-800 p-8 text-white relative text-left shrink-0">
+                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-8 -mt-8 blur-2xl" />
+                     <button 
+                       onClick={() => setSelectedOffer(null)}
+                       className="absolute top-6 right-6 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                     >
+                       <X className="w-4 h-4" />
+                     </button>
+                     <h4 className="text-2xl font-black tracking-tight">Tenor {selectedOffer.tenor}</h4>
+                     <p className="text-xs text-purple-200 font-bold uppercase tracking-widest mt-1">Investasi Hasil Optimal</p>
+                   </div>
+ 
+                   <div className="p-8 space-y-6 overflow-y-auto flex-1">
+                     <p className="text-xs text-slate-500 leading-relaxed font-semibold text-left">
+                       {selectedOffer.desc}
+                     </p>
+ 
+                     {/* Interactive Nominal Input */}
+                     <div className="space-y-2 text-left">
+                       <label className="text-[9px] font-black text-purple-700 uppercase tracking-widest block">Nominal Investasi</label>
+                       <div className="relative">
+                         <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+                           <span className="text-lg font-black text-purple-500">Rp</span>
+                         </div>
+                         <input
+                           type="text"
+                           value={calcAmount === "" ? "" : formatCurrency(calcAmount)}
+                           onChange={(e) => {
+                             const val = e.target.value.replace(/[^\d]/g, '');
+                             setCalcAmount(val);
+                           }}
+                           className="w-full bg-purple-50/40 hover:bg-purple-50/60 focus:bg-white border-2 border-purple-100 focus:border-purple-500 focus:ring-0 rounded-2xl py-4 pl-12 pr-6 text-lg font-black text-purple-950 transition-all text-left shadow-inner"
+                           placeholder="0"
+                         />
+                       </div>
+                       <div className="flex justify-between items-center px-1">
+                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Mulai Rp 100.000</span>
+                         <span className="text-[8px] font-bold text-purple-600 uppercase tracking-wider">Suku Bunga 10% p.a.</span>
+                       </div>
+                     </div>
+ 
+                     {/* Dynamic Profit Calculation Block (Gambaran Hasil Keuntungan) */}
+                     <div className="space-y-4 bg-purple-50/50 rounded-2xl p-5 border border-purple-100/50">
+                       <h5 className="text-[9px] font-black text-purple-800 uppercase tracking-widest text-left">Simulasi Hasil Keuntungan:</h5>
+                       
+                       <div className="space-y-2 text-left">
+                         <div className="flex justify-between items-center">
+                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Modal Awal</span>
+                           <span className="text-xs font-black text-slate-700">Rp {formatCurrency(parsedAmount)}</span>
+                         </div>
+                         <div className="flex justify-between items-center">
+                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Keuntungan ({selectedOffer.periodRate})</span>
+                           <span className="text-xs font-black text-emerald-600 font-bold">+ Rp {formatCurrency(calculatedProfit)}</span>
+                         </div>
+                         
+                         <div className="h-px bg-purple-100/60 border-dashed border-t my-2" />
+                         
+                         <div className="flex justify-between items-center">
+                           <span className="text-[10px] font-black text-[#6D28D9] uppercase tracking-widest">Total Pengembalian</span>
+                           <span className="text-sm font-black text-[#6D28D9]">Rp {formatCurrency(totalPayout)}</span>
+                         </div>
+                       </div>
+                     </div>
+ 
+                     <div className="space-y-3 pt-2">
+                       <button
+                         onClick={() => {
+                           if (!calcAmount || parsedAmount < 100000) {
+                             alert("Nominal investasi minimal adalah Rp 100.000");
+                             return;
+                           }
+                           
+                           const textMessage = `Halo WARUNG TOMI,
+
+Saya ingin mengajukan investasi baru dengan rincian sebagai berikut:
+
+*Rincian Pengajuan Investasi:*
+• *Nama Nasabah:* ${displayUser?.Nama || "-"}
+• *Pilihan Tenor:* ${selectedOffer.tenor}
+• *Nominal Investasi:* Rp ${formatCurrency(parsedAmount)}
+• *Keuntungan Periode:* Rp ${formatCurrency(calculatedProfit)} (${selectedOffer.periodRate})
+• *Estimasi Imbal Hasil:* 10% p.a.
+• *Total Pengembalian:* Rp ${formatCurrency(totalPayout)}
+
+Mohon bantuan dan panduannya untuk memproses pengajuan investasi saya ini. Terima kasih!`;
+
+                           const encodedText = encodeURIComponent(textMessage);
+                           const waUrl = `https://wa.me/6287774138090?text=${encodedText}`;
+                           setSelectedOffer(null);
+                           window.open(waUrl, '_blank');
+                         }}
+                         className="w-full bg-[#6D28D9] hover:bg-[#5b21b6] text-white py-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-purple-200/50 flex items-center justify-center gap-2"
+                       >
+                         <span>Ajukan Investasi Sekarang</span>
+                         <ArrowRight className="w-4 h-4" />
+                       </button>
+                       
+                       <button
+                         onClick={() => setSelectedOffer(null)}
+                         className="w-full bg-slate-50 hover:bg-slate-100 text-slate-500 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all border border-slate-200/60"
+                       >
+                         Kembali
+                       </button>
+                     </div>
+                   </div>
+                 </motion.div>
+              </div>
+            );
+          })()}
+        </AnimatePresence>,
+        document.body
+      )}
     </ProtectedPage>
   );
 };
@@ -12631,27 +12971,28 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                 );
               })}
             </div>
-          </div>
 
-          {/* Customer List Card matching style with elements above */}
-          <div 
-            onClick={handleLoadCustomers}
-            className="bg-white rounded-xl border border-slate-100 shadow-xl p-6 mb-10 relative z-20 text-slate-800 hover:border-[#F15A24]/30 hover:shadow-2xl cursor-pointer transition-all duration-300 group"
-          >
-            <div className="flex items-center justify-between gap-4">
+            {/* Divider */}
+            <div className="border-t border-slate-100/80 mt-6 mb-4" />
+
+            {/* Integrated Customer List Section */}
+            <div 
+              onClick={handleLoadCustomers}
+              className="flex items-center justify-between gap-4 cursor-pointer group hover:bg-slate-50/50 -mx-6 px-6 py-2 transition-all duration-200"
+            >
               <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-xl bg-orange-50 flex items-center justify-center border border-orange-100 flex-shrink-0 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center border border-orange-100 flex-shrink-0 group-hover:scale-105 transition-transform">
                   <Users className="w-5 h-5 text-[#F15A24]" />
                 </div>
                 <div className="text-left">
-                  <h4 className="text-sm font-black text-slate-800 leading-snug">DAFTAR PELANGGAN {LEVELS[activeIndex].name.toUpperCase()}</h4>
-                  <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
+                  <h4 className="text-xs font-black text-slate-800 leading-snug">DAFTAR PELANGGAN {LEVELS[activeIndex].name.toUpperCase()}</h4>
+                  <p className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
                     LIHAT NASABAH DI LEVEL INI
                   </p>
                 </div>
               </div>
               <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-orange-50 group-hover:border-orange-100 transition-all">
-                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#F15A24]" />
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#F15A24]" />
               </div>
             </div>
           </div>
@@ -15106,6 +15447,26 @@ const HomePage = ({
 }) => {
   const { subPage, customerName } = useParams();
   const navigate = useNavigate();
+  const [selectedOffer, setSelectedOffer] = useState<{
+    tenor: string;
+    rate: string;
+    periodRate: string;
+    min: string;
+    desc: string;
+    bgGrad: string;
+  } | null>(null);
+  const [calcAmount, setCalcAmount] = useState<string>("");
+
+  useEffect(() => {
+    if (selectedOffer) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [selectedOffer]);
 
   useEffect(() => {
     if (customerName && customers.length > 0 && !loggedInUser) {
@@ -15206,7 +15567,8 @@ const HomePage = ({
   }, [activeTab]);
 
   return (
-    <AnimatePresence mode="wait">
+    <>
+      <AnimatePresence mode="wait">
       {activeTab === "beranda" && (
         <motion.div
           key="beranda"
@@ -15334,6 +15696,95 @@ const HomePage = ({
           )}
           <MainServices loggedInUser={loggedInUser} />
 
+          {/* Rekomendasi Investasi Section */}
+          <section className="px-6 py-2">
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col w-fit">
+                  <h2 className="text-base font-black text-black uppercase tracking-[0.2em] leading-none">Investasi</h2>
+                  <div className="flex justify-between w-full mt-1">
+                    {"keuntungan 10%".split("").map((char, i) => (
+                      <span key={i} className="text-[6px] font-bold text-slate-400 uppercase leading-none">
+                        {char === " " ? "\u00A0" : char}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    if (loggedInUser) navigate(`/investasi/${encodeURIComponent(loggedInUser.Nama)}`);
+                    else navigate("/investasi");
+                  }}
+                  className="text-[10px] font-black text-[#F15A24] uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform"
+                >
+                  Mulai
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+              <div className="h-px bg-slate-100 w-full mb-6" />
+
+              {/* Horizontal Scrollable Row containing offer cards */}
+              <div className="flex overflow-x-auto gap-3.5 pb-4 snap-x -mx-6 px-6 scrollbar-hide items-stretch">
+                {/* Left side introduction text - placed inline inside scrollable container, no card wrapper */}
+                <div className="flex-shrink-0 w-44 flex flex-col justify-start items-start text-left space-y-3 snap-start py-4 pl-6">
+                  <span className="text-[10px] font-black text-[#6D28D9] uppercase tracking-[0.15em] bg-white border border-purple-100 px-3 py-1 rounded-md shadow-sm">
+                    PILIHAN TERBAIK
+                  </span>
+                  <div className="space-y-1.5">
+                    <h4 className="text-sm font-black text-slate-800 leading-tight uppercase tracking-tight">
+                      Kembangkan Dana Anda
+                    </h4>
+                    <div className="h-0.5 w-10 bg-[#6D28D9] rounded-full" />
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-500 leading-relaxed uppercase tracking-wider">
+                    Investasikan dana dengan imbal hasil optimal 10% setiap tahunnya.
+                  </p>
+                </div>
+
+                {INVESTMENT_OFFERS.map((offer, idx) => (
+                  <motion.div
+                    key={idx}
+                    whileHover={{ y: -4, scale: 1.01 }}
+                    onClick={() => {
+                      setSelectedOffer(offer);
+                      setCalcAmount("");
+                    }}
+                    className="flex-shrink-0 w-44 bg-white border border-slate-100 rounded-xl p-4 relative overflow-hidden cursor-pointer shadow-sm hover:shadow-md hover:border-purple-300 transition-all snap-start flex flex-col justify-between"
+                  >
+                    <div className="space-y-4">
+                      <div className="text-left">
+                        <h4 className="text-base font-black text-[#6D28D9] leading-none">{offer.tenor}</h4>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Tenor Investasi</p>
+                      </div>
+
+                      <div className="py-2 border-y border-dashed border-slate-200 text-left">
+                        <div className="flex items-baseline justify-between gap-1">
+                          <span className="text-xl font-black text-emerald-600 tracking-tight">{offer.periodRate}</span>
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">{offer.rate}</span>
+                        </div>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Keuntungan Periode</p>
+                      </div>
+                    </div>
+
+                    {/* Purple Select Button */}
+                    <div className="mt-5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedOffer(offer);
+                          setCalcAmount("");
+                        }}
+                        className="w-full py-2.5 bg-[#6D28D9] hover:bg-[#5b21b6] text-white rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-200 shadow-md hover:shadow-purple-100/50 flex items-center justify-center"
+                      >
+                        <span>PILIH</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
+
           {/* Highlight Belanja Section */}
           <section className="px-6 pb-6">
             <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-100">
@@ -15424,7 +15875,142 @@ const HomePage = ({
         </motion.div>
       )}
     </AnimatePresence>
-  );
+
+    {/* Selected Offer Detail Modal */}
+    {typeof document !== "undefined" && selectedOffer && createPortal(
+      <AnimatePresence>
+        {(() => {
+          const parsedAmount = parseCurrency(calcAmount);
+          const tenorMonths = parseInt(selectedOffer.tenor) || 3;
+          const interestRate = 0.10; // 10%
+          const calculatedProfit = Math.round(parsedAmount * interestRate * (tenorMonths / 12));
+          const totalPayout = parsedAmount + calculatedProfit;
+
+          return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
+                onClick={() => setSelectedOffer(null)}
+              />
+
+              {/* Modal content - Centered Style */}
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                transition={{ type: "spring", damping: 25, stiffness: 250 }}
+                className="bg-white rounded-[2.5rem] w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative z-50 border-t-4 border-purple-500"
+              >
+                {/* Header Banner - Elegant Purple Theme */}
+                <div className="bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-800 p-8 text-white relative text-left shrink-0">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-8 -mt-8 blur-2xl" />
+                  <button
+                    onClick={() => setSelectedOffer(null)}
+                    className="absolute top-6 right-6 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <h4 className="text-2xl font-black tracking-tight">Tenor {selectedOffer.tenor}</h4>
+                  <p className="text-xs text-purple-200 font-bold uppercase tracking-widest mt-1">Investasi Hasil Optimal</p>
+                </div>
+
+                <div className="p-8 space-y-6 overflow-y-auto flex-1">
+                  <p className="text-xs text-slate-500 leading-relaxed font-semibold text-left">
+                    {selectedOffer.desc}
+                  </p>
+
+                  {/* Interactive Nominal Input */}
+                  <div className="space-y-2 text-left">
+                    <label className="text-[9px] font-black text-purple-700 uppercase tracking-widest block">Nominal Investasi</label>
+                    <div className="relative">
+                      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-sm font-black text-purple-300">Rp</span>
+                      <input
+                        type="text"
+                        value={calcAmount === "" ? "" : formatCurrency(calcAmount)}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^\d]/g, '');
+                          setCalcAmount(val);
+                        }}
+                        className="w-full bg-purple-50/40 hover:bg-purple-50/60 focus:bg-white border-2 border-purple-100 focus:border-purple-500 focus:ring-0 rounded-2xl py-4 pl-12 pr-6 text-lg font-black text-purple-950 transition-all text-left shadow-inner"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="flex justify-between items-center px-1">
+                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Mulai Rp 100.000</span>
+                      <span className="text-[8px] font-bold text-purple-600 uppercase tracking-wider">Suku Bunga 10% p.a.</span>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Profit Calculation Block (Gambaran Hasil Keuntungan) */}
+                  <div className="space-y-4 bg-purple-50/50 rounded-2xl p-5 border border-purple-100/50">
+                    <h5 className="text-[9px] font-black text-purple-800 uppercase tracking-widest text-left">Simulasi Hasil Keuntungan:</h5>
+                    
+                    <div className="space-y-2 text-left">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Modal Awal</span>
+                        <span className="text-xs font-black text-slate-700">Rp {formatCurrency(parsedAmount)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Keuntungan ({selectedOffer.periodRate})</span>
+                        <span className="text-xs font-black text-emerald-600 font-bold">+ Rp {formatCurrency(calculatedProfit)}</span>
+                      </div>
+                      
+                      <div className="h-px bg-purple-100/60 border-dashed border-t my-2" />
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-black text-[#6D28D9] uppercase tracking-widest">Total Pengembalian</span>
+                        <span className="text-sm font-black text-[#6D28D9]">Rp {formatCurrency(totalPayout)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <button
+                      onClick={() => {
+                        if (!calcAmount || parsedAmount < 100000) {
+                          alert("Nominal investasi minimal adalah Rp 100.000");
+                          return;
+                        }
+                        
+                        const textMessage = `Halo WARUNG TOMI,
+
+Saya ingin mengajukan investasi baru dengan rincian sebagai berikut:
+
+*Rincian Pengajuan Investasi:*
+• *Nama Nasabah:* ${loggedInUser?.Nama || "-"}
+• *Pilihan Tenor:* ${selectedOffer.tenor}
+• *Nominal Investasi:* Rp ${formatCurrency(parsedAmount)}
+• *Keuntungan Periode:* Rp ${formatCurrency(calculatedProfit)} (${selectedOffer.periodRate})
+• *Estimasi Imbal Hasil:* 10% p.a.
+• *Total Pengembalian:* Rp ${formatCurrency(totalPayout)}
+
+Mohon bantuan dan panduannya untuk memproses pengajuan investasi saya ini. Terima kasih!`;
+
+                        const encodedText = encodeURIComponent(textMessage);
+                        const waUrl = `https://wa.me/6287774138090?text=${encodedText}`;
+                        setSelectedOffer(null);
+                        window.open(waUrl, '_blank');
+                      }}
+                      className="w-full bg-[#6D28D9] hover:bg-[#5b21b6] text-white py-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-purple-200/50 flex items-center justify-center gap-2"
+                    >
+                      <span>Ajukan Investasi Sekarang</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
+      </AnimatePresence>,
+      document.body
+    )}
+  </>
+);
 };
 
 const SplashScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
