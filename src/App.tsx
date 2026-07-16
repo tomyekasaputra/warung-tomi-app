@@ -1976,11 +1976,6 @@ const PromoSection = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
 
 const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
   const navigate = useNavigate();
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  // Default to 8 items (fills 2 rows perfectly on mobile 4-column layout)
-  const displayedServices = isExpanded ? MAIN_SERVICES : MAIN_SERVICES.slice(0, 8);
-
   return (
     <section className="px-6 py-1">
       <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 relative z-10">
@@ -2002,63 +1997,34 @@ const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
         </div>
         <div className="h-px bg-slate-100 w-full mb-6" />
         
-        {/* Animated container to handle smooth expanding/collapsing height */}
-        <motion.div 
-          layout
-          className="overflow-hidden"
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        >
-          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-y-8 gap-x-2">
-            <AnimatePresence initial={false}>
-              {displayedServices.map((service) => (
-                <motion.button
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ duration: 0.15 }}
-                  key={service.id}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    if (service.name === "Investasi") {
-                      if (loggedInUser) navigate(`/investasi/${encodeURIComponent(loggedInUser.Nama)}`);
-                      else navigate("/investasi");
-                    }
-                    else if (service.name === "Tabungan") {
-                      if (loggedInUser) navigate(`/tabungan/${encodeURIComponent(loggedInUser.Nama)}`);
-                      else navigate("/tabungan");
-                    }
-                    else if (service.name === "Poin Loyalitas") navigate("/poin");
-                    else if (service.name === "QRIS") navigate("/qris");
-                    else if (service.name === "Tarik Tunai") navigate("/tariktunai");
-                    else if (service.id === 1) navigate("/admin");
-                  }}
-                  className="flex flex-col items-center gap-2 group"
-                >
-                  <div className={`w-12 h-12 ${service.bgColor} rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all`}>
-                    {service.icon}
-                  </div>
-                  <span className="text-[9px] font-bold text-slate-500 text-center leading-tight px-0.5">{service.name}</span>
-                </motion.button>
-              ))}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-
-        {/* Toggle Button */}
-        <div className="flex justify-center mt-6 pt-2 border-t border-slate-50">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-slate-50 hover:bg-slate-100 active:scale-95 text-[10px] font-black text-[#005E6A] uppercase tracking-wider rounded-full transition-all duration-200 border border-slate-100"
-          >
-            <span>{isExpanded ? "Tampilkan Lebih Sedikit" : "Tampilkan Semua"}</span>
-            {isExpanded ? (
-              <ChevronUp className="w-3.5 h-3.5 text-[#005E6A]" />
-            ) : (
-              <ChevronDown className="w-3.5 h-3.5 text-[#005E6A]" />
-            )}
-          </button>
+        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-y-8 gap-x-2">
+          {MAIN_SERVICES.map((service) => (
+            <motion.button
+              key={service.id}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                if (service.name === "Investasi") {
+                  if (loggedInUser) navigate(`/investasi/${encodeURIComponent(loggedInUser.Nama)}`);
+                  else navigate("/investasi");
+                }
+                else if (service.name === "Tabungan") {
+                  if (loggedInUser) navigate(`/tabungan/${encodeURIComponent(loggedInUser.Nama)}`);
+                  else navigate("/tabungan");
+                }
+                else if (service.name === "Poin Loyalitas") navigate("/poin");
+                else if (service.name === "QRIS") navigate("/qris");
+                else if (service.name === "Tarik Tunai") navigate("/tariktunai");
+                else if (service.id === 1) navigate("/admin");
+              }}
+              className="flex flex-col items-center gap-2 group"
+            >
+              <div className={`w-12 h-12 ${service.bgColor} rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all`}>
+                {service.icon}
+              </div>
+              <span className="text-[9px] font-bold text-slate-500 text-center leading-tight px-0.5">{service.name}</span>
+            </motion.button>
+          ))}
         </div>
       </div>
     </section>
@@ -15725,22 +15691,6 @@ const HomePage = ({
 
               {/* Horizontal Scrollable Row containing offer cards */}
               <div className="flex overflow-x-auto gap-3.5 pb-4 snap-x -mx-6 px-6 scrollbar-hide items-stretch">
-                {/* Left side introduction text - placed inline inside scrollable container, no card wrapper */}
-                <div className="flex-shrink-0 w-44 flex flex-col justify-start items-start text-left space-y-3 snap-start py-4 pl-6">
-                  <span className="text-[10px] font-black text-[#6D28D9] uppercase tracking-[0.15em] bg-white border border-purple-100 px-3 py-1 rounded-md shadow-sm">
-                    PILIHAN TERBAIK
-                  </span>
-                  <div className="space-y-1.5">
-                    <h4 className="text-sm font-black text-slate-800 leading-tight uppercase tracking-tight">
-                      Kembangkan Dana Anda
-                    </h4>
-                    <div className="h-0.5 w-10 bg-[#6D28D9] rounded-full" />
-                  </div>
-                  <p className="text-[9px] font-bold text-slate-500 leading-relaxed uppercase tracking-wider">
-                    Investasikan dana dengan imbal hasil optimal 10% setiap tahunnya.
-                  </p>
-                </div>
-
                 {INVESTMENT_OFFERS.map((offer, idx) => (
                   <motion.div
                     key={idx}
@@ -15749,7 +15699,7 @@ const HomePage = ({
                       setSelectedOffer(offer);
                       setCalcAmount("");
                     }}
-                    className="flex-shrink-0 w-44 bg-white border border-slate-100 rounded-xl p-4 relative overflow-hidden cursor-pointer shadow-sm hover:shadow-md hover:border-purple-300 transition-all snap-start flex flex-col justify-between"
+                    className="flex-shrink-0 w-44 bg-gradient-to-tr from-white via-purple-100/40 to-purple-300/90 border border-purple-200/60 rounded-xl p-4 relative overflow-hidden cursor-pointer shadow-sm hover:shadow-md hover:border-purple-300 transition-all snap-start flex flex-col justify-between"
                   >
                     <div className="space-y-4">
                       <div className="text-left">
