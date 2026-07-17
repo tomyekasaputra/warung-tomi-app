@@ -5794,6 +5794,107 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                       <p className="text-[9px] font-bold text-slate-500 leading-relaxed uppercase tracking-wider">
                         Investasikan dana dengan imbal hasil optimal 10% setiap tahunnya.
                       </p>
+
+                      {/* Animated Illustration */}
+                      <div className="relative w-full h-16 mt-2 flex items-center justify-center bg-purple-50/50 rounded-xl border border-purple-100/40 overflow-hidden">
+                        {/* Glowing/pulsing ambient light */}
+                        <motion.div
+                          animate={{
+                            scale: [1, 1.15, 1],
+                            opacity: [0.3, 0.6, 0.3],
+                          }}
+                          transition={{
+                            duration: 3,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                          }}
+                          className="absolute inset-0 bg-gradient-to-r from-purple-200 to-indigo-200 blur-md rounded-full"
+                        />
+                        
+                        <div className="relative z-10 flex items-center gap-2">
+                          {/* Left coin bouncing */}
+                          <motion.div
+                            animate={{
+                              y: [0, -6, 0],
+                              rotate: [0, 10, 0],
+                            }}
+                            transition={{
+                              duration: 2.2,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                            className="w-7 h-7 bg-amber-400 rounded-full flex items-center justify-center border-2 border-white shadow-md text-amber-900 font-extrabold text-xs"
+                          >
+                            %
+                          </motion.div>
+
+                          {/* Middle growing bar chart lines */}
+                          <div className="flex items-end gap-1 h-8">
+                            <motion.div
+                              animate={{ height: ["8px", "16px", "8px"] }}
+                              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
+                              className="w-1.5 bg-purple-500 rounded-t-sm"
+                            />
+                            <motion.div
+                              animate={{ height: ["12px", "24px", "12px"] }}
+                              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                              className="w-1.5 bg-[#F15A24] rounded-t-sm"
+                            />
+                            <motion.div
+                              animate={{ height: ["16px", "30px", "16px"] }}
+                              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                              className="w-1.5 bg-emerald-500 rounded-t-sm"
+                            />
+                          </div>
+
+                          {/* Right money coin bouncing */}
+                          <motion.div
+                            animate={{
+                              y: [0, -8, 0],
+                              rotateY: [0, 180, 360],
+                            }}
+                            transition={{
+                              duration: 2.8,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                              delay: 0.4
+                            }}
+                            className="w-7 h-7 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-white shadow-md text-yellow-900 font-extrabold text-xs"
+                          >
+                            $
+                          </motion.div>
+                        </div>
+
+                        {/* Sparkles */}
+                        <motion.div
+                          animate={{
+                            scale: [0.5, 1, 0.5],
+                            opacity: [0.2, 0.8, 0.2]
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            delay: 0.2
+                          }}
+                          className="absolute top-2 right-3 text-yellow-500"
+                        >
+                          ✦
+                        </motion.div>
+                        <motion.div
+                          animate={{
+                            scale: [0.3, 0.8, 0.3],
+                            opacity: [0.1, 0.7, 0.1]
+                          }}
+                          transition={{
+                            duration: 2.5,
+                            repeat: Infinity,
+                            delay: 0.8
+                          }}
+                          className="absolute bottom-1 left-3 text-purple-400"
+                        >
+                          ✦
+                        </motion.div>
+                      </div>
                     </div>
 
                     {OFFERS.map((offer, idx) => (
@@ -5804,20 +5905,20 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                           setSelectedOffer(offer);
                           setCalcAmount("");
                         }}
-                        className="flex-shrink-0 w-44 bg-white border border-slate-100 rounded-xl p-4 relative overflow-hidden cursor-pointer shadow-sm hover:shadow-md hover:border-purple-300 transition-all snap-start flex flex-col justify-between"
+                        className="flex-shrink-0 w-44 bg-gradient-to-b from-[#6D28D9] via-[#7C3AED]/95 to-white border border-purple-200/20 rounded-xl p-4 relative overflow-hidden cursor-pointer shadow-md hover:shadow-lg hover:border-purple-300 transition-all snap-start flex flex-col justify-between"
                       >
                         <div className="space-y-4">
                           <div className="text-left">
-                            <h4 className="text-base font-black text-[#6D28D9] leading-none">{offer.tenor}</h4>
-                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Tenor Investasi</p>
+                            <h4 className="text-base font-black text-white leading-none">{offer.tenor}</h4>
+                            <p className="text-[8px] font-bold text-purple-200 uppercase tracking-widest mt-1">Tenor Investasi</p>
                           </div>
 
-                          <div className="py-2 border-y border-dashed border-slate-200 text-left">
+                          <div className="py-2 border-y border-dashed border-white/20 text-left">
                             <div className="flex items-baseline justify-between gap-1">
-                              <span className="text-xl font-black text-emerald-600 tracking-tight">{offer.periodRate}</span>
-                              <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">{offer.rate}</span>
+                              <span className="text-xl font-black text-yellow-300 tracking-tight">{offer.periodRate}</span>
+                              <span className="text-[8px] font-black text-purple-100 uppercase tracking-wider">{offer.rate}</span>
                             </div>
-                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Keuntungan Periode</p>
+                            <p className="text-[8px] font-bold text-purple-200 uppercase tracking-widest mt-0.5">Keuntungan Periode</p>
                           </div>
                         </div>
 
@@ -15683,7 +15784,7 @@ const HomePage = ({
                   }}
                   className="text-[10px] font-black text-[#F15A24] uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform"
                 >
-                  Mulai
+                  Lihat Portofolio
                   <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
@@ -15691,6 +15792,123 @@ const HomePage = ({
 
               {/* Horizontal Scrollable Row containing offer cards */}
               <div className="flex overflow-x-auto gap-3.5 pb-4 snap-x -mx-6 px-6 scrollbar-hide items-stretch">
+                {/* Left side introduction text - placed inline inside scrollable container, no card wrapper */}
+                <div className="flex-shrink-0 w-44 flex flex-col justify-start items-start text-left space-y-3 snap-start py-4 pl-6">
+                  <span className="text-[10px] font-black text-[#6D28D9] uppercase tracking-[0.15em] bg-white border border-purple-100 px-3 py-1 rounded-md shadow-sm">
+                    PILIHAN TERBAIK
+                  </span>
+                  <div className="space-y-1.5">
+                    <h4 className="text-sm font-black text-slate-800 leading-tight uppercase tracking-tight">
+                      Kembangkan Dana Anda
+                    </h4>
+                    <div className="h-0.5 w-10 bg-[#6D28D9] rounded-full" />
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-500 leading-relaxed uppercase tracking-wider">
+                    Investasikan dana dengan imbal hasil optimal 10% setiap tahunnya.
+                  </p>
+
+                  {/* Animated Illustration */}
+                  <div className="relative w-full h-16 mt-2 flex items-center justify-center bg-purple-50/50 rounded-xl border border-purple-100/40 overflow-hidden">
+                    {/* Glowing/pulsing ambient light */}
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.15, 1],
+                        opacity: [0.3, 0.6, 0.3],
+                      }}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                      className="absolute inset-0 bg-gradient-to-r from-purple-200 to-indigo-200 blur-md rounded-full"
+                    />
+                    
+                    <div className="relative z-10 flex items-center gap-2">
+                      {/* Left coin bouncing */}
+                      <motion.div
+                        animate={{
+                          y: [0, -6, 0],
+                          rotate: [0, 10, 0],
+                        }}
+                        transition={{
+                          duration: 2.2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        }}
+                        className="w-7 h-7 bg-amber-400 rounded-full flex items-center justify-center border-2 border-white shadow-md text-amber-900 font-extrabold text-xs"
+                      >
+                        %
+                      </motion.div>
+
+                      {/* Middle growing bar chart lines */}
+                      <div className="flex items-end gap-1 h-8">
+                        <motion.div
+                          animate={{ height: ["8px", "16px", "8px"] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
+                          className="w-1.5 bg-purple-500 rounded-t-sm"
+                        />
+                        <motion.div
+                          animate={{ height: ["12px", "24px", "12px"] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                          className="w-1.5 bg-[#F15A24] rounded-t-sm"
+                        />
+                        <motion.div
+                          animate={{ height: ["16px", "30px", "16px"] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                          className="w-1.5 bg-emerald-500 rounded-t-sm"
+                        />
+                      </div>
+
+                      {/* Right money coin bouncing */}
+                      <motion.div
+                        animate={{
+                          y: [0, -8, 0],
+                          rotateY: [0, 180, 360],
+                        }}
+                        transition={{
+                          duration: 2.8,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: 0.4
+                        }}
+                        className="w-7 h-7 bg-yellow-400 rounded-full flex items-center justify-center border-2 border-white shadow-md text-yellow-900 font-extrabold text-xs"
+                      >
+                        $
+                      </motion.div>
+                    </div>
+
+                    {/* Sparkles */}
+                    <motion.div
+                      animate={{
+                        scale: [0.5, 1, 0.5],
+                        opacity: [0.2, 0.8, 0.2]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        delay: 0.2
+                      }}
+                      className="absolute top-2 right-3 text-yellow-500"
+                    >
+                      ✦
+                    </motion.div>
+                    <motion.div
+                      animate={{
+                        scale: [0.3, 0.8, 0.3],
+                        opacity: [0.1, 0.7, 0.1]
+                      }}
+                      transition={{
+                        duration: 2.5,
+                        repeat: Infinity,
+                        delay: 0.8
+                      }}
+                      className="absolute bottom-1 left-3 text-purple-400"
+                    >
+                      ✦
+                    </motion.div>
+                  </div>
+                </div>
+
                 {INVESTMENT_OFFERS.map((offer, idx) => (
                   <motion.div
                     key={idx}
@@ -15699,20 +15917,20 @@ const HomePage = ({
                       setSelectedOffer(offer);
                       setCalcAmount("");
                     }}
-                    className="flex-shrink-0 w-44 bg-gradient-to-tr from-white via-purple-100/40 to-purple-300/90 border border-purple-200/60 rounded-xl p-4 relative overflow-hidden cursor-pointer shadow-sm hover:shadow-md hover:border-purple-300 transition-all snap-start flex flex-col justify-between"
+                    className="flex-shrink-0 w-44 bg-gradient-to-b from-[#6D28D9] via-[#7C3AED]/95 to-white border border-purple-200/20 rounded-xl p-4 relative overflow-hidden cursor-pointer shadow-md hover:shadow-lg hover:border-purple-300 transition-all snap-start flex flex-col justify-between"
                   >
                     <div className="space-y-4">
                       <div className="text-left">
-                        <h4 className="text-base font-black text-[#6D28D9] leading-none">{offer.tenor}</h4>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">Tenor Investasi</p>
+                        <h4 className="text-base font-black text-white leading-none">{offer.tenor}</h4>
+                        <p className="text-[8px] font-bold text-purple-200 uppercase tracking-widest mt-1">Tenor Investasi</p>
                       </div>
 
-                      <div className="py-2 border-y border-dashed border-slate-200 text-left">
+                      <div className="py-2 border-y border-dashed border-white/20 text-left">
                         <div className="flex items-baseline justify-between gap-1">
-                          <span className="text-xl font-black text-emerald-600 tracking-tight">{offer.periodRate}</span>
-                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">{offer.rate}</span>
+                          <span className="text-xl font-black text-yellow-300 tracking-tight">{offer.periodRate}</span>
+                          <span className="text-[8px] font-black text-purple-100 uppercase tracking-wider">{offer.rate}</span>
                         </div>
-                        <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Keuntungan Periode</p>
+                        <p className="text-[8px] font-bold text-purple-200 uppercase tracking-widest mt-0.5">Keuntungan Periode</p>
                       </div>
                     </div>
 
