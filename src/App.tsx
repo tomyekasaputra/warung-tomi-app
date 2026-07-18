@@ -6444,6 +6444,103 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSummary, setShowSummary] = useState(false);
+  const [activeMainTab, setActiveMainTab] = useState<'transaksi' | 'input' | 'koreksi'>('transaksi');
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
+  const [listDirection, setListDirection] = useState<'left' | 'right'>('right');
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      changeDate(1);
+    } else if (isRightSwipe) {
+      changeDate(-1);
+    }
+  };
+
+  const changeDate = (days: number) => {
+    const parts = filterDate.split('-');
+    if (parts.length !== 3) return;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    
+    const currentDate = new Date(year, month, day);
+    currentDate.setDate(currentDate.getDate() + days);
+    
+    const y = currentDate.getFullYear();
+    const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const d = String(currentDate.getDate()).padStart(2, '0');
+    const newDateStr = `${y}-${m}-${d}`;
+    
+    if (days > 0) {
+      setListDirection('right');
+    } else {
+      setListDirection('left');
+    }
+    
+    setFilterDate(newDateStr);
+  };
+
+  const listSlideVariants = {
+    initial: (direction: 'left' | 'right') => ({
+      x: direction === 'right' ? 80 : -80,
+      opacity: 0
+    }),
+    animate: {
+      x: 0,
+      opacity: 1,
+      transition: { duration: 0.3, ease: 'easeOut' }
+    },
+    exit: (direction: 'left' | 'right') => ({
+      x: direction === 'right' ? -80 : 80,
+      opacity: 0,
+      transition: { duration: 0.25, ease: 'easeIn' }
+    })
+  };
+
+  const handleTabChange = (newTab: 'transaksi' | 'input' | 'koreksi') => {
+    const indices = { transaksi: 0, input: 1, koreksi: 2 };
+    if (indices[newTab] > indices[activeMainTab]) {
+      setSlideDirection('right');
+    } else {
+      setSlideDirection('left');
+    }
+    setActiveMainTab(newTab);
+  };
+
+  const slideVariants = {
+    initial: (direction: 'left' | 'right') => ({
+      x: direction === 'right' ? 100 : -100,
+      opacity: 0
+    }),
+    animate: {
+      x: 0,
+      opacity: 1,
+      transition: { duration: 0.3, ease: 'easeOut' }
+    },
+    exit: (direction: 'left' | 'right') => ({
+      x: direction === 'right' ? -100 : 100,
+      opacity: 0,
+      transition: { duration: 0.25, ease: 'easeIn' }
+    })
+  };
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -6629,63 +6726,208 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
           </div>
         </div>
 
-        {/* Unified Filter Card */}
-        <div className="bg-white px-2 py-3.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-2 min-h-[56px]">
-          {/* Search Section */}
-          <div className="flex-1 min-w-0 flex items-center gap-3 pl-3 pr-3 border-r border-slate-100">
-            <Search className="w-4 h-4 text-slate-400 shrink-0" />
-            <input 
-              type="text"
-              placeholder="Cari transaksi..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 w-full min-w-0 bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none placeholder:text-slate-300 placeholder:font-bold"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery("")}
-                className="p-1 px-2 hover:bg-slate-50 rounded-lg transition-colors group shrink-0"
-              >
-                <X className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500" />
-              </button>
-            )}
-          </div>
+        {/* Main Tab Selector */}
+        <div className="w-full bg-slate-100 p-1 rounded-2xl border border-slate-200/40 flex gap-1.5 shadow-sm">
+          <button
+            onClick={() => handleTabChange('transaksi')}
+            className={`flex-1 relative py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
+              activeMainTab === 'transaksi'
+                ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/10'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Transaksi</span>
+          </button>
+          
+          <button
+            onClick={() => handleTabChange('input')}
+            className={`flex-1 relative py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
+              activeMainTab === 'input'
+                ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/10'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Input Data</span>
+          </button>
 
-          {/* Date Section */}
-          <div className="flex items-center gap-2 px-3 shrink-0">
-            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-            <input 
-              type="date" 
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
-              className="bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none appearance-none cursor-pointer p-0 w-24"
-            />
-          </div>
+          <button
+            onClick={() => handleTabChange('koreksi')}
+            className={`flex-1 relative py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
+              activeMainTab === 'koreksi'
+                ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/10'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+            }`}
+          >
+            <ExternalLink className="w-4 h-4" />
+            <span>Koreksi</span>
+          </button>
         </div>
 
-        {/* Transaction List Cards */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Transaksi</h3>
-            <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1">
-              {filteredTransactions.length} Data
-            </Badge>
-          </div>
+        <div className="w-full overflow-hidden relative">
+          <AnimatePresence mode="wait" custom={slideDirection}>
+            {activeMainTab === 'transaksi' && (
+              <motion.div
+                key="transaksi-tab"
+                custom={slideDirection}
+                variants={slideVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="space-y-6 w-full"
+              >
+                {/* Unified Filter Card */}
+                <div className="bg-white px-2 py-3.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-2 min-h-[56px]">
+                  {/* Search Section */}
+                  <div className="flex-1 min-w-0 flex items-center gap-3 pl-3 pr-3 border-r border-slate-100">
+                    <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                    <input 
+                      type="text"
+                      placeholder="Cari transaksi..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="flex-1 w-full min-w-0 bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none placeholder:text-slate-300 placeholder:font-bold"
+                    />
+                    {searchQuery && (
+                      <button 
+                        onClick={() => setSearchQuery("")}
+                        className="p-1 px-2 hover:bg-slate-50 rounded-lg transition-colors group shrink-0"
+                      >
+                        <X className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500" />
+                      </button>
+                    )}
+                  </div>
 
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
-            {filteredTransactions.length > 0 ? (
-              filteredTransactions.map((t, i) => (
-                <TransactionCard key={i} t={t} index={i} isAdmin={true} />
-              ))
-            ) : (
-              <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
-                <div className="flex flex-col items-center gap-2 opacity-20">
-                  <FileText className="w-8 h-8" />
-                  <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi</p>
+                  {/* Date Section with Chevron Navigation */}
+                  <div className="flex items-center gap-1.5 px-3 shrink-0 bg-slate-50 border border-slate-100/80 rounded-xl py-1">
+                    <button 
+                      onClick={() => changeDate(-1)}
+                      className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 rounded-lg transition-all active:scale-90"
+                      title="Sebelumnya"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <input 
+                        type="date" 
+                        value={filterDate}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val) {
+                            if (val > filterDate) {
+                              setListDirection('right');
+                            } else {
+                              setListDirection('left');
+                            }
+                            setFilterDate(val);
+                          }
+                        }}
+                        className="bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none appearance-none cursor-pointer p-0 w-24"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => changeDate(1)}
+                      className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 rounded-lg transition-all active:scale-90"
+                      title="Berikutnya"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+
+                {/* Transaction List Cards with Swipe Support */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                    <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Transaksi</h3>
+                    <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 shrink-0">
+                      {filteredTransactions.length} Data
+                    </Badge>
+                  </div>
+
+                  <div 
+                    onTouchStart={onTouchStart}
+                    onTouchMove={onTouchMove}
+                    onTouchEnd={onTouchEnd}
+                    className="relative min-h-[160px] touch-pan-y"
+                  >
+                    <AnimatePresence mode="wait" custom={listDirection}>
+                      <motion.div
+                        key={filterDate}
+                        custom={listDirection}
+                        variants={listSlideVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4"
+                      >
+                        {filteredTransactions.length > 0 ? (
+                          filteredTransactions.map((t, i) => (
+                            <TransactionCard key={i} t={t} index={i} isAdmin={true} />
+                          ))
+                        ) : (
+                          <div className="col-span-full bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
+                            <div className="flex flex-col items-center gap-2 opacity-20">
+                              <FileText className="w-8 h-8" />
+                              <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi pada {formattedFilterDate}</p>
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </motion.div>
             )}
-          </div>
+
+            {activeMainTab === 'input' && (
+              <motion.div
+                key="input-tab"
+                custom={slideDirection}
+                variants={slideVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="w-full"
+              >
+                <iframe 
+                  src="https://docs.google.com/forms/d/e/1FAIpQLSeif9lMa1cctzF1M9D7S1bf-uRCPK5RtblaqWW3w70h6hTShg/viewform?fbzx=1599839160045911533&pli=1&embedded=true"
+                  className="w-full h-[1800px] border-0"
+                  title="Google Form Input Data"
+                />
+              </motion.div>
+            )}
+
+            {activeMainTab === 'koreksi' && (
+              <motion.div
+                key="koreksi-tab"
+                custom={slideDirection}
+                variants={slideVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="w-full flex flex-col items-center justify-center py-16 px-6 max-w-lg mx-auto text-center"
+              >
+                <div className="w-16 h-16 bg-[#107C41]/10 rounded-2xl flex items-center justify-center text-[#107C41] mb-6">
+                  <FileSpreadsheet className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Koreksi Data Terintegrasi</h3>
+                <p className="text-xs text-slate-500 mt-2 mb-8 leading-relaxed max-w-sm">
+                  Koreksi data dilakukan langsung menggunakan aplikasi Google Sheets agar lebih cepat, responsif, dan mudah diedit secara real-time.
+                </p>
+                <a 
+                  href="https://docs.google.com/spreadsheets/d/1qHJxnD6OicjmNvyA7EhRpQ-omOO92pX9zvjGprdagbg/edit?usp=drivesdk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-[#107C41] hover:bg-[#0c5c30] text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-green-100 hover:-translate-y-0.5 duration-200"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Buka Google Sheets</span>
+                </a>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </motion.div>
@@ -6996,31 +7238,7 @@ const AdminDashboard = ({
           </button>
         </div>
 
-        {/* Kartu Input Data tepat diatas Distribusi Aset */}
-        <div 
-          onClick={() => navigate("/admin/manajemen-input-data")}
-          className="bg-white p-6 rounded-[2rem] shadow-xl border border-slate-100 hover:border-[#F15A24]/30 hover:shadow-2xl cursor-pointer transition-all duration-300 group relative overflow-hidden"
-        >
-          {/* Subtle background decoration */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:scale-110 transition-transform" />
-          
-          <div className="flex items-center justify-between gap-4 relative z-10">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center border border-orange-100 flex-shrink-0 group-hover:scale-105 transition-transform shadow-sm">
-                <FileSpreadsheet className="w-6 h-6 text-[#F15A24]" />
-              </div>
-              <div className="text-left">
-                <h4 className="text-sm font-black text-slate-800 tracking-tight">Manajemen Input Data</h4>
-                <p className="text-[10px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
-                  Klik untuk masuk ke form penginputan data keuangan
-                </p>
-              </div>
-            </div>
-            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-orange-50 group-hover:border-orange-100 transition-all shrink-0">
-              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#F15A24]" />
-            </div>
-          </div>
-        </div>
+
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,400px),1fr))] gap-6">
           {/* Asset Distribution Chart */}
@@ -7164,15 +7382,15 @@ const AdminDashboard = ({
 
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
+              <AreaChart data={chartData}>
                 <defs>
-                  <linearGradient id="barGradientDashboard" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#F15A24" stopOpacity={1} />
-                    <stop offset="100%" stopColor="#F15A24" stopOpacity={0.4} />
+                  <linearGradient id="totalAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F15A24" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#F15A24" stopOpacity={0} />
                   </linearGradient>
-                  <linearGradient id="profitGradientDashboard" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" stopOpacity={1} />
-                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0.4} />
+                  <linearGradient id="profitAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -7204,23 +7422,29 @@ const AdminDashboard = ({
                     name === 'total' ? 'Penjualan' : 'Keuntungan'
                   ]}
                 />
-                <Bar 
+                <Area 
+                  type="monotone"
                   dataKey="total" 
                   name="total"
-                  fill="url(#barGradientDashboard)" 
-                  radius={[4, 4, 0, 0]} 
-                  barSize={10}
+                  stroke="#F15A24" 
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#totalAreaGradient)"
+                  activeDot={{ r: 5, strokeWidth: 1.5, stroke: '#fff', fill: '#F15A24' }}
                   animationDuration={1500}
                 />
-                <Bar 
+                <Area 
+                  type="monotone"
                   dataKey="profit" 
                   name="profit"
-                  fill="url(#profitGradientDashboard)" 
-                  radius={[4, 4, 0, 0]} 
-                  barSize={10}
+                  stroke="#22c55e" 
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#profitAreaGradient)"
+                  activeDot={{ r: 5, strokeWidth: 1.5, stroke: '#fff', fill: '#22c55e' }}
                   animationDuration={1500}
                 />
-              </BarChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
 
@@ -7240,75 +7464,153 @@ const AdminDashboard = ({
 
             {/* Detailed Stats Analysis */}
             {stats && (
-              <div className="mt-8 pt-8 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="space-y-1">
+              <div className="mt-8 pt-8 border-t border-slate-100/80">
+                {/* Header Section: Lively & Energetic */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
+                  <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#005E6A]" />
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Snapshot Performa</p>
+                      <div className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F15A24] opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-[#F15A24]"></span>
+                      </div>
+                      <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] leading-none">Snapshot Performa</p>
                     </div>
-                    <h4 className="text-[11px] font-black text-[#005E6A] uppercase tracking-wider pl-3.5">Ikhtisar Periode</h4>
+                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide">Ikhtisar Analitik & Tren Laba</h4>
                   </div>
-                  <div className="bg-teal-50 px-3 py-2 rounded-xl border border-teal-100/50 text-right">
-                    <p className="text-[7px] font-black text-teal-600/60 uppercase tracking-widest mb-0.5">Avg. Penjualan</p>
-                    <p className="text-[11px] font-black text-[#005E6A]">Rp {Math.round(stats.avgSales).toLocaleString('id-ID')}</p>
+                  
+                  {/* Glassmorphic Average Sales Badge */}
+                  <div className="bg-gradient-to-r from-teal-500/10 to-emerald-500/10 border border-teal-500/20 p-3 rounded-2xl flex items-center gap-3 shadow-[0_4px_20px_rgba(20,184,166,0.04)]">
+                    <div className="w-10 h-10 rounded-xl bg-teal-500 text-white flex items-center justify-center shadow-lg shadow-teal-500/20 animate-pulse">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black text-teal-700 uppercase tracking-widest leading-none mb-1">Rata-rata Penjualan</p>
+                      <p className="text-sm font-black text-[#005E6A] tracking-tight">Rp {Math.round(stats.avgSales).toLocaleString('id-ID')}</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-8">
-                  {/* Penjualan Segment */}
-                  <div className="relative pl-4 border-l-2 border-teal-500/10">
-                    <div className="absolute top-0 left-[-2px] w-[2px] h-3 bg-teal-500 rounded-full" />
-                    <p className="text-[8px] font-black text-teal-600 uppercase tracking-[0.15em] mb-3">Metrik Penjualan</p>
+                {/* Bento Grid: Very lively color styles */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  
+                  {/* Penjualan Bento Card - Warm Energizing Sunrise Gradient */}
+                  <div className="group bg-gradient-to-br from-orange-50/40 via-amber-50/10 to-white hover:from-orange-50/70 hover:via-amber-50/30 hover:to-white border border-orange-100/70 rounded-3xl p-6 transition-all duration-500 shadow-[0_10px_30px_rgba(241,90,36,0.03)] hover:shadow-[0_20px_40px_rgba(241,90,36,0.08)] hover:-translate-y-1 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-200/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700 pointer-events-none" />
                     
-                    <div className="flex justify-between items-end">
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-black text-[#005E6A] leading-none tracking-tight">Rp {stats.maxSales.total.toLocaleString('id-ID')}</p>
-                        <div className="flex items-center gap-1.5 grayscale opacity-60">
-                          <TrendingUp className="w-2.5 h-2.5 text-teal-600" />
-                          <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Terbesar • {stats.maxSales.date}</p>
+                    <div className="flex items-center justify-between mb-5 relative z-10">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-orange-100 border border-orange-200 flex items-center justify-center">
+                          <DollarSign className="w-4 h-4 text-[#F15A24]" />
+                        </div>
+                        <p className="text-[10px] font-extrabold text-[#F15A24] uppercase tracking-wider">OMSET PENJUALAN</p>
+                      </div>
+                      <span className="text-[9px] font-black text-orange-600 bg-orange-100/50 px-2.5 py-1 rounded-full border border-orange-200/50 uppercase tracking-wide">Volume</span>
+                    </div>
+                    
+                    <div className="space-y-4 relative z-10">
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Penjualan Tertinggi (Puncak)</p>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-lg font-black text-slate-800 tracking-tight">Rp {stats.maxSales.total.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div className="mt-2 inline-flex items-center gap-1 bg-orange-100/80 px-2 py-0.5 rounded-lg border border-orange-200 text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
+                          <Calendar className="w-2.5 h-2.5" />
+                          <span>{stats.maxSales.date}</span>
                         </div>
                       </div>
-                      <div className="text-right space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 leading-none">Rp {stats.minSales.total.toLocaleString('id-ID')}</p>
-                        <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest leading-none">Terendah</p>
+                      
+                      <div className="h-px bg-gradient-to-r from-orange-100/80 to-transparent" />
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Penjualan Terendah</p>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-sm font-black text-slate-700">Rp {stats.minSales.total.toLocaleString('id-ID')}</span>
+                          </div>
+                          <div className="mt-2 inline-flex items-center gap-1 bg-orange-100/60 px-2 py-0.5 rounded-lg border border-orange-200/60 text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
+                            <Calendar className="w-2.5 h-2.5" />
+                            <span>{stats.minSales.date}</span>
+                          </div>
+                        </div>
+                        <div className="w-1.5 h-1.5 rounded-full bg-orange-300 animate-pulse" />
                       </div>
                     </div>
                   </div>
 
-                  {/* Keuntungan Segment */}
-                  <div className="relative pl-4 border-l-2 border-green-500/10">
-                    <div className="absolute top-0 left-[-2px] w-[2px] h-3 bg-green-500 rounded-full" />
-                    <p className="text-[8px] font-black text-green-600 uppercase tracking-[0.15em] mb-3">Metrik Keuntungan</p>
+                  {/* Keuntungan Bento Card - Fresh Revitalizing Emerald Gradient */}
+                  <div className="group bg-gradient-to-br from-emerald-50/40 via-teal-50/10 to-white hover:from-emerald-50/70 hover:via-teal-50/30 hover:to-white border border-emerald-100/70 rounded-3xl p-6 transition-all duration-500 shadow-[0_10px_30px_rgba(16,185,129,0.03)] hover:shadow-[0_20px_40px_rgba(16,185,129,0.08)] hover:-translate-y-1 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-200/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700 pointer-events-none" />
                     
-                    <div className="flex justify-between items-end">
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-black text-green-600 leading-none tracking-tight">Rp {stats.maxProfit.profit.toLocaleString('id-ID')}</p>
-                        <div className="flex items-center gap-1.5 grayscale opacity-60">
-                          <TrendingUp className="w-2.5 h-2.5 text-green-600" />
-                          <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Terbesar • {stats.maxProfit.date}</p>
+                    <div className="flex items-center justify-between mb-5 relative z-10">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-100 border border-emerald-200 flex items-center justify-center">
+                          <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <p className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">KEUNTUNGAN BERSIH</p>
+                      </div>
+                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-100/50 px-2.5 py-1 rounded-full border border-emerald-200/50 uppercase tracking-wide">Profit</span>
+                    </div>
+                    
+                    <div className="space-y-4 relative z-10">
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Laba Bersih Tertinggi</p>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-lg font-black text-[#005E6A] tracking-tight">Rp {stats.maxProfit.profit.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div className="mt-2 inline-flex items-center gap-1 bg-emerald-100/80 px-2 py-0.5 rounded-lg border border-emerald-200 text-[9px] font-black text-emerald-700 uppercase tracking-wider">
+                          <Calendar className="w-2.5 h-2.5" />
+                          <span>{stats.maxProfit.date}</span>
                         </div>
                       </div>
-                      <div className="text-right space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 leading-none">Rp {stats.minProfit.profit.toLocaleString('id-ID')}</p>
-                        <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest leading-none">Terendah</p>
+                      
+                      <div className="h-px bg-gradient-to-r from-emerald-100/80 to-transparent" />
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Laba Bersih Terendah</p>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-sm font-black text-slate-700">Rp {stats.minProfit.profit.toLocaleString('id-ID')}</span>
+                          </div>
+                          <div className="mt-2 inline-flex items-center gap-1 bg-emerald-100/60 px-2 py-0.5 rounded-lg border border-emerald-200/60 text-[9px] font-black text-emerald-700 uppercase tracking-wider">
+                            <Calendar className="w-2.5 h-2.5" />
+                            <span>{stats.minProfit.date}</span>
+                          </div>
+                        </div>
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                       </div>
                     </div>
                   </div>
 
-                  {/* Bottom Summary Bar */}
-                  <div className="mt-8 bg-slate-900 rounded-2xl p-4 flex items-center justify-between overflow-hidden relative">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mr-12 -mt-12 blur-2xl" />
-                    <div className="relative z-10">
-                      <p className="text-[7px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Rata-rata Laba</p>
-                      <p className="text-[12px] font-black text-green-400 italic">Rp {Math.round(stats.avgProfit).toLocaleString('id-ID')}</p>
+                </div>
+
+                {/* Bottom Summary Bar: High-contrast Dark Tech Theme, Very Lively */}
+                <div className="mt-5 bg-gradient-to-tr from-slate-950 via-slate-900 to-[#002d33] rounded-3xl p-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between overflow-hidden relative shadow-xl shadow-teal-950/20 border border-teal-500/20 group hover:border-teal-400/40 transition-colors duration-500">
+                  <div className="absolute top-0 right-0 w-40 h-40 bg-teal-500/10 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none group-hover:scale-125 transition-transform duration-700" />
+                  <div className="absolute bottom-0 left-0 w-36 h-36 bg-orange-500/5 rounded-full -ml-16 -mb-16 blur-2xl pointer-events-none" />
+                  
+                  <div className="relative z-10 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-teal-400/10 border border-teal-400/20 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-300">
+                      <Zap className="w-6 h-6 text-teal-400 animate-pulse" />
                     </div>
-                    <div className="h-8 w-px bg-white/10" />
-                    <div className="relative z-10 text-right">
-                       <p className="text-[7px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">Total Efisiensi</p>
-                       <p className="text-[9px] font-black text-white uppercase tracking-widest">
-                         {Math.round((stats.avgProfit / stats.avgSales) * 100)}% Margin
-                       </p>
+                    <div>
+                      <p className="text-[9px] font-black text-teal-400 uppercase tracking-[0.25em] mb-1">RATA-RATA LABA BERSIH</p>
+                      <p className="text-base sm:text-lg font-black text-white tracking-tight">
+                        Rp {Math.round(stats.avgProfit).toLocaleString('id-ID')}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="h-px sm:h-10 w-full sm:w-px bg-gradient-to-r sm:bg-gradient-to-b from-transparent via-teal-500/20 to-transparent" />
+                  
+                  <div className="relative z-10 flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-orange-400/10 border border-orange-400/20 flex items-center justify-center shrink-0 shadow-inner">
+                      <Percent className="w-5 h-5 text-[#F15A24] animate-bounce" style={{ animationDuration: '3s' }} />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-orange-400 uppercase tracking-[0.25em] mb-1">EFISIENSI MARGIN</p>
+                      <p className="text-base sm:text-lg font-black text-white tracking-tight font-mono">
+                        {Math.round((stats.avgProfit / stats.avgSales) * 100)}% <span className="text-[10px] text-teal-400 font-extrabold uppercase ml-1">Laba</span>
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -7386,105 +7688,7 @@ const AdminDashboard = ({
   );
 };
 
-const AdminManajemenInputData = () => {
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'input' | 'koreksi'>('input');
 
-  return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
-      className="min-h-screen bg-slate-50 pb-24"
-    >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
-        
-        <div className="relative z-10">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div>
-                <h1 className="text-2xl font-black tracking-tight uppercase">MANAJEMEN INPUT DATA</h1>
-                <p className="text-xs font-medium text-white/60 uppercase tracking-widest mt-0.5">Input data melalui Google Form Terintegrasi</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Overlapping Tab Selector */}
-      <div className="px-6 -mt-8 relative z-30">
-        <div className="w-full bg-white p-1.5 rounded-2xl shadow-xl border border-slate-200/50 flex gap-2">
-          <button
-            onClick={() => setActiveTab('input')}
-            className={`flex-1 relative py-3.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden ${
-              activeTab === 'input' 
-                ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/20' 
-                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>INPUT DATA</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('koreksi')}
-            className={`flex-1 relative py-3.5 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden ${
-              activeTab === 'koreksi' 
-                ? 'text-white bg-[#F15A24] shadow-md shadow-[#F15A24]/20' 
-                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>KOREKSI DATA</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Frame without card wrapper, takes full width of screen container */}
-      <div className="px-6 mt-6 relative z-20 w-full overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, x: activeTab === 'input' ? -50 : 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: activeTab === 'input' ? 50 : -50 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="w-full"
-          >
-            {activeTab === 'input' ? (
-              <iframe 
-                src="https://docs.google.com/forms/d/e/1FAIpQLSeif9lMa1cctzF1M9D7S1bf-uRCPK5RtblaqWW3w70h6hTShg/viewform?fbzx=1599839160045911533&pli=1&embedded=true"
-                className="w-full h-[1800px] border-0 bg-transparent"
-                title="Google Form Input Data"
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center py-16 px-6 max-w-lg mx-auto text-center mt-8">
-                <div className="w-16 h-16 bg-[#107C41]/10 rounded-2xl flex items-center justify-center text-[#107C41] mb-6">
-                  <FileSpreadsheet className="w-8 h-8" />
-                </div>
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Koreksi Data Terintegrasi</h3>
-                <p className="text-xs text-slate-500 mt-2 mb-8 leading-relaxed max-w-sm">
-                  Koreksi data dilakukan langsung menggunakan aplikasi Google Sheets agar lebih cepat, responsif, dan mudah diedit secara real-time.
-                </p>
-                <a 
-                  href="https://docs.google.com/spreadsheets/d/1qHJxnD6OicjmNvyA7EhRpQ-omOO92pX9zvjGprdagbg/edit?usp=drivesdk"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-[#107C41] hover:bg-[#0c5c30] text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-green-100 hover:-translate-y-0.5 duration-200"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>Buka Google Sheets</span>
-                </a>
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-    </motion.div>
-  );
-};
 
 const AdminManagementPage = ({ 
   listTitle,
@@ -7556,74 +7760,25 @@ const AdminManagementPage = ({
         <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100">
           {stats ? (
             <div className="space-y-4">
-              <div className="flex justify-between items-start px-2 mt-2">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{totalLabel}</p>
-                  <h3 className="text-sm font-black text-[#005E6A]">Rp {totalValue.toLocaleString('id-ID')}</h3>
-                </div>
-                <div className="text-right space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Orang</p>
-                  <h3 className="text-sm font-black text-[#F15A24]">{items.filter(i => !i.isHeader).length} Orang</h3>
-                </div>
+              <div className="border-b border-slate-100 pb-4 mb-6 text-center">
+                <h3 className="text-xs sm:text-sm font-black text-[#005E6A] uppercase tracking-wider">{totalLabel}</h3>
               </div>
 
               {statsRight ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                  {/* Left Chart: Status */}
-                  <div className="flex flex-col items-center">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1 w-full text-center">Status Transaksi</p>
-                    <div className="h-44 w-full relative flex items-center justify-center">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={stats}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={65}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
-                            {stats.map((entry, index) => (
-                              <Cell key={`cell-left-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            content={({ active, payload }) => {
-                              if (active && payload && payload.length) {
-                                const data = payload[0].payload;
-                                return (
-                                  <div className="bg-white p-2.5 rounded-xl shadow-xl border border-slate-50 text-[10px]">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-[#005E6A] mb-0.5">{data.label}</p>
-                                    <p className="text-xs font-black text-slate-800">Rp {data.value.toLocaleString('id-ID')}</p>
-                                    <p className="text-[7px] font-bold text-slate-500">{data.count} Antrean</p>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Status</p>
-                        <p className="text-[10px] font-black text-[#005E6A]">{stats.length} Grup</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Chart: Customer Name */}
-                  <div className="flex flex-col items-center">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1 w-full text-center">Proporsi Pelanggan</p>
-                    <div className="h-44 w-full relative flex items-center justify-center">
+                <div className="flex flex-col gap-8 pt-2">
+                  {/* Top Chart: Customer Name (Proporsi Pelanggan) - Larger & on Top */}
+                  <div className="flex flex-col items-center w-full">
+                    <div className="h-72 w-full max-w-md relative flex items-center justify-center">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={statsRight}
                             cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={65}
+                            cy="85%"
+                            startAngle={180}
+                            endAngle={0}
+                            innerRadius={115}
+                            outerRadius={135}
                             paddingAngle={3}
                             dataKey="value"
                           >
@@ -7648,12 +7803,85 @@ const AdminManagementPage = ({
                           />
                         </PieChart>
                       </ResponsiveContainer>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Nama</p>
-                        <p className="text-[10px] font-black text-[#005E6A]">{statsRight.length} Orang</p>
+                      <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center justify-center pointer-events-none">
+                        <p className="text-[11px] font-black text-[#F15A24] mb-1">{statsRight.length} Orang</p>
+                        <p className="text-lg sm:text-2xl font-black text-[#005E6A]">Rp {totalValue.toLocaleString('id-ID')}</p>
                       </div>
                     </div>
                   </div>
+
+                  {/* Bottom Chart: Status (Status Transaksi) - Single Stacked Line/Bar */}
+                  {(() => {
+                    const statBelum = stats.find(s => s.label === "Belum Diambil") || stats[0];
+                    const statProses = stats.find(s => s.label === "Diproses") || stats[1];
+                    const totalStatusVal = (statBelum?.value || 0) + (statProses?.value || 0);
+                    const pctBelum = totalStatusVal > 0 ? ((statBelum?.value || 0) / totalStatusVal) * 100 : 50;
+                    const pctProses = 100 - pctBelum;
+
+                    return (
+                      <div className="flex flex-col items-center w-full">
+                        <div className="w-full max-w-md space-y-4 px-2">
+                          {/* Single Stacked Bar */}
+                          <div className="w-full h-6 bg-slate-100 rounded-full overflow-hidden flex shadow-inner relative">
+                            {/* Belum Diambil (Left) */}
+                            {pctBelum > 0 && (
+                              <div 
+                                className="h-full transition-all duration-500 relative flex items-center justify-center cursor-pointer group"
+                                style={{ width: `${pctBelum}%`, backgroundColor: statBelum?.color || "#3b82f6" }}
+                              >
+                                <span className="text-[10px] font-black text-white px-1 truncate">
+                                  {pctBelum.toFixed(0)}%
+                                </span>
+                                {/* Mini Tooltip on Hover */}
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-800 text-white text-[9px] p-2 rounded-lg shadow-lg z-50 whitespace-nowrap">
+                                  <p className="font-black">{statBelum?.label}</p>
+                                  <p>Rp {statBelum?.value?.toLocaleString('id-ID')}</p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Diproses (Right) */}
+                            {pctProses > 0 && (
+                              <div 
+                                className="h-full transition-all duration-500 relative flex items-center justify-center cursor-pointer group"
+                                style={{ width: `${pctProses}%`, backgroundColor: statProses?.color || "#f59e0b" }}
+                              >
+                                <span className="text-[10px] font-black text-white px-1 truncate">
+                                  {pctProses.toFixed(0)}%
+                                </span>
+                                {/* Mini Tooltip on Hover */}
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-800 text-white text-[9px] p-2 rounded-lg shadow-lg z-50 whitespace-nowrap">
+                                  <p className="font-black">{statProses?.label}</p>
+                                  <p>Rp {statProses?.value?.toLocaleString('id-ID')}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Keterangan diubah posisinya mengikuti grafik */}
+                          <div className="flex justify-between items-start text-[11px] font-black gap-4">
+                            {/* Keterangan Belum Diambil (Left side) */}
+                            <div className="flex flex-col items-start text-left">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: statBelum?.color || "#3b82f6" }} />
+                                <span className="text-slate-700 uppercase tracking-tight">{statBelum?.label}</span>
+                              </div>
+                              <p className="text-xs text-[#005E6A] mt-1 font-black">Rp {statBelum?.value?.toLocaleString('id-ID')}</p>
+                            </div>
+
+                            {/* Keterangan Diproses (Right side) */}
+                            <div className="flex flex-col items-end text-right">
+                              <div className="flex items-center gap-1.5 justify-end">
+                                <span className="text-slate-700 uppercase tracking-tight">{statProses?.label}</span>
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: statProses?.color || "#f59e0b" }} />
+                              </div>
+                              <p className="text-xs text-[#F15A24] mt-1 font-black">Rp {statProses?.value?.toLocaleString('id-ID')}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="h-48 w-full relative flex items-center justify-center">
@@ -7695,23 +7923,6 @@ const AdminManagementPage = ({
               {extraContent && (
                 <div className="flex justify-center -mt-2 pb-2">
                   {extraContent}
-                </div>
-              )}
-
-              {showLegend && (
-                <div className="flex flex-col gap-3 border-t border-slate-50 pt-5 pr-4">
-                  {stats.map((s, idx) => (
-                    <div key={idx} className="flex items-center justify-between group">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{s.label}</span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <p className="text-[10px] font-black text-[#005E6A]"><span className="text-[7px] text-slate-400 font-bold mr-1">{s.count}</span> {s.count > 0 ? (s.label.includes("Pelanggan") || s.label.includes("Orang") ? "" : "Orang") : "Orang"}</p>
-                        <p className="text-[10px] font-black text-[#005E6A] min-w-[80px] text-right">Rp {s.value.toLocaleString('id-ID')}</p>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
@@ -9609,22 +9820,112 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
     return { belum: totalBelum, proses: totalProses };
   }, [pendingWithdrawals]);
 
-  const items = groupedData.map(item => ({
-    name: item.name,
-    value: item.total,
-    color: item.color,
-    transactionCount: item.count
-  }));
+  const groupedProses = useMemo(() => {
+    const summary: Record<string, { total: number, count: number }> = {};
+    const COLORS = [
+      "#FF00ED", "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", 
+      "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
+    ];
+
+    pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "DIPROSES").forEach((t) => {
+      const name = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
+      if (!summary[name]) {
+        summary[name] = { total: 0, count: 0 };
+      }
+      const netAmount = ((parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0));
+      summary[name].total += netAmount;
+      summary[name].count += 1;
+    });
+
+    return Object.entries(summary).map(([name, data], idx) => ({
+      name,
+      total: data.total,
+      count: data.count,
+      color: COLORS[idx % COLORS.length]
+    })).sort((a, b) => b.total - a.total);
+  }, [pendingWithdrawals]);
+
+  const groupedBelum = useMemo(() => {
+    const summary: Record<string, { total: number, count: number }> = {};
+    const COLORS = [
+      "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", "#FF00ED",
+      "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
+    ];
+
+    pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL").forEach((t) => {
+      const name = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
+      if (!summary[name]) {
+        summary[name] = { total: 0, count: 0 };
+      }
+      const netAmount = (() => {
+        const modal = parseCurrency(t.HargaModal) || 0;
+        const sebagian = parseCurrency(t.Sebagian) || 0;
+        const melalui = (t.Melalui || "").toUpperCase().trim();
+        let base = modal;
+        if (melalui === "EDC BNI" && (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL") {
+          base -= 1500;
+        }
+        return base - sebagian;
+      })();
+      summary[name].total += netAmount;
+      summary[name].count += 1;
+    });
+
+    return Object.entries(summary).map(([name, data], idx) => ({
+      name,
+      total: data.total,
+      count: data.count,
+      color: COLORS[idx % COLORS.length]
+    })).sort((a, b) => b.total - a.total);
+  }, [pendingWithdrawals]);
+
+  const items = useMemo(() => {
+    const list: any[] = [];
+    
+    if (groupedBelum.length > 0) {
+      list.push({
+        name: "Transaksi Belum Diambil",
+        isHeader: true
+      });
+      groupedBelum.forEach(item => {
+        list.push({
+          name: item.name,
+          value: item.total,
+          color: "#3b82f6",
+          transactionCount: item.count,
+          statusBadge: { label: "Belum Diambil", color: "#3b82f6" }
+        });
+      });
+    }
+
+    if (groupedProses.length > 0) {
+      list.push({
+        name: "Transaksi Diproses",
+        isHeader: true
+      });
+      groupedProses.forEach(item => {
+        list.push({
+          name: item.name,
+          value: item.total,
+          color: "#f59e0b",
+          transactionCount: item.count,
+          statusBadge: { label: "Diproses", color: "#f59e0b" }
+        });
+      });
+    }
+
+    return list;
+  }, [groupedBelum, groupedProses]);
 
   const stats = [
     { label: "Belum Diambil", value: statsBreakdown.belum, count: pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL").length, color: "#3b82f6" },
     { label: "Diproses", value: statsBreakdown.proses, count: pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "DIPROSES").length, color: "#f59e0b" }
   ];
 
-  const statsRight = items.map(item => ({
+  const statsRight = groupedData.map(item => ({
     label: item.name,
-    value: item.value,
-    count: item.transactionCount || 0,
+    value: item.total,
+    count: item.count,
     color: item.color || "#ccc"
   }));
 
@@ -17137,11 +17438,7 @@ export default function App() {
             />
           </AdminLayout>
         } />
-        <Route path="/admin/manajemen-input-data" element={
-          <AdminLayout activeTab="dashboard">
-            <AdminManajemenInputData />
-          </AdminLayout>
-        } />
+
         <Route path="/admin/report" element={
           <AdminLayout activeTab="dashboard">
             <AdminReportPage transactions={salesTransactions} />
