@@ -144,6 +144,40 @@ const parseDate = (dateStr: string) => {
   return isNaN(d.getTime()) ? new Date(0) : d;
 };
 
+const formatIndonesianDateWithDay = (dateStr: string) => {
+  const tDate = parseDate(dateStr);
+  if (tDate.getTime() === 0) return dateStr;
+
+  const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+  const months = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+
+  const dayName = days[tDate.getDay()];
+  const dateNum = tDate.getDate();
+  const monthName = months[tDate.getMonth()];
+  const yearNum = tDate.getFullYear();
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const txDate = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate());
+
+  const diffTime = today.getTime() - txDate.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  let relativeLabel = "";
+  if (diffDays === 0) {
+    relativeLabel = "Hari ini";
+  } else if (diffDays === 1) {
+    relativeLabel = "Kemarin";
+  } else {
+    relativeLabel = dayName;
+  }
+
+  return `${relativeLabel}, ${dateNum} ${monthName} ${yearNum}`;
+};
+
 const parseCurrency = (val: string | number | undefined) => {
   if (val === undefined || val === null) return 0;
   if (typeof val === 'number') return val;
@@ -6170,6 +6204,9 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
   const diprosesTransactions = userTransactions.filter(t => (t.Status || "").toUpperCase().trim() === "DIPROSES");
   const belumDiambilTransactions = userTransactions.filter(t => (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL");
 
+  const sortedDiproses = [...diprosesTransactions].sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+  const sortedBelumDiambil = [...belumDiambilTransactions].sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
+
   const totalDiproses = diprosesTransactions.reduce((acc, curr) => acc + (curr.Pemasukan || 0), 0);
   const totalBelumDiambil = belumDiambilTransactions.reduce((acc, curr) => {
     let base = parseCurrency(curr.HargaModal) || 0;
@@ -6257,57 +6294,76 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                 </span>
               </div>
               <div className="space-y-3">
-                {diprosesTransactions.map((t, i) => (
-                  <motion.div
-                    key={`diproses-${i}`}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    onClick={() => setExpandedId(expandedId === `diproses-${i}` ? null : `diproses-${i}`)}
-                    className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
-                  >
-                    <div className="relative z-10">
-                      <div className="flex justify-between items-center">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-black text-[#005E6A] uppercase tracking-tight">{t.Jenis}</p>
-                            <span className="bg-orange-100 text-orange-600 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-orange-200/50">
-                              DIPROSES
-                            </span>
+                {(() => {
+                  let lastDate = "";
+                  return sortedDiproses.map((t, i) => {
+                    const isNewDate = t.Tanggal !== lastDate;
+                    lastDate = t.Tanggal;
+                    return (
+                      <React.Fragment key={`diproses-${i}`}>
+                        {isNewDate && (
+                          <div className="pt-4 pb-1 px-2 first:pt-0">
+                            <h4 className="text-[10px] font-black text-orange-600 uppercase tracking-[0.15em] flex items-center gap-3">
+                              <span className="flex-shrink-0 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100">
+                                {formatIndonesianDateWithDay(t.Tanggal)}
+                              </span>
+                              <div className="h-px bg-slate-200/50 flex-1" />
+                            </h4>
                           </div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{getWaktuLabel(t.Tanggal)} • {t.Tanggal}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="text-[7px] font-black text-orange-600 uppercase tracking-widest mb-0.5">Nilai</p>
-                            <p className="text-md font-black text-orange-600 leading-none">Rp {formatCurrency(parseCurrency(t.Pemasukan) || 0)}</p>
-                          </div>
-                          <div className="opacity-20 group-hover:opacity-40 transition-opacity">
-                            {expandedId === `proses-${i}` ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </div>
-                        </div>
-                      </div>
-
-                      <AnimatePresence>
-                        {expandedId === `diproses-${i}` && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                            animate={{ height: "auto", opacity: 1, marginTop: 16 }}
-                            exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="flex items-stretch gap-6 pt-4 border-t border-slate-50">
-                              <div className="flex-1">
-                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Keterangan</p>
-                                <p className="text-xs font-black text-slate-700 uppercase">{t.Melalui}</p>
+                        )}
+                        <motion.div
+                          key={`diproses-${i}`}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          onClick={() => setExpandedId(expandedId === `diproses-${i}` ? null : `diproses-${i}`)}
+                          className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
+                        >
+                          <div className="relative z-10">
+                            <div className="flex justify-between items-center">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-black text-[#005E6A] uppercase tracking-tight">{t.Jenis}</p>
+                                  <span className="bg-orange-100 text-orange-600 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-orange-200/50">
+                                    DIPROSES
+                                  </span>
+                                </div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{getWaktuLabel(t.Tanggal)} • {t.Tanggal}</p>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <p className="text-[7px] font-black text-orange-600 uppercase tracking-widest mb-0.5">Nilai</p>
+                                  <p className="text-md font-black text-orange-600 leading-none">Rp {formatCurrency(parseCurrency(t.Pemasukan) || 0)}</p>
+                                </div>
+                                <div className="opacity-20 group-hover:opacity-40 transition-opacity">
+                                  {expandedId === `diproses-${i}` ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                </div>
                               </div>
                             </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </motion.div>
-                ))}
+
+                            <AnimatePresence>
+                              {expandedId === `diproses-${i}` && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                  animate={{ height: "auto", opacity: 1, marginTop: 16 }}
+                                  exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="flex items-stretch gap-6 pt-4 border-t border-slate-50">
+                                    <div className="flex-1">
+                                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Keterangan</p>
+                                      <p className="text-xs font-black text-slate-700 uppercase">{t.Melalui}</p>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </motion.div>
+                      </React.Fragment>
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}
@@ -6321,106 +6377,125 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                 </span>
               </div>
               <div className="space-y-3">
-                {belumDiambilTransactions.map((t, i) => (
-                  <motion.div
-                    key={`belum-${i}`}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    onClick={() => setExpandedId(expandedId === `belum-${i}` ? null : `belum-${i}`)}
-                    className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
-                  >
-                    <div className="relative z-10">
-                      <div className="flex justify-between items-center">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-black text-[#005E6A] uppercase tracking-tight">{t.Jenis}</p>
-                            <span className="bg-slate-100 text-slate-500 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-200/50">
-                              {t.Melalui}
-                            </span>
+                {(() => {
+                  let lastDate = "";
+                  return sortedBelumDiambil.map((t, i) => {
+                    const isNewDate = t.Tanggal !== lastDate;
+                    lastDate = t.Tanggal;
+                    return (
+                      <React.Fragment key={`belum-${i}`}>
+                        {isNewDate && (
+                          <div className="pt-4 pb-1 px-2 first:pt-0">
+                            <h4 className="text-[10px] font-black text-teal-600 uppercase tracking-[0.15em] flex items-center gap-3">
+                              <span className="flex-shrink-0 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-100">
+                                {formatIndonesianDateWithDay(t.Tanggal)}
+                              </span>
+                              <div className="h-px bg-slate-200/50 flex-1" />
+                            </h4>
                           </div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{getWaktuLabel(t.Tanggal)} • {t.Tanggal}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="text-[7px] font-black text-teal-600 uppercase tracking-widest mb-0.5">Sisa</p>
-                            <p className="text-md font-black text-teal-600 leading-none">
-                              Rp {formatCurrency(
-                                ((t.Melalui || "").toUpperCase().trim() === "EDC BNI" ? (parseCurrency(t.HargaModal) || 0) - 1500 : (parseCurrency(t.HargaModal) || 0)) - (parseCurrency(t.Sebagian) || 0)
-                              )}
-                            </p>
-                          </div>
-                          <div className="opacity-20 group-hover:opacity-40 transition-opacity">
-                            {expandedId === `belum-${i}` ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </div>
-                        </div>
-                      </div>
-
-                      <AnimatePresence>
-                        {expandedId === `belum-${i}` && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                            animate={{ height: "auto", opacity: 1, marginTop: 16 }}
-                            exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="flex items-stretch gap-6 pt-4 border-t border-slate-50">
-                              <div className="flex-1">
-                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nominal Transaksi</p>
-                                <p className="text-xs font-black text-slate-700">Rp {formatCurrency(parseCurrency(t.Pemasukan) || 0)}</p>
+                        )}
+                        <motion.div
+                          key={`belum-${i}`}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          onClick={() => setExpandedId(expandedId === `belum-${i}` ? null : `belum-${i}`)}
+                          className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
+                        >
+                          <div className="relative z-10">
+                            <div className="flex justify-between items-center">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-sm font-black text-[#005E6A] uppercase tracking-tight">{t.Jenis}</p>
+                                  <span className="bg-slate-100 text-slate-500 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-200/50">
+                                    {t.Melalui}
+                                  </span>
+                                </div>
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{getWaktuLabel(t.Tanggal)} • {t.Tanggal}</p>
                               </div>
-                              <div className="w-px bg-slate-100 self-stretch" />
-                              <div className="flex-1">
-                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Biaya & Potongan</p>
-                                <div className="space-y-1">
-                                  {(() => {
-                                    const melalui = (t.Melalui || "").toUpperCase().trim();
-                                    const status = (t.Status || "").toUpperCase().trim();
-                                    const isEDC = melalui === "EDC BNI" && status === "BELUM DIAMBIL";
-                                    
-                                    const pNom = parseCurrency(t.Pemasukan) || 0;
-                                    const hMod = parseCurrency(t.HargaModal) || 0;
-                                    const totalProfitAdjusted = isEDC ? (pNom - hMod - 1500) : (pNom - hMod);
-                                    
-                                    const standardAdmin = (() => {
-                                      const p = pNom;
-                                      if (p <= 0) return 0;
-                                      if (p < 100000) return 3000;
-                                      if (p <= 999999) return 5000;
-                                      if (p <= 1999999) return 10000;
-                                      if (p <= 2999999) return 15000;
-                                      if (p <= 3999999) return 20000;
-                                      if (p <= 4999999) return 25000;
-                                      return Math.round(p * 0.005);
-                                    })();
-                                    
-                                    const displayAdmin = Math.min(totalProfitAdjusted, standardAdmin);
-                                    const bonus = Math.max(0, totalProfitAdjusted - standardAdmin);
-                                    
-                                    return (
-                                      <>
-                                        <p className="text-[9px] font-bold text-red-500">Admin: Rp {formatCurrency(displayAdmin)}</p>
-                                        {bonus > 0 && (
-                                          <p className="text-[9px] font-bold text-teal-500">Bonus: Rp {formatCurrency(bonus)}</p>
-                                        )}
-                                        {isEDC && (
-                                          <p className="text-[9px] font-bold text-slate-500">Biaya EDC: Rp {formatCurrency(3000)}</p>
-                                        )}
-                                      </>
-                                    );
-                                  })()}
-                                  {t.Sebagian > 0 && (
-                                    <p className="text-[9px] font-bold text-orange-500">Diambil: Rp {formatCurrency(t.Sebagian)}</p>
-                                  )}
+                              <div className="flex items-center gap-4">
+                                <div className="text-right">
+                                  <p className="text-[7px] font-black text-teal-600 uppercase tracking-widest mb-0.5">Sisa</p>
+                                  <p className="text-md font-black text-teal-600 leading-none">
+                                    Rp {formatCurrency(
+                                      ((t.Melalui || "").toUpperCase().trim() === "EDC BNI" ? (parseCurrency(t.HargaModal) || 0) - 1500 : (parseCurrency(t.HargaModal) || 0)) - (parseCurrency(t.Sebagian) || 0)
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="opacity-20 group-hover:opacity-40 transition-opacity">
+                                  {expandedId === `belum-${i}` ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                 </div>
                               </div>
                             </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </motion.div>
-                ))}
+
+                            <AnimatePresence>
+                              {expandedId === `belum-${i}` && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                                  animate={{ height: "auto", opacity: 1, marginTop: 16 }}
+                                  exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                                  className="overflow-hidden"
+                                >
+                                  <div className="flex items-stretch gap-6 pt-4 border-t border-slate-50">
+                                    <div className="flex-1">
+                                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nominal Transaksi</p>
+                                      <p className="text-xs font-black text-slate-700">Rp {formatCurrency(parseCurrency(t.Pemasukan) || 0)}</p>
+                                    </div>
+                                    <div className="w-px bg-slate-100 self-stretch" />
+                                    <div className="flex-1">
+                                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Biaya & Potongan</p>
+                                      <div className="space-y-1">
+                                        {(() => {
+                                          const melalui = (t.Melalui || "").toUpperCase().trim();
+                                          const status = (t.Status || "").toUpperCase().trim();
+                                          const isEDC = melalui === "EDC BNI" && status === "BELUM DIAMBIL";
+                                          
+                                          const pNom = parseCurrency(t.Pemasukan) || 0;
+                                          const hMod = parseCurrency(t.HargaModal) || 0;
+                                          const totalProfitAdjusted = isEDC ? (pNom - hMod - 1500) : (pNom - hMod);
+                                          
+                                          const standardAdmin = (() => {
+                                            const p = pNom;
+                                            if (p <= 0) return 0;
+                                            if (p < 100000) return 3000;
+                                            if (p <= 999999) return 5000;
+                                            if (p <= 1999999) return 10000;
+                                            if (p <= 2999999) return 15000;
+                                            if (p <= 3999999) return 20000;
+                                            if (p <= 4999999) return 25000;
+                                            return Math.round(p * 0.005);
+                                          })();
+                                          
+                                          const displayAdmin = Math.min(totalProfitAdjusted, standardAdmin);
+                                          const bonus = Math.max(0, totalProfitAdjusted - standardAdmin);
+                                          
+                                          return (
+                                            <>
+                                              <p className="text-[9px] font-bold text-red-500">Admin: Rp {formatCurrency(displayAdmin)}</p>
+                                              {bonus > 0 && (
+                                                <p className="text-[9px] font-bold text-teal-500">Bonus: Rp {formatCurrency(bonus)}</p>
+                                              )}
+                                              {isEDC && (
+                                                <p className="text-[9px] font-bold text-slate-500">Biaya EDC: Rp {formatCurrency(3000)}</p>
+                                              )}
+                                            </>
+                                          );
+                                        })()}
+                                        {t.Sebagian > 0 && (
+                                          <p className="text-[9px] font-bold text-orange-500">Diambil: Rp {formatCurrency(t.Sebagian)}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </motion.div>
+                      </React.Fragment>
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}
@@ -6955,6 +7030,7 @@ const AdminDashboard = ({
 }) => {
   const navigate = useNavigate();
   const [timeFilter, setTimeFilter] = useState("Bulan ini");
+  const [chartTab, setChartTab] = useState<"semua" | "penjualan" | "keuntungan" | "transaksi">("semua");
 
   const filterOptions = useMemo(() => {
     if (transactions.length === 0) return { days: [], weeks: [], months: [], years: [] };
@@ -7146,21 +7222,23 @@ const AdminDashboard = ({
     { name: "Gas Elpiji 3kg", stok: 1 }
   ];
 
-  // Group by date for chart (Sales and Profit)
+  // Group by date for chart (Sales, Profit, and Transactions)
   const statsByDate = filteredSales.reduce((acc: any, curr) => {
     const dateStr = curr.Tanggal.split(' ')[0];
     if (!acc[dateStr]) {
-      acc[dateStr] = { sales: 0, profit: 0 };
+      acc[dateStr] = { sales: 0, profit: 0, transactions: 0 };
     }
     acc[dateStr].sales += curr.Pemasukan;
     acc[dateStr].profit += (curr.Pemasukan - (curr.HargaModal || 0));
+    acc[dateStr].transactions += 1;
     return acc;
   }, {});
 
   const chartData = Object.keys(statsByDate).map(date => ({
     date,
     total: statsByDate[date].sales,
-    profit: statsByDate[date].profit
+    profit: statsByDate[date].profit,
+    transactions: statsByDate[date].transactions
   })).sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
 
   // Calculate statistics for the chartData
@@ -7322,50 +7400,108 @@ const AdminDashboard = ({
           onClick={() => navigate("/admin/report")}
           className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 cursor-pointer hover:shadow-2xl transition-all group/card"
         >
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Grafik Laporan</h3>
-              <div className="flex flex-col gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#F15A24]" />
-                    <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Penjualan</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Keuntungan</p>
-                  </div>
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Grafik Laporan</h3>
+                <div className="flex items-center gap-3 mt-1.5" onClick={(e) => e.stopPropagation()}>
+                  {(chartTab === "semua" || chartTab === "penjualan") && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#F15A24]" />
+                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Penjualan</p>
+                    </div>
+                  )}
+                  {(chartTab === "semua" || chartTab === "keuntungan") && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Keuntungan</p>
+                    </div>
+                  )}
+                  {(chartTab === "semua" || chartTab === "transaksi") && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Transaksi</p>
+                    </div>
+                  )}
                 </div>
-                <select 
-                  value={timeFilter}
-                  onChange={(e) => setTimeFilter(e.target.value)}
-                  className="bg-slate-50 border-none text-slate-600 text-[8px] font-black uppercase tracking-widest rounded-lg px-2 py-0.5 focus:ring-0 cursor-pointer hover:bg-slate-100 transition-colors w-fit mt-1 max-w-[120px]"
-                >
-                  <optgroup label="Cepat">
-                    <option value="Hari ini">Hari ini</option>
-                    <option value="Minggu ini">Minggu ini</option>
-                    <option value="Bulan ini">Bulan ini</option>
-                    <option value="Tahun ini">Tahun ini</option>
-                    <option value="Semua">Semua Waktu</option>
-                  </optgroup>
-                  <optgroup label="Bulan">
-                    {filterOptions.months.map(m => {
-                      const [y, mon] = m.split("-");
-                      const date = new Date(parseInt(y), parseInt(mon) - 1);
-                      const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-                      return <option key={m} value={`month:${m}`}>{label}</option>;
-                    })}
-                  </optgroup>
-                  <optgroup label="Tahun">
-                    {filterOptions.years.map(y => (
-                      <option key={y} value={`year:${y}`}>{y}</option>
-                    ))}
-                  </optgroup>
-                </select>
+              </div>
+              <div className="w-8 h-8 bg-orange-50 rounded-full flex items-center justify-center group-hover/card:scale-110 transition-transform shrink-0">
+                <TrendingUp className="w-4 h-4 text-[#F15A24]" />
               </div>
             </div>
-            <div className="w-8 h-8 bg-orange-50 rounded-full flex items-center justify-center group-hover/card:scale-110 transition-transform">
-              <TrendingUp className="w-4 h-4 text-[#F15A24]" />
+
+            {/* Full-width select dropdown */}
+            <div className="w-full" onClick={(e) => e.stopPropagation()}>
+              <select 
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-100 text-slate-700 text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#005E6A]/20 cursor-pointer hover:bg-slate-100 transition-colors"
+              >
+                <optgroup label="Cepat">
+                  <option value="Hari ini">Hari ini</option>
+                  <option value="Minggu ini">Minggu ini</option>
+                  <option value="Bulan ini">Bulan ini</option>
+                  <option value="Tahun ini">Tahun ini</option>
+                  <option value="Semua">Semua Waktu</option>
+                </optgroup>
+                <optgroup label="Bulan">
+                  {filterOptions.months.map(m => {
+                    const [y, mon] = m.split("-");
+                    const date = new Date(parseInt(y), parseInt(mon) - 1);
+                    const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                    return <option key={m} value={`month:${m}`}>{label}</option>;
+                  })}
+                </optgroup>
+                <optgroup label="Tahun">
+                  {filterOptions.years.map(y => (
+                    <option key={y} value={`year:${y}`}>{y}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+
+            {/* 4 Tabs to filter charts */}
+            <div className="grid grid-cols-4 gap-1 bg-slate-100/80 p-1 rounded-xl" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setChartTab("semua")}
+                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
+                  chartTab === "semua"
+                    ? "bg-[#005E6A] text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                Semua
+              </button>
+              <button
+                onClick={() => setChartTab("penjualan")}
+                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
+                  chartTab === "penjualan"
+                    ? "bg-[#F15A24] text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                Penjualan
+              </button>
+              <button
+                onClick={() => setChartTab("keuntungan")}
+                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
+                  chartTab === "keuntungan"
+                    ? "bg-green-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                Keuntungan
+              </button>
+              <button
+                onClick={() => setChartTab("transaksi")}
+                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
+                  chartTab === "transaksi"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                Transaksi
+              </button>
             </div>
           </div>
 
@@ -7380,7 +7516,7 @@ const AdminDashboard = ({
             </p>
           </div>
 
-          <div className="h-[250px] w-full">
+          <div className="h-[250px] w-full" onClick={(e) => e.stopPropagation()}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
@@ -7402,69 +7538,132 @@ const AdminDashboard = ({
                   tickFormatter={(val) => val.split('/')[0]} // Just show day
                 />
                 <YAxis 
+                  yAxisId="left"
                   axisLine={false} 
                   tickLine={false} 
                   tick={{ fontSize: 8, fontWeight: 700, fill: '#94a3b8' }}
                   tickFormatter={(val) => `Rp ${val/1000}k`}
                 />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 8, fontWeight: 700, fill: '#3b82f6' }}
+                  tickFormatter={(val) => `${val}`}
+                />
                 <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '1.2rem', 
-                    border: 'none', 
-                    boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)',
-                    fontSize: '10px',
-                    fontWeight: 'bold',
-                    padding: '12px'
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      const formattedDate = (() => {
+                        const tDate = parseDate(data.date);
+                        if (tDate.getTime() === 0) return data.date;
+                        const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+                        const months = [
+                          "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+                          "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+                        ];
+                        return `${days[tDate.getDay()]}, ${tDate.getDate()} ${months[tDate.getMonth()]} ${tDate.getFullYear()}`;
+                      })();
+                      
+                      const totalVal = (payload.find(p => p.name === 'total' || p.dataKey === 'total')?.value as number) || 0;
+                      const profitVal = (payload.find(p => p.name === 'profit' || p.dataKey === 'profit')?.value as number) || 0;
+                      const transactionsVal = (payload.find(p => p.name === 'transactions' || p.dataKey === 'transactions')?.value as number) || 0;
+                      
+                      return (
+                        <div className="bg-white p-4 rounded-[1.2rem] shadow-xl border border-slate-100 text-[11px] font-black space-y-1 text-slate-700">
+                          <p className="text-[#005E6A] font-black border-b border-slate-100 pb-1 mb-1.5">{formattedDate}</p>
+                          <div className="space-y-0.5">
+                            {(chartTab === "semua" || chartTab === "penjualan") && (
+                              <p className="text-[#F15A24] flex items-center gap-1">
+                                <span>Penjualan :</span>
+                                <span>Rp {totalVal.toLocaleString('id-ID')}</span>
+                              </p>
+                            )}
+                            {(chartTab === "semua" || chartTab === "keuntungan") && (
+                              <p className="text-green-600 flex items-center gap-1">
+                                <span>Keuntungan :</span>
+                                <span>Rp {profitVal.toLocaleString('id-ID')}</span>
+                              </p>
+                            )}
+                            {(chartTab === "semua" || chartTab === "transaksi") && (
+                              <p className="text-blue-600 flex items-center gap-1">
+                                <span>Transaksi :</span>
+                                <span>{transactionsVal} Order</span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
                   }}
-                  itemStyle={{ padding: '2px 0' }}
-                  formatter={(value: number, name: string) => [
-                    `Rp ${value.toLocaleString('id-ID')}`, 
-                    name === 'total' ? 'Penjualan' : 'Keuntungan'
-                  ]}
                 />
-                <Area 
-                  type="monotone"
-                  dataKey="total" 
-                  name="total"
-                  stroke="#F15A24" 
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#totalAreaGradient)"
-                  activeDot={{ r: 5, strokeWidth: 1.5, stroke: '#fff', fill: '#F15A24' }}
-                  animationDuration={1500}
-                />
-                <Area 
-                  type="monotone"
-                  dataKey="profit" 
-                  name="profit"
-                  stroke="#22c55e" 
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#profitAreaGradient)"
-                  activeDot={{ r: 5, strokeWidth: 1.5, stroke: '#fff', fill: '#22c55e' }}
-                  animationDuration={1500}
-                />
+                {(chartTab === "semua" || chartTab === "penjualan") && (
+                  <Area 
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="total" 
+                    name="total"
+                    stroke="#F15A24" 
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#totalAreaGradient)"
+                    activeDot={{ r: 5, strokeWidth: 1.5, stroke: '#fff', fill: '#F15A24' }}
+                    animationDuration={1500}
+                  />
+                )}
+                {(chartTab === "semua" || chartTab === "keuntungan") && (
+                  <Area 
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="profit" 
+                    name="profit"
+                    stroke="#22c55e" 
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#profitAreaGradient)"
+                    activeDot={{ r: 5, strokeWidth: 1.5, stroke: '#fff', fill: '#22c55e' }}
+                    animationDuration={1500}
+                  />
+                )}
+                {(chartTab === "semua" || chartTab === "transaksi") && (
+                  <Line 
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="transactions" 
+                    name="transactions"
+                    stroke="#3b82f6" 
+                    strokeWidth={3}
+                    dot={{ r: 3, strokeWidth: 1.5, stroke: '#fff', fill: '#3b82f6' }}
+                    activeDot={{ r: 5, strokeWidth: 1.5, stroke: '#fff', fill: '#3b82f6' }}
+                    animationDuration={1500}
+                  />
+                )}
               </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="flex flex-col gap-4 mt-6 pt-6 border-t border-slate-50">
-            <div className="flex items-center justify-between">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Penjualan</p>
-              <p className="text-[11px] font-black text-[#005E6A]">Rp {totalPemasukan.toLocaleString('id-ID')}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Keuntungan</p>
-              <p className="text-[11px] font-black text-green-600">Rp {totalKeuntungan.toLocaleString('id-ID')}</p>
-            </div>
-            <div className="flex items-center justify-between">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Transaksi</p>
-              <p className="text-[11px] font-black text-[#F15A24]">{totalTransaksi} Order</p>
+          <div className="mt-6 pt-6 border-t border-slate-100/50 flex flex-col gap-6" onClick={(e) => e.stopPropagation()}>
+            <div className="grid grid-cols-3 gap-2.5">
+              <div className="bg-orange-50/70 border border-orange-100 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center shadow-sm">
+                <p className="text-[7px] lg:text-[8px] font-black text-orange-600 uppercase tracking-widest leading-none mb-1.5">Penjualan</p>
+                <p className="text-[10px] lg:text-[11px] font-black text-[#F15A24] leading-none">Rp {totalPemasukan.toLocaleString('id-ID')}</p>
+              </div>
+              <div className="bg-green-50/70 border border-green-100 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center shadow-sm">
+                <p className="text-[7px] lg:text-[8px] font-black text-green-600 uppercase tracking-widest leading-none mb-1.5">Keuntungan</p>
+                <p className="text-[10px] lg:text-[11px] font-black text-green-600 leading-none">Rp {totalKeuntungan.toLocaleString('id-ID')}</p>
+              </div>
+              <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-2.5 flex flex-col items-center justify-center text-center shadow-sm">
+                <p className="text-[7px] lg:text-[8px] font-black text-blue-600 uppercase tracking-widest leading-none mb-1.5">Transaksi</p>
+                <p className="text-[10px] lg:text-[11px] font-black text-blue-600 leading-none">{totalTransaksi} Order</p>
+              </div>
             </div>
 
-            {/* Detailed Stats Analysis */}
-            {stats && (
-              <div className="mt-8 pt-8 border-t border-slate-100/80">
+          {/* Detailed Stats Analysis */}
+          {stats && (
+            <div className="mt-8 pt-8 border-t border-slate-100/80">
                 {/* Header Section: Lively & Energetic */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
                   <div className="space-y-1.5">
@@ -7760,26 +7959,26 @@ const AdminManagementPage = ({
         <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100">
           {stats ? (
             <div className="space-y-4">
-              <div className="border-b border-slate-100 pb-4 mb-6 text-center">
+              <div className="border-b border-slate-100 pb-4 mb-2 text-center">
                 <h3 className="text-xs sm:text-sm font-black text-[#005E6A] uppercase tracking-wider">{totalLabel}</h3>
               </div>
 
               {statsRight ? (
-                <div className="flex flex-col gap-8 pt-2">
+                <div className="flex flex-col gap-8 pt-0">
                   {/* Top Chart: Customer Name (Proporsi Pelanggan) - Larger & on Top */}
                   <div className="flex flex-col items-center w-full">
-                    <div className="h-72 w-full max-w-md relative flex items-center justify-center">
+                    <div className="h-44 w-full max-w-md relative flex items-center justify-center">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
                             data={statsRight}
                             cx="50%"
-                            cy="85%"
+                            cy="95%"
                             startAngle={180}
                             endAngle={0}
                             innerRadius={115}
                             outerRadius={135}
-                            paddingAngle={3}
+                            paddingAngle={0}
                             dataKey="value"
                           >
                             {statsRight.map((entry, index) => (
@@ -7803,7 +8002,7 @@ const AdminManagementPage = ({
                           />
                         </PieChart>
                       </ResponsiveContainer>
-                      <div className="absolute bottom-4 left-0 right-0 flex flex-col items-center justify-center pointer-events-none">
+                      <div className="absolute bottom-1 left-0 right-0 flex flex-col items-center justify-center pointer-events-none">
                         <p className="text-[11px] font-black text-[#F15A24] mb-1">{statsRight.length} Orang</p>
                         <p className="text-lg sm:text-2xl font-black text-[#005E6A]">Rp {totalValue.toLocaleString('id-ID')}</p>
                       </div>
@@ -7979,14 +8178,14 @@ const AdminManagementPage = ({
                       <div>
                         <p className="text-[11px] font-black text-[#005E6A] uppercase leading-tight truncate max-w-[120px]">{item.name}</p>
                         <div className="flex flex-col gap-0.5 mt-0.5">
-                          {item.startDate && (
+                          {item.startDate && !item.statusBadge && (
                             <p className="text-[7px] font-bold text-[#F15A24] uppercase tracking-wider">{item.startDate}</p>
                           )}
                           <div className="flex items-center gap-2">
-                            {item.transactionCount !== undefined && !item.startDate && (
+                            {item.transactionCount !== undefined && (!item.startDate || item.statusBadge) && (
                               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.transactionCount} Transaksi</p>
                             )}
-                            {!item.transactionCount && !item.startDate && item.subtext && (
+                            {!item.transactionCount && (!item.startDate || item.statusBadge) && item.subtext && (
                               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">{item.subtext}</p>
                             )}
                           </div>
@@ -7994,15 +8193,21 @@ const AdminManagementPage = ({
                       </div>
                     </div>
                     
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end gap-1.5">
                       <p className={`text-[12px] font-bold ${colorClass} tabular-nums leading-none`}>Rp {item.value.toLocaleString('id-ID')}</p>
+                      {item.statusBadge && (
+                        <span 
+                          className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border leading-none"
+                          style={{ 
+                            backgroundColor: `${item.statusBadge.color}15`, 
+                            color: item.statusBadge.color, 
+                            borderColor: `${item.statusBadge.color}35` 
+                          }}
+                        >
+                          {item.statusBadge.label}
+                        </span>
+                      )}
                     </div>
-
-                    {item.statusBadge && (
-                      <div className="absolute top-1 right-1 opacity-20">
-                         <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.statusBadge.color }} />
-                      </div>
-                    )}
                   </motion.div>
                 )}
               </React.Fragment>
@@ -9880,42 +10085,59 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
   }, [pendingWithdrawals]);
 
   const items = useMemo(() => {
-    const list: any[] = [];
+    // Sort transactions by date descending (newest first)
+    const sortedTxs = [...pendingWithdrawals].sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
     
-    if (groupedBelum.length > 0) {
-      list.push({
-        name: "Transaksi Belum Diambil",
-        isHeader: true
-      });
-      groupedBelum.forEach(item => {
+    const list: any[] = [];
+    let lastDate = "";
+    
+    sortedTxs.forEach(t => {
+      const isNewDate = t.Tanggal !== lastDate;
+      if (isNewDate) {
+        lastDate = t.Tanggal;
         list.push({
-          name: item.name,
-          value: item.total,
-          color: "#3b82f6",
-          transactionCount: item.count,
-          statusBadge: { label: "Belum Diambil", color: "#3b82f6" }
+          name: formatIndonesianDateWithDay(t.Tanggal),
+          isHeader: true
         });
-      });
-    }
-
-    if (groupedProses.length > 0) {
+      }
+      
+      const isGeneral = !t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "";
+      const displayName = isGeneral ? "Pelanggan Umum" : t.Nama;
+      
+      const netAmount = (() => {
+        const modal = parseCurrency(t.HargaModal) || 0;
+        const sebagian = parseCurrency(t.Sebagian) || 0;
+        const status = (t.Status || "").toUpperCase().trim();
+        const melalui = (t.Melalui || "").toUpperCase().trim();
+        
+        let base = modal;
+        if (melalui === "EDC BNI" && status === "BELUM DIAMBIL") {
+          base -= 1500;
+        }
+        return base - sebagian;
+      })();
+      
+      const statusStr = (t.Status || "").toUpperCase().trim();
+      const isDiproses = statusStr === "DIPROSES";
+      
+      const customerGroup = groupedData.find(g => g.name === displayName);
+      const customerColor = customerGroup ? customerGroup.color : "#3b82f6";
+      
       list.push({
-        name: "Transaksi Diproses",
-        isHeader: true
+        name: displayName,
+        value: netAmount,
+        color: customerColor,
+        subtext: `${t.Jenis || "Lainnya"} • ${t.Melalui || "-"}`,
+        startDate: isDiproses ? "DIPROSES" : "BELUM DIAMBIL",
+        statusBadge: { 
+          label: isDiproses ? "Diproses" : "Belum Diambil", 
+          color: isDiproses ? "#f59e0b" : "#3b82f6" 
+        }
       });
-      groupedProses.forEach(item => {
-        list.push({
-          name: item.name,
-          value: item.total,
-          color: "#f59e0b",
-          transactionCount: item.count,
-          statusBadge: { label: "Diproses", color: "#f59e0b" }
-        });
-      });
-    }
-
+    });
+    
     return list;
-  }, [groupedBelum, groupedProses]);
+  }, [pendingWithdrawals, groupedData]);
 
   const stats = [
     { label: "Belum Diambil", value: statsBreakdown.belum, count: pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL").length, color: "#3b82f6" },
