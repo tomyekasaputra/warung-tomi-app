@@ -3979,6 +3979,20 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
   const [swipeDirection, setSwipeDirection] = useState(0);
   const [selectedSavingTx, setSelectedSavingTx] = useState<SavingTransaction | null>(null);
 
+  useEffect(() => {
+    const showSavingId = searchParams.get("showSavingId");
+    if (showSavingId) {
+      const found = userTransactions.find(t => t.id === showSavingId || t.id_tabungan === showSavingId);
+      if (found) {
+        setSelectedSavingTx(found);
+        const tDate = parseDate(found.Tanggal);
+        const tMonthYear = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
+        setSelectedMonth(tMonthYear);
+        setActiveTab('riwayat');
+      }
+    }
+  }, [searchParams, userTransactions]);
+
   const getMotivationMessage = (nominal: number) => {
     if (nominal >= 100000) {
       return "Luar biasa! Tabungan besar hari ini akan menjadi pondasi kesuksesan finansialmu di masa depan! 🚀✨";
@@ -4606,6 +4620,18 @@ const DebtDetailPage = ({
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState<string>('all');
   const [selectedTx, setSelectedTx] = useState<DebtTransaction | null>(null);
   const isAdmin = localStorage.getItem("admin_session") === "true";
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const showHutangId = searchParams.get("showHutangId");
+    if (showHutangId) {
+      const found = transactions.find(t => t.id === showHutangId || t.id_hutang === showHutangId);
+      if (found) {
+        setSelectedTx(found);
+        setActiveTab('riwayat');
+      }
+    }
+  }, [searchParams, transactions]);
 
   const displayUser = customerName && customers 
     ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
@@ -5420,6 +5446,25 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
   const activeCount = activeTransactions.length;
   const completedCount = completedTransactions.length;
 
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const showInvestasiId = searchParams.get("showInvestasiId");
+    if (showInvestasiId) {
+      const idx = sortedTransactions.findIndex(t => t.id === showInvestasiId || t.id_investasi === showInvestasiId);
+      if (idx !== -1) {
+        setExpandedIndex(idx);
+        setShowOffers(false);
+        setTimeout(() => {
+          const element = document.getElementById(`invest-card-${showInvestasiId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 300);
+      }
+    }
+  }, [searchParams, sortedTransactions]);
+
   const renderTransactionCard = (t: InvestmentTransaction, i: number) => {
     const estimate = calculateEstimatedReturn(t.Nominal, t.Nisbah, t.Tanggal, t.JatuhTempo);
     const progress = calculateProgress(t.Tanggal, t.JatuhTempo);
@@ -5435,7 +5480,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
     const isA_Aktif = statusLower.includes("aktif") || statusLower.includes("active");
 
     return (
-      <div key={i} className="px-2">
+      <div key={i} id={`invest-card-${t.id || t.id_investasi}`} className="px-2">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -13731,10 +13776,45 @@ const NotificationPage = ({
   readNotificationIds,
   onMarkAsRead
 }: NotificationPageProps) => {
+  const navigate = useNavigate();
   const [subTab, setSubTab] = useState<"notifikasi" | "promo">("notifikasi");
   const [selectedNotification, setSelectedNotification] = useState<UnifiedNotification | null>(null);
   const [selectedPromo, setSelectedPromo] = useState<any | null>(null);
   const [visibleCount, setVisibleCount] = useState(20);
+  const [permission, setPermission] = useState<NotificationPermission>(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
+  );
+
+  const requestNotificationPermission = () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      Notification.requestPermission().then(perm => {
+        setPermission(perm);
+        if (perm === 'granted') {
+          try {
+            new Notification("Warung Tomi", {
+              body: "Notifikasi sistem berhasil diaktifkan!",
+              icon: "https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv"
+            });
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      });
+    }
+  };
+
+  const sendTestNotification = () => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification("Warung Tomi (Uji Coba)", {
+          body: "Ini adalah notifikasi uji coba dari Warung Tomi. Real-time update berfungsi!",
+          icon: "https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv"
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
 
   // Reset pagination when tab changes
   useEffect(() => {
@@ -13944,6 +14024,64 @@ const NotificationPage = ({
             exit={{ opacity: 0, y: -10 }}
             className="space-y-4"
           >
+            {/* System Notification Permission Card */}
+            {typeof window !== 'undefined' && 'Notification' in window && (
+              <div className="bg-white rounded-[2rem] border border-slate-100 p-5 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-3 rounded-2xl bg-[#E6F4F5] border border-[#005E6A]/5 flex items-center justify-center shrink-0">
+                      <Bell className="w-5 h-5 text-[#005E6A]" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                        Notifikasi Sistem Perangkat
+                      </h4>
+                      <p className="text-slate-500 text-[10px] leading-relaxed mt-1 font-medium max-w-lg">
+                        Terima pemberitahuan belanja, setor/tarik tabungan, dan kasbon secara real-time langsung di layar HP/komputer Anda saat web ini sedang dibuka (di latar belakang).
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="sm:self-center shrink-0">
+                    {permission === 'default' && (
+                      <button
+                        onClick={requestNotificationPermission}
+                        className="w-full sm:w-auto text-[9px] font-black uppercase tracking-widest text-white bg-[#005E6A] hover:bg-[#004C56] px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-md shadow-[#005E6A]/10"
+                      >
+                        Aktifkan Notifikasi
+                      </button>
+                    )}
+                    {permission === 'granted' && (
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <span className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-[9px] font-black uppercase tracking-wider text-emerald-600">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Aktif
+                        </span>
+                        <button
+                          onClick={sendTestNotification}
+                          className="text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200/50 px-3 py-1.5 rounded-lg transition-all cursor-pointer text-center"
+                        >
+                          Uji Coba
+                        </button>
+                      </div>
+                    )}
+                    {permission === 'denied' && (
+                      <span className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-100 text-[9px] font-black uppercase tracking-wider text-rose-600 w-full sm:w-auto">
+                        <AlertCircle className="w-3 h-3" />
+                        Diblokir Browser
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                {permission === 'denied' && (
+                  <p className="text-rose-500 text-[9px] font-bold mt-2.5 bg-rose-50/50 border border-rose-100/50 px-3 py-2 rounded-xl">
+                    * Notifikasi diblokir oleh browser Anda. Silakan klik ikon gembok di sebelah kiri alamat situs (URL browser) untuk mengizinkan notifikasi kembali.
+                  </p>
+                )}
+              </div>
+            )}
+
             {notifications.length === 0 ? (
               <div className="bg-white rounded-[2rem] border border-slate-100 p-12 text-center shadow-sm mt-4">
                 <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4 text-slate-300">
@@ -13995,6 +14133,20 @@ const NotificationPage = ({
                             key={notif.id}
                             onClick={() => {
                               onMarkAsRead(notif.id);
+                              
+                              const itemRaw = notif.rawItem || {};
+                              const itemId = itemRaw.id || itemRaw.id_transaksi || itemRaw.id_tabungan || itemRaw.id_hutang || itemRaw.id_investasi || '';
+                              
+                              if (notif.type === "belanja") {
+                                setActiveTab("riwayat");
+                                navigate(`/?showTransactionId=${encodeURIComponent(itemId)}`);
+                              } else if (notif.type === "tabungan") {
+                                navigate(`/tabungan/${encodeURIComponent(user?.Nama || '')}?showSavingId=${encodeURIComponent(itemId)}`);
+                              } else if (notif.type === "hutang") {
+                                navigate(`/hutang/${encodeURIComponent(user?.Nama || '')}?showHutangId=${encodeURIComponent(itemId)}`);
+                              } else if (notif.type === "investasi") {
+                                navigate(`/investasi/${encodeURIComponent(user?.Nama || '')}?showInvestasiId=${encodeURIComponent(itemId)}`);
+                              }
                             }}
                             whileHover={{ backgroundColor: isUnread ? "rgba(241, 90, 36, 0.12)" : "rgba(248, 250, 252, 1)" }}
                             className={`py-3.5 px-6 flex items-center justify-between gap-4 transition-all cursor-pointer border-b border-slate-100/70 ${
@@ -14246,11 +14398,23 @@ const NotificationPage = ({
 };
 
 const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<"trend" | "rincian">("trend");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTransaction, setSelectedTransaction] = useState<SalesTransaction | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+
+  useEffect(() => {
+    const showTxId = searchParams.get("showTransactionId");
+    if (showTxId) {
+      const found = transactions.find(t => t.id === showTxId || t.id_transaksi === showTxId);
+      if (found) {
+        setSelectedTransaction(found);
+        setActiveTab("rincian");
+      }
+    }
+  }, [searchParams, transactions]);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
   const getIsCashOut = (jenis: string) => {
@@ -18199,6 +18363,53 @@ export default function App() {
       return next;
     });
   };
+
+  const lastNotificationIdsRef = useRef<string[]>([]);
+  const isInitialNotificationLoadRef = useRef(true);
+
+  useEffect(() => {
+    if (!loggedInUser) {
+      lastNotificationIdsRef.current = [];
+      isInitialNotificationLoadRef.current = true;
+      return;
+    }
+
+    const currentIds = allNotifications.map(n => n.id);
+
+    // Initial load: record existing notification IDs
+    if (isInitialNotificationLoadRef.current) {
+      if (allNotifications.length > 0) {
+        lastNotificationIdsRef.current = currentIds;
+        isInitialNotificationLoadRef.current = false;
+      }
+      return;
+    }
+
+    // Identify newly added notification IDs
+    const newNotifications = allNotifications.filter(n => !lastNotificationIdsRef.current.includes(n.id));
+
+    if (newNotifications.length > 0) {
+      // Keep track of the updated list of IDs
+      lastNotificationIdsRef.current = currentIds;
+
+      // Filter only those that are unread
+      const unreadNew = newNotifications.filter(n => !readNotificationIds.includes(n.id));
+
+      if (unreadNew.length > 0 && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+        unreadNew.forEach(n => {
+          try {
+            new Notification(n.title, {
+              body: n.description,
+              icon: "https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv",
+              tag: n.id
+            });
+          } catch (e) {
+            console.error("Failed to show native notification:", e);
+          }
+        });
+      }
+    }
+  }, [allNotifications, loggedInUser, readNotificationIds]);
 
   const updateQty = (id: string, delta: number) => {
     setCart(prev => prev.map(item => {
