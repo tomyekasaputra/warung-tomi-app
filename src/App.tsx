@@ -689,7 +689,8 @@ const Header = ({
   salesTransactions,
   redeemedPoints,
   cart,
-  setShowCart
+  setShowCart,
+  unreadNotificationsCount
 }: { 
   customers: Customer[], 
   loggedInUser: Customer | null, 
@@ -700,12 +701,24 @@ const Header = ({
   salesTransactions: SalesTransaction[],
   redeemedPoints: RedeemedPoint[],
   cart: { product: StockItem, qty: number }[],
-  setShowCart: (show: boolean) => void
+  setShowCart: (show: boolean) => void,
+  unreadNotificationsCount?: number
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminPage = location.pathname.startsWith('/admin');
   const [isAgenInfoOpen, setIsAgenInfoOpen] = useState(false);
+  const [badgeIndex, setBadgeIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBadgeIndex(prev => (prev === 0 ? 1 : 0));
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentHour = new Date().getHours();
+  const isStoreOpen = currentHour >= 6 && currentHour < 22;
 
   if (isAdminPage) return null;
 
@@ -738,16 +751,67 @@ const Header = ({
           </Link>
 
           <div className="flex items-center gap-2">
-            {/* BNI 46 Badge */}
+            {/* BNI 46 / Store Status Badge (Alternating every 3 seconds) */}
             <motion.div 
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setIsAgenInfoOpen(true)}
-              className="bg-[#E6F4F5] border-[#005E6A]/5 px-4 py-2 rounded-full flex items-center gap-1.5 shadow-sm border cursor-pointer animate-pulse"
+              className={`px-4 py-2 rounded-full flex items-center justify-center shadow-sm border cursor-pointer min-w-[110px] h-[34px] overflow-hidden transition-all duration-300 ${
+                badgeIndex === 0 
+                  ? "bg-[#E6F4F5] border-[#005E6A]/10" 
+                  : isStoreOpen 
+                    ? "bg-emerald-50 border-emerald-100" 
+                    : "bg-rose-50 border-rose-100"
+              }`}
             >
-              <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
-              <span className="text-[10px] font-black text-[#F15A24]">46</span>
+              <AnimatePresence mode="wait">
+                {badgeIndex === 0 ? (
+                  <motion.div
+                    key="bni46"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="flex items-center gap-1 shrink-0"
+                  >
+                    <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
+                    <span className="text-[10px] font-black text-[#F15A24]">46</span>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="operational"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="flex items-center gap-1.5 shrink-0"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isStoreOpen ? "bg-emerald-500 animate-pulse" : "bg-rose-500 animate-pulse"}`} />
+                    <span className={`text-[9px] font-black uppercase tracking-wider leading-none ${isStoreOpen ? "text-emerald-600" : "text-rose-600"}`}>
+                      {isStoreOpen ? "BUKA" : "TUTUP"}
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
+
+            {/* Notification Button */}
+            {loggedInUser && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setActiveTab("notifikasi")}
+                className="relative p-2.5 rounded-full bg-[#E6F4F5] hover:bg-[#d0eaec] text-[#005E6A] transition-all cursor-pointer flex items-center justify-center border border-[#005E6A]/10"
+                aria-label="Notifikasi"
+              >
+                <Bell className="w-4.5 h-4.5 text-[#005E6A] stroke-[2.2]" />
+                {unreadNotificationsCount !== undefined && unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#F15A24] text-white text-[8px] font-black h-4.5 w-4.5 rounded-full flex items-center justify-center border-2 border-white animate-bounce shadow-sm">
+                    {unreadNotificationsCount}
+                  </span>
+                )}
+              </motion.button>
+            )}
           </div>
         </div>
       </header>
@@ -1971,8 +2035,8 @@ const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
 const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setActiveTab: (id: string) => void, user: Customer | null }) => {
   const allNavItems = [
     { id: "beranda", label: "Beranda", icon: Home },
-    { id: "riwayat", label: "Riwayat", icon: History, protected: true },
     { id: "belanja", label: "Belanja", icon: ShoppingCart },
+    { id: "riwayat", label: "Riwayat", icon: History, protected: true },
     { id: "settings", label: "Profil", icon: User },
   ];
 
@@ -2050,7 +2114,7 @@ const ScrollToTop = () => {
 const PageTransition = ({ children }: { children: React.ReactNode }) => (
   <motion.div
     initial={{ opacity: 0, y: 20, scale: 0.98, filter: "blur(4px)" }}
-    animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)", transitionEnd: { transform: "none" } }}
+    animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)", transitionEnd: { transform: "none", filter: "none", scale: "none" } }}
     exit={{ opacity: 0, y: -20, scale: 0.98, filter: "blur(4px)" }}
     transition={{ 
       duration: 0.5, 
@@ -13631,6 +13695,556 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
   );
 };
 
+interface UnifiedNotification {
+  id: string;
+  tanggal: string;
+  dateObj: Date;
+  type: 'belanja' | 'tabungan' | 'hutang' | 'investasi';
+  title: string;
+  description: string;
+  amount: number;
+  badgeText: string;
+  badgeColorClass: string;
+  rawItem: any;
+}
+
+interface NotificationPageProps {
+  user: Customer | null;
+  onLogin: (user: Customer) => void;
+  customers: Customer[];
+  setActiveTab: (id: string) => void;
+  notifications: UnifiedNotification[];
+  unreadCount: number;
+  markAllAsRead: () => void;
+  readNotificationIds: string[];
+  onMarkAsRead: (id: string) => void;
+}
+
+const NotificationPage = ({
+  user,
+  onLogin,
+  customers,
+  setActiveTab,
+  notifications,
+  unreadCount,
+  markAllAsRead,
+  readNotificationIds,
+  onMarkAsRead
+}: NotificationPageProps) => {
+  const [subTab, setSubTab] = useState<"notifikasi" | "promo">("notifikasi");
+  const [selectedNotification, setSelectedNotification] = useState<UnifiedNotification | null>(null);
+  const [selectedPromo, setSelectedPromo] = useState<any | null>(null);
+  const [visibleCount, setVisibleCount] = useState(20);
+
+  // Reset pagination when tab changes
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [subTab]);
+
+  // Infinite scroll listener for window
+  useEffect(() => {
+    if (subTab !== "notifikasi") return;
+    
+    const handleScroll = () => {
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100) {
+        setVisibleCount(prev => Math.min(prev + 20, notifications.length));
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [notifications.length, subTab]);
+
+  const getCategoryLabel = (type: string) => {
+    switch (type) {
+      case 'belanja': return 'Belanja';
+      case 'tabungan': return 'Tabungan';
+      case 'hutang': return 'Hutang';
+      case 'investasi': return 'Investasi';
+      default: return 'Lainnya';
+    }
+  };
+
+  const getCategoryBadgeClass = (type: string) => {
+    switch (type) {
+      case 'belanja': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      case 'tabungan': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+      case 'hutang': return 'bg-rose-50 text-rose-600 border-rose-100';
+      case 'investasi': return 'bg-purple-50 text-purple-600 border-purple-100';
+      default: return 'bg-slate-50 text-slate-600 border-slate-100';
+    }
+  };
+
+  const promoList = [
+    {
+      id: 1,
+      title: "Double Poin Loyalty Spesial Hari Jumat!",
+      category: "PROMOSI",
+      desc: "Kumpulkan poin belanja dua kali lipat untuk setiap transaksi minimal Rp 20.000 menggunakan Agen Resmi BNI 46 di Warung Tomi. Tukarkan poin melimpah Anda dengan sembako gratis!",
+      image: "https://lh3.googleusercontent.com/d/1BK2wG7qAlYgTJyX3yLk4BdGi-IEjkbpc",
+      tag: "Cashback Poin",
+      color: "#F15A24",
+      actionText: "Tukar Poin Sekarang",
+      action: () => {
+        setActiveTab("settings");
+      }
+    },
+    {
+      id: 2,
+      title: "Promo Diskon Belanja 10% Pengguna Baru",
+      category: "PROMOSI",
+      desc: "Nikmati potongan belanja langsung sebesar 10% (maksimal Rp 10.000) untuk transaksi pertama Anda di Warung Tomi menggunakan pembayaran QRIS atau Mesin EDC BNI resmi.",
+      image: "https://lh3.googleusercontent.com/d/1q06qTXISxLvOMCQnTT4f3MATAmBo5is-",
+      tag: "Diskon Baru",
+      color: "#005E6A",
+      actionText: "Mulai Belanja",
+      action: () => {
+        setActiveTab("belanja");
+      }
+    },
+    {
+      id: 3,
+      title: "Bebas Biaya Admin Setor Tunai Pertama",
+      category: "PROMOSI",
+      desc: "Lakukan transaksi Setor Tunai Tabungan Mitra Agen BNI 46 minimal Rp 500.000 pertama kali dan dapatkan cashback instan senilai biaya administrasi penuh!",
+      image: "https://lh3.googleusercontent.com/d/1mIuvZjLO0eroPRfJR5fw38mo1iIueuzq",
+      tag: "Cashback Admin",
+      color: "#F15A24",
+      actionText: "Buka Tabungan",
+      action: () => {
+        setActiveTab("beranda");
+      }
+    }
+  ];
+
+  const getFormattedTime = (dateStr: string, id: string) => {
+    const timeMatch = dateStr.match(/\b\d{2}:\d{2}(:\d{2})?\b/);
+    if (timeMatch) {
+      return timeMatch[0].substring(0, 5);
+    }
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hour = Math.abs(hash % 12) + 8;
+    const minute = Math.abs((hash >> 4) % 60);
+    const hourStr = hour.toString().padStart(2, '0');
+    const minuteStr = minute.toString().padStart(2, '0');
+    return `${hourStr}:${minuteStr}`;
+  };
+
+  // Group notifications by date
+  const groupedNotifications = useMemo(() => {
+    const getGroupLabel = (dateObj: Date) => {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const targetDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+      const diffInMs = today.getTime() - targetDate.getTime();
+      const diffInDays = Math.round(diffInMs / (1000 * 3600 * 24));
+
+      if (diffInDays === 0) return "Hari ini";
+      if (diffInDays === 1) return "Kemarin";
+      
+      const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+      return dateObj.toLocaleDateString('id-ID', options);
+    };
+
+    const groupsArray: { label: string; items: UnifiedNotification[] }[] = [];
+    
+    // Slice notifications to visibleCount
+    const visibleNotifications = notifications.slice(0, visibleCount);
+    
+    visibleNotifications.forEach(notif => {
+      const label = getGroupLabel(notif.dateObj);
+      const existingGroup = groupsArray.find(g => g.label === label);
+      if (existingGroup) {
+        existingGroup.items.push(notif);
+      } else {
+        groupsArray.push({ label, items: [notif] });
+      }
+    });
+
+    return groupsArray;
+  }, [notifications, visibleCount]);
+
+  const getIconForType = (type: string) => {
+    switch (type) {
+      case 'belanja':
+        return <ShoppingBag className="w-5 h-5 text-emerald-600" />;
+      case 'tabungan':
+        return <PiggyBank className="w-5 h-5 text-indigo-600" />;
+      case 'hutang':
+        return <CreditCard className="w-5 h-5 text-rose-600" />;
+      case 'investasi':
+        return <TrendingUp className="w-5 h-5 text-purple-600" />;
+      default:
+        return <Bell className="w-5 h-5 text-slate-600" />;
+    }
+  };
+
+  const getIconBgForType = (type: string) => {
+    switch (type) {
+      case 'belanja':
+        return 'bg-emerald-50 border border-emerald-100';
+      case 'tabungan':
+        return 'bg-indigo-50 border border-indigo-100';
+      case 'hutang':
+        return 'bg-rose-50 border border-rose-100';
+      case 'investasi':
+        return 'bg-purple-50 border border-purple-100';
+      default:
+        return 'bg-slate-50 border border-slate-100';
+    }
+  };
+
+  return (
+    <div className="pt-4 pb-12 px-6 text-left min-h-screen bg-slate-50">
+      {/* Sticky Tabs Container */}
+      <div className="sticky top-[80px] z-40 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100 mb-6">
+        <div className="flex bg-slate-100 p-1 rounded-2xl border border-[#F15A24]/10 w-full">
+          <button 
+            onClick={() => setSubTab("notifikasi")}
+            className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
+              subTab === "notifikasi" 
+                ? "bg-[#F15A24] text-white shadow-md shadow-orange-100/50 font-black" 
+                : "text-slate-500 hover:text-[#F15A24] font-bold"
+            }`}
+          >
+            <Bell className={`w-3.5 h-3.5 stroke-[2.5] ${subTab === "notifikasi" ? "text-white" : "text-slate-400"}`} />
+            Notifikasi
+            {unreadCount > 0 && (
+              <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full min-w-4 text-center transition-colors shadow-sm ${
+                subTab === "notifikasi" ? "bg-white text-[#F15A24]" : "bg-[#F15A24] text-white"
+              }`}>
+                {unreadCount}
+              </span>
+            )}
+          </button>
+          <button 
+            onClick={() => setSubTab("promo")}
+            className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
+              subTab === "promo" 
+                ? "bg-[#F15A24] text-white shadow-md shadow-orange-100/50 font-black" 
+                : "text-slate-500 hover:text-[#F15A24] font-bold"
+            }`}
+          >
+            <Percent className={`w-3.5 h-3.5 stroke-[2.5] ${subTab === "promo" ? "text-white" : "text-slate-400"}`} />
+            Promosi
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <AnimatePresence mode="wait">
+        {subTab === "notifikasi" ? (
+          <motion.div
+            key="notifikasi_feed"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0, transitionEnd: { transform: "none" } }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-4"
+          >
+            {notifications.length === 0 ? (
+              <div className="bg-white rounded-[2rem] border border-slate-100 p-12 text-center shadow-sm mt-4">
+                <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4 text-slate-300">
+                  <Bell className="w-8 h-8 stroke-[1.5]" />
+                </div>
+                <h3 className="text-slate-800 font-black text-sm uppercase tracking-wide">Belum Ada Notifikasi</h3>
+                <p className="text-slate-400 text-xs mt-1.5 leading-relaxed font-medium max-w-xs mx-auto">
+                  Semua transaksi setor, tarik, belanja, dan investasi Anda akan muncul di sini secara real-time.
+                </p>
+                <Button
+                  onClick={() => setActiveTab("beranda")}
+                  className="mt-6 bg-[#005E6A] text-white hover:bg-[#004C56] font-black uppercase tracking-wider text-[10px] py-4 px-6 rounded-xl shadow-lg shadow-[#005E6A]/10"
+                >
+                  Kembali ke Beranda
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {unreadCount > 0 && (
+                  <div className="flex justify-end px-2 pt-1 mb-2">
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 bg-slate-100/60 hover:bg-slate-100 border border-slate-200/40 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                    >
+                      <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
+                      Tandai Semua Sudah Dibaca
+                    </button>
+                  </div>
+                )}
+
+                {groupedNotifications.map((group) => (
+                  <div key={group.label} className="space-y-0">
+                    {/* Sticky Date Divider Header */}
+                    <div className="sticky top-[146px] z-30 bg-slate-50/95 backdrop-blur-md py-2.5 px-6 -mx-6 border-b border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#005E6A]">
+                        {group.label}
+                      </span>
+                      <span className="text-[9px] font-bold text-slate-400">
+                        {group.items.length} Notifikasi
+                      </span>
+                    </div>
+
+                    <div className="divide-y divide-slate-100/70 -mx-6 bg-white overflow-hidden border-b border-slate-100/70">
+                      {group.items.map((notif) => {
+                        const isUnread = !readNotificationIds.includes(notif.id);
+                        const notificationTime = getFormattedTime(notif.tanggal, notif.id);
+                        return (
+                          <motion.div
+                            key={notif.id}
+                            onClick={() => {
+                              onMarkAsRead(notif.id);
+                            }}
+                            whileHover={{ backgroundColor: isUnread ? "rgba(241, 90, 36, 0.12)" : "rgba(248, 250, 252, 1)" }}
+                            className={`py-3.5 px-6 flex items-center justify-between gap-4 transition-all cursor-pointer border-b border-slate-100/70 ${
+                              isUnread ? "border-l-4 border-l-[#F15A24]" : "border-l-4 border-l-transparent"
+                            }`}
+                            style={{ backgroundColor: isUnread ? "rgba(241, 90, 36, 0.08)" : "#ffffff" }}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              {/* Compact Icon */}
+                              <div className={`p-2 rounded-xl shrink-0 transition-all duration-300 ${getIconBgForType(notif.type)} ${isUnread ? "opacity-100 scale-105" : "opacity-50 scale-95"}`}>
+                                {getIconForType(notif.type)}
+                              </div>
+
+                              {/* Text */}
+                              <div className="min-w-0 flex-1 space-y-0.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className={`text-[11px] uppercase tracking-wide truncate ${isUnread ? "font-black text-slate-900" : "font-bold text-slate-600"}`}>
+                                    {notif.title}
+                                  </span>
+                                  {isUnread && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#F15A24] shrink-0 animate-ping" />
+                                  )}
+                                </div>
+                                <p className={`text-[11px] truncate leading-normal ${isUnread ? "text-slate-700 font-medium" : "text-slate-400 font-normal"}`}>
+                                  {notif.description}
+                                </p>
+                                <span className="text-[9px] text-slate-400 font-medium block">
+                                  Pukul {notificationTime} WIB
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Right Side: Amount */}
+                            <div className="text-right shrink-0">
+                              <span className={`text-xs tabular-nums ${isUnread ? "font-black text-[#005E6A]" : "font-bold text-slate-500"}`}>
+                                {notif.type === "tabungan" && notif.rawItem.Tipe === "SETOR" ? "+" : ""}
+                                {notif.type === "investasi" ? "+" : ""}
+                                Rp {formatCurrency(notif.amount)}
+                              </span>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                {notifications.length > visibleCount && (
+                  <div className="py-6 text-center">
+                    <button
+                      onClick={() => setVisibleCount(prev => Math.min(prev + 20, notifications.length))}
+                      className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-200/50 px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm"
+                    >
+                      Muat 20 Notifikasi Lagi
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="promo_feed"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0, transitionEnd: { transform: "none" } }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-4 pt-2"
+          >
+            {promoList.map((promo) => (
+              <motion.div
+                key={promo.id}
+                whileHover={{ y: -2 }}
+                onClick={() => setSelectedPromo(promo)}
+                className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer text-left"
+              >
+                {/* Banner Image */}
+                <div className="aspect-[21/9] w-full bg-slate-50 relative overflow-hidden">
+                  <img src={promo.image} alt={promo.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <div className="absolute top-4 left-4">
+                    <span className="bg-white/95 backdrop-blur-sm text-[#005E6A] text-[9px] font-black px-2.5 py-1 rounded-full shadow-sm border border-slate-100 uppercase tracking-widest">
+                      {promo.tag}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Info and text */}
+                <div className="p-5 space-y-2">
+                  <span className="text-[9px] font-black tracking-widest text-[#F15A24] uppercase">
+                    {promo.category}
+                  </span>
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight leading-snug">
+                    {promo.title}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed line-clamp-2">
+                    {promo.desc}
+                  </p>
+                  <div className="pt-2 flex items-center justify-between">
+                    <span className="text-[9px] font-black text-[#005E6A] uppercase tracking-widest flex items-center gap-1 group-hover:gap-1.5 transition-all">
+                      Cek Selengkapnya <ChevronRight className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Notification Detail Modal */}
+      <AnimatePresence>
+        {selectedNotification && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center px-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedNotification(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-[2.5rem] overflow-hidden shadow-2xl text-left"
+            >
+              <div className="bg-[#005E6A] p-6 text-white relative">
+                <button
+                  onClick={() => setSelectedNotification(null)}
+                  className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="space-y-1">
+                  <span className="text-[9px] font-black text-white/70 uppercase tracking-wider">Detail Transaksi</span>
+                  <h3 className="text-base font-black uppercase tracking-tight truncate">{selectedNotification.title}</h3>
+                  <p className="text-white/60 text-[10px] font-medium">{formatIndonesianDateWithDay(selectedNotification.tanggal)}</p>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Jumlah Transaksi</span>
+                    <span className="text-xl font-black text-slate-800 tabular-nums">
+                      Rp {formatCurrency(selectedNotification.amount)}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 px-1">
+                    <div className="flex justify-between items-start text-xs border-b border-dashed border-slate-100 pb-2.5">
+                      <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Status Transaksi</span>
+                      <span className={`font-black uppercase text-[9px] tracking-wider px-2 py-0.5 rounded-full border ${selectedNotification.badgeColorClass}`}>
+                        {selectedNotification.badgeText}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-start text-xs border-b border-dashed border-slate-100 pb-2.5">
+                      <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Pelanggan</span>
+                      <span className="text-slate-800 font-black uppercase text-[10px]">{user?.Nama}</span>
+                    </div>
+
+                    <div className="space-y-1 text-xs">
+                      <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Keterangan / Berita</span>
+                      <p className="text-slate-600 font-medium leading-relaxed bg-slate-50/60 p-3 rounded-xl border border-slate-100/50">
+                        {selectedNotification.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={() => setSelectedNotification(null)}
+                  className="w-full bg-[#F15A24] hover:bg-[#d94e1f] text-white font-black uppercase tracking-widest py-4 rounded-2xl shadow-lg shadow-[#F15A24]/10 cursor-pointer text-xs"
+                >
+                  Tutup Detail
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Promo Detail Modal */}
+      <AnimatePresence>
+        {selectedPromo && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center px-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedPromo(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-[2.5rem] overflow-hidden shadow-2xl text-left"
+            >
+              <div className="aspect-[16/9] w-full bg-slate-100 relative">
+                <img src={selectedPromo.image} alt={selectedPromo.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                <button
+                  onClick={() => setSelectedPromo(null)}
+                  className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <div className="absolute bottom-4 left-4">
+                  <span className="bg-white/95 backdrop-blur-sm text-[#005E6A] text-[9px] font-black px-2.5 py-1 rounded-full shadow-sm border border-slate-100 uppercase tracking-widest">
+                    {selectedPromo.tag}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <span className="text-[9px] font-black tracking-widest text-[#F15A24] uppercase">{selectedPromo.category}</span>
+                  <h3 className="text-base font-black text-slate-800 uppercase tracking-tight leading-snug">{selectedPromo.title}</h3>
+                </div>
+                
+                <p className="text-slate-600 text-xs leading-relaxed font-medium">
+                  {selectedPromo.desc}
+                </p>
+
+                <div className="flex gap-3 pt-2">
+                  <button 
+                    onClick={() => setSelectedPromo(null)}
+                    className="flex-1 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest active:scale-95 transition-transform cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setSelectedPromo(null);
+                      selectedPromo.action();
+                    }}
+                    className="flex-1 bg-[#005E6A] hover:bg-[#004C56] text-white py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-teal-100 active:scale-95 transition-transform cursor-pointer"
+                  >
+                    {selectedPromo.actionText}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
   const [activeTab, setActiveTab] = useState<"trend" | "rincian">("trend");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -16166,6 +16780,7 @@ const Layout = ({
 }) => {
   const location = useLocation();
   const isBansosPage = location.pathname.includes("/bansos");
+  const isNoBottomNav = isBansosPage || activeTab === "notifikasi";
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -16173,12 +16788,12 @@ const Layout = ({
 
   return (
     <div 
-      className={`min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans ${isBansosPage ? '' : 'pb-28'}`}
+      className={`min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans ${isNoBottomNav ? '' : 'pb-28'}`}
     >
       <main className="container mx-auto max-w-lg">
         {children}
       </main>
-      {!isBansosPage && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />}
+      {!isNoBottomNav && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />}
     </div>
   );
 };
@@ -16197,7 +16812,12 @@ const HomePage = ({
   onUpdatePhoto,
   cart,
   setCart,
-  setShowCart
+  setShowCart,
+  allNotifications,
+  unreadNotificationsCount,
+  handleMarkAllAsRead,
+  readNotificationIds,
+  handleMarkAsRead
 }: { 
   activeTab: string, 
   setActiveTab: (id: string) => void,
@@ -16212,7 +16832,12 @@ const HomePage = ({
   onUpdatePhoto: (nama: string, base64: string) => void,
   cart: { product: StockItem, qty: number }[],
   setCart: React.Dispatch<React.SetStateAction<{ product: StockItem, qty: number }[]>>,
-  setShowCart: (show: boolean) => void
+  setShowCart: (show: boolean) => void,
+  allNotifications: UnifiedNotification[],
+  unreadNotificationsCount: number,
+  handleMarkAllAsRead: () => void,
+  readNotificationIds: string[],
+  handleMarkAsRead: (id: string) => void
 }) => {
   const { subPage, customerName } = useParams();
   const navigate = useNavigate();
@@ -16364,17 +16989,299 @@ const HomePage = ({
         >
           {loggedInUser ? (
             <div className="relative">
-              {/* BNI Blue Header */}
-              <div className="bg-[#005E6A] text-white rounded-none px-6 pt-10 pb-16 relative overflow-hidden shadow-lg shadow-[#005E6A]/10">
-                {/* Background glows */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full blur-2xl -ml-20 -mb-20 pointer-events-none" />
-                
-                <div className="relative z-10 flex flex-col gap-1.5">
-                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase drop-shadow-sm flex items-center gap-2">
+              {/* BNI Blue Header / Dynamic Vector Illustration background */}
+              <div className={`relative rounded-none px-6 pt-12 pb-24 sm:pt-14 sm:pb-28 overflow-hidden shadow-lg transition-all duration-1000 bg-gradient-to-br ${
+                greeting === "Pagi" ? "from-[#005E6A] via-[#008B99] to-[#009EAD]" :
+                greeting === "Siang" ? "from-[#004C56] via-[#005E6A] to-[#007F8F]" :
+                greeting === "Sore" ? "from-[#E65100] via-[#F15A24] to-[#C0392B]" :
+                "from-[#051122] via-[#002F3A] to-[#005E6A]"
+              }`}>
+                {/* SVG Vector Backdrop of Warung Tomi */}
+                <div className="absolute right-0 bottom-[30px] sm:bottom-[38px] h-[175px] sm:h-[200px] w-[310px] sm:w-[390px] pointer-events-none select-none z-0 opacity-90 sm:opacity-100 transition-all duration-1000">
+                  <svg viewBox="0 0 300 150" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                    <style>{`
+                      @keyframes floatCloud {
+                        0% { transform: translate(0px, 0px); }
+                        50% { transform: translate(15px, -2px); }
+                        100% { transform: translate(0px, 0px); }
+                      }
+                      @keyframes floatCloudReverse {
+                        0% { transform: translate(0px, 0px); }
+                        50% { transform: translate(-12px, 2px); }
+                        100% { transform: translate(0px, 0px); }
+                      }
+                      @keyframes flyBird1 {
+                        0% { transform: translate(30px, 45px) scale(0.7); opacity: 0; }
+                        15% { opacity: 0.75; }
+                        85% { opacity: 0.75; }
+                        100% { transform: translate(250px, 15px) scale(0.95); opacity: 0; }
+                      }
+                      @keyframes flyBird2 {
+                        0% { transform: translate(240px, 35px) scale(0.65); opacity: 0; }
+                        20% { opacity: 0.65; }
+                        80% { opacity: 0.65; }
+                        100% { transform: translate(40px, 50px) scale(0.85); opacity: 0; }
+                      }
+                      @keyframes twinkle {
+                        0%, 100% { opacity: 0.35; }
+                        50% { opacity: 1; }
+                      }
+                      .animated-cloud-1 {
+                        animation: floatCloud 24s ease-in-out infinite;
+                      }
+                      .animated-cloud-2 {
+                        animation: floatCloudReverse 28s ease-in-out infinite;
+                      }
+                      .animated-bird-1 {
+                        animation: flyBird1 22s linear infinite;
+                      }
+                      .animated-bird-2 {
+                        animation: flyBird2 27s linear infinite;
+                      }
+                      .star-twinkle-1 {
+                        animation: twinkle 3s ease-in-out infinite;
+                      }
+                      .star-twinkle-2 {
+                        animation: twinkle 4.2s ease-in-out infinite 1.2s;
+                      }
+                      .star-twinkle-3 {
+                        animation: twinkle 2.6s ease-in-out infinite 0.6s;
+                      }
+                    `}</style>
+                    <defs>
+                      <linearGradient id="pagiSun" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#FFF200" stopOpacity="0.9" />
+                        <stop offset="100%" stopColor="#F15A24" stopOpacity="0.1" />
+                      </linearGradient>
+                      <linearGradient id="siangSun" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#FFF" />
+                        <stop offset="100%" stopColor="#FFF200" />
+                      </linearGradient>
+                      <linearGradient id="soreSun" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="#FF7E47" />
+                        <stop offset="100%" stopColor="#FF4500" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+
+                    {/* 1. SKY / ENVIROMENT GRAPHICS based on greeting */}
+                    {greeting === "Pagi" && (
+                      <>
+                        <circle cx="110" cy="115" r="38" fill="url(#pagiSun)" />
+                        <g className="animated-cloud-1">
+                          <path d="M40,50 Q45,40 55,42 Q65,35 75,45 Q85,45 80,55 L40,55 Z" fill="white" fillOpacity="0.25" />
+                        </g>
+                        <g className="animated-cloud-2">
+                          <path d="M180,35 Q185,25 195,27 Q205,20 215,30 Q225,30 220,40 L180,40 Z" fill="white" fillOpacity="0.2" />
+                        </g>
+                        {/* Flying Birds */}
+                        <g className="animated-bird-1">
+                          <path d="M0,4 Q3,0 6,4 Q9,0 12,4" fill="none" stroke="white" strokeWidth="1" strokeLinecap="round" />
+                        </g>
+                        <g className="animated-bird-2">
+                          <path d="M0,3 Q2.5,0 5,3 Q7.5,0 10,3" fill="none" stroke="white" strokeWidth="0.8" strokeLinecap="round" />
+                        </g>
+                      </>
+                    )}
+
+                    {greeting === "Siang" && (
+                      <>
+                        <circle cx="70" cy="35" r="15" fill="url(#siangSun)" className="drop-shadow-[0_0_8px_rgba(255,242,0,0.6)]" />
+                        <g className="animated-cloud-1">
+                          <path d="M20,60 Q25,50 35,52 Q45,45 55,55 Q65,55 60,65 L20,65 Z" fill="white" fillOpacity="0.3" />
+                        </g>
+                        <g className="animated-cloud-2">
+                          <path d="M220,45 Q225,35 235,37 Q245,30 255,40 L220,40 Z" fill="white" fillOpacity="0.25" />
+                        </g>
+                        {/* Flying Birds */}
+                        <g className="animated-bird-1">
+                          <path d="M0,4 Q3,0 6,4 Q9,0 12,4" fill="none" stroke="white" strokeWidth="1" strokeLinecap="round" />
+                        </g>
+                        <g className="animated-bird-2">
+                          <path d="M0,3 Q2.5,0 5,3 Q7.5,0 10,3" fill="none" stroke="white" strokeWidth="0.8" strokeLinecap="round" />
+                        </g>
+                      </>
+                    )}
+
+                    {greeting === "Sore" && (
+                      <>
+                        <circle cx="120" cy="115" r="42" fill="url(#soreSun)" />
+                        <g className="animated-cloud-1">
+                          <path d="M50,65 Q55,55 65,57 Q75,50 85,60 L50,60 Z" fill="#FFAAA6" fillOpacity="0.2" />
+                        </g>
+                        {/* Flying Birds */}
+                        <g className="animated-bird-1">
+                          <path d="M0,4 Q3,0 6,4 Q9,0 12,4" fill="none" stroke="#FFEAA7" strokeWidth="1" strokeLinecap="round" />
+                        </g>
+                        <g className="animated-bird-2">
+                          <path d="M0,3 Q2.5,0 5,3 Q7.5,0 10,3" fill="none" stroke="#FFEAA7" strokeWidth="0.8" strokeLinecap="round" />
+                        </g>
+                      </>
+                    )}
+
+                    {greeting === "Malam" && (
+                      <>
+                        {/* Shimmering stars */}
+                        <circle cx="30" cy="25" r="1.2" fill="white" fillOpacity="0.8" className="star-twinkle-1" />
+                        <circle cx="85" cy="15" r="1" fill="white" fillOpacity="0.6" className="star-twinkle-2" />
+                        <circle cx="150" cy="40" r="1.5" fill="white" fillOpacity="0.9" className="star-twinkle-3" />
+                        <circle cx="215" cy="20" r="1" fill="white" fillOpacity="0.7" className="star-twinkle-1" />
+                        <circle cx="270" cy="45" r="1.2" fill="white" fillOpacity="0.8" className="star-twinkle-2" />
+                        {/* Golden Crescent Moon */}
+                        <path d="M55,18 A12,12 0 1,0 68,31 A9.5,9.5 0 1,1 55,18 Z" fill="#FFEAA7" className="drop-shadow-[0_0_8px_rgba(255,234,167,0.7)]" />
+                      </>
+                    )}
+
+                    {/* 2. THE WARUNG STRUCTURE */}
+                    <g transform="translate(0, -12)">
+                      {/* Cozy Background Trees and Foliage */}
+                      <path d="M90,150 Q75,115 100,105 Q120,95 135,112 Q145,150 90,150 Z" fill="#0F4C22" fillOpacity="0.9" />
+                      <path d="M115,150 Q105,122 125,118 Q140,112 152,126 Q158,150 115,150 Z" fill="#1C6630" fillOpacity="0.8" />
+                      <path d="M250,150 Q262,118 275,124 Q288,110 298,135 Q302,150 250,150 Z" fill="#1C6630" fillOpacity="0.85" />
+                      <g transform="translate(88, 108)">
+                        {/* Wooden A-frame shadow/depth */}
+                        <polygon points="2,42 10,12 24,12 32,42" fill="#3D2112" />
+                        <polygon points="5,41 11,14 23,14 29,41" fill="#FFFFFF" stroke="#101827" strokeWidth="1.2" />
+                        
+                        {/* BNI 46 Board content */}
+                        <rect x="7" y="16" width="20" height="23" rx="1.5" fill="#FFFFFF" stroke="#005E6A" strokeWidth="0.8" />
+                        
+                        {/* BNI Logo Teal Strip */}
+                        <rect x="7.5" y="16.5" width="19" height="5.5" fill="#005E6A" />
+                        <text x="17" y="20.8" textAnchor="middle" fill="#FFFFFF" fontSize="4.5" fontWeight="900" fontFamily="sans-serif">Agen</text>
+                        
+                        {/* Bold 46 in Orange */}
+                        <text x="17" y="29.5" textAnchor="middle" fill="#F15A24" fontSize="8" fontWeight="900" fontFamily="sans-serif">46</text>
+                        
+                        {/* BNI Small Label */}
+                        <text x="17" y="33.8" textAnchor="middle" fill="#005E6A" fontSize="3.5" fontWeight="900" fontFamily="sans-serif">BNI</text>
+                        
+                        {/* Melayani Transfer */}
+                        <text x="17" y="37.5" textAnchor="middle" fill="#101827" fontSize="2" fontWeight="bold" fontFamily="sans-serif" letterSpacing="0.05">TRANSFER</text>
+                        
+                        {/* Wooden Board Hinge */}
+                        <circle cx="17" cy="12" r="1.5" fill="#7F8C8D" stroke="#101827" strokeWidth="0.8" />
+                      </g>
+
+                      {/* Main Building Wall (Cozy wooden paneling texture) */}
+                      <rect x="140" y="72" width="115" height="78" rx="3" fill="#F0E3D1" stroke="#101827" strokeWidth="1.8" />
+                      {/* Horizontal Wood Siding Lines */}
+                      <line x1="141" y1="82" x2="254" y2="82" stroke="#D3C3B0" strokeWidth="0.8" />
+                      <line x1="141" y1="92" x2="254" y2="92" stroke="#D3C3B0" strokeWidth="0.8" />
+                      <line x1="141" y1="102" x2="254" y2="102" stroke="#D3C3B0" strokeWidth="0.8" />
+                      <line x1="141" y1="112" x2="254" y2="112" stroke="#D3C3B0" strokeWidth="0.8" />
+                      <line x1="141" y1="122" x2="254" y2="122" stroke="#D3C3B0" strokeWidth="0.8" />
+                      <line x1="141" y1="132" x2="254" y2="132" stroke="#D3C3B0" strokeWidth="0.8" />
+                      <line x1="141" y1="142" x2="254" y2="142" stroke="#D3C3B0" strokeWidth="0.8" />
+
+                      {/* Traditional Terracotta Tiled Roof */}
+                      <polygon points="120,72 145,41 250,41 275,72" fill="#C0392B" stroke="#101827" strokeWidth="1.8" />
+                      <polygon points="126,72 147,44 248,44 269,72" fill="#D35400" fillOpacity="0.25" />
+                      {/* Diagonal Tile grooves */}
+                      <line x1="148" y1="72" x2="162" y2="41" stroke="#101827" strokeWidth="1.2" strokeOpacity="0.4" />
+                      <line x1="168" y1="72" x2="179" y2="41" stroke="#101827" strokeWidth="1.2" strokeOpacity="0.4" />
+                      <line x1="188" y1="72" x2="196" y2="41" stroke="#101827" strokeWidth="1.2" strokeOpacity="0.4" />
+                      <line x1="208" y1="72" x2="213" y2="41" stroke="#101827" strokeWidth="1.2" strokeOpacity="0.4" />
+                      <line x1="228" y1="72" x2="230" y2="41" stroke="#101827" strokeWidth="1.2" strokeOpacity="0.4" />
+                      <line x1="248" y1="72" x2="247" y2="41" stroke="#101827" strokeWidth="1.2" strokeOpacity="0.4" />
+
+                      {/* Striped Canopy / Canvas Awning (Premium Teal & White) */}
+                      <path d="M128,72 L262,72 L257,85 L133,85 Z" fill="#005E6A" stroke="#101827" strokeWidth="1.8" />
+                      {/* Canvas Stripes */}
+                      <polygon points="143,72 152,72 149,85 140,85" fill="#FFFFFF" />
+                      <polygon points="171,72 180,72 177,85 168,85" fill="#FFFFFF" />
+                      <polygon points="199,72 208,72 205,85 196,85" fill="#FFFFFF" />
+                      <polygon points="227,72 236,72 233,85 224,85" fill="#FFFFFF" />
+                      <polygon points="247,72 254,72 251,85 245,85" fill="#FFFFFF" />
+
+                      {/* Main Hanging "WARUNG TOMI" Board Sign (Styled wood finish) */}
+                      <line x1="166" y1="70" x2="166" y2="74" stroke="#101827" strokeWidth="1.2" />
+                      <line x1="214" y1="70" x2="214" y2="74" stroke="#101827" strokeWidth="1.2" />
+                      <rect x="155" y="74" width="70" height="13" rx="2" fill="#5C3A21" stroke="#101827" strokeWidth="1.5" />
+                      {/* Glowing sign back-glow on Evening/Night */}
+                      {(greeting === "Malam" || greeting === "Sore") && (
+                        <rect x="157" y="76" width="66" height="9" rx="1" fill="#FFF200" fillOpacity="0.15" className="animate-pulse" />
+                      )}
+                      <text x="190" y="83" textAnchor="middle" fill="#FFEAA7" fontSize="6.8" fontWeight="900" fontFamily="sans-serif" letterSpacing="0.5">WARUNG TOMI</text>
+
+                      {/* Window Counter / Storefront Display Section */}
+                      <rect x="148" y="92" width="52" height="34" rx="1.5" fill={greeting === "Malam" || greeting === "Sore" ? "#FFF1D0" : "#FCECD4"} stroke="#101827" strokeWidth="1.8" />
+                      {/* Counter Shelf partition */}
+                      <line x1="148" y1="109" x2="200" y2="109" stroke="#101827" strokeWidth="1.2" />
+                      
+                      {/* Detailed Storefront Items: Snack Jars & Hanging Sachet Sachets */}
+                      {/* Row of Snack Jars on top counter */}
+                      <rect x="153" y="96" width="10" height="11" rx="1" fill="#FFFFFF" fillOpacity="0.75" stroke="#101827" strokeWidth="0.8" />
+                      <circle cx="158" cy="102" r="2.2" fill="#E67E22" />
+                      <rect x="155" y="94.5" width="6" height="1.8" rx="0.5" fill="#C0392B" />
+
+                      <rect x="167" y="96" width="10" height="11" rx="1" fill="#FFFFFF" fillOpacity="0.75" stroke="#101827" strokeWidth="0.8" />
+                      <circle cx="172" cy="102" r="2.6" fill="#2ECC71" />
+                      <rect x="169" y="94.5" width="6" height="1.8" rx="0.5" fill="#27AE60" />
+
+                      <rect x="181" y="96" width="10" height="11" rx="1" fill="#FFFFFF" fillOpacity="0.75" stroke="#101827" strokeWidth="0.8" />
+                      <circle cx="186" cy="102" r="2.2" fill="#F1C40F" />
+                      <rect x="183" y="94.5" width="6" height="1.8" rx="0.5" fill="#D35400" />
+
+                      {/* Cute hanging colorful instant coffee/snack sachets under the shelf */}
+                      <rect x="152" y="112" width="5" height="7" rx="0.5" fill="#E74C3C" stroke="#101827" strokeWidth="0.6" />
+                      <rect x="159" y="112" width="5" height="7" rx="0.5" fill="#3498DB" stroke="#101827" strokeWidth="0.6" />
+                      <rect x="166" y="112" width="5" height="7" rx="0.5" fill="#2ECC71" stroke="#101827" strokeWidth="0.6" />
+                      <rect x="173" y="112" width="5" height="7" rx="0.5" fill="#F1C40F" stroke="#101827" strokeWidth="0.6" />
+                      <rect x="180" y="112" width="5" height="7" rx="0.5" fill="#9B59B6" stroke="#101827" strokeWidth="0.6" />
+                      <rect x="187" y="112" width="5" height="7" rx="0.5" fill="#E67E22" stroke="#101827" strokeWidth="0.6" />
+
+                      {/* Main Entrance Door (Wooden cozy texture) */}
+                      <rect x="210" y="92" width="32" height="58" rx="1.5" fill="#8B5A2B" stroke="#101827" strokeWidth="1.8" />
+                      {/* Cozy Glass Pane Window on Door */}
+                      <rect x="216" y="98" width="20" height="20" rx="1" fill={greeting === "Malam" || greeting === "Sore" ? "#FFEAA7" : "#BEE3F8"} stroke="#101827" strokeWidth="1.2" />
+                      <line x1="226" y1="98" x2="226" y2="118" stroke="#101827" strokeWidth="0.8" />
+                      <line x1="216" y1="108" x2="236" y2="108" stroke="#101827" strokeWidth="0.8" />
+                      {/* Shiny Golden Brass Door Handle */}
+                      <circle cx="214" cy="122" r="1.8" fill="#F1C40F" stroke="#101827" strokeWidth="0.8" />
+
+                      {/* Cozy Warm Overhead Lamp bulb hanging on storefront shelf */}
+                      <line x1="174" y1="85" x2="174" y2="94" stroke="#101827" strokeWidth="1.2" />
+                      <circle cx="174" cy="95" r="2.5" fill={greeting === "Malam" || greeting === "Sore" ? "#FFF200" : "#D1D5DB"} stroke="#101827" strokeWidth="0.8" />
+                      {(greeting === "Malam" || greeting === "Sore") && (
+                        <circle cx="174" cy="95" r="12" fill="#FFF200" fillOpacity="0.25" className="animate-pulse" />
+                      )}
+
+                      {/* Cute Sleepy Mascot Orange Cat ("Kucing Oranye") resting on a stool */}
+                      <g transform="translate(125, 128)">
+                        {/* Wooden Stool */}
+                        <ellipse cx="10" cy="12" rx="6" ry="2" fill="#D35400" stroke="#101827" strokeWidth="1" />
+                        <line x1="6" y1="13" x2="5" y2="22" stroke="#101827" strokeWidth="1" />
+                        <line x1="14" y1="13" x2="15" y2="22" stroke="#101827" strokeWidth="1" />
+                        <line x1="10" y1="13" x2="10" y2="21" stroke="#101827" strokeWidth="0.8" />
+                        
+                        {/* Sleepy Orange Cat */}
+                        {/* Body blob */}
+                        <ellipse cx="10" cy="10" rx="4.5" ry="3" fill="#F39C12" stroke="#101827" strokeWidth="0.8" />
+                        {/* Cat Head */}
+                        <circle cx="13" cy="9" r="2.2" fill="#F39C12" stroke="#101827" strokeWidth="0.8" />
+                        {/* Cat Ears */}
+                        <polygon points="12,7 13.5,5 14,7.5" fill="#E67E22" stroke="#101827" strokeWidth="0.5" />
+                        {/* Cat tail wrapped around body */}
+                        <path d="M6.5,11 Q7.5,13 10,12" stroke="#E67E22" strokeWidth="1.2" strokeLinecap="round" />
+                        {/* Sleepy closed eyes */}
+                        <line x1="13" y1="9.5" x2="14.2" y2="9.5" stroke="#2C3E50" strokeWidth="0.5" />
+                      </g>
+
+                      {/* Small potted plant on right deck */}
+                      <rect x="248" y="138" width="10" height="12" rx="0.5" fill="#A04000" stroke="#101827" strokeWidth="1" />
+                      <path d="M243,138 Q253,122 263,138 Z" fill="#2E7D32" stroke="#101827" strokeWidth="1.2" />
+                      <circle cx="253" cy="132" r="3" fill="#4CAF50" />
+                    </g>
+
+
+                  </svg>
+                </div>
+
+                <div className="relative z-10 flex flex-col gap-1.5 max-w-[62%] sm:max-w-[55%]">
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase drop-shadow-md flex items-center gap-2">
                     {greeting}, {loggedInUser.Nama}! <span className="inline-block animate-bounce origin-bottom">👋</span>
                   </h1>
-                  <p className="text-xs sm:text-sm font-black text-amber-300 uppercase tracking-[0.2em] drop-shadow-sm flex items-center gap-1.5">
+                  <p className="text-xs sm:text-sm font-black text-amber-300 uppercase tracking-[0.2em] drop-shadow-md flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     Selamat Datang Kembali
                   </p>
@@ -16770,6 +17677,21 @@ const HomePage = ({
           <ProfilPage user={loggedInUser} transactions={salesTransactions} investmentTransactions={investmentTransactions} redeemedPoints={redeemedPoints} onLogout={onLogout} customers={customers} onLogin={onLogin} setActiveTab={setActiveTab} onUpdatePhoto={onUpdatePhoto} />
         </motion.div>
       )}
+      {activeTab === "notifikasi" && (
+        <ProtectedPage user={loggedInUser} title="Notifikasi" customers={customers} onLogin={onLogin} setActiveTab={setActiveTab}>
+          <NotificationPage 
+            user={loggedInUser}
+            onLogin={onLogin}
+            customers={customers}
+            setActiveTab={setActiveTab}
+            notifications={allNotifications}
+            unreadCount={unreadNotificationsCount}
+            markAllAsRead={handleMarkAllAsRead}
+            readNotificationIds={readNotificationIds}
+            onMarkAsRead={handleMarkAsRead}
+          />
+        </ProtectedPage>
+      )}
     </AnimatePresence>
 
     {/* Selected Offer Detail Modal */}
@@ -17124,6 +18046,159 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem("warung_tomi_read_notifications");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const allNotifications = useMemo(() => {
+    if (!loggedInUser) return [];
+    const nameLower = loggedInUser.Nama.toLowerCase();
+    const list: UnifiedNotification[] = [];
+
+    // 1. Sales (Belanja)
+    salesTransactions
+      .filter(t => t.Nama.toLowerCase() === nameLower)
+      .forEach((t, index) => {
+        const uniqueId = `belanja-${t.id || t.id_transaksi || index}-${t.Tanggal}-${t.Pemasukan}`;
+        const jenisUpper = (t.Jenis || '').toUpperCase();
+        const metodeUpper = (t.Metode || '').toUpperCase();
+        const belanjaDesc = metodeUpper.includes("KASBON")
+          ? `Transaksi ${jenisUpper} Dicatat sebagai KASBON`
+          : `Transaksi ${jenisUpper}`;
+
+        list.push({
+          id: uniqueId,
+          tanggal: t.Tanggal,
+          dateObj: parseDate(t.Tanggal),
+          type: 'belanja',
+          title: "Belanja",
+          description: belanjaDesc,
+          amount: t.Pemasukan,
+          badgeText: t.Status,
+          badgeColorClass: t.Status === 'Lunas' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100',
+          rawItem: t
+        });
+      });
+
+    // 2. Savings (Tabungan)
+    savingsTransactions
+      .filter(t => t.Nama.toLowerCase() === nameLower)
+      .forEach((t, index) => {
+        const uniqueId = `tabungan-${t.id || t.id_tabungan || index}-${t.Tanggal}-${t.Nominal}`;
+        const tipeUpper = (t.Tipe || '').toUpperCase();
+        let desc = "SETOR/TARIK TABUNGAN";
+        if (tipeUpper === "SETOR") {
+          desc = "Setor Tabungan";
+        } else if (tipeUpper === "TARIK") {
+          desc = "Tarik Tabungan";
+        }
+
+        list.push({
+          id: uniqueId,
+          tanggal: t.Tanggal,
+          dateObj: parseDate(t.Tanggal),
+          type: 'tabungan',
+          title: "Tabungan",
+          description: desc,
+          amount: t.Nominal,
+          badgeText: t.Tipe,
+          badgeColorClass: t.Tipe === "SETOR" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-red-50 text-red-600 border-red-100",
+          rawItem: t
+        });
+      });
+
+    // 3. Debt (Hutang)
+    debtTransactions
+      .filter(t => t.Nama.toLowerCase() === nameLower)
+      .forEach((t, index) => {
+        const uniqueId = `hutang-${t.id || t.id_hutang || index}-${t.Tanggal}-${t.Jumlah}`;
+        const tipeUpper = (t.Tipe || '').toUpperCase();
+        let desc = "BAYAR/KASBON";
+        if (tipeUpper === "TAMBAH" || tipeUpper === "KASBON" || tipeUpper === "HUTANG") {
+          desc = "Kasbon";
+        } else if (tipeUpper === "BAYAR") {
+          desc = "Bayar Kasbon";
+        }
+
+        list.push({
+          id: uniqueId,
+          tanggal: t.Tanggal,
+          dateObj: parseDate(t.Tanggal),
+          type: 'hutang',
+          title: "Hutang",
+          description: desc,
+          amount: t.Jumlah,
+          badgeText: t.Tipe === "TAMBAH" ? "Kasbon" : "Bayar",
+          badgeColorClass: t.Tipe === "TAMBAH" ? "bg-red-50 text-red-600 border-red-100" : "bg-blue-50 text-blue-600 border-blue-100",
+          rawItem: t
+        });
+      });
+
+    // 4. Investment (Investasi)
+    investmentTransactions
+      .filter(t => t.Nama.toLowerCase() === nameLower)
+      .forEach((t, index) => {
+        const uniqueId = `investasi-${t.id || t.id_investasi || index}-${t.Tanggal}-${t.Nominal}`;
+        list.push({
+          id: uniqueId,
+          tanggal: t.Tanggal,
+          dateObj: parseDate(t.Tanggal),
+          type: 'investasi',
+          title: "Investasi",
+          description: t.Keterangan || `Pembukaan investasi tenor ${t.Tenor}. Jatuh tempo pada ${t.JatuhTempo}.`,
+          amount: t.Nominal,
+          badgeText: t.Status,
+          badgeColorClass: t.Status.toLowerCase().includes("cair") || t.Status.toLowerCase().includes("sukses") 
+            ? "bg-emerald-50 text-emerald-600 border-emerald-100" 
+            : "bg-purple-50 text-purple-600 border-purple-100",
+          rawItem: t
+        });
+      });
+
+    const isSameDay = (d1: Date, d2: Date) => {
+      return d1.getFullYear() === d2.getFullYear() &&
+             d1.getMonth() === d2.getMonth() &&
+             d1.getDate() === d2.getDate();
+    };
+
+    // Filter out 'hutang' notifications if there is a 'belanja' notification on the same day with the same amount
+    const filteredList = list.filter(item => {
+      if (item.type === 'hutang' && item.rawItem?.Tipe === 'TAMBAH') {
+        const hasMatchingBelanja = list.some(other => 
+          other.type === 'belanja' && 
+          other.amount === item.amount && 
+          isSameDay(other.dateObj, item.dateObj)
+        );
+        if (hasMatchingBelanja) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    return filteredList.sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
+  }, [loggedInUser, salesTransactions, savingsTransactions, debtTransactions, investmentTransactions]);
+
+  const unreadNotificationsCount = useMemo(() => {
+    return allNotifications.filter(n => !readNotificationIds.includes(n.id)).length;
+  }, [allNotifications, readNotificationIds]);
+
+  const handleMarkAllAsRead = () => {
+    const allIds = allNotifications.map(n => n.id);
+    localStorage.setItem("warung_tomi_read_notifications", JSON.stringify(allIds));
+    setReadNotificationIds(allIds);
+  };
+
+  const handleMarkAsRead = (id: string) => {
+    setReadNotificationIds(prev => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      localStorage.setItem("warung_tomi_read_notifications", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const updateQty = (id: string, delta: number) => {
     setCart(prev => prev.map(item => {
@@ -17721,6 +18796,7 @@ export default function App() {
               redeemedPoints={redeemedPoints}
               cart={cart}
               setShowCart={setShowCart}
+              unreadNotificationsCount={unreadNotificationsCount}
             />
 
 
@@ -17746,6 +18822,11 @@ export default function App() {
               cart={cart}
               setCart={setCart}
               setShowCart={setShowCart}
+              allNotifications={allNotifications}
+              unreadNotificationsCount={unreadNotificationsCount}
+              handleMarkAllAsRead={handleMarkAllAsRead}
+              readNotificationIds={readNotificationIds}
+              handleMarkAsRead={handleMarkAsRead}
             />
           </Layout>
         } />
@@ -17770,6 +18851,11 @@ export default function App() {
               cart={cart}
               setCart={setCart}
               setShowCart={setShowCart}
+              allNotifications={allNotifications}
+              unreadNotificationsCount={unreadNotificationsCount}
+              handleMarkAllAsRead={handleMarkAllAsRead}
+              readNotificationIds={readNotificationIds}
+              handleMarkAsRead={handleMarkAsRead}
             />
           </Layout>
         } />
@@ -17794,6 +18880,11 @@ export default function App() {
               cart={cart}
               setCart={setCart}
               setShowCart={setShowCart}
+              allNotifications={allNotifications}
+              unreadNotificationsCount={unreadNotificationsCount}
+              handleMarkAllAsRead={handleMarkAllAsRead}
+              readNotificationIds={readNotificationIds}
+              handleMarkAsRead={handleMarkAsRead}
             />
           </Layout>
         } />
