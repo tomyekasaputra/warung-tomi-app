@@ -20,6 +20,9 @@ import {
   Cell
 } from 'recharts';
 import CustomerManagement from "./components/CustomerManagement";
+import { DetailBelanjaPage } from "./components/DetailBelanjaPage";
+import { DetailTabunganPage } from "./components/DetailTabunganPage";
+import { DetailHutangPage } from "./components/DetailHutangPage";
 import { 
   ShoppingBag, 
   Zap, 
@@ -331,7 +334,7 @@ const calculateEstimatedReturn = (nominal: number, nisbah: string | undefined, s
   return { profit: 0, total: nominal, percent: 0, rateYearly: 0 };
 };
 
-interface Customer {
+export interface Customer {
   id_pelanggan?: string;
   Nama: string;
   PIN?: string;
@@ -342,7 +345,7 @@ interface Customer {
   [key: string]: any;
 }
 
-interface SavingTransaction {
+export interface SavingTransaction {
   id?: string;
   id_tabungan?: string;
   id_pelanggan?: string;
@@ -355,7 +358,7 @@ interface SavingTransaction {
   Sebagian?: number;
 }
 
-interface DebtTransaction {
+export interface DebtTransaction {
   id?: string;
   id_hutang?: string;
   id_pelanggan?: string;
@@ -368,7 +371,7 @@ interface DebtTransaction {
   Sebagian?: number;
 }
 
-interface SalesTransaction {
+export interface SalesTransaction {
   id?: string;
   id_transaksi?: string;
   id_pelanggan?: string;
@@ -685,6 +688,7 @@ const Header = ({
   onLogin, 
   onLogout,
   setActiveTab,
+  activeTab,
   isLoading,
   salesTransactions,
   redeemedPoints,
@@ -697,6 +701,7 @@ const Header = ({
   onLogin: (user: Customer) => void, 
   onLogout: () => void,
   setActiveTab: (id: string) => void,
+  activeTab: string,
   isLoading: boolean,
   salesTransactions: SalesTransaction[],
   redeemedPoints: RedeemedPoint[],
@@ -800,7 +805,7 @@ const Header = ({
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setActiveTab("notifikasi")}
+                onClick={() => setActiveTab(activeTab === "notifikasi" ? "beranda" : "notifikasi")}
                 className="relative p-2.5 rounded-full bg-[#E6F4F5] hover:bg-[#d0eaec] text-[#005E6A] transition-all cursor-pointer flex items-center justify-center border border-[#005E6A]/10"
                 aria-label="Notifikasi"
               >
@@ -2822,7 +2827,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
   const activePoints = totalEarned - totalExpired - totalRedeemed;
 
   // Build unified point history
-  const pointHistory: { type: 'earn' | 'redeem' | 'expire'; date: string; points: number; title: string; description: string }[] = [];
+  const pointHistory: { type: 'earn' | 'redeem' | 'expire'; date: string; points: number; title: string; description: string; transactionId?: string }[] = [];
 
   // Earned & Expired
   userSales.forEach(t => {
@@ -2835,7 +2840,8 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
           date: t.Tanggal,
           points: points,
           title: 'Poin Masuk',
-          description: `Belanja Rp ${t.Pemasukan.toLocaleString('id-ID')} (${t.Jenis || 'Transaksi'})`
+          description: `Belanja Rp ${t.Pemasukan.toLocaleString('id-ID')} (${t.Jenis || 'Transaksi'})`,
+          transactionId: t.id || t.id_transaksi
         });
 
         const expiryDate = new Date(tDate);
@@ -3212,7 +3218,14 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                             </div>
                           )}
                           <div 
-                            className="bg-white rounded-2xl border border-slate-100 p-4 flex items-center justify-between gap-4 shadow-sm"
+                            onClick={() => {
+                              if (isEarn && item.transactionId) {
+                                navigate(`/detail-belanja/${encodeURIComponent(item.transactionId)}`);
+                              }
+                            }}
+                            className={`bg-white rounded-2xl border border-slate-100 p-4 flex items-center justify-between gap-4 shadow-sm ${
+                              isEarn && item.transactionId ? 'cursor-pointer hover:bg-slate-50/80 transition-colors active:scale-[0.99] duration-150' : ''
+                            }`}
                           >
                             <div className="flex items-center gap-3 min-w-0">
                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
@@ -3984,14 +3997,10 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
     if (showSavingId) {
       const found = userTransactions.find(t => t.id === showSavingId || t.id_tabungan === showSavingId);
       if (found) {
-        setSelectedSavingTx(found);
-        const tDate = parseDate(found.Tanggal);
-        const tMonthYear = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}`;
-        setSelectedMonth(tMonthYear);
-        setActiveTab('riwayat');
+        navigate(`/detail-tabungan/${encodeURIComponent(showSavingId)}`);
       }
     }
-  }, [searchParams, userTransactions]);
+  }, [searchParams, userTransactions, navigate]);
 
   const getMotivationMessage = (nominal: number) => {
     if (nominal >= 100000) {
@@ -4292,7 +4301,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                     filteredTransactions.map((t, i) => (
                       <div 
                         key={i} 
-                        onClick={() => setSelectedSavingTx(t)}
+                        onClick={() => navigate(`/detail-tabungan/${encodeURIComponent(t.id || t.id_tabungan || '')}`)}
                         className="bg-white rounded-2xl border border-slate-100 hover:border-green-100 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all duration-200 overflow-hidden relative group"
                       >
                         <div className="p-4 flex items-center gap-4">
@@ -4400,7 +4409,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                               monthTransactions.map((mt, j) => (
                                 <div 
                                   key={j} 
-                                  onClick={() => setSelectedSavingTx(mt)}
+                                  onClick={() => navigate(`/detail-tabungan/${encodeURIComponent(mt.id || mt.id_tabungan || '')}`)}
                                   className="flex items-center justify-between py-2 px-2 border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50 rounded-xl transition-all duration-200"
                                 >
                                   <div className="space-y-1">
@@ -4627,11 +4636,10 @@ const DebtDetailPage = ({
     if (showHutangId) {
       const found = transactions.find(t => t.id === showHutangId || t.id_hutang === showHutangId);
       if (found) {
-        setSelectedTx(found);
-        setActiveTab('riwayat');
+        navigate(`/detail-hutang/${encodeURIComponent(showHutangId)}`);
       }
     }
-  }, [searchParams, transactions]);
+  }, [searchParams, transactions, navigate]);
 
   const displayUser = customerName && customers 
     ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
@@ -5007,7 +5015,7 @@ const DebtDetailPage = ({
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    onClick={() => setSelectedTx(t)}
+                    onClick={() => navigate(`/detail-hutang/${encodeURIComponent(t.id || t.id_hutang || '')}`)}
                     className="bg-white rounded-2xl p-4 border border-slate-100 hover:border-red-100 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all duration-200 flex items-center justify-between group relative overflow-hidden"
                   >
                     <div className="flex items-center gap-4">
@@ -5117,7 +5125,7 @@ const DebtDetailPage = ({
                            {period.transactions.map((mt, j) => (
                               <div 
                                 key={j} 
-                                onClick={() => setSelectedTx(mt)}
+                                onClick={() => navigate(`/detail-hutang/${encodeURIComponent(mt.id || mt.id_hutang || '')}`)}
                                 className="flex items-center justify-between py-2 border-b border-white last:border-0 cursor-pointer hover:bg-white/40 p-1.5 -mx-1.5 rounded-xl transition-all"
                               >
                                 <div className="space-y-0.5">
@@ -10947,6 +10955,99 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
   );
 };
 
+import { 
+  Cookie, 
+  CupSoda, 
+  Flame, 
+  Sparkles, 
+  Pill, 
+  Pencil,
+  Grid
+} from "lucide-react";
+
+const getCategoryIcon = (category: string) => {
+  const cat = category.toLowerCase();
+  if (cat === "semua") return <Grid className="w-3.5 h-3.5" />;
+  if (
+    cat.includes("makan") || 
+    cat.includes("cemilan") || 
+    cat.includes("snack") || 
+    cat.includes("roti") || 
+    cat.includes("biskuit") || 
+    cat.includes("biscuit") || 
+    cat.includes("kuliner")
+  ) {
+    return <Cookie className="w-3.5 h-3.5" />;
+  }
+  if (
+    cat.includes("minum") || 
+    cat.includes("soda") || 
+    cat.includes("kopi") || 
+    cat.includes("teh") || 
+    cat.includes("susu") || 
+    cat.includes("jus") || 
+    cat.includes("beverage")
+  ) {
+    return <CupSoda className="w-3.5 h-3.5" />;
+  }
+  if (
+    cat.includes("sembako") || 
+    cat.includes("beras") || 
+    cat.includes("minyak") || 
+    cat.includes("bumbu") || 
+    cat.includes("gula") || 
+    cat.includes("mie") || 
+    cat.includes("telur") || 
+    cat.includes("dapur")
+  ) {
+    return <ShoppingBag className="w-3.5 h-3.5" />;
+  }
+  if (
+    cat.includes("rokok") || 
+    cat.includes("korek") || 
+    cat.includes("tembakau") || 
+    cat.includes("api")
+  ) {
+    return <Flame className="w-3.5 h-3.5" />;
+  }
+  if (
+    cat.includes("sabun") || 
+    cat.includes("shampoo") || 
+    cat.includes("mandi") || 
+    cat.includes("cuci") || 
+    cat.includes("odol") || 
+    cat.includes("shampo") || 
+    cat.includes("pembersih") || 
+    cat.includes("beauty") || 
+    cat.includes("kecantikan") || 
+    cat.includes("detergen")
+  ) {
+    return <Sparkles className="w-3.5 h-3.5" />;
+  }
+  if (
+    cat.includes("obat") || 
+    cat.includes("sakit") || 
+    cat.includes("vitamin") || 
+    cat.includes("medis") || 
+    cat.includes("kesehatan") || 
+    cat.includes("p3k")
+  ) {
+    return <Pill className="w-3.5 h-3.5" />;
+  }
+  if (
+    cat.includes("atk") || 
+    cat.includes("tulis") || 
+    cat.includes("buku") || 
+    cat.includes("pensil") || 
+    cat.includes("pulpen") || 
+    cat.includes("kertas") || 
+    cat.includes("kantor")
+  ) {
+    return <Pencil className="w-3.5 h-3.5" />;
+  }
+  return <Package className="w-3.5 h-3.5" />;
+};
+
 const CatalogPage = ({ 
   stock, 
   user, 
@@ -10970,6 +11071,112 @@ const CatalogPage = ({
   const [selectedCategory, setSelectedCategory] = useState("Semua");
   const [tick, setTick] = useState(0);
   const [lastAddedId, setLastAddedId] = useState<string | null>(null);
+  const [promoSlide, setPromoSlide] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setPromoSlide((prev) => (prev + 1) % 2);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const SHOP_PROMOS = useMemo(() => [
+    {
+      id: "ongkir",
+      title: "Gratis Ongkir Sepuasnya!",
+      subtitle: "Belanja minimal Rp 20.000 saja langsung bebas biaya kirim ke rumahmu.",
+      badge: "PROMO HEMAT",
+      highlight: "Belanja Min. Rp 20Rb",
+      gradient: "from-[#D35400] via-[#F15A24] to-[#FF8C00]",
+      renderVector: () => (
+        <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-lg">
+          <defs>
+            <linearGradient id="truckGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFF200" />
+              <stop offset="100%" stopColor="#F15A24" />
+            </linearGradient>
+            <linearGradient id="boxGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFFFFF" />
+              <stop offset="100%" stopColor="#E2E8F0" />
+            </linearGradient>
+          </defs>
+          <circle cx="60" cy="60" r="50" fill="white" opacity="0.12" />
+          <circle cx="60" cy="60" r="38" fill="white" opacity="0.08" />
+          
+          <path d="M20 30 L22 34 L26 34 L23 37 L24 41 L20 39 L16 41 L17 37 L14 34 L18 34 Z" fill="#FFF200" opacity="0.9" />
+          <path d="M100 85 L101.5 88 L105 88 L102 90.5 L103 94 L100 92 L97 94 L98 90.5 L95 88 L98.5 88 Z" fill="#FFF200" opacity="0.8" />
+          <path d="M95 25 L96 27.5 L99 27.5 L96.5 29 L97.5 32 L95 30.5 L92.5 32 L93.5 29 L91 27.5 L94 27.5 Z" fill="#FFF200" opacity="0.75" />
+
+          <path d="M5 48 H25" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+          <path d="M12 60 H28" stroke="white" strokeWidth="4" strokeLinecap="round" opacity="0.9" />
+          <path d="M3 72 H22" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+          <path d="M18 84 H26" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+
+          <g transform="translate(24, 30)">
+            <path d="M45 15 H62 L74 30 V45 H45 Z" fill="url(#truckGrad)" stroke="#004D56" strokeWidth="2" strokeLinejoin="round" />
+            <path d="M60 18 H61 L69 29 H60 Z" fill="#E2F8FF" stroke="#004D56" strokeWidth="1.5" strokeLinejoin="round" />
+            <rect x="5" y="5" width="40" height="40" rx="4" fill="white" stroke="#004D56" strokeWidth="2.5" />
+            <text x="25" y="28" textAnchor="middle" fill="#F15A24" fontSize="11" fontWeight="900" fontFamily="sans-serif" letterSpacing="0.5">FREE</text>
+            <text x="25" y="38" textAnchor="middle" fill="#005E6A" fontSize="7.5" fontWeight="900" fontFamily="sans-serif">ONGKIR</text>
+            <circle cx="18" cy="48" r="8" fill="#1E293B" stroke="white" strokeWidth="2" />
+            <circle cx="18" cy="48" r="3" fill="#94A3B8" />
+            <circle cx="56" cy="48" r="8" fill="#1E293B" stroke="white" strokeWidth="2" />
+            <circle cx="56" cy="48" r="3" fill="#94A3B8" />
+            <path d="M74 38 H76 V41 H74 Z" fill="#FFF200" />
+          </g>
+        </svg>
+      )
+    },
+    {
+      id: "jumat",
+      title: "Program Jumat Berkah",
+      subtitle: "Khusus adik-adik yatim & piatu, dapatkan gratis makanan ringan atau sembako pilihan gratis.",
+      badge: "PROGRAM SOSIAL",
+      highlight: "Khusus Yatim & Piatu",
+      gradient: "from-[#005E6A] via-[#27ae60] to-[#2ecc71]",
+      renderVector: () => (
+        <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-lg">
+          <defs>
+            <linearGradient id="domeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#FFF200" />
+              <stop offset="100%" stopColor="#F15A24" />
+            </linearGradient>
+            <linearGradient id="moonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#FFF200" />
+              <stop offset="100%" stopColor="#FFFFFF" />
+            </linearGradient>
+          </defs>
+          <circle cx="60" cy="60" r="50" fill="white" opacity="0.12" />
+          <circle cx="60" cy="60" r="38" fill="white" opacity="0.08" />
+
+          <path d="M85 30 C72 30 60 42 60 56 C60 70 72 82 85 82 C90 82 95 80 98 76 C91 79 81 76 76 69 C71 62 72 52 79 46 C82 43 86 42 90 42 C88 41 87 40 85 30 Z" fill="url(#moonGrad)" opacity="0.95" />
+          
+          <g transform="translate(86, 44)">
+            <path d="M0 -6 L2 -2 L6 0 L2 2 L0 6 L-2 2 L-6 0 L-2 -2 Z" fill="white" />
+          </g>
+
+          <circle cx="25" cy="30" r="1.5" fill="white" opacity="0.8" />
+          <circle cx="35" cy="85" r="2" fill="#FFF200" opacity="0.9" />
+          <circle cx="105" cy="75" r="1" fill="white" opacity="0.6" />
+
+          <g transform="translate(15, 35)">
+            <path d="M25 45 C25 25 55 25 55 45 Z" fill="url(#domeGrad)" stroke="#004D56" strokeWidth="1.8" />
+            <line x1="40" y1="25" x2="40" y2="15" stroke="white" strokeWidth="2" />
+            <circle cx="40" cy="12" r="3.5" fill="none" stroke="white" strokeWidth="1.2" />
+            
+            <rect x="12" y="25" width="8" height="30" fill="white" stroke="#004D56" strokeWidth="1.8" />
+            <path d="M10 25 H22 L16 12 Z" fill="#F15A24" stroke="#004D56" strokeWidth="1.8" strokeLinejoin="round" />
+            
+            <rect x="60" y="25" width="8" height="30" fill="white" stroke="#004D56" strokeWidth="1.8" />
+            <path d="M58 25 H70 L64 12 Z" fill="#F15A24" stroke="#004D56" strokeWidth="1.8" strokeLinejoin="round" />
+
+            <rect x="16" y="45" width="48" height="15" rx="1.5" fill="white" stroke="#004D56" strokeWidth="1.8" />
+            <path d="M34 60 V50 C34 46 46 46 46 50 V60 Z" fill="#005E6A" stroke="#004D56" strokeWidth="1.2" />
+          </g>
+        </svg>
+      )
+    }
+  ], []);
 
   const categories = useMemo(() => {
     const cats = Array.from(new Set(stock.map(s => s.Kategori))).sort((a, b) => a.localeCompare(b));
@@ -10999,78 +11206,148 @@ const CatalogPage = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      {/* Static Header Section */}
-      <div className="pt-6 pb-2 px-6 max-w-7xl mx-auto">
-        <p className="text-[#F15A24] text-[10px] font-black uppercase tracking-[0.2em] mb-0.5">Katalog Produk</p>
-        <h1 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Daftar Barang</h1>
-      </div>
-
-      {/* Sticky Search Section */}
-      <div className="sticky top-20 z-[40] bg-slate-50/80 backdrop-blur-md border-b border-slate-200 py-3">
-        <div className="px-6 max-w-7xl mx-auto">
-          <div className="flex items-center gap-2">
-            <div className="flex-1 min-w-0 bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2 sm:gap-3">
-              <Search className="w-5 h-5 text-slate-300 shrink-0" />
-              <input 
-                type="text" 
-                placeholder="Cari barang..." 
-                className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <div className="w-[1px] h-5 bg-slate-200 mx-0.5 shrink-0" />
-              <div className="relative shrink-0 max-w-[80px] sm:max-w-none">
-                <select 
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="appearance-none bg-transparent border-none outline-none text-[10px] font-black text-[#005E6A] uppercase tracking-tight cursor-pointer pr-4 w-full truncate"
-                >
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3 h-3 absolute right-0 top-1/2 -translate-y-1/2 text-[#005E6A] pointer-events-none" />
-              </div>
-            </div>
-
-            {/* Shopping Cart button */}
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                setShowCart(true);
-              }}
-              className="relative p-2.5 bg-[#005E6A] text-white w-12 h-12 rounded-xl flex items-center justify-center shrink-0 hover:bg-[#004d57] transition-colors cursor-pointer shadow-md shadow-[#005E6A]/10"
-              title="Keranjang Belanja"
-            >
-              <ShoppingCart className="w-5 h-5 text-white" />
-              <AnimatePresence>
-                {cart.length > 0 && (
-                  <motion.div 
-                    key="cart-count"
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    className="absolute -top-1 -right-1 w-5 h-5 bg-[#F15A24] text-white text-[9px] font-black flex items-center justify-center rounded-full shadow-md border-2 border-white leading-none z-10 animate-pulse"
-                  >
-                    <motion.span
-                      key={cart.reduce((acc, item) => acc + item.qty, 0)}
-                      initial={{ y: -5, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      className="absolute text-[8px]"
-                    >
-                      {cart.reduce((acc, item) => acc + item.qty, 0)}
-                    </motion.span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.button>
+    <div className="min-h-screen bg-slate-50 pb-24 pt-[72px]">
+      {/* Fixed Search Section - positioned below the global header (top-[80px]) */}
+      <div className="fixed top-[80px] left-1/2 -translate-x-1/2 w-full max-w-lg z-[45] bg-slate-50/95 backdrop-blur-md py-3 px-6">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0 bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2">
+            <Search className="w-5 h-5 text-slate-300 shrink-0" />
+            <input 
+              type="text" 
+              placeholder="Cari barang..." 
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
+
+          {/* Shopping Cart button */}
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              setShowCart(true);
+            }}
+            className="relative p-2.5 bg-[#005E6A] text-white w-12 h-12 rounded-xl flex items-center justify-center shrink-0 hover:bg-[#004d57] transition-colors cursor-pointer shadow-md shadow-[#005E6A]/10"
+            title="Keranjang Belanja"
+          >
+            <ShoppingCart className="w-5 h-5 text-white" />
+            <AnimatePresence>
+              {cart.length > 0 && (
+                <motion.div 
+                  key="cart-count"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-[#F15A24] text-white text-[9px] font-black flex items-center justify-center rounded-full shadow-md border-2 border-white leading-none z-10 animate-pulse"
+                >
+                  <motion.span
+                    key={cart.reduce((acc, item) => acc + item.qty, 0)}
+                    initial={{ y: -5, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="absolute text-[8px]"
+                  >
+                    {cart.reduce((acc, item) => acc + item.qty, 0)}
+                  </motion.span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.button>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 pt-6 relative z-20">
+      {/* Promo Carousel Section - Padded container with slightly rounded corners */}
+      <div className="px-6 mt-4 mb-4">
+        <div className="relative aspect-[16/6.5] w-full overflow-hidden rounded-lg touch-none shadow-sm">
+            {/* Absolute indicator overlay inside the banner */}
+            <div className="absolute top-3.5 right-4 z-20 flex gap-1.5 bg-black/15 backdrop-blur-md px-2.5 py-1 rounded-full">
+              {SHOP_PROMOS.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPromoSlide(index);
+                  }}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    promoSlide === index ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
+                  }`}
+                  aria-label={`Promo slide ${index + 1}`}
+                />
+              ))}
+            </div>
+
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={promoSlide}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                onDragEnd={(e, info) => {
+                  const swipeThreshold = 50;
+                  if (info.offset.x < -swipeThreshold) {
+                    setPromoSlide((prev) => (prev + 1) % SHOP_PROMOS.length);
+                  } else if (info.offset.x > swipeThreshold) {
+                    setPromoSlide((prev) => (prev - 1 + SHOP_PROMOS.length) % SHOP_PROMOS.length);
+                  }
+                }}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.4 }}
+                className={`w-full h-full bg-gradient-to-br ${SHOP_PROMOS[promoSlide].gradient} flex items-center px-6 py-4 text-white relative select-none`}
+              >
+                {/* Text Content */}
+                <div className="flex-1 pr-4 z-10 flex flex-col justify-center h-full text-left">
+                  <span className="inline-block text-[8px] font-black tracking-widest uppercase bg-white/20 px-2.5 py-0.5 rounded-full w-max mb-1.5 text-white/95">
+                    {SHOP_PROMOS[promoSlide].badge}
+                  </span>
+                  <h3 className="text-xs sm:text-sm font-black tracking-tight leading-tight uppercase mb-1">
+                    {SHOP_PROMOS[promoSlide].title}
+                  </h3>
+                  <p className="text-[9.5px] sm:text-[11px] text-white/90 line-clamp-2 max-w-[85%] mb-2 leading-relaxed">
+                    {SHOP_PROMOS[promoSlide].subtitle}
+                  </p>
+                  <div className="text-[8px] sm:text-[9px] font-black bg-white text-[#005E6A] px-2.5 py-0.5 rounded-md w-max shadow-sm uppercase tracking-tight">
+                    {SHOP_PROMOS[promoSlide].highlight}
+                  </div>
+                </div>
+
+                {/* Vector Image Container */}
+                <div className="w-[35%] max-w-[140px] aspect-square shrink-0 z-10 select-none pointer-events-none self-center flex items-center justify-center mr-2">
+                  {SHOP_PROMOS[promoSlide].renderVector()}
+                </div>
+
+                {/* Ambient glow backgrounds */}
+                <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-white/5 rounded-full blur-xl pointer-events-none" />
+                <div className="absolute -top-10 -left-10 w-20 h-20 bg-white/5 rounded-full blur-xl pointer-events-none" />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </div>
+
+      {/* Sticky Horizontal Category Selector with custom Icons */}
+      <div className="sticky top-[152px] z-[40] bg-slate-50/95 backdrop-blur-md py-3 border-b border-slate-200/50 mb-4">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {categories.map((cat) => {
+            const isActive = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-black transition-all duration-300 whitespace-nowrap shrink-0 border cursor-pointer uppercase tracking-wider ${
+                  isActive
+                    ? "bg-[#005E6A] text-white border-[#005E6A] shadow-md shadow-[#005E6A]/10"
+                    : "bg-white text-slate-500 border-slate-200/60 hover:bg-slate-50 hover:text-[#005E6A]"
+                }`}
+              >
+                {getCategoryIcon(cat)}
+                <span>{cat}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 pt-2 relative z-20">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredStock.map((item) => {
             const inCart = cart.find(c => c.product.id === item.id);
@@ -13785,36 +14062,26 @@ const NotificationPage = ({
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
   );
 
-  const requestNotificationPermission = () => {
+  // Auto request browser notification permission on mount
+  useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
-      Notification.requestPermission().then(perm => {
-        setPermission(perm);
-        if (perm === 'granted') {
-          try {
-            new Notification("Warung Tomi", {
-              body: "Notifikasi sistem berhasil diaktifkan!",
-              icon: "https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv"
-            });
-          } catch (e) {
-            console.error(e);
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then(perm => {
+          setPermission(perm);
+          if (perm === 'granted') {
+            try {
+              new Notification("Warung Tomi", {
+                body: "Notifikasi sistem berhasil diaktifkan!",
+                icon: "https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv"
+              });
+            } catch (e) {
+              console.error(e);
+            }
           }
-        }
-      });
-    }
-  };
-
-  const sendTestNotification = () => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification("Warung Tomi (Uji Coba)", {
-          body: "Ini adalah notifikasi uji coba dari Warung Tomi. Real-time update berfungsi!",
-          icon: "https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv"
         });
-      } catch (e) {
-        console.error(e);
       }
     }
-  };
+  }, []);
 
   // Reset pagination when tab changes
   useEffect(() => {
@@ -14024,64 +14291,6 @@ const NotificationPage = ({
             exit={{ opacity: 0, y: -10 }}
             className="space-y-4"
           >
-            {/* System Notification Permission Card */}
-            {typeof window !== 'undefined' && 'Notification' in window && (
-              <div className="bg-white rounded-[2rem] border border-slate-100 p-5 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-3 rounded-2xl bg-[#E6F4F5] border border-[#005E6A]/5 flex items-center justify-center shrink-0">
-                      <Bell className="w-5 h-5 text-[#005E6A]" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                        Notifikasi Sistem Perangkat
-                      </h4>
-                      <p className="text-slate-500 text-[10px] leading-relaxed mt-1 font-medium max-w-lg">
-                        Terima pemberitahuan belanja, setor/tarik tabungan, dan kasbon secara real-time langsung di layar HP/komputer Anda saat web ini sedang dibuka (di latar belakang).
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="sm:self-center shrink-0">
-                    {permission === 'default' && (
-                      <button
-                        onClick={requestNotificationPermission}
-                        className="w-full sm:w-auto text-[9px] font-black uppercase tracking-widest text-white bg-[#005E6A] hover:bg-[#004C56] px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-md shadow-[#005E6A]/10"
-                      >
-                        Aktifkan Notifikasi
-                      </button>
-                    )}
-                    {permission === 'granted' && (
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                        <span className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-[9px] font-black uppercase tracking-wider text-emerald-600">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Aktif
-                        </span>
-                        <button
-                          onClick={sendTestNotification}
-                          className="text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-200/50 px-3 py-1.5 rounded-lg transition-all cursor-pointer text-center"
-                        >
-                          Uji Coba
-                        </button>
-                      </div>
-                    )}
-                    {permission === 'denied' && (
-                      <span className="inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-100 text-[9px] font-black uppercase tracking-wider text-rose-600 w-full sm:w-auto">
-                        <AlertCircle className="w-3 h-3" />
-                        Diblokir Browser
-                      </span>
-                    )}
-                  </div>
-                </div>
-                
-                {permission === 'denied' && (
-                  <p className="text-rose-500 text-[9px] font-bold mt-2.5 bg-rose-50/50 border border-rose-100/50 px-3 py-2 rounded-xl">
-                    * Notifikasi diblokir oleh browser Anda. Silakan klik ikon gembok di sebelah kiri alamat situs (URL browser) untuk mengizinkan notifikasi kembali.
-                  </p>
-                )}
-              </div>
-            )}
-
             {notifications.length === 0 ? (
               <div className="bg-white rounded-[2rem] border border-slate-100 p-12 text-center shadow-sm mt-4">
                 <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4 text-slate-300">
@@ -14091,12 +14300,7 @@ const NotificationPage = ({
                 <p className="text-slate-400 text-xs mt-1.5 leading-relaxed font-medium max-w-xs mx-auto">
                   Semua transaksi setor, tarik, belanja, dan investasi Anda akan muncul di sini secara real-time.
                 </p>
-                <Button
-                  onClick={() => setActiveTab("beranda")}
-                  className="mt-6 bg-[#005E6A] text-white hover:bg-[#004C56] font-black uppercase tracking-wider text-[10px] py-4 px-6 rounded-xl shadow-lg shadow-[#005E6A]/10"
-                >
-                  Kembali ke Beranda
-                </Button>
+
               </div>
             ) : (
               <div className="space-y-6">
@@ -14138,12 +14342,11 @@ const NotificationPage = ({
                               const itemId = itemRaw.id || itemRaw.id_transaksi || itemRaw.id_tabungan || itemRaw.id_hutang || itemRaw.id_investasi || '';
                               
                               if (notif.type === "belanja") {
-                                setActiveTab("riwayat");
-                                navigate(`/?showTransactionId=${encodeURIComponent(itemId)}`);
+                                navigate(`/detail-belanja/${encodeURIComponent(itemId)}`);
                               } else if (notif.type === "tabungan") {
-                                navigate(`/tabungan/${encodeURIComponent(user?.Nama || '')}?showSavingId=${encodeURIComponent(itemId)}`);
+                                navigate(`/detail-tabungan/${encodeURIComponent(itemId)}`);
                               } else if (notif.type === "hutang") {
-                                navigate(`/hutang/${encodeURIComponent(user?.Nama || '')}?showHutangId=${encodeURIComponent(itemId)}`);
+                                navigate(`/detail-hutang/${encodeURIComponent(itemId)}`);
                               } else if (notif.type === "investasi") {
                                 navigate(`/investasi/${encodeURIComponent(user?.Nama || '')}?showInvestasiId=${encodeURIComponent(itemId)}`);
                               }
@@ -14213,41 +14416,36 @@ const NotificationPage = ({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0, transitionEnd: { transform: "none" } }}
             exit={{ opacity: 0, y: -10 }}
-            className="space-y-4 pt-2"
+            className="space-y-3 pt-2"
           >
             {promoList.map((promo) => (
               <motion.div
                 key={promo.id}
-                whileHover={{ y: -2 }}
+                whileHover={{ y: -1 }}
                 onClick={() => setSelectedPromo(promo)}
-                className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer text-left"
+                className="bg-white rounded-lg border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer text-left flex gap-4 items-start"
               >
-                {/* Banner Image */}
-                <div className="aspect-[21/9] w-full bg-slate-50 relative overflow-hidden">
+                {/* Simplified Compact Image */}
+                <div className="w-20 h-20 bg-slate-50 rounded border border-slate-100 overflow-hidden shrink-0 relative">
                   <img src={promo.image} alt={promo.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  <div className="absolute top-4 left-4">
-                    <span className="bg-white/95 backdrop-blur-sm text-[#005E6A] text-[9px] font-black px-2.5 py-1 rounded-full shadow-sm border border-slate-100 uppercase tracking-widest">
+                </div>
+
+                {/* Simplified Content */}
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[8px] font-black tracking-widest text-[#F15A24] uppercase">
+                      {promo.category}
+                    </span>
+                    <span className="bg-slate-100 text-[#005E6A] text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
                       {promo.tag}
                     </span>
                   </div>
-                </div>
-
-                {/* Info and text */}
-                <div className="p-5 space-y-2">
-                  <span className="text-[9px] font-black tracking-widest text-[#F15A24] uppercase">
-                    {promo.category}
-                  </span>
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight leading-snug">
+                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight leading-snug line-clamp-1">
                     {promo.title}
                   </h3>
-                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed line-clamp-2">
+                  <p className="text-[10px] text-slate-500 font-medium leading-relaxed line-clamp-2">
                     {promo.desc}
                   </p>
-                  <div className="pt-2 flex items-center justify-between">
-                    <span className="text-[9px] font-black text-[#005E6A] uppercase tracking-widest flex items-center gap-1 group-hover:gap-1.5 transition-all">
-                      Cek Selengkapnya <ChevronRight className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
                 </div>
               </motion.div>
             ))}
@@ -14270,7 +14468,7 @@ const NotificationPage = ({
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-sm bg-white rounded-[2.5rem] overflow-hidden shadow-2xl text-left"
+              className="relative w-full max-w-sm bg-white rounded-xl overflow-hidden shadow-2xl text-left"
             >
               <div className="bg-[#005E6A] p-6 text-white relative">
                 <button
@@ -14288,7 +14486,7 @@ const NotificationPage = ({
 
               <div className="p-6 space-y-6">
                 <div className="space-y-4">
-                  <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Jumlah Transaksi</span>
                     <span className="text-xl font-black text-slate-800 tabular-nums">
                       Rp {formatCurrency(selectedNotification.amount)}
@@ -14319,7 +14517,7 @@ const NotificationPage = ({
 
                 <Button 
                   onClick={() => setSelectedNotification(null)}
-                  className="w-full bg-[#F15A24] hover:bg-[#d94e1f] text-white font-black uppercase tracking-widest py-4 rounded-2xl shadow-lg shadow-[#F15A24]/10 cursor-pointer text-xs"
+                  className="w-full bg-[#F15A24] hover:bg-[#d94e1f] text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-lg shadow-[#F15A24]/10 cursor-pointer text-xs"
                 >
                   Tutup Detail
                 </Button>
@@ -14344,7 +14542,7 @@ const NotificationPage = ({
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-sm bg-white rounded-[2.5rem] overflow-hidden shadow-2xl text-left"
+              className="relative w-full max-w-sm bg-white rounded-xl overflow-hidden shadow-2xl text-left"
             >
               <div className="aspect-[16/9] w-full bg-slate-100 relative">
                 <img src={selectedPromo.image} alt={selectedPromo.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -14374,7 +14572,7 @@ const NotificationPage = ({
                 <div className="flex gap-3 pt-2">
                   <button 
                     onClick={() => setSelectedPromo(null)}
-                    className="flex-1 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-100 rounded-2xl text-xs font-black uppercase tracking-widest active:scale-95 transition-transform cursor-pointer"
+                    className="flex-1 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-100 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-transform cursor-pointer"
                   >
                     Tutup
                   </button>
@@ -14383,7 +14581,7 @@ const NotificationPage = ({
                       setSelectedPromo(null);
                       selectedPromo.action();
                     }}
-                    className="flex-1 bg-[#005E6A] hover:bg-[#004C56] text-white py-3 rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg shadow-teal-100 active:scale-95 transition-transform cursor-pointer"
+                    className="flex-1 bg-[#005E6A] hover:bg-[#004C56] text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-teal-100 active:scale-95 transition-transform cursor-pointer"
                   >
                     {selectedPromo.actionText}
                   </button>
@@ -14398,6 +14596,7 @@ const NotificationPage = ({
 };
 
 const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<"trend" | "rincian">("trend");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -14410,11 +14609,10 @@ const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactio
     if (showTxId) {
       const found = transactions.find(t => t.id === showTxId || t.id_transaksi === showTxId);
       if (found) {
-        setSelectedTransaction(found);
-        setActiveTab("rincian");
+        navigate(`/detail-belanja/${encodeURIComponent(showTxId)}`);
       }
     }
-  }, [searchParams, transactions]);
+  }, [searchParams, transactions, navigate]);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
   const getIsCashOut = (jenis: string) => {
@@ -14966,8 +15164,8 @@ Terima kasih telah berbelanja di Warung Tomi!`;
           {activeTab === "trend" ? (
             <div>
               {/* Sticky Month Tabs */}
-              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 mb-4">
-                <div ref={tabContainerRef1} className="relative flex gap-2 overflow-x-auto no-scrollbar snap-x">
+              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 mb-4 -mx-6">
+                <div ref={tabContainerRef1} className="relative flex gap-2 overflow-x-auto no-scrollbar snap-x px-6">
                   {chartData.map((m, i) => {
                     const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
                     return (
@@ -15064,7 +15262,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                       return (
                         <div 
                           key={i} 
-                          onClick={() => setSelectedTransaction(item)}
+                          onClick={() => navigate(`/detail-belanja/${encodeURIComponent(item.id || item.id_transaksi || '')}`)}
                           className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm relative overflow-hidden cursor-pointer hover:bg-slate-50/80 transition-colors active:scale-[0.99] duration-150"
                         >
                           <div className="flex items-center gap-3">
@@ -15104,8 +15302,8 @@ Terima kasih telah berbelanja di Warung Tomi!`;
           ) : (
             <div>
               {/* Sticky Month Tabs */}
-              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 mb-4">
-                <div ref={tabContainerRef2} className="relative flex gap-2 overflow-x-auto no-scrollbar snap-x">
+              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 mb-4 -mx-6">
+                <div ref={tabContainerRef2} className="relative flex gap-2 overflow-x-auto no-scrollbar snap-x px-6">
                   {chartData.map((m, i) => {
                     const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
                     return (
@@ -15236,7 +15434,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                                   {data.items.map((item, i) => (
                                     <div 
                                       key={i} 
-                                      onClick={() => setSelectedTransaction(item)}
+                                      onClick={() => navigate(`/detail-belanja/${encodeURIComponent(item.id || item.id_transaksi || '')}`)}
                                       className="bg-white/50 p-3 rounded-xl flex items-center justify-between cursor-pointer hover:bg-slate-100/70 transition-colors active:scale-[0.99] duration-150"
                                     >
                                       <div>
@@ -15729,11 +15927,11 @@ const ProfilPage = ({
 
       {/* 3. KELOMPOK ASET */}
       {user && (
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
-          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">Aset/Hutang</h3>
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 py-6 px-0">
+          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4 px-6">Aset/Hutang</h3>
           <div 
             ref={assetScrollRef}
-            className="flex overflow-x-auto gap-3 snap-x snap-mandatory scrollbar-hide pb-1 w-full"
+            className="flex overflow-x-auto gap-3.5 snap-x snap-mandatory scrollbar-hide pb-1 w-full px-6"
           >
             
             {/* Tabungan Card */}
@@ -15741,16 +15939,39 @@ const ProfilPage = ({
               onClick={() => {
                 navigate(`/tabungan/${encodeURIComponent(user?.Nama || '')}`);
               }}
-              className="bg-gradient-to-br from-[#2ecc71] to-[#27ae60] hover:from-[#2ecc71]/90 hover:to-[#27ae60]/90 text-white p-3.5 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all active:scale-95 duration-300 shadow-md hover:shadow-lg border border-white/10 w-[170px] shrink-0 snap-start"
+              className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#2ecc71] to-[#27ae60] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
             >
-              <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white shrink-0">
-                <PiggyBank className="w-4 h-4 text-white" />
+              {/* Left spine fold shadow line of the wallet */}
+              <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
+              
+              {/* Slit/Slot design lines simulating wallet card slots */}
+              <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
+              <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
+              
+              {/* Wallet clasp fastener extending from the right side */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
+                <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
+                </div>
               </div>
-              <div className="min-w-0 text-left flex-1">
-                <p className="text-[7.5px] font-black text-white/90 uppercase tracking-wider mb-0.5">Tabungan</p>
-                <p className="text-[10px] font-black text-white truncate w-full">
-                  Rp {tabunganBalance.toLocaleString('id-ID')}
-                </p>
+
+              {/* Content: Icon & Text Info */}
+              <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
+                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
+                  <PiggyBank className="w-4 h-4 text-white" />
+                </div>
+                
+                <div className="min-w-0 text-left flex-1">
+                  <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
+                    Tabungan
+                  </p>
+                  <div className="flex items-center gap-0.5 leading-none">
+                    <span className="text-[7px] font-black text-white/70 italic">Rp</span>
+                    <span className="text-xs font-black text-white tracking-tight truncate block">
+                      {tabunganBalance.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -15759,16 +15980,39 @@ const ProfilPage = ({
               onClick={() => {
                 navigate(`/investasi/${encodeURIComponent(user?.Nama || '')}`);
               }}
-              className="bg-gradient-to-br from-[#9b59b6] to-[#8e44ad] hover:from-[#9b59b6]/90 hover:to-[#8e44ad]/90 text-white p-3.5 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all active:scale-95 duration-300 shadow-md hover:shadow-lg border border-white/10 w-[170px] shrink-0 snap-start"
+              className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#9b59b6] to-[#8e44ad] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
             >
-              <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white shrink-0">
-                <TrendingUp className="w-4 h-4 text-white" />
+              {/* Left spine fold shadow line of the wallet */}
+              <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
+              
+              {/* Slit/Slot design lines simulating wallet card slots */}
+              <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
+              <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
+              
+              {/* Wallet clasp fastener extending from the right side */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
+                <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
+                </div>
               </div>
-              <div className="min-w-0 text-left flex-1">
-                <p className="text-[7.5px] font-black text-white/90 uppercase tracking-wider mb-0.5">Investasi</p>
-                <p className="text-[10px] font-black text-white truncate w-full">
-                  Rp {investasiBalance.toLocaleString('id-ID')}
-                </p>
+
+              {/* Content: Icon & Text Info */}
+              <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
+                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
+                  <TrendingUp className="w-4 h-4 text-white" />
+                </div>
+                
+                <div className="min-w-0 text-left flex-1">
+                  <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
+                    Investasi
+                  </p>
+                  <div className="flex items-center gap-0.5 leading-none">
+                    <span className="text-[7px] font-black text-white/70 italic">Rp</span>
+                    <span className="text-xs font-black text-white tracking-tight truncate block">
+                      {investasiBalance.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -15777,16 +16021,39 @@ const ProfilPage = ({
               onClick={() => {
                 navigate(`/lainnya/${encodeURIComponent(user?.Nama || '')}`);
               }}
-              className="bg-gradient-to-br from-[#f1c40f] to-[#f39c12] hover:from-[#f1c40f]/90 hover:to-[#f39c12]/90 text-white p-3.5 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all active:scale-95 duration-300 shadow-md hover:shadow-lg border border-white/10 w-[170px] shrink-0 snap-start"
+              className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#f1c40f] to-[#f39c12] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
             >
-              <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white shrink-0">
-                <ShoppingBag className="w-4 h-4 text-white" />
+              {/* Left spine fold shadow line of the wallet */}
+              <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
+              
+              {/* Slit/Slot design lines simulating wallet card slots */}
+              <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
+              <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
+              
+              {/* Wallet clasp fastener extending from the right side */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
+                <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
+                </div>
               </div>
-              <div className="min-w-0 text-left flex-1">
-                <p className="text-[7.5px] font-black text-white/90 uppercase tracking-wider mb-0.5">Lainnya</p>
-                <p className="text-[10px] font-black text-white truncate w-full">
-                  Rp {lainnyaBalance.toLocaleString('id-ID')}
-                </p>
+
+              {/* Content: Icon & Text Info */}
+              <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
+                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
+                  <ShoppingBag className="w-4 h-4 text-white" />
+                </div>
+                
+                <div className="min-w-0 text-left flex-1">
+                  <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
+                    Lainnya
+                  </p>
+                  <div className="flex items-center gap-0.5 leading-none">
+                    <span className="text-[7px] font-black text-white/70 italic">Rp</span>
+                    <span className="text-xs font-black text-white tracking-tight truncate block">
+                      {lainnyaBalance.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -15795,16 +16062,39 @@ const ProfilPage = ({
               onClick={() => {
                 navigate(`/hutang/${encodeURIComponent(user?.Nama || '')}`);
               }}
-              className="bg-gradient-to-br from-[#e74c3c] to-[#c0392b] hover:from-[#e74c3c]/90 hover:to-[#c0392b]/90 text-white p-3.5 rounded-2xl flex items-center gap-2.5 cursor-pointer transition-all active:scale-95 duration-300 shadow-md hover:shadow-lg border border-white/10 w-[170px] shrink-0 snap-start"
+              className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#e74c3c] to-[#c0392b] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
             >
-              <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center text-white shrink-0">
-                <CreditCard className="w-4 h-4 text-white" />
+              {/* Left spine fold shadow line of the wallet */}
+              <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
+              
+              {/* Slit/Slot design lines simulating wallet card slots */}
+              <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
+              <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
+              
+              {/* Wallet clasp fastener extending from the right side */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
+                <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
+                </div>
               </div>
-              <div className="min-w-0 text-left flex-1">
-                <p className="text-[7.5px] font-black text-white/90 uppercase tracking-wider mb-0.5">Hutang</p>
-                <p className="text-[10px] font-black text-white truncate w-full">
-                  Rp {hutangBalance.toLocaleString('id-ID')}
-                </p>
+
+              {/* Content: Icon & Text Info */}
+              <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
+                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
+                  <CreditCard className="w-4 h-4 text-white" />
+                </div>
+                
+                <div className="min-w-0 text-left flex-1">
+                  <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
+                    Hutang
+                  </p>
+                  <div className="flex items-center gap-0.5 leading-none">
+                    <span className="text-[7px] font-black text-white/70 italic">Rp</span>
+                    <span className="text-xs font-black text-white tracking-tight truncate block">
+                      {hutangBalance.toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -16944,7 +17234,7 @@ const Layout = ({
 }) => {
   const location = useLocation();
   const isBansosPage = location.pathname.includes("/bansos");
-  const isNoBottomNav = isBansosPage || activeTab === "notifikasi";
+  const isNoBottomNav = isBansosPage || activeTab === "konfirmasi-pesanan";
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -17005,6 +17295,7 @@ const HomePage = ({
 }) => {
   const { subPage, customerName } = useParams();
   const navigate = useNavigate();
+  const totalCart = cart.reduce((acc, item) => acc + (item.product.HargaJual * item.qty), 0);
   const [selectedOffer, setSelectedOffer] = useState<{
     tenor: string;
     rate: string;
@@ -17855,6 +18146,101 @@ const HomePage = ({
             onMarkAsRead={handleMarkAsRead}
           />
         </ProtectedPage>
+      )}
+      {activeTab === "konfirmasi-pesanan" && (
+        <motion.div
+          key="konfirmasi-pesanan"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="px-6 pt-6 pb-8 min-h-[85vh] bg-slate-50 flex flex-col justify-between"
+        >
+          {/* Header */}
+          <div>
+            <div className="mb-6 text-left">
+              <h1 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Konfirmasi Pesanan</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Detail Belanjaan Anda</p>
+            </div>
+
+            {/* Cart Items Container */}
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 space-y-4">
+              <div className="max-h-[45vh] overflow-y-auto pr-2 scrollbar-thin divide-y divide-slate-100">
+                {cart.map((item) => (
+                  <div key={item.product.id} className="flex justify-between items-start gap-4 py-3 first:pt-0 last:pb-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black text-[#005E6A] uppercase leading-tight mb-1 truncate">{item.product.Nama}</p>
+                      <p className="text-[10px] font-bold text-slate-400">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
+                    </div>
+                    <p className="text-xs font-black text-[#F15A24] whitespace-nowrap">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Fee Breakdown */}
+              <div className="pt-4 border-t border-dashed border-slate-200 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Subtotal</span>
+                  <span className="text-xs font-black text-slate-600">Rp {totalCart.toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ongkos Kirim</span>
+                  {totalCart < 20000 ? (
+                    <span className="text-xs font-black text-rose-500">Rp 2.000</span>
+                  ) : (
+                    <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase tracking-wider">Gratis Ongkir</span>
+                  )}
+                </div>
+
+                {/* Promo Banner Info inside breakdown */}
+                {totalCart < 20000 ? (
+                  <div className="bg-amber-50 text-amber-800 text-[10px] font-bold px-3 py-2.5 rounded-xl border border-amber-100 flex items-center gap-2 mt-1.5">
+                    <span className="text-amber-500 text-sm">💡</span>
+                    <span>Tambah belanja Rp {(20000 - totalCart).toLocaleString('id-ID')} lagi untuk mendapatkan <strong>Gratis Ongkir!</strong></span>
+                  </div>
+                ) : (
+                  <div className="bg-green-50 text-green-800 text-[10px] font-bold px-3 py-2.5 rounded-xl border border-green-100 flex items-center gap-2 mt-1.5">
+                    <span className="text-green-500 text-sm">🎉</span>
+                    <span>Selamat! Anda mendapatkan promo <strong>Gratis Ongkir!</strong></span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                  <span className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Total Pembayaran</span>
+                  <span className="text-lg font-black text-[#F15A24]">
+                    Rp {(totalCart < 20000 ? totalCart + 2000 : totalCart).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-3 mt-auto">
+            <button
+              onClick={() => {
+                const userGreeting = loggedInUser ? `Nama Pelanggan: *${loggedInUser.Nama}*\n\n` : "";
+                const listItems = cart.map(item => `- ${item.product.Nama} (${item.qty}x) = Rp ${(item.product.HargaJual * item.qty).toLocaleString('id-ID')}`).join('\n');
+                const shippingFee = totalCart < 20000 ? 2000 : 0;
+                const shippingText = shippingFee > 0 ? `Rp ${shippingFee.toLocaleString('id-ID')}` : 'Gratis Ongkir';
+                const grandTotal = totalCart + shippingFee;
+                const message = `Halo Warung Tomi, saya ingin pesan:\n\n${userGreeting}${listItems}\n\nSubtotal: Rp ${totalCart.toLocaleString('id-ID')}\nOngkir: ${shippingText}\n*Total Pembayaran: Rp ${grandTotal.toLocaleString('id-ID')}*`;
+                window.open(`https://wa.me/6287774138090?text=${encodeURIComponent(message)}`, '_blank');
+                setCart([]);
+                setActiveTab("beranda");
+              }}
+              className="w-full py-4 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-[#005E6A]/20 flex items-center justify-center gap-2.5 active:scale-95 transition-all cursor-pointer"
+            >
+              <MessageCircle className="w-5 h-5" /> KIRIM VIA WHATSAPP
+            </button>
+            <button
+              onClick={() => setActiveTab("belanja")}
+              className="w-full py-3.5 bg-slate-100 text-[#005E6A] text-[10px] font-black uppercase tracking-[0.15em] rounded-2xl hover:bg-slate-200 transition-colors cursor-pointer text-center font-bold"
+            >
+              Kembali Belanja
+            </button>
+          </div>
+        </motion.div>
       )}
     </AnimatePresence>
 
@@ -19002,6 +19388,7 @@ export default function App() {
               onLogin={handleLogin} 
               onLogout={() => setShowLogoutConfirm(true)} 
               setActiveTab={setActiveTab}
+              activeTab={activeTab}
               isLoading={isLoading}
               salesTransactions={salesTransactions}
               redeemedPoints={redeemedPoints}
@@ -19139,6 +19526,15 @@ export default function App() {
         } />
         <Route path="/tukar-poin/:customerName" element={
           <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} customers={customers} />
+        } />
+        <Route path="/detail-belanja/:transactionId" element={
+          <DetailBelanjaPage user={loggedInUser} transactions={salesTransactions} />
+        } />
+        <Route path="/detail-tabungan/:savingId" element={
+          <DetailTabunganPage user={loggedInUser} transactions={savingsTransactions} />
+        } />
+        <Route path="/detail-hutang/:debtId" element={
+          <DetailHutangPage user={loggedInUser} transactions={debtTransactions} salesTransactions={salesTransactions} />
         } />
         <Route path="/qris" element={<QRISPage />} />
         <Route path="/tariktunai" element={<TarikTunaiPage />} />
@@ -19364,13 +19760,13 @@ export default function App() {
 
                   <div className="border-t border-slate-100 pt-4">
                     <div className="flex justify-between items-center mb-3">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Bayar</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Subtotal (Belum Ongkir)</span>
                       <span className="text-xl font-black text-[#F15A24]">Rp {totalCart.toLocaleString('id-ID')}</span>
                     </div>
                     <button 
                       onClick={() => {
                         setShowCart(false);
-                        setShowConfirm(true);
+                        setActiveTab("konfirmasi-pesanan");
                       }}
                       className="w-full py-4 bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-[#005E6A]/20 flex items-center justify-center gap-3 active:scale-95 transition-transform cursor-pointer"
                     >
@@ -19379,78 +19775,6 @@ export default function App() {
                   </div>
                 </>
               )}
-            </motion.div>
-          </div>
-        )}
-
-        {showConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 sm:p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowConfirm(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100"
-            >
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Konfirmasi Pesanan</h2>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Detail Belanjaan Anda</p>
-                  </div>
-                  <button 
-                    onClick={() => setShowConfirm(false)}
-                    className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin mb-8">
-                  {cart.map((item) => (
-                    <div key={item.product.id} className="flex justify-between items-start gap-4">
-                      <div className="flex-1">
-                        <p className="text-xs font-black text-[#005E6A] uppercase leading-tight mb-1">{item.product.Nama}</p>
-                        <p className="text-[10px] font-bold text-slate-400">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
-                      </div>
-                      <p className="text-xs font-black text-[#F15A24] whitespace-nowrap">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
-                    </div>
-                  ))}
-                  <div className="pt-4 border-t border-dashed border-slate-200">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Total Pembayaran</span>
-                      <span className="text-lg font-black text-[#F15A24]">Rp {totalCart.toLocaleString('id-ID')}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={() => setShowConfirm(false)}
-                    className="py-3 px-4 rounded-xl border border-slate-200 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  <button 
-                    onClick={() => {
-                      const userGreeting = loggedInUser ? `Nama Pelanggan: *${loggedInUser.Nama}*\n\n` : "";
-                      const message = `Halo Warung Tomi, saya ingin pesan:\n\n${userGreeting}${cart.map(item => `- ${item.product.Nama} (${item.qty}x) = Rp ${(item.product.HargaJual * item.qty).toLocaleString('id-ID')}`).join('\n')}\n\n*Total: Rp ${totalCart.toLocaleString('id-ID')}*`;
-                      window.open(`https://wa.me/6287774138090?text=${encodeURIComponent(message)}`, '_blank');
-                      setShowConfirm(false);
-                      setCart([]);
-                    }}
-                    className="py-3 px-4 rounded-xl bg-[#005E6A] text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-[#005E6A]/20 flex items-center justify-center gap-2 active:scale-95 transition-transform cursor-pointer"
-                  >
-                    <MessageCircle className="w-4 h-4" /> Kirim WA
-                  </button>
-                </div>
-              </div>
             </motion.div>
           </div>
         )}
