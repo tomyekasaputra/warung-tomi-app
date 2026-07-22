@@ -806,7 +806,15 @@ const Header = ({
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setActiveTab(activeTab === "notifikasi" ? "beranda" : "notifikasi")}
+                onClick={() => {
+                  if (location.pathname.includes("/notifikasi") || activeTab === "notifikasi") {
+                    navigate("/");
+                    setActiveTab("beranda");
+                  } else {
+                    navigate("/notifikasi");
+                    setActiveTab("notifikasi");
+                  }
+                }}
                 className="relative p-2.5 rounded-full bg-[#E6F4F5] hover:bg-[#d0eaec] text-[#005E6A] transition-all cursor-pointer flex items-center justify-center border border-[#005E6A]/10"
                 aria-label="Notifikasi"
               >
@@ -17288,7 +17296,8 @@ const Layout = ({
 }) => {
   const location = useLocation();
   const isBansosPage = location.pathname.includes("/bansos");
-  const isNoBottomNav = isBansosPage || activeTab === "konfirmasi-pesanan";
+  const isNotificationPage = location.pathname.includes("/notifikasi") || activeTab === "notifikasi";
+  const isNoBottomNav = isBansosPage || activeTab === "konfirmasi-pesanan" || isNotificationPage;
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -19707,6 +19716,48 @@ export default function App() {
         <Route path="/tariktunai" element={<TarikTunaiPage />} />
         <Route path="/bantuan" element={<HelpPage />} />
         <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} customers={customers} />} />
+        <Route path="/notifikasi" element={
+          <Layout 
+            activeTab="notifikasi" 
+            setActiveTab={setActiveTab}
+            user={loggedInUser}
+          >
+            <ProtectedPage user={loggedInUser} title="Notifikasi" customers={customers} onLogin={handleLogin} setActiveTab={setActiveTab}>
+              <NotificationPage 
+                user={loggedInUser}
+                onLogin={handleLogin}
+                customers={customers}
+                setActiveTab={setActiveTab}
+                notifications={allNotifications}
+                unreadCount={unreadNotificationsCount}
+                markAllAsRead={handleMarkAllAsRead}
+                readNotificationIds={readNotificationIds}
+                onMarkAsRead={handleMarkAsRead}
+              />
+            </ProtectedPage>
+          </Layout>
+        } />
+        <Route path="/notifikasi/:customerName" element={
+          <Layout 
+            activeTab="notifikasi" 
+            setActiveTab={setActiveTab}
+            user={loggedInUser}
+          >
+            <ProtectedPage user={loggedInUser} title="Notifikasi" customers={customers} onLogin={handleLogin} setActiveTab={setActiveTab}>
+              <NotificationPage 
+                user={loggedInUser}
+                onLogin={handleLogin}
+                customers={customers}
+                setActiveTab={setActiveTab}
+                notifications={allNotifications}
+                unreadCount={unreadNotificationsCount}
+                markAllAsRead={handleMarkAllAsRead}
+                readNotificationIds={readNotificationIds}
+                onMarkAsRead={handleMarkAsRead}
+              />
+            </ProtectedPage>
+          </Layout>
+        } />
         <Route path="/bansos" element={
           <Layout 
             activeTab={activeTab} 
