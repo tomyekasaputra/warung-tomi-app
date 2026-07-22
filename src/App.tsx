@@ -25,6 +25,7 @@ import { DetailTabunganPage } from "./components/DetailTabunganPage";
 import { DetailHutangPage } from "./components/DetailHutangPage";
 import { 
   ShoppingBag, 
+  Award,
   Zap, 
   Smartphone, 
   CreditCard, 
@@ -530,7 +531,7 @@ const MAIN_SERVICES = [
   { id: 12, name: "Voucher Game", icon: <Gamepad2 className="w-6 h-6 text-rose-600" />, bgColor: "bg-[#FFF1F2]" },
   { id: 13, name: "Bayar VA", icon: <FileText className="w-6 h-6 text-amber-600" />, bgColor: "bg-[#FFFBEB]" },
   { id: 14, name: "Multi Finance", icon: <DollarSign className="w-6 h-6 text-emerald-600" />, bgColor: "bg-[#ECFDF5]" },
-  { id: 15, name: "Tabungan", icon: <PiggyBank className="w-6 h-6 text-[#005E6A]" />, bgColor: "bg-[#E6F4F5]" },
+  { id: 15, name: "Tabungan", icon: <Wallet className="w-6 h-6 text-[#005E6A]" />, bgColor: "bg-[#E6F4F5]" },
   { id: 16, name: "Investasi", icon: <TrendingUp className="w-6 h-6 text-[#F15A24]" />, bgColor: "bg-[#FFF7ED]" },
   { id: 17, name: "Poin Loyalitas", icon: <Star className="w-6 h-6 text-amber-500" />, bgColor: "bg-amber-50" },
 ];
@@ -2901,18 +2902,25 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
             <div className="absolute -right-8 -top-8 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
             <div className="absolute -left-10 -bottom-10 w-28 h-28 bg-amber-500/10 rounded-full blur-xl pointer-events-none" />
             
-            <div className="relative flex items-center justify-between mb-6">
-              <div>
-                <p className="text-[10px] font-black text-teal-100/95 uppercase tracking-widest mb-1.5">Poin Aktif Anda</p>
-                <p className="text-3xl font-black tracking-tight">{activePoints.toLocaleString('id-ID')} <span className="text-xs font-bold text-teal-100 uppercase tracking-widest ml-1">Poin</span></p>
+            <div className="relative flex items-center justify-between mb-4">
+              <div className="min-w-0 pr-2">
+                <h3 className="text-2xl font-black tracking-tight drop-shadow-sm truncate max-w-[220px] mb-0.5">
+                  {displayUser?.Nama || "Pelanggan Umum"}
+                </h3>
+                <p className="text-[10px] font-black text-teal-100/90 uppercase tracking-[0.2em]">Poin Aktif Anda</p>
               </div>
               <button 
                 onClick={() => setShowCalcPopup(true)}
-                className="w-14 h-14 bg-white/15 hover:bg-white/25 active:scale-95 transition-all backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10 shadow-inner cursor-pointer group"
+                className="w-12 h-12 bg-white/15 hover:bg-white/25 active:scale-95 transition-all backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/10 shadow-inner cursor-pointer group shrink-0"
                 title="Klik untuk melihat detail rincian perhitungan poin"
               >
-                <Star className="w-7 h-7 text-amber-300 fill-amber-300 group-hover:scale-110 transition-transform duration-300 animate-pulse" />
+                <Star className="w-6 h-6 text-amber-300 fill-amber-300 group-hover:scale-110 transition-transform duration-300 animate-pulse" />
               </button>
+            </div>
+
+            <div className="flex items-baseline gap-2 mb-6">
+              <h2 className="text-4xl font-black tracking-tight">{activePoints.toLocaleString('id-ID')}</h2>
+              <span className="text-sm font-black text-teal-100 uppercase tracking-widest">Poin</span>
             </div>
             
             {/* Added Points Information below the main active points */}
@@ -3290,12 +3298,35 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
 
                   {activePoints >= selectedReward.points ? (
                     <>
-                      <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <Gift className="w-8 h-8 text-emerald-600" />
+                      <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-100 shadow-sm">
+                        <Gift className="w-7 h-7 text-emerald-600" />
                       </div>
-                      <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-3">Tukar Hadiah</h3>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed mb-8">
-                        Apakah Anda yakin ingin menukarkan poin untuk <span className="text-[#F15A24] font-black">{selectedReward.name}</span>? Klik tombol WhatsApp di bawah untuk menghubungi admin.
+                      <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-4">Tukar Hadiah</h3>
+                      
+                      {/* Kartu Hadiah Terpilih */}
+                      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4 mb-5 flex items-center gap-4 text-left shadow-inner">
+                        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white overflow-hidden border border-slate-200/80 shrink-0 flex items-center justify-center p-1 shadow-sm">
+                          <img 
+                            src={selectedReward.image} 
+                            alt={selectedReward.name} 
+                            className="w-full h-full object-cover rounded-xl"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-snug">
+                            {selectedReward.name}
+                          </p>
+                          <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200/60 px-3 py-1 rounded-full mt-2">
+                            <Star className="w-3.5 h-3.5 text-[#F15A24] fill-[#F15A24]" />
+                            <span className="text-xs font-black text-[#F15A24]">{selectedReward.points.toLocaleString('id-ID')}</span>
+                            <span className="text-[9px] font-bold text-[#F15A24]/70 uppercase tracking-wider">Poin</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed mb-6">
+                        Apakah Anda yakin ingin menukarkan poin untuk hadiah di atas? Klik tombol di bawah untuk mengajukan penukaran ke admin.
                       </p>
                       <a 
                         href={`https://wa.me/6287774138090?text=${encodeURIComponent(
@@ -3307,21 +3338,44 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                           setShowPopup(false);
                           setSelectedReward(null);
                         }}
-                        className="w-full bg-[#25D366] hover:bg-[#20BA56] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-transform active:scale-95 text-center block"
+                        className="w-full bg-[#25D366] hover:bg-[#20BA56] text-white py-4 rounded-2xl text-xs font-black uppercase tracking-wider shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 transition-transform active:scale-95 text-center block"
                       >
-                        WhatsApp
+                        Ajukan Tukar Poin
                       </a>
                     </>
                   ) : (
                     <>
-                      <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <AlertTriangle className="w-8 h-8 text-amber-500 animate-pulse" />
+                      <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-100 shadow-sm">
+                        <AlertTriangle className="w-7 h-7 text-amber-500 animate-pulse" />
                       </div>
-                      <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest mb-3">Poin Kurang</h3>
-                      <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest leading-relaxed mb-4">
-                        Poin Anda kurang <span className="text-red-500 font-black">{(selectedReward.points - activePoints).toLocaleString('id-ID')} poin</span> untuk menukar dengan hadiah <span className="text-[#005E6A] font-black">{selectedReward.name}</span>.
+                      <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest mb-4">Poin Kurang</h3>
+                      
+                      {/* Kartu Hadiah Terpilih */}
+                      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4 mb-4 flex items-center gap-4 text-left shadow-inner">
+                        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white overflow-hidden border border-slate-200/80 shrink-0 flex items-center justify-center p-1 shadow-sm">
+                          <img 
+                            src={selectedReward.image} 
+                            alt={selectedReward.name} 
+                            className="w-full h-full object-cover rounded-xl"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-snug">
+                            {selectedReward.name}
+                          </p>
+                          <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200/60 px-3 py-1 rounded-full mt-2">
+                            <Star className="w-3.5 h-3.5 text-[#F15A24] fill-[#F15A24]" />
+                            <span className="text-xs font-black text-[#F15A24]">{selectedReward.points.toLocaleString('id-ID')}</span>
+                            <span className="text-[9px] font-bold text-[#F15A24]/70 uppercase tracking-wider">Poin</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest leading-relaxed mb-3">
+                        Poin Anda kurang <span className="text-red-500 font-black">{(selectedReward.points - activePoints).toLocaleString('id-ID')} poin</span> untuk menukarkan hadiah ini.
                       </p>
-                      <p className="text-[9px] text-slate-400 mb-8 normal-case leading-relaxed">
+                      <p className="text-[9px] text-slate-400 mb-6 normal-case leading-relaxed">
                         Kumpulkan lebih banyak poin dengan meningkatkan transaksi belanja Anda di Warung Tomi!
                       </p>
                       <button 
@@ -14217,9 +14271,9 @@ const NotificationPage = ({
   const getIconForType = (type: string) => {
     switch (type) {
       case 'belanja':
-        return <ShoppingBag className="w-5 h-5 text-emerald-600" />;
+        return <ShoppingBag className="w-5 h-5 text-orange-500" />;
       case 'tabungan':
-        return <PiggyBank className="w-5 h-5 text-indigo-600" />;
+        return <Wallet className="w-5 h-5 text-emerald-600" />;
       case 'hutang':
         return <CreditCard className="w-5 h-5 text-rose-600" />;
       case 'investasi':
@@ -14232,9 +14286,9 @@ const NotificationPage = ({
   const getIconBgForType = (type: string) => {
     switch (type) {
       case 'belanja':
-        return 'bg-emerald-50 border border-emerald-100';
+        return 'bg-orange-50 border border-orange-100';
       case 'tabungan':
-        return 'bg-indigo-50 border border-indigo-100';
+        return 'bg-emerald-50 border border-emerald-100';
       case 'hutang':
         return 'bg-rose-50 border border-rose-100';
       case 'investasi':
@@ -15894,9 +15948,9 @@ const ProfilPage = ({
             {/* Level (Sebelah Kiri) */}
             <div 
               onClick={() => navigate("/level")}
-              className="bg-slate-50 hover:bg-slate-100/50 border border-slate-100/50 p-4 rounded-3xl cursor-pointer transition-all active:scale-95 flex items-center gap-3"
+              className="bg-slate-50 hover:bg-slate-100/50 border border-slate-100/50 p-4 rounded-lg cursor-pointer transition-all active:scale-95 flex items-center gap-3"
             >
-              <div className={`w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0`}>
+              <div className={`w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 shrink-0`}>
                 <Trophy className="w-5 h-5 text-[#F15A24] fill-[#F15A24]" />
               </div>
               <div className="min-w-0">
@@ -15908,9 +15962,9 @@ const ProfilPage = ({
             {/* Poin (Sebelah Kanan) */}
             <div 
               onClick={() => navigate(user ? `/poin/${encodeURIComponent(user.Nama)}` : '/poin')}
-              className="bg-slate-50 hover:bg-slate-100/50 border border-slate-100/50 p-4 rounded-3xl cursor-pointer transition-all active:scale-95 flex items-center gap-3"
+              className="bg-slate-50 hover:bg-slate-100/50 border border-slate-100/50 p-4 rounded-lg cursor-pointer transition-all active:scale-95 flex items-center gap-3"
             >
-              <div className="w-10 h-10 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
                 <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
               </div>
               <div className="min-w-0">
@@ -15927,11 +15981,11 @@ const ProfilPage = ({
 
       {/* 3. KELOMPOK ASET */}
       {user && (
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 py-6 px-0">
-          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4 px-6">Aset/Hutang</h3>
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
+          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">Aset/Hutang</h3>
           <div 
             ref={assetScrollRef}
-            className="flex overflow-x-auto gap-3.5 snap-x snap-mandatory scrollbar-hide pb-1 w-full px-6"
+            className="flex overflow-x-auto gap-3.5 snap-x snap-mandatory scrollbar-hide pb-1 w-full"
           >
             
             {/* Tabungan Card */}
@@ -15958,7 +16012,7 @@ const ProfilPage = ({
               {/* Content: Icon & Text Info */}
               <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
                 <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
-                  <PiggyBank className="w-4 h-4 text-white" />
+                  <Wallet className="w-4 h-4 text-white" />
                 </div>
                 
                 <div className="min-w-0 text-left flex-1">
@@ -16104,11 +16158,11 @@ const ProfilPage = ({
 
       {/* 4. KELOMPOK PENGATURAN */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
-        <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">Pengaturan</h3>
-        <div className="space-y-4">
+        <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-2">Pengaturan</h3>
+        <div className="divide-y divide-slate-100">
           
           {/* Bahasa */}
-          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-3xl border border-slate-100/50">
+          <div className="flex items-center justify-between py-3.5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
                 <Globe className="w-5 h-5 text-blue-600" />
@@ -16118,7 +16172,7 @@ const ProfilPage = ({
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pilih bahasa aplikasi</p>
               </div>
             </div>
-            <div className="flex bg-slate-200/60 p-1 rounded-2xl">
+            <div className="flex bg-slate-100 p-1 rounded-2xl">
               <button 
                 onClick={() => setLanguage("id")}
                 className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${language === "id" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500"}`}
@@ -16135,7 +16189,7 @@ const ProfilPage = ({
           </div>
 
           {/* Tema */}
-          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-3xl border border-slate-100/50">
+          <div className="flex items-center justify-between py-3.5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500">
                 <Settings className="w-5 h-5 text-purple-600" />
@@ -16145,7 +16199,7 @@ const ProfilPage = ({
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pilih skema warna</p>
               </div>
             </div>
-            <div className="flex bg-slate-200/60 p-1 rounded-2xl">
+            <div className="flex bg-slate-100 p-1 rounded-2xl">
               <button 
                 onClick={() => setThemeMode("teal")}
                 className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${themeMode === "teal" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500"}`}
@@ -16166,13 +16220,13 @@ const ProfilPage = ({
 
       {/* 5. KELOMPOK PUSAT INFORMASI */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
-        <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">Pusat Informasi</h3>
-        <div className="space-y-3">
+        <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-2">Pusat Informasi</h3>
+        <div className="divide-y divide-slate-100">
           
           {/* Lokasi */}
           <button 
             onClick={() => window.open("https://www.google.com/maps/search/?api=1&query=Warung+Tomi+Dusun+Manis+Desa+Wilanagara", "_blank")}
-            className="w-full p-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100/50 transition-all rounded-3xl border border-slate-100/50 text-left group cursor-pointer"
+            className="w-full py-3.5 flex items-center justify-between hover:bg-slate-50/80 transition-all rounded-xl px-2 -mx-2 text-left group cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-[#E6F4F5] flex items-center justify-center text-[#005E6A]">
@@ -16189,7 +16243,7 @@ const ProfilPage = ({
           {/* Bantuan */}
           <button 
             onClick={() => navigate("/bantuan")}
-            className="w-full p-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100/50 transition-all rounded-3xl border border-slate-100/50 text-left group cursor-pointer"
+            className="w-full py-3.5 flex items-center justify-between hover:bg-slate-50/80 transition-all rounded-xl px-2 -mx-2 text-left group cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-teal-50 flex items-center justify-center text-[#005E6A]">
@@ -16206,7 +16260,7 @@ const ProfilPage = ({
           {/* Hubungi Admin */}
           <button 
             onClick={() => window.open("https://wa.me/6287774138090", "_blank")}
-            className="w-full p-4 flex items-center justify-between bg-slate-50 hover:bg-slate-100/50 transition-all rounded-3xl border border-slate-100/50 text-left group cursor-pointer"
+            className="w-full py-3.5 flex items-center justify-between hover:bg-slate-50/80 transition-all rounded-xl px-2 -mx-2 text-left group cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500">
@@ -17308,6 +17362,69 @@ const HomePage = ({
   const [isAssetsExpanded, setIsAssetsExpanded] = useState(true);
   const [greeting, setGreeting] = useState<string>("Pagi");
 
+  const bestSellersScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = bestSellersScrollRef.current;
+    if (!container || activeTab !== "beranda") return;
+
+    let intervalId: NodeJS.Timeout;
+    let isInteracting = false;
+
+    const handleStart = () => { isInteracting = true; };
+    const handleEnd = () => { isInteracting = false; };
+
+    container.addEventListener('mouseenter', handleStart);
+    container.addEventListener('mouseleave', handleEnd);
+    container.addEventListener('touchstart', handleStart, { passive: true });
+    container.addEventListener('touchend', handleEnd, { passive: true });
+
+    intervalId = setInterval(() => {
+      if (isInteracting) return;
+      
+      const { scrollLeft, scrollWidth, clientWidth } = container;
+      const cardWidth = 190;
+      let nextScrollLeft = scrollLeft + cardWidth;
+      
+      if (scrollLeft + clientWidth >= scrollWidth - 25) {
+        nextScrollLeft = 0;
+      }
+      
+      container.scrollTo({
+        left: nextScrollLeft,
+        behavior: 'smooth'
+      });
+    }, 3200);
+
+    return () => {
+      clearInterval(intervalId);
+      container.removeEventListener('mouseenter', handleStart);
+      container.removeEventListener('mouseleave', handleEnd);
+      container.removeEventListener('touchstart', handleStart);
+      container.removeEventListener('touchend', handleEnd);
+    };
+  }, [activeTab, stock]);
+
+  const scrollBestSellers = (direction: 'left' | 'right') => {
+    if (!bestSellersScrollRef.current) return;
+    const container = bestSellersScrollRef.current;
+    const scrollAmount = 220;
+    container.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth'
+    });
+  };
+
+  const addToCart = (product: StockItem) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id);
+      if (existing) {
+        return prev.map(item => item.product.id === product.id ? { ...item, qty: item.qty + 1 } : item);
+      }
+      return [...prev, { product, qty: 1 }];
+    });
+  };
+
   useEffect(() => {
     const hour = new Date().getHours();
     if (hour >= 5 && hour < 11) {
@@ -17853,8 +17970,112 @@ const HomePage = ({
 
           <MainServices loggedInUser={loggedInUser} />
 
-          {/* Rekomendasi Investasi Section */}
+          {/* Produk Terlaris Section */}
           <section className="px-6 py-2">
+            <div className="bg-white rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden">
+              {/* Decorative Glow */}
+              <div className="absolute -right-8 -top-8 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+              
+              <div className="flex items-center justify-between mb-5 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-orange-500 via-[#F15A24] to-amber-500 flex items-center justify-center text-white shadow-md shadow-orange-500/25 shrink-0">
+                    <Flame className="w-6 h-6 text-white fill-amber-200 animate-pulse" />
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-black text-[#005E6A] uppercase tracking-wider leading-tight">
+                      Produk Terlaris
+                    </h2>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setActiveTab("belanja")}
+                  className="px-3.5 py-2 bg-slate-50 hover:bg-orange-50 text-[#F15A24] hover:text-[#D1491A] border border-slate-200/80 hover:border-orange-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 active:scale-95 transition-all shadow-sm group/btn shrink-0 cursor-pointer"
+                >
+                  <span>Lihat Semua</span>
+                  <ChevronRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
+              
+              <div className="h-px bg-slate-100 w-full mb-5" />
+              
+              {/* Horizontal Scrollable Row with Auto-Scroll */}
+              <div 
+                ref={bestSellersScrollRef}
+                className="flex overflow-x-auto gap-4 snap-x snap-mandatory scrollbar-hide pb-2 pt-1 w-full scroll-smooth cursor-grab active:cursor-grabbing"
+              >
+                {stock.slice(0, 10).map((item, idx) => {
+                  const inCart = cart.find(c => c.product.id === item.id);
+                  return (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="w-[165px] sm:w-[185px] shrink-0 snap-start bg-white border border-slate-100 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow group flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Image Container */}
+                        <div className="aspect-square rounded-md bg-slate-50 overflow-hidden mb-3 relative shrink-0 flex items-center justify-center">
+                          {item.Image ? (
+                            <img 
+                              src={item.Image} 
+                              alt={item.Nama} 
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                              referrerPolicy="no-referrer" 
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-200">
+                              <Package className="w-10 h-10" />
+                            </div>
+                          )}
+                          <div className="absolute top-2 left-2">
+                            <Badge className="bg-white/90 backdrop-blur-sm text-[#005E6A] text-[7px] font-black uppercase border-none shadow-xs">
+                              {item.Kategori || "Umum"}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* Product Title */}
+                        <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight line-clamp-1 mb-1" title={item.Nama}>
+                          {item.Nama}
+                        </h3>
+
+                        {/* Price & Stock */}
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-[11px] font-black text-[#F15A24]">
+                            Rp {item.HargaJual.toLocaleString('id-ID')}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <div className={`w-1.5 h-1.5 rounded-full ${item.Stok > 5 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                            <span className="text-[8px] font-bold text-slate-400">{item.Stok} {item.Satuan}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Buy Action Button */}
+                      <div className="mt-auto">
+                        <motion.button 
+                          whileTap={{ scale: 0.95 }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(item);
+                          }}
+                          className="w-full py-2 bg-slate-50 text-[#005E6A] text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-[#005E6A] hover:text-white transition-colors flex items-center justify-center gap-2 relative overflow-hidden group cursor-pointer"
+                        >
+                          <ShoppingCart className="w-3 h-3" /> 
+                          {inCart ? `BELI (${inCart.qty})` : "BELI"}
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+
+          {/* Rekomendasi Investasi Section */}
+          <section className="px-6 pb-6 pt-2">
             <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 relative z-10">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex flex-col w-fit">
@@ -18036,60 +18257,6 @@ const HomePage = ({
                       >
                         <span>PILIH</span>
                       </button>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* Highlight Belanja Section */}
-          <section className="px-6 pb-6">
-            <div className="bg-white rounded-lg p-6 shadow-sm border border-slate-100">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex flex-col w-fit">
-                  <h2 className="text-sm font-black text-black uppercase tracking-[0.2em] leading-none">Belanja</h2>
-                  <div className="flex justify-between w-full mt-1">
-                    {"produk fisik".split("").map((char, i) => (
-                      <span key={i} className="text-[6px] font-bold text-slate-400 uppercase leading-none">
-                        {char === " " ? "\u00A0" : char}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setActiveTab("belanja")}
-                  className="text-[10px] font-black text-[#F15A24] uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform"
-                >
-                  Lihat Semua
-                  <ChevronRight className="w-3 h-3" />
-                </button>
-              </div>
-              <div className="h-px bg-slate-100 w-full mb-6" />
-              
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {stock.slice(0, 8).map((item, idx) => (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                    onClick={() => setActiveTab("belanja")}
-                    className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col gap-2 cursor-pointer active:scale-95 transition-transform hover:shadow-md transition-shadow"
-                  >
-                    <div className="aspect-square bg-white rounded-md overflow-hidden mb-1 relative">
-                      {item.Image ? (
-                        <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ShoppingCart className="w-6 h-6 text-slate-200" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest truncate">{item.Kategori}</p>
-                      <p className="text-[10px] font-bold text-slate-800 truncate">{item.Nama}</p>
-                      <p className="text-[11px] font-black text-[#005E6A] tabular-nums mt-0.5">Rp {formatCurrency(item.HargaJual)}</p>
                     </div>
                   </motion.div>
                 ))}
