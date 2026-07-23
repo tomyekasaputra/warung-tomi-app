@@ -1,7 +1,23 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, createContext, useContext, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { BrowserRouter, Routes, Route, useNavigate, Link, useParams, useLocation, useSearchParams, Navigate } from "react-router-dom";
+
+export type Language = "id" | "en";
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (idText: string, enText: string) => string;
+}
+
+export const LanguageContext = createContext<LanguageContextType>({
+  language: "id",
+  setLanguage: () => {},
+  t: (idText) => idText,
+});
+
+export const useLanguage = () => useContext(LanguageContext);
 import Papa from "papaparse";
 import { 
   LineChart, 
@@ -712,6 +728,7 @@ const Header = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const isAdminPage = location.pathname.startsWith('/admin');
   const [isAgenInfoOpen, setIsAgenInfoOpen] = useState(false);
   const [badgeIndex, setBadgeIndex] = useState(0);
@@ -757,44 +774,44 @@ const Header = ({
           </Link>
 
           <div className="flex items-center gap-2">
-            {/* BNI 46 / Store Status Badge (Alternating every 3 seconds) */}
+            {/* BNI 46 / Store Status Badge (Compact & Proportional) */}
             <motion.div 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => setIsAgenInfoOpen(true)}
-              className={`px-4 py-2 rounded-full flex items-center justify-center shadow-sm border cursor-pointer min-w-[110px] h-[34px] overflow-hidden transition-all duration-300 ${
+              className={`px-2.5 py-1 rounded-full flex items-center justify-center shadow-xs border cursor-pointer h-[30px] overflow-hidden transition-all duration-300 ${
                 badgeIndex === 0 
-                  ? "bg-[#E6F4F5] border-[#005E6A]/10" 
+                  ? "bg-[#E6F4F5] border-[#005E6A]/15" 
                   : isStoreOpen 
-                    ? "bg-emerald-50 border-emerald-100" 
-                    : "bg-rose-50 border-rose-100"
+                    ? "bg-emerald-50 border-emerald-200" 
+                    : "bg-rose-50 border-rose-200"
               }`}
             >
               <AnimatePresence mode="wait">
                 {badgeIndex === 0 ? (
                   <motion.div
                     key="bni46"
-                    initial={{ opacity: 0, y: 12 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -12 }}
-                    transition={{ duration: 0.25, ease: "easeInOut" }}
-                    className="flex items-center gap-1 shrink-0"
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="flex items-center gap-0.5 shrink-0"
                   >
-                    <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider">Agen BNI</span>
-                    <span className="text-[10px] font-black text-[#F15A24]">46</span>
+                    <span className="text-[9px] font-black text-[#005E6A] uppercase tracking-tight">Agen BNI</span>
+                    <span className="text-[9px] font-black text-[#F15A24]">46</span>
                   </motion.div>
                 ) : (
                   <motion.div
                     key="operational"
-                    initial={{ opacity: 0, y: 12 }}
+                    initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -12 }}
-                    transition={{ duration: 0.25, ease: "easeInOut" }}
-                    className="flex items-center gap-1.5 shrink-0"
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="flex items-center gap-1 shrink-0"
                   >
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isStoreOpen ? "bg-emerald-500 animate-pulse" : "bg-rose-500 animate-pulse"}`} />
-                    <span className={`text-[9px] font-black uppercase tracking-wider leading-none ${isStoreOpen ? "text-emerald-600" : "text-rose-600"}`}>
-                      {isStoreOpen ? "BUKA" : "TUTUP"}
+                    <span className={`text-[8.5px] font-black uppercase tracking-wider leading-none ${isStoreOpen ? "text-emerald-600" : "text-rose-600"}`}>
+                      {isStoreOpen ? t("BUKA", "OPEN") : t("TUTUP", "CLOSED")}
                     </span>
                   </motion.div>
                 )}
@@ -807,12 +824,14 @@ const Header = ({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
-                  if (location.pathname.includes("/notifikasi") || activeTab === "notifikasi") {
-                    navigate("/");
-                    setActiveTab("beranda");
+                  if (location.pathname.includes("/notifikasi")) {
+                    if (window.history.length > 1) {
+                      navigate(-1);
+                    } else {
+                      navigate("/");
+                    }
                   } else {
                     navigate("/notifikasi");
-                    setActiveTab("notifikasi");
                   }
                 }}
                 className="relative p-2.5 rounded-full bg-[#E6F4F5] hover:bg-[#d0eaec] text-[#005E6A] transition-all cursor-pointer flex items-center justify-center border border-[#005E6A]/10"
@@ -1989,14 +2008,32 @@ const PromoSection = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
 
 const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
   const navigate = useNavigate();
+  const { t, language } = useLanguage();
+
+  const translatedServices = useMemo(() => {
+    return MAIN_SERVICES.map(s => {
+      let name = s.name;
+      if (language === "en") {
+        if (s.name === "Tabungan") name = "Savings";
+        else if (s.name === "Kasbon / Hutang") name = "Debt";
+        else if (s.name === "Poin Loyalitas") name = "Points";
+        else if (s.name === "Investasi") name = "Investment";
+        else if (s.name === "Bantuan / Edukasi") name = "Support";
+        else if (s.name === "Tarik Tunai") name = "Cash Out";
+        else if (s.name === "Transaksi Lainnya") name = "Others";
+      }
+      return { ...s, displayName: name };
+    });
+  }, [language]);
+
   return (
     <section className="px-6 py-1">
       <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 relative z-10">
         <div className="flex items-center justify-between mb-4">
           <div className="flex flex-col w-fit">
-            <h2 className="text-base font-black text-black uppercase tracking-[0.2em] leading-none">Layanan</h2>
+            <h2 className="text-base font-black text-black uppercase tracking-[0.2em] leading-none">{t("Layanan", "Services")}</h2>
             <div className="flex justify-between w-full mt-1">
-              {"produk virtual".split("").map((char, i) => (
+              {(language === "en" ? "virtual products" : "produk virtual").split("").map((char, i) => (
                 <span key={i} className="text-[6px] font-bold text-slate-400 uppercase leading-none">
                   {char === " " ? "\u00A0" : char}
                 </span>
@@ -2011,7 +2048,7 @@ const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
         <div className="h-px bg-slate-100 w-full mb-6" />
         
         <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-y-8 gap-x-2">
-          {MAIN_SERVICES.map((service) => (
+          {translatedServices.map((service) => (
             <motion.button
               key={service.id}
               whileHover={{ scale: 1.05 }}
@@ -2035,7 +2072,7 @@ const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
               <div className={`w-12 h-12 ${service.bgColor} rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all`}>
                 {service.icon}
               </div>
-              <span className="text-[9px] font-bold text-slate-500 text-center leading-tight px-0.5">{service.name}</span>
+              <span className="text-[9px] font-bold text-slate-500 text-center leading-tight px-0.5">{service.displayName}</span>
             </motion.button>
           ))}
         </div>
@@ -2047,11 +2084,12 @@ const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
 
 
 const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setActiveTab: (id: string) => void, user: Customer | null }) => {
+  const { t } = useLanguage();
   const allNavItems = [
-    { id: "beranda", label: "Beranda", icon: Home },
-    { id: "belanja", label: "Belanja", icon: ShoppingCart },
-    { id: "riwayat", label: "Riwayat", icon: History, protected: true },
-    { id: "settings", label: "Profil", icon: User },
+    { id: "beranda", label: t("Beranda", "Home"), icon: Home },
+    { id: "belanja", label: t("Belanja", "Shop"), icon: ShoppingCart },
+    { id: "riwayat", label: t("Riwayat", "History"), icon: History, protected: true },
+    { id: "settings", label: t("Profil", "Profile"), icon: User },
   ];
 
   const navItems = allNavItems.filter(item => !item.protected || user);
@@ -11125,6 +11163,7 @@ const CatalogPage = ({
   setCart: React.Dispatch<React.SetStateAction<{ product: StockItem, qty: number }[]>>,
   setShowCart: (show: boolean) => void
 }) => {
+  const { t, language } = useLanguage();
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
@@ -11145,10 +11184,10 @@ const CatalogPage = ({
   const SHOP_PROMOS = useMemo(() => [
     {
       id: "ongkir",
-      title: "Gratis Ongkir Sepuasnya!",
-      subtitle: "Belanja minimal Rp 20.000 saja langsung bebas biaya kirim ke rumahmu.",
-      badge: "PROMO HEMAT",
-      highlight: "Belanja Min. Rp 20Rb",
+      title: t("Gratis Ongkir Sepuasnya!", "Unlimited Free Shipping!"),
+      subtitle: t("Belanja minimal Rp 20.000 saja langsung bebas biaya kirim ke rumahmu.", "Shop min Rp 20,000 for free delivery to your home."),
+      badge: t("PROMO HEMAT", "SAVINGS PROMO"),
+      highlight: t("Belanja Min. Rp 20Rb", "Min. Spend Rp 20K"),
       gradient: "from-[#D35400] via-[#F15A24] to-[#FF8C00]",
       renderVector: () => (
         <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-lg">
@@ -11191,10 +11230,10 @@ const CatalogPage = ({
     },
     {
       id: "jumat",
-      title: "Program Jumat Berkah",
-      subtitle: "Khusus adik-adik yatim & piatu, dapatkan gratis makanan ringan atau sembako pilihan gratis.",
-      badge: "PROGRAM SOSIAL",
-      highlight: "Khusus Yatim & Piatu",
+      title: t("Program Jumat Berkah", "Blessed Friday Program"),
+      subtitle: t("Khusus adik-adik yatim & piatu, dapatkan gratis makanan ringan atau sembako pilihan gratis.", "Exclusively for orphans, enjoy free snacks or selected staple goods."),
+      badge: t("PROGRAM SOSIAL", "SOCIAL PROGRAM"),
+      highlight: t("Khusus Yatim & Piatu", "Exclusively for Orphans"),
       gradient: "from-[#005E6A] via-[#27ae60] to-[#2ecc71]",
       renderVector: () => (
         <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-lg">
@@ -11276,7 +11315,7 @@ const CatalogPage = ({
             <Search className="w-5 h-5 text-slate-300 shrink-0" />
             <input 
               type="text" 
-              placeholder="Cari barang..." 
+              placeholder={t("Cari barang...", "Search items...")} 
               className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -11402,7 +11441,7 @@ const CatalogPage = ({
                 }`}
               >
                 {getCategoryIcon(cat)}
-                <span>{cat}</span>
+                <span>{cat === "Semua" ? t("Semua", "All") : cat}</span>
               </button>
             );
           })}
@@ -11449,7 +11488,7 @@ const CatalogPage = ({
                     className="w-full py-2 bg-slate-50 text-[#005E6A] text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-[#005E6A] hover:text-white transition-colors flex items-center justify-center gap-2 relative overflow-hidden group"
                   >
                     <ShoppingCart className="w-3 h-3" /> 
-                    {inCart ? `BELI (${inCart.qty})` : "BELI"}
+                    {inCart ? `${t("BELI", "BUY")} (${inCart.qty})` : t("BELI", "BUY")}
                     <AnimatePresence>
                       {inCart && (
                         <motion.div
@@ -14658,6 +14697,7 @@ const NotificationPage = ({
 };
 
 const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<"trend" | "rincian">("trend");
@@ -15057,13 +15097,13 @@ Terima kasih telah berbelanja di Warung Tomi!`;
               onClick={() => setActiveTab("trend")}
               className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "trend" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
             >
-              Trend
+              {t("Trend", "Trend")}
             </button>
             <button 
               onClick={() => setActiveTab("rincian")}
               className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "rincian" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
             >
-              Rincian
+              {t("Rincian", "Details")}
             </button>
           </div>
 
@@ -15073,7 +15113,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
               <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 mb-2 relative overflow-hidden">
                 <div className="relative z-10 mb-6 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Transaksi {selectedMonthLabel}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("Total Transaksi", "Total Transactions")} {selectedMonthLabel}</p>
                     <h4 className="text-xl font-black text-[#005E6A]">
                       Rp {formatCurrency(totalSelectedMonth)}
                     </h4>
@@ -15150,7 +15190,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
               <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-slate-100 mb-2 relative overflow-hidden">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Belanja {selectedMonthLabel}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("Total Belanja", "Total Shopping")} {selectedMonthLabel}</p>
                     <h4 className="text-xl font-black text-[#005E6A]">
                       Rp {formatCurrency(totalSelectedMonth)}
                     </h4>
@@ -15165,7 +15205,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                     <div className="flex items-center gap-2">
                       <Zap className="w-3 h-3 text-[#F15A24]" />
                       <p className="text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
-                        Terpopuler: {pieData[0].name} ({Math.round(pieData[0].percentage)}%)
+                        {t("Terpopuler:", "Most Popular:")} {pieData[0].name} ({Math.round(pieData[0].percentage)}%)
                       </p>
                     </div>
                   </div>
@@ -15355,7 +15395,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                   ) : (
                     <div className="flex flex-col items-center justify-center py-10 opacity-20">
                       <History className="w-10 h-10 mb-2" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest">{t("Tidak ada transaksi", "No transactions found")}</p>
                     </div>
                   )}
                 </motion.div>
@@ -15781,9 +15821,44 @@ const ProfilPage = ({
     };
   }, [user]);
   
-  // Interactive settings states
-  const [language, setLanguage] = useState("id");
-  const [themeMode, setThemeMode] = useState("teal");
+  // Interactive settings states with persistence & dynamic theme/language application
+  const { language, setLanguage, t } = useLanguage();
+  const [themeMode, setThemeModeState] = useState(() => {
+    return localStorage.getItem("app_theme") || "teal";
+  });
+  const [toastNotice, setToastNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (themeMode === "dark") {
+      root.classList.add("dark");
+      root.setAttribute("data-theme", "dark");
+    } else if (themeMode === "orange") {
+      root.classList.remove("dark");
+      root.setAttribute("data-theme", "orange");
+    } else {
+      root.classList.remove("dark");
+      root.setAttribute("data-theme", "teal");
+    }
+  }, [themeMode]);
+
+  const handleLanguageChange = (lang: Language) => {
+    setLanguage(lang);
+    setToastNotice(lang === "id" ? "Bahasa diubah ke Bahasa Indonesia" : "Language changed to English");
+    setTimeout(() => setToastNotice(null), 3000);
+  };
+
+  const handleThemeChange = (mode: string) => {
+    setThemeModeState(mode);
+    localStorage.setItem("app_theme", mode);
+    const labelMap: Record<string, string> = {
+      teal: "Teal (Hijau Toska)",
+      orange: "Oranye (Sutra Warm)",
+      dark: "Gelap (Dark Mode)"
+    };
+    setToastNotice(`Tema aplikasi diubah ke ${labelMap[mode] || mode}`);
+    setTimeout(() => setToastNotice(null), 3000);
+  };
   
   const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
   const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
@@ -15877,21 +15952,24 @@ const ProfilPage = ({
       />
 
       {/* 1. KELOMPOK PROFIL */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 group p-6">
-        <div className="flex items-center justify-between gap-4">
+      <div className="bg-gradient-to-br from-[#F15A24] via-orange-500 to-amber-500 rounded-[2.5rem] shadow-xl shadow-orange-500/20 text-white overflow-hidden mb-6 group p-6 relative">
+        {/* Decorative Glow */}
+        <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="flex items-center justify-between gap-4 relative z-10">
           
           {/* Left: Foto Profil Pelanggan (sebelah kiri center) */}
           <div className="flex items-center gap-4 shrink-0">
-            <div className={`p-1 rounded-full bg-gradient-to-br ${customerLevel.color || 'from-slate-100 to-slate-200'} shadow-md relative`}>
+            <div className="p-1 rounded-full bg-white/20 backdrop-blur-md shadow-md relative border border-white/30">
               <div 
                 onClick={handlePhotoClick}
-                className="w-20 h-20 rounded-full border-4 border-white overflow-hidden bg-slate-100 relative group/avatar flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-300"
+                className="w-20 h-20 rounded-full border-4 border-white overflow-hidden bg-white/20 relative group/avatar flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-300"
               >
                 {user?.Foto ? (
                   <img src={user.Foto} alt={user.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
-                  <div className={`w-full h-full bg-gradient-to-br ${customerLevel.color || 'from-slate-100 to-slate-200'} flex items-center justify-center`}>
-                    <User className="w-10 h-10 text-white/95 drop-shadow-md" />
+                  <div className="w-full h-full bg-white/20 flex items-center justify-center">
+                    <User className="w-10 h-10 text-white drop-shadow-md" />
                   </div>
                 )}
                 {user && (
@@ -15906,10 +15984,10 @@ const ProfilPage = ({
           {/* Center-Left: Nama Pelanggan (sebelah kanan foto profil) & ID Pelanggan (dibawah nama) */}
           {user ? (
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-black text-[#005E6A] uppercase tracking-tight leading-tight mb-1 truncate">
+              <h1 className="text-xl font-black text-white uppercase tracking-tight leading-tight mb-1 truncate drop-shadow-xs">
                 {user.Nama}
               </h1>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <p className="text-[10px] font-black text-orange-100 uppercase tracking-widest">
                 ID: {customerId}
               </p>
             </div>
@@ -15919,11 +15997,11 @@ const ProfilPage = ({
                 onClick={() => navigate("/login")}
                 className="text-left group/masuk block cursor-pointer"
               >
-                <h1 className="text-xl font-black text-[#F15A24] hover:text-[#005E6A] uppercase tracking-tight leading-tight mb-1 flex items-center gap-1.5 transition-colors cursor-pointer">
-                  Masuk <ArrowRight className="w-4 h-4 group-hover/masuk:translate-x-1 transition-transform text-[#F15A24]" />
+                <h1 className="text-xl font-black text-white hover:text-orange-100 uppercase tracking-tight leading-tight mb-1 flex items-center gap-1.5 transition-colors cursor-pointer">
+                  {t("Masuk", "Log In")} <ArrowRight className="w-4 h-4 group-hover/masuk:translate-x-1 transition-transform text-white" />
                 </h1>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Ketuk untuk masuk ke akun Anda
+                <p className="text-[10px] font-black text-orange-100 uppercase tracking-widest">
+                  {t("Ketuk untuk masuk ke akun Anda", "Tap to log in to your account")}
                 </p>
               </button>
             </div>
@@ -15936,10 +16014,10 @@ const ProfilPage = ({
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setShowQR(true)}
-                className="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-100 rounded-2xl transition-all shadow-sm flex items-center justify-center cursor-pointer"
+                className="p-3 bg-white/20 hover:bg-white/30 border border-white/30 rounded-2xl transition-all shadow-sm flex items-center justify-center cursor-pointer backdrop-blur-md"
                 title="Tampilkan QR Code"
               >
-                <QrCode className="w-8 h-8 text-[#005E6A]" />
+                <QrCode className="w-8 h-8 text-white" />
               </motion.button>
             </div>
           )}
@@ -15950,7 +16028,7 @@ const ProfilPage = ({
       {/* 2. KELOMPOK REWARD (Pindahkan ke atas aset) */}
       {user && (
         <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
-          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">Loyalitas & Reward</h3>
+          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">{t("Loyalitas & Reward", "Loyalty & Rewards")}</h3>
           <div className="grid grid-cols-2 gap-4">
             
             {/* Level (Sebelah Kiri) */}
@@ -15962,7 +16040,7 @@ const ProfilPage = ({
                 <Trophy className="w-5 h-5 text-[#F15A24] fill-[#F15A24]" />
               </div>
               <div className="min-w-0">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Level Pelanggan</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">{t("Level Pelanggan", "Customer Level")}</p>
                 <p className="text-xs font-black text-[#F15A24] uppercase truncate">{customerLevel.name}</p>
               </div>
             </div>
@@ -15976,9 +16054,9 @@ const ProfilPage = ({
                 <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
               </div>
               <div className="min-w-0">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Poin Saya</p>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">{t("Poin Saya", "My Points")}</p>
                 <p className="text-xs font-black text-amber-600 uppercase truncate">
-                  {activePoints.toLocaleString('id-ID')} Poin
+                  {activePoints.toLocaleString('id-ID')} {t("Poin", "Pts")}
                 </p>
               </div>
             </div>
@@ -15990,7 +16068,7 @@ const ProfilPage = ({
       {/* 3. KELOMPOK ASET */}
       {user && (
         <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
-          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">Aset/Hutang</h3>
+          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">{t("Aset/Hutang", "Assets & Liabilities")}</h3>
           <div 
             ref={assetScrollRef}
             className="flex overflow-x-auto gap-3.5 snap-x snap-mandatory scrollbar-hide pb-1 w-full"
@@ -16025,7 +16103,7 @@ const ProfilPage = ({
                 
                 <div className="min-w-0 text-left flex-1">
                   <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
-                    Tabungan
+                    {t("Tabungan", "Savings")}
                   </p>
                   <div className="flex items-center gap-0.5 leading-none">
                     <span className="text-[7px] font-black text-white/70 italic">Rp</span>
@@ -16066,7 +16144,7 @@ const ProfilPage = ({
                 
                 <div className="min-w-0 text-left flex-1">
                   <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
-                    Investasi
+                    {t("Investasi", "Investments")}
                   </p>
                   <div className="flex items-center gap-0.5 leading-none">
                     <span className="text-[7px] font-black text-white/70 italic">Rp</span>
@@ -16164,9 +16242,26 @@ const ProfilPage = ({
         </div>
       )}
 
+      {/* Toast Notification Banner for Settings Changes */}
+      <AnimatePresence>
+        {toastNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] bg-[#005E6A] text-white text-xs font-black px-5 py-2.5 rounded-full shadow-2xl border border-white/20 flex items-center gap-2 tracking-wide uppercase"
+          >
+            <Sparkles className="w-4 h-4 text-amber-300 animate-pulse shrink-0" />
+            <span>{toastNotice}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* 4. KELOMPOK PENGATURAN */}
       <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
-        <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-2">Pengaturan</h3>
+        <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-2">
+          {language === "en" ? "Settings" : "Pengaturan"}
+        </h3>
         <div className="divide-y divide-slate-100">
           
           {/* Bahasa */}
@@ -16176,20 +16271,24 @@ const ProfilPage = ({
                 <Globe className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-xs font-black text-[#005E6A] uppercase tracking-tight">Bahasa</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pilih bahasa aplikasi</p>
+                <p className="text-xs font-black text-[#005E6A] uppercase tracking-tight">
+                  {language === "en" ? "Language" : "Bahasa"}
+                </p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                  {language === "en" ? "Select application language" : "Pilih bahasa aplikasi"}
+                </p>
               </div>
             </div>
             <div className="flex bg-slate-100 p-1 rounded-2xl">
               <button 
-                onClick={() => setLanguage("id")}
-                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${language === "id" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500"}`}
+                onClick={() => handleLanguageChange("id")}
+                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${language === "id" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               >
                 IND
               </button>
               <button 
-                onClick={() => setLanguage("en")}
-                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${language === "en" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500"}`}
+                onClick={() => handleLanguageChange("en")}
+                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${language === "en" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               >
                 ENG
               </button>
@@ -16203,22 +16302,32 @@ const ProfilPage = ({
                 <Settings className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-xs font-black text-[#005E6A] uppercase tracking-tight">Tema</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pilih skema warna</p>
+                <p className="text-xs font-black text-[#005E6A] uppercase tracking-tight">
+                  {language === "en" ? "Theme" : "Tema"}
+                </p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                  {language === "en" ? "Choose color scheme" : "Pilih skema warna"}
+                </p>
               </div>
             </div>
-            <div className="flex bg-slate-100 p-1 rounded-2xl">
+            <div className="flex bg-slate-100 p-1 rounded-2xl gap-0.5">
               <button 
-                onClick={() => setThemeMode("teal")}
-                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${themeMode === "teal" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500"}`}
+                onClick={() => handleThemeChange("teal")}
+                className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${themeMode === "teal" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               >
                 Teal
               </button>
               <button 
-                onClick={() => setThemeMode("orange")}
-                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${themeMode === "orange" ? "bg-[#F15A24] text-white shadow-sm" : "text-slate-500"}`}
+                onClick={() => handleThemeChange("orange")}
+                className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${themeMode === "orange" ? "bg-[#F15A24] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
               >
                 Oranye
+              </button>
+              <button 
+                onClick={() => handleThemeChange("dark")}
+                className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${themeMode === "dark" ? "bg-slate-900 text-amber-400 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+              >
+                Gelap
               </button>
             </div>
           </div>
@@ -17358,6 +17467,7 @@ const HomePage = ({
 }) => {
   const { subPage, customerName } = useParams();
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const totalCart = cart.reduce((acc, item) => acc + (item.product.HargaJual * item.qty), 0);
   const [selectedOffer, setSelectedOffer] = useState<{
     tenor: string;
@@ -17506,7 +17616,7 @@ const HomePage = ({
 
     const assets = [
       { 
-        name: "Tabungan", 
+        name: t("Tabungan", "Savings"), 
         value: tabVal, 
         gradient: "from-[#2ecc71] to-[#27ae60]",
         textColorClass: "text-[#27ae60]",
@@ -17514,7 +17624,7 @@ const HomePage = ({
         path: `/tabungan/${encodeURIComponent(loggedInUser.Nama)}` 
       },
       { 
-        name: "Investasi", 
+        name: t("Investasi", "Investment"), 
         value: invVal, 
         gradient: "from-[#9b59b6] to-[#8e44ad]",
         textColorClass: "text-[#8e44ad]",
@@ -17522,7 +17632,7 @@ const HomePage = ({
         path: `/investasi/${encodeURIComponent(loggedInUser.Nama)}` 
       },
       { 
-        name: "Lainnya", 
+        name: t("Lainnya", "Others"), 
         value: lainVal, 
         gradient: "from-[#f1c40f] to-[#f39c12]",
         textColorClass: "text-[#f39c12]",
@@ -17530,7 +17640,7 @@ const HomePage = ({
         path: `/lainnya/${encodeURIComponent(loggedInUser.Nama)}` 
       },
       { 
-        name: "Hutang", 
+        name: t("Hutang", "Debt"), 
         value: hutVal, 
         gradient: "from-[#e74c3c] to-[#c0392b]",
         textColorClass: "text-[#c0392b]",
@@ -17860,11 +17970,11 @@ const HomePage = ({
 
                 <div className="relative z-10 flex flex-col gap-1.5 max-w-[62%] sm:max-w-[55%]">
                   <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase drop-shadow-md flex items-center gap-2">
-                    {greeting}, {loggedInUser.Nama}! <span className="inline-block animate-bounce origin-bottom">👋</span>
+                    {greeting === "Pagi" ? t("Pagi", "Good Morning") : greeting === "Siang" ? t("Siang", "Good Afternoon") : greeting === "Sore" ? t("Sore", "Good Evening") : t("Malam", "Good Night")}, {loggedInUser.Nama}! <span className="inline-block animate-bounce origin-bottom">👋</span>
                   </h1>
                   <p className="text-xs sm:text-sm font-black text-amber-300 uppercase tracking-[0.2em] drop-shadow-md flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Selamat Datang Kembali
+                    {t("Selamat Datang Kembali", "Welcome Back")}
                   </p>
                 </div>
               </div>
@@ -17884,9 +17994,9 @@ const HomePage = ({
                         <Wallet className="w-5 h-5 text-white" />
                       </div>
                       <div className="text-left min-w-0">
-                        <p className="text-base sm:text-lg font-black text-[#005E6A] leading-none uppercase">Saldo</p>
+                        <p className="text-base sm:text-lg font-black text-[#005E6A] leading-none uppercase">{t("Saldo", "Balance")}</p>
                         <p className="text-[8px] sm:text-[9.5px] font-bold text-slate-500 uppercase tracking-wide mt-1.5 leading-normal">
-                          Tabungan + Investasi + Lainnya - Hutang
+                          {t("Tabungan + Investasi + Lainnya - Hutang", "Savings + Investment + Others - Debt")}
                         </p>
                       </div>
                     </div>
@@ -17992,7 +18102,7 @@ const HomePage = ({
                   </div>
                   <div>
                     <h2 className="text-base sm:text-lg font-black text-[#005E6A] uppercase tracking-wider leading-tight">
-                      Produk Terlaris
+                      {t("Produk Terlaris", "Best Sellers")}
                     </h2>
                   </div>
                 </div>
@@ -18001,7 +18111,7 @@ const HomePage = ({
                   onClick={() => setActiveTab("belanja")}
                   className="px-3.5 py-2 bg-slate-50 hover:bg-orange-50 text-[#F15A24] hover:text-[#D1491A] border border-slate-200/80 hover:border-orange-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 active:scale-95 transition-all shadow-sm group/btn shrink-0 cursor-pointer"
                 >
-                  <span>Lihat Semua</span>
+                  <span>{t("Lihat Semua", "See All")}</span>
                   <ChevronRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
                 </button>
               </div>
@@ -18307,21 +18417,6 @@ const HomePage = ({
         >
           <ProfilPage user={loggedInUser} transactions={salesTransactions} investmentTransactions={investmentTransactions} redeemedPoints={redeemedPoints} onLogout={onLogout} customers={customers} onLogin={onLogin} setActiveTab={setActiveTab} onUpdatePhoto={onUpdatePhoto} />
         </motion.div>
-      )}
-      {activeTab === "notifikasi" && (
-        <ProtectedPage user={loggedInUser} title="Notifikasi" customers={customers} onLogin={onLogin} setActiveTab={setActiveTab}>
-          <NotificationPage 
-            user={loggedInUser}
-            onLogin={onLogin}
-            customers={customers}
-            setActiveTab={setActiveTab}
-            notifications={allNotifications}
-            unreadCount={unreadNotificationsCount}
-            markAllAsRead={handleMarkAllAsRead}
-            readNotificationIds={readNotificationIds}
-            onMarkAsRead={handleMarkAsRead}
-          />
-        </ProtectedPage>
       )}
       {activeTab === "konfirmasi-pesanan" && (
         <motion.div
@@ -18749,6 +18844,19 @@ const InstallPrompt = ({ onInstall, onDismiss }: { onInstall: () => void, onDism
 );
 
 export default function App() {
+  const [language, setLanguageState] = useState<Language>(() => {
+    return (localStorage.getItem("app_language") as Language) || "id";
+  });
+
+  const handleLanguageChange = useCallback((lang: Language) => {
+    setLanguageState(lang);
+    localStorage.setItem("app_language", lang);
+  }, []);
+
+  const t = useCallback((idText: string, enText: string) => {
+    return language === "en" ? enText : idText;
+  }, [language]);
+
   const [activeTab, setActiveTab] = useState("beranda");
   const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
   const [showCart, setShowCart] = useState(false);
@@ -19511,7 +19619,8 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
+    <LanguageContext.Provider value={{ language, setLanguage: handleLanguageChange, t }}>
+      <BrowserRouter>
       <ScrollToTop />
       <AnimatePresence mode="wait">
         {showSplash ? (
@@ -19718,7 +19827,7 @@ export default function App() {
         <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} customers={customers} />} />
         <Route path="/notifikasi" element={
           <Layout 
-            activeTab="notifikasi" 
+            activeTab={activeTab} 
             setActiveTab={setActiveTab}
             user={loggedInUser}
           >
@@ -19739,7 +19848,7 @@ export default function App() {
         } />
         <Route path="/notifikasi/:customerName" element={
           <Layout 
-            activeTab="notifikasi" 
+            activeTab={activeTab} 
             setActiveTab={setActiveTab}
             user={loggedInUser}
           >
@@ -20042,5 +20151,6 @@ export default function App() {
         )}
       </AnimatePresence>
     </BrowserRouter>
+  </LanguageContext.Provider>
   );
 }
