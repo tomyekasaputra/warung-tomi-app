@@ -112,3 +112,127 @@
     @apply font-heading;
   }
 }
+
+/* Mode Malam (Dark Mode) Global Override Rules */
+html.dark,
+html.dark body,
+html.dark #root {
+  color-scheme: dark !important;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* Page background containers */
+html.dark .bg-slate-50,
+html.dark .bg-slate-50\/95,
+html.dark .bg-slate-50\/90,
+html.dark .bg-slate-50\/80,
+html.dark .bg-slate-50\/50,
+html.dark .bg-gray-50,
+html.dark .bg-slate-100,
+html.dark .bg-slate-100\/80,
+html.dark .bg-slate-100\/50,
+html.dark .bg-gray-100 {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* Fixed headers, navbars, floating bottom bars */
+html.dark header,
+html.dark nav,
+html.dark .fixed.bottom-0,
+html.dark .fixed.top-0,
+html.dark .sticky.top-0 {
+  background-color: rgba(15, 23, 42, 0.96) !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* White cards and floating containers */
+html.dark .bg-white,
+html.dark .bg-white\/98,
+html.dark .bg-white\/95,
+html.dark .bg-white\/90,
+html.dark .bg-white\/80,
+html.dark .bg-white\/70,
+html.dark .bg-white\/50 {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+/* Soft light-colored feature boxes, badges, inputs, etc. */
+html.dark .bg-emerald-50,
+html.dark .bg-rose-50,
+html.dark .bg-amber-50,
+html.dark .bg-teal-50,
+html.dark .bg-blue-50,
+html.dark .bg-purple-50,
+html.dark .bg-indigo-50,
+html.dark .bg-slate-200,
+html.dark .bg-[#E6F4F5],
+html.dark .bg-[#FFF7ED],
+html.dark .bg-[#EEF2FF],
+html.dark .bg-[#F0FDF4],
+html.dark .bg-[#F3E8FF],
+html.dark .bg-[#FDF2F8],
+html.dark .bg-[#F0FDFA],
+html.dark .bg-[#FEFCE8],
+html.dark .bg-[#FEF2F2],
+html.dark .bg-[#ECFEFF],
+html.dark .bg-[#FFF1F2],
+html.dark .bg-[#FFFBEB],
+html.dark .bg-[#ECFDF5] {
+  background-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* Text Colors in Dark Mode */
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-slate-700,
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-black {
+  color: #f8fafc !important;
+}
+
+html.dark .text-[#005E6A] {
+  color: #38bdf8 !important;
+}
+
+html.dark .text-slate-600,
+html.dark .text-slate-500,
+html.dark .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+/* Border Colors in Dark Mode */
+html.dark .border-slate-100,
+html.dark .border-slate-200,
+html.dark .border-slate-300,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-white,
+html.dark .border-[#005E6A]\/10,
+html.dark .border-[#005E6A]\/15,
+html.dark .border-slate-50 {
+  border-color: #334155 !important;
+}
+
+/* Form inputs */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+/* Shadows in Dark Mode */
+html.dark .shadow-xl,
+html.dark .shadow-lg,
+html.dark .shadow-md,
+html.dark .shadow-sm,
+html.dark .shadow-2xl {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.6) !important;
+}

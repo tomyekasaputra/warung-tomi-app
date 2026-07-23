@@ -132,7 +132,10 @@ import {
   Image as ImageIcon,
   Palette,
   Type,
-  Layout as LayoutIcon
+  Layout as LayoutIcon,
+  Sun,
+  Moon,
+  Monitor
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -466,11 +469,11 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: 
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
       onClick={handleClick}
-      className={`bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative transition-all active:scale-[0.98] ${displayName !== "Pelanggan Umum" ? 'cursor-pointer hover:shadow-md hover:border-[#005E6A]/20' : ''}`}
+      className={`bg-white rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden relative transition-all active:scale-[0.98] ${displayName !== "Pelanggan Umum" ? 'cursor-pointer hover:shadow-md hover:border-[#005E6A]/20 dark:border-teal-800/40' : ''}`}
     >
       <div className="p-4 flex items-center gap-4">
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${service?.bgColor || 'bg-slate-50'}`}>
-          {service ? service.icon : <ShoppingBag className="w-6 h-6 text-slate-400" />}
+          {service ? service.icon : <ShoppingBag className="w-6 h-6 text-slate-400 dark:text-slate-300 dark:text-slate-200" />}
         </div>
         
         <div className="flex-1 min-w-0 flex justify-between items-center">
@@ -480,13 +483,13 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: 
             
             {/* Row 2: Jenis & Melalui */}
             <div className="flex items-center gap-2">
-              <span className="text-[8px] font-bold text-slate-700 uppercase leading-none">{t.Jenis}</span>
-              <span className="text-[8px] font-medium text-slate-400 uppercase tracking-wider truncate leading-none">via {t.Melalui}</span>
+              <span className="text-[8px] font-bold text-slate-700 dark:text-slate-200 uppercase leading-none">{t.Jenis}</span>
+              <span className="text-[8px] font-medium text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider truncate leading-none">via {t.Melalui}</span>
             </div>
 
             {/* Row 3: Tanggal & Status */}
             <div className="flex items-center gap-2">
-              <p className="text-[7px] font-medium text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+              <p className="text-[7px] font-medium text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t.Tanggal}</p>
               <p className={`text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full w-fit ${ribbonColor}`}>
                 {t.Status}
               </p>
@@ -747,7 +750,7 @@ const Header = ({
 
   return (
     <>
-      <header className="bg-white/80 backdrop-blur-xl fixed top-0 left-0 right-0 z-50 border-b border-slate-100 shadow-sm transition-all duration-300">
+      <header className="bg-white/80 backdrop-blur-xl fixed top-0 left-0 right-0 z-50 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300">
         <div className="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
           <Link to="/" className="flex items-center gap-3 group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
             <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg border border-white bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-95 shadow-slate-200/50">
@@ -834,7 +837,7 @@ const Header = ({
                     navigate("/notifikasi");
                   }
                 }}
-                className="relative p-2.5 rounded-full bg-[#E6F4F5] hover:bg-[#d0eaec] text-[#005E6A] transition-all cursor-pointer flex items-center justify-center border border-[#005E6A]/10"
+                className="relative p-2.5 rounded-full bg-[#E6F4F5] hover:bg-[#d0eaec] text-[#005E6A] transition-all cursor-pointer flex items-center justify-center border border-[#005E6A]/10 dark:border-teal-800/30"
                 aria-label="Notifikasi"
               >
                 <Bell className="w-4.5 h-4.5 text-[#005E6A] stroke-[2.2]" />
@@ -886,19 +889,19 @@ const Header = ({
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-[#005E6A] font-black text-xs uppercase tracking-widest mb-2">Apa itu Agen BNI 46?</h4>
-                    <p className="text-slate-600 text-xs leading-relaxed font-medium">
+                    <p className="text-slate-600 dark:text-slate-300 dark:text-slate-200 text-xs leading-relaxed font-medium">
                       Agen BNI 46 adalah mitra BNI (perorangan atau badan hukum) yang telah bekerjasama dengan BNI untuk menyediakan layanan perbankan kepada masyarakat.
                     </p>
                   </div>
 
-                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                  <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 dark:border-slate-800">
                     <div className="flex items-start gap-3">
                       <div className="bg-[#F15A24] p-2 rounded-lg shrink-0 mt-0.5">
                         <ShieldCheck className="w-4 h-4 text-white" />
                       </div>
                       <div>
-                        <h4 className="text-slate-900 font-black text-xs uppercase tracking-widest mb-1">Warung Tomi</h4>
-                        <p className="text-slate-500 text-[11px] leading-relaxed font-bold">
+                        <h4 className="text-slate-900 dark:text-white font-black text-xs uppercase tracking-widest mb-1">Warung Tomi</h4>
+                        <p className="text-slate-500 dark:text-slate-300 dark:text-slate-200 text-[11px] leading-relaxed font-bold">
                           Telah menjadi mitra resmi Agen BNI 46 sejak tahun <span className="text-[#F15A24]">2021</span>.
                         </p>
                       </div>
@@ -907,8 +910,8 @@ const Header = ({
 
                   <div>
                     <h4 className="text-[#005E6A] font-black text-xs uppercase tracking-widest mb-2">Titik Kumpul KPM</h4>
-                    <p className="text-slate-600 text-xs leading-relaxed font-medium">
-                      Kami bangga menjadi titik kumpul resmi bagi para Keluarga Penerima Manfaat (KPM) untuk melakukan pencairan bantuan sosial <span className="font-bold text-slate-900">PKH</span> dan <span className="font-bold text-slate-900">BPNT</span> secara aman dan nyaman.
+                    <p className="text-slate-600 dark:text-slate-300 dark:text-slate-200 text-xs leading-relaxed font-medium">
+                      Kami bangga menjadi titik kumpul resmi bagi para Keluarga Penerima Manfaat (KPM) untuk melakukan pencairan bantuan sosial <span className="font-bold text-slate-900 dark:text-white">PKH</span> dan <span className="font-bold text-slate-900 dark:text-white">BPNT</span> secara aman dan nyaman.
                     </p>
                   </div>
                 </div>
@@ -1202,7 +1205,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
 
       <div className="px-6 -mt-8 relative z-10">
         {/* Menu Switcher inside the overlapping container */}
-        <div className="bg-white rounded-3xl p-2 flex gap-2 shadow-xl border border-slate-50 mb-8">
+        <div className="bg-white rounded-3xl p-2 flex gap-2 shadow-xl border border-slate-50 dark:border-slate-800/50 mb-8">
           {[
             { id: 'laporan', label: 'Laporan', icon: ClipboardList },
             { id: 'riwayat', label: 'Riwayat', icon: History },
@@ -1214,7 +1217,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
                 activeMenu === menu.id 
                   ? 'bg-[#F15A24] text-white shadow-lg shadow-orange-100' 
-                  : 'text-slate-400 hover:bg-slate-50'
+                  : 'text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:bg-slate-50'
               }`}
             >
               <menu.icon className="w-3.5 h-3.5" />
@@ -1226,13 +1229,13 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
         {activeMenu === 'cek_desil' ? (
           <div className="pb-20">
             {/* Simplified Portal Cek Bansos */}
-            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-xl text-center">
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-xl text-center">
               <div className="w-16 h-16 bg-[#005E6A]/10 rounded-2xl flex items-center justify-center mx-auto mb-5">
                 <Globe className="w-8 h-8 text-[#005E6A]" />
               </div>
 
-              <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight mb-2">Portal Resmi Cek Bansos</h2>
-              <p className="text-[10px] font-medium text-slate-500 leading-relaxed mb-6 max-w-[280px] mx-auto">
+              <h2 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-2">Portal Resmi Cek Bansos</h2>
+              <p className="text-[10px] font-medium text-slate-500 dark:text-slate-300 dark:text-slate-200 leading-relaxed mb-6 max-w-[280px] mx-auto">
                 Silakan akses situs resmi Kementerian Sosial Republik Indonesia untuk mengecek kepesertaan jaminan sosial menggunakan NIK KTP Anda secara aman.
               </p>
 
@@ -1248,18 +1251,18 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
             </div>
 
             {/* Tabel Acuan Desil P3KE / DTKS Kemensos */}
-            <div className="mt-8 bg-white rounded-[3rem] p-8 border border-slate-100 shadow-xl">
+            <div className="mt-8 bg-white rounded-[3rem] p-8 border border-slate-100 dark:border-slate-800 shadow-xl">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 bg-[#005E6A]/10 rounded-xl flex items-center justify-center shrink-0">
                   <Layers className="w-5 h-5 text-[#005E6A]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Tabel Acuan Desil Kesejahteraan</h3>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kriteria Kesejahteraan DTKS & P3KE</p>
+                  <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Tabel Acuan Desil Kesejahteraan</h3>
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Kriteria Kesejahteraan DTKS & P3KE</p>
                 </div>
               </div>
 
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-6">
+              <p className="text-[10px] text-slate-500 dark:text-slate-300 dark:text-slate-200 font-medium leading-relaxed mb-6">
                 Sistem pendataan kesejahteraan sosial nasional menggunakan standard binned-deciles (Desil 1 s.d. 10) untuk menggolongkan rumah tangga secara akurat. Kelompok desil menunjukkan urutan persentase kesejahteraan penduduk dari terendah (Desil 1) hingga tertinggi (Desil 10).
               </p>
 
@@ -1271,8 +1274,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       id: 1,
                       percentile: "0% - 10%",
                       badge: "Desil 1: Sangat Miskin (Kemiskinan Ekstrem)",
-                      color: "bg-rose-50 text-rose-700 border-rose-100/80",
-                      cardClass: "bg-rose-50/20 border-rose-100/70 hover:bg-rose-50/30 hover:border-rose-200",
+                      color: "bg-rose-50 text-rose-700 border-rose-100/80 dark:border-rose-900/50",
+                      cardClass: "bg-rose-50/20 border-rose-100/70 dark:border-rose-900/50 hover:bg-rose-50/30 hover:border-rose-200 dark:hover:border-rose-800",
                       textColor: "text-rose-700",
                       indicatorColor: "bg-rose-500",
                       description: "10% Kelompok rumah tangga dengan kesejahteraan terendah secara nasional. Prioritas penuntasan mutlak kemiskinan ekstrem.",
@@ -1285,8 +1288,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       id: 2,
                       percentile: "10% - 20%",
                       badge: "Desil 2: Keluarga Miskin",
-                      color: "bg-orange-50 text-orange-700 border-orange-100/80",
-                      cardClass: "bg-orange-50/20 border-orange-100/70 hover:bg-orange-50/30 hover:border-orange-200",
+                      color: "bg-orange-50 text-orange-700 border-orange-100/80 dark:border-orange-900/50",
+                      cardClass: "bg-orange-50/20 border-orange-100/70 dark:border-orange-900/50 hover:bg-orange-50/30 hover:border-orange-200 dark:hover:border-orange-800",
                       textColor: "text-orange-700",
                       indicatorColor: "bg-orange-500",
                       description: "Kelompok kesejahteraan 10-20% terendah secara nasional. Mengalami kerawanan pangan dan guncangan daya beli ringan.",
@@ -1299,8 +1302,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       id: 3,
                       percentile: "20% - 30%",
                       badge: "Desil 3: Hampir Miskin",
-                      color: "bg-amber-50 text-amber-700 border-amber-100/80",
-                      cardClass: "bg-amber-50/20 border-amber-100/70 hover:bg-amber-50/30 hover:border-amber-200",
+                      color: "bg-amber-50 text-amber-700 border-amber-100/80 dark:border-amber-900/50",
+                      cardClass: "bg-amber-50/20 border-amber-100/70 dark:border-amber-900/50 hover:bg-amber-50/30 hover:border-amber-200 dark:hover:border-amber-800",
                       textColor: "text-amber-700",
                       indicatorColor: "bg-amber-500",
                       description: "Kelompok kesejahteraan 20-30% terbawah secara nasional. Kondisi keuangan di garis batas kemiskinan daerah.",
@@ -1313,8 +1316,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       id: 4,
                       percentile: "30% - 40%",
                       badge: "Desil 4: Rentan Miskin",
-                      color: "bg-yellow-50 text-yellow-700 border-yellow-100/80",
-                      cardClass: "bg-yellow-50/20 border-yellow-100/70 hover:bg-yellow-50/30 hover:border-yellow-200",
+                      color: "bg-yellow-50 text-yellow-700 border-yellow-100/80 dark:border-yellow-900/50",
+                      cardClass: "bg-yellow-50/20 border-yellow-100/70 dark:border-yellow-900/50 hover:bg-yellow-50/30 hover:border-yellow-200 dark:hover:border-yellow-800",
                       textColor: "text-yellow-700",
                       indicatorColor: "bg-yellow-500",
                       description: "Kelompok kesejahteraan 30-40% bawah secara nasional. Aman dalam keadaan normal, namun langsung jatuh miskin jika terjadi PHK/sakit.",
@@ -1327,8 +1330,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       id: 5,
                       percentile: "40% - 50%",
                       badge: "Desil 5: Menengah Bawah (Hampir Rentan)",
-                      color: "bg-sky-50 text-sky-700 border-sky-100/80",
-                      cardClass: "bg-sky-50/20 border-sky-100/70 hover:bg-sky-50/30 hover:border-sky-200",
+                      color: "bg-sky-50 text-sky-700 border-sky-100/80 dark:border-sky-900/50",
+                      cardClass: "bg-sky-50/20 border-sky-100/70 dark:border-sky-900/50 hover:bg-sky-50/30 hover:border-sky-200 dark:hover:border-sky-800",
                       textColor: "text-sky-700",
                       indicatorColor: "bg-sky-500",
                       description: "Kelompok kesejahteraan 40-50% secara nasional. Kebutuhan dasar tercukupi pas-pasan, tidak memiliki tabungan bernilai besar.",
@@ -1355,8 +1358,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       id: 7,
                       percentile: "60% - 70%",
                       badge: "Desil 7: Kelompok Menengah",
-                      color: "bg-indigo-50 text-indigo-700 border-indigo-100/80",
-                      cardClass: "bg-indigo-50/20 border-indigo-100/70 hover:bg-indigo-50/30 hover:border-indigo-200",
+                      color: "bg-indigo-50 text-indigo-700 border-indigo-100/80 dark:border-indigo-900/50",
+                      cardClass: "bg-indigo-50/20 border-indigo-100/70 dark:border-indigo-900/50 hover:bg-indigo-50/30 hover:border-indigo-200 dark:hover:border-indigo-800",
                       textColor: "text-indigo-700",
                       indicatorColor: "bg-indigo-500",
                       description: "Kelompok kesejahteraan 60-70% teratas. Mapan secara finansial, memiliki aset transportasi motor layak roda dua lebih dari satu.",
@@ -1369,8 +1372,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       id: 8,
                       percentile: "70% - 80%",
                       badge: "Desil 8: Menengah Atas",
-                      color: "bg-purple-50 text-purple-700 border-purple-100/80",
-                      cardClass: "bg-purple-50/20 border-purple-100/70 hover:bg-purple-50/30 hover:border-purple-200",
+                      color: "bg-purple-50 text-purple-700 border-purple-100/80 dark:border-purple-900/50",
+                      cardClass: "bg-purple-50/20 border-purple-100/70 dark:border-purple-900/50 hover:bg-purple-50/30 hover:border-purple-200 dark:hover:border-purple-800",
                       textColor: "text-purple-700",
                       indicatorColor: "bg-purple-500",
                       description: "Kelompok kesejahteraan 70-80% teratas nasional. Mampu menyisihkan tabungan aset, memiliki jaminan perlindungan finansial mapan.",
@@ -1383,8 +1386,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       id: 9,
                       percentile: "80% - 90%",
                       badge: "Desil 9: Keluarga Makmur",
-                      color: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100/80",
-                      cardClass: "bg-fuchsia-50/20 border-fuchsia-100/70 hover:bg-fuchsia-50/30 hover:border-fuchsia-200",
+                      color: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100/80 dark:border-fuchsia-900/50",
+                      cardClass: "bg-fuchsia-50/20 border-fuchsia-100/70 dark:border-fuchsia-900/50 hover:bg-fuchsia-50/30 hover:border-fuchsia-200 dark:hover:border-fuchsia-800",
                       textColor: "text-fuchsia-700",
                       indicatorColor: "bg-fuchsia-500",
                       description: "Kelompok kesejahteraan 80-90% teratas. Sangat berkecukupan, memiliki kendaraan mobil pribadi bernilai tinggi.",
@@ -1397,8 +1400,8 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       id: 10,
                       percentile: "90% - 100%",
                       badge: "Desil 10: Sangat Makmur (Elite Elit)",
-                      color: "bg-pink-50 text-pink-700 border-pink-100/80",
-                      cardClass: "bg-pink-50/20 border-pink-100/70 hover:bg-pink-50/30 hover:border-pink-200",
+                      color: "bg-pink-50 text-pink-700 border-pink-100/80 dark:border-pink-900/50",
+                      cardClass: "bg-pink-50/20 border-pink-100/70 dark:border-pink-900/50 hover:bg-pink-50/30 hover:border-pink-200 dark:hover:border-pink-800",
                       textColor: "text-pink-700",
                       indicatorColor: "bg-pink-500",
                       description: "10% golongan terkaya/paling sejahtera di Indonesia. Memiliki tabungan modal tebal guncangan finansial nihil.",
@@ -1423,20 +1426,20 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                           {/* Percentile circle */}
                           <div className="w-10 h-10 rounded-xl bg-white border border-inherit flex flex-col items-center justify-center text-center shrink-0 shadow-sm">
                             <span className={`text-[10px] font-black leading-none mb-0.5 ${item.textColor}`}>{item.id}</span>
-                            <span className="text-[5px] font-bold text-slate-400 whitespace-nowrap leading-none mt-0.5">{item.percentile}</span>
+                            <span className="text-[5px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 whitespace-nowrap leading-none mt-0.5">{item.percentile}</span>
                           </div>
 
                           <div className="flex-1 min-w-0 font-sans">
                             <span className={`inline-block px-2.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-wider mb-1 border ${item.color}`}>
                               {item.badge}
                             </span>
-                            <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider leading-relaxed truncate max-w-[180px]">
+                            <p className="text-[8px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider leading-relaxed truncate max-w-[180px]">
                               {item.description}
                             </p>
                           </div>
                         </div>
 
-                        <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ml-2 ${expandedDesil === item.id ? "rotate-180 " + item.textColor : "text-slate-400"}`} />
+                        <ChevronDown className={`w-4 h-4 transition-transform duration-300 shrink-0 ml-2 ${expandedDesil === item.id ? "rotate-180 " + item.textColor : "text-slate-400 dark:text-slate-300 dark:text-slate-200"}`} />
                       </button>
 
                       {/* Expandable Details */}
@@ -1445,32 +1448,32 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                           {/* Garis Kesejahteraan */}
                           <div className="grid grid-cols-1 gap-3 font-sans">
                             <div className="flex items-start gap-2.5">
-                              <div className="w-6 h-6 bg-emerald-50 rounded-lg flex items-center justify-center shrink-0 border border-emerald-100">
+                              <div className="w-6 h-6 bg-emerald-50 rounded-lg flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/50">
                                 <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                               </div>
                               <div>
-                                <span className="font-black text-slate-700 uppercase tracking-widest text-[7px] block">Pendapatan & Ekonomi KPM</span>
-                                <p className="text-slate-500 font-bold mt-0.5 leading-normal">{item.income}</p>
+                                <span className="font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest text-[7px] block">Pendapatan & Ekonomi KPM</span>
+                                <p className="text-slate-500 dark:text-slate-300 dark:text-slate-200 font-bold mt-0.5 leading-normal">{item.income}</p>
                               </div>
                             </div>
 
                             <div className="flex items-start gap-2.5">
-                              <div className="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center shrink-0 border border-blue-100">
+                              <div className="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-900/50">
                                 <Home className="w-3.5 h-3.5 text-blue-600" />
                               </div>
                               <div>
-                                <span className="font-black text-slate-700 uppercase tracking-widest text-[7px] block">Kriteria Tempat Tinggal (Papan/Sanitasi)</span>
-                                <p className="text-slate-500 font-bold mt-0.5 leading-normal">{item.papan}</p>
+                                <span className="font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest text-[7px] block">Kriteria Tempat Tinggal (Papan/Sanitasi)</span>
+                                <p className="text-slate-500 dark:text-slate-300 dark:text-slate-200 font-bold mt-0.5 leading-normal">{item.papan}</p>
                               </div>
                             </div>
 
                             <div className="flex items-start gap-2.5">
-                              <div className="w-6 h-6 bg-orange-50 rounded-lg flex items-center justify-center shrink-0 border border-orange-100">
+                              <div className="w-6 h-6 bg-orange-50 rounded-lg flex items-center justify-center shrink-0 border border-orange-100 dark:border-orange-900/50">
                                 <Gift className="w-3.5 h-3.5 text-[#F15A24]" />
                               </div>
                               <div>
                                 <span className="font-black text-[#F15A24] uppercase tracking-widest text-[7px] block">Rekomendasi / Penerimaan Bansos Keamanan</span>
-                                <p className="text-slate-500 font-bold mt-0.5 leading-normal">{item.bansos}</p>
+                                <p className="text-slate-500 dark:text-slate-300 dark:text-slate-200 font-bold mt-0.5 leading-normal">{item.bansos}</p>
                               </div>
                             </div>
                           </div>
@@ -1482,9 +1485,9 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
               </div>
 
               {/* Footer Explanation Badge */}
-              <div className="mt-6 flex items-center gap-2 border-t border-slate-100 pt-4 text-left">
+              <div className="mt-6 flex items-center gap-2 border-t border-slate-100 dark:border-slate-800 pt-4 text-left">
                 <Info className="w-4 h-4 text-emerald-600 shrink-0" />
-                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wider leading-relaxed">
+                <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider leading-relaxed">
                   P3KE: Pensasaran Percepatan Penghapusan Kemiskinan Ekstrem. DTKS: Data Terpadu Kesejahteraan Sosial Kemensos RI.
                 </p>
               </div>
@@ -1493,20 +1496,20 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
         ) : activeMenu === 'laporan' ? (
           <>
             {/* Tren KPM Chart */}
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-8">
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Perbandingan PKH & BPNT</h3>
-              <p className="text-[8px] font-bold text-slate-400 uppercase">Penerima Bansos Tahap {targetYear}</p>
+              <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">Penerima Bansos Tahap {targetYear}</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-[#005E6A]" />
-                <span className="text-[7px] font-black text-slate-400 uppercase">PKH</span>
+                <span className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">PKH</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-[#F15A24]" />
-                <span className="text-[7px] font-black text-slate-400 uppercase">BPNT</span>
+                <span className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">BPNT</span>
               </div>
             </div>
           </div>
@@ -1526,17 +1529,17 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
                       return (
-                        <div className="bg-white w-20 h-20 rounded-full shadow-2xl shadow-slate-200 border border-slate-50 flex flex-col items-center justify-center text-center">
-                          <p className="text-[7px] font-black uppercase tracking-widest mb-1 text-slate-300">{data.stage}</p>
+                        <div className="bg-white w-20 h-20 rounded-full shadow-2xl shadow-slate-200 border border-slate-50 dark:border-slate-800/50 flex flex-col items-center justify-center text-center">
+                          <p className="text-[7px] font-black uppercase tracking-widest mb-1 text-slate-300 dark:text-slate-200">{data.stage}</p>
                           <div className="space-y-0">
                             <div className="flex flex-col items-center">
                               <span className="text-[10px] font-black text-[#005E6A] leading-tight">{data.pkh}</span>
-                              <span className="text-[5px] font-black text-slate-400 -mt-0.5">PKH</span>
+                              <span className="text-[5px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 -mt-0.5">PKH</span>
                             </div>
                             <div className="w-4 h-[1px] bg-slate-50 my-0.5" />
                             <div className="flex flex-col items-center">
                               <span className="text-[10px] font-black text-[#F15A24] leading-tight">{data.bpnt}</span>
-                              <span className="text-[5px] font-black text-slate-400 -mt-0.5">BPNT</span>
+                              <span className="text-[5px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 -mt-0.5">BPNT</span>
                             </div>
                           </div>
                         </div>
@@ -1562,7 +1565,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
           </div>
         </div>
 
-        <div className="bg-[#005E6A] p-1 rounded-xl flex mb-6 border border-slate-100 overflow-x-auto no-scrollbar">
+        <div className="bg-[#005E6A] p-1 rounded-xl flex mb-6 border border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
           {[
             { id: 1, label: "Tahap 1", period: "Jan - Mar" },
             { id: 2, label: "Tahap 2", period: "Apr - Jun" },
@@ -1605,20 +1608,20 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
         </div>
 
         {/* Table with Search */}
-        <div className="border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm no-scrollbar bg-white mb-8">
-          <div className="p-5 border-b border-slate-50 bg-slate-50/30">
+        <div className="border border-slate-100 dark:border-slate-800 rounded-[2rem] overflow-hidden shadow-sm no-scrollbar bg-white mb-8">
+          <div className="p-5 border-b border-slate-50 dark:border-slate-800/50 bg-slate-50/30">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Daftar Penerima</h3>
-              <Search className="w-4 h-4 text-slate-300" />
+              <Search className="w-4 h-4 text-slate-300 dark:text-slate-200" />
             </div>
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-200" />
               <input 
                 type="text"
                 placeholder="Cari nama anda di sini..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border-2 border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-[11px] font-black uppercase tracking-tight focus:outline-none focus:border-[#005E6A]/20 transition-all shadow-inner"
+                className="w-full bg-white border-2 border-slate-100 dark:border-slate-800 rounded-2xl pl-12 pr-4 py-4 text-[11px] font-black uppercase tracking-tight focus:outline-none focus:border-[#005E6A]/20 dark:border-teal-800/40 transition-all shadow-inner"
               />
             </div>
 
@@ -1628,7 +1631,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                   initial={{ opacity: 0, scale: 0.95, y: 5 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 5 }}
-                  className="mt-4 p-5 bg-white border border-slate-100 rounded-[1.5rem] shadow-xl overflow-hidden relative"
+                  className="mt-4 p-5 bg-white border border-slate-100 dark:border-slate-800 rounded-[1.5rem] shadow-xl overflow-hidden relative"
                 >
                   <div className="absolute top-0 right-0 p-4 opacity-5">
                     <CheckCircle2 className="w-20 h-20 text-green-500" />
@@ -1639,37 +1642,37 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       <CheckCircle2 className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Detail Penerima Manfaat</p>
+                      <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Detail Penerima Manfaat</p>
                       <p className="text-sm font-black text-[#005E6A] uppercase">{foundKPM.nama}</p>
                     </div>
                   </div>
 
                   <div className="space-y-3 mb-6">
-                    <h4 className="text-[9px] font-black text-[#005E6A] uppercase tracking-[0.2em] border-b border-slate-50 pb-2">Rincian Per Tahap</h4>
+                    <h4 className="text-[9px] font-black text-[#005E6A] uppercase tracking-[0.2em] border-b border-slate-50 dark:border-slate-800/50 pb-2">Rincian Per Tahap</h4>
                     <div className="grid grid-cols-1 gap-2">
                       {[1, 2, 3, 4].map(stageId => {
                         const stage = foundKPM.stageBreakdown[stageId];
                         const hasData = stage.pkh > 0 || stage.bpnt > 0;
                         
                         return (
-                          <div key={stageId} className={`p-3 rounded-xl border transition-all ${hasData ? 'bg-slate-50 border-slate-100' : 'bg-slate-50/20 border-dashed border-slate-100 opacity-50'}`}>
+                          <div key={stageId} className={`p-3 rounded-xl border transition-all ${hasData ? 'bg-slate-50 border-slate-100 dark:border-slate-800' : 'bg-slate-50/20 border-dashed border-slate-100 dark:border-slate-800 opacity-50'}`}>
                             <div className="flex justify-between items-center mb-2">
-                              <span className="text-[10px] font-black text-slate-600">TAHAP {stageId}</span>
+                              <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 dark:text-slate-200">TAHAP {stageId}</span>
                               <span className="text-[10px] font-black text-[#005E6A]">Rp {(stage.pkh + stage.bpnt).toLocaleString('id-ID')}</span>
                             </div>
                             {hasData ? (
                               <div className="flex gap-4">
                                 <div className="flex items-center gap-1.5">
                                   <div className="w-1.5 h-1.5 rounded-full bg-[#005E6A]" />
-                                  <span className="text-[8px] font-bold text-slate-400">PKH: <span className="text-slate-600">Rp {stage.pkh.toLocaleString('id-ID')}</span></span>
+                                  <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">PKH: <span className="text-slate-600 dark:text-slate-300 dark:text-slate-200">Rp {stage.pkh.toLocaleString('id-ID')}</span></span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                   <div className="w-1.5 h-1.5 rounded-full bg-[#F15A24]" />
-                                  <span className="text-[8px] font-bold text-slate-400">BPNT: <span className="text-slate-600">Rp {stage.bpnt.toLocaleString('id-ID')}</span></span>
+                                  <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">BPNT: <span className="text-slate-600 dark:text-slate-300 dark:text-slate-200">Rp {stage.bpnt.toLocaleString('id-ID')}</span></span>
                                 </div>
                               </div>
                             ) : (
-                              <p className="text-[8px] font-medium text-slate-400 italic">Data belum tersedia / Tidak menerima</p>
+                              <p className="text-[8px] font-medium text-slate-400 dark:text-slate-300 dark:text-slate-200 italic">Data belum tersedia / Tidak menerima</p>
                             )}
                           </div>
                         );
@@ -1693,10 +1696,10 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
           {!foundKPM && (
             <table className="w-full text-left border-collapse min-w-[320px]">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-100">
-                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">No.</th>
-                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Nama KPM</th>
-                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">
+                <tr className="bg-slate-50 border-b border-slate-100 dark:border-slate-800">
+                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest whitespace-nowrap">No.</th>
+                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest whitespace-nowrap">Nama KPM</th>
+                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest text-center whitespace-nowrap">
                     <div className="flex items-center justify-center gap-1">
                       PKH
                       <button onClick={() => setShowPKHInfo(true)}>
@@ -1704,13 +1707,13 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                       </button>
                     </div>
                   </th>
-                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">BPNT</th>
+                  <th className="px-3 py-4 text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest text-center whitespace-nowrap">BPNT</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {filteredData.length > 0 ? filteredData.map((item, index) => (
                   <tr key={index} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-3 py-3 text-[9px] font-bold text-slate-400 whitespace-nowrap">{index + 1}</td>
+                    <td className="px-3 py-3 text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 whitespace-nowrap">{index + 1}</td>
                     <td className="px-3 py-3 text-[9px] font-black text-black uppercase tracking-tight whitespace-nowrap">{item.nama}</td>
                     <td className="px-3 py-3 text-[9px] font-bold text-green-600 text-center whitespace-nowrap">
                       {item.pkh > 0 ? `Rp ${item.pkh.toLocaleString('id-ID')}` : "-"}
@@ -1721,7 +1724,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={4} className="px-3 py-10 text-center text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                    <td colSpan={4} className="px-3 py-10 text-center text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
                       Tidak ada data untuk tahap ini
                     </td>
                   </tr>
@@ -1742,7 +1745,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
             </div>
 
             {/* Gesek Kolektif Info */}
-            <div className="bg-orange-50 border border-orange-100 rounded-3xl p-5 mb-8 flex gap-4">
+            <div className="bg-orange-50 border border-orange-100 dark:border-orange-900/50 rounded-3xl p-5 mb-8 flex gap-4">
               <div className="shrink-0 w-10 h-10 bg-orange-100 rounded-2xl flex items-center justify-center">
                 <Clock className="w-5 h-5 text-orange-600" />
               </div>
@@ -1759,19 +1762,19 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
             <div className="mb-6 px-2">
               <div className="relative group">
                 <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none transition-colors duration-300 group-focus-within:text-[#005E6A]">
-                  <Search className="w-4 h-4 text-slate-300" />
+                  <Search className="w-4 h-4 text-slate-300 dark:text-slate-200" />
                 </div>
                 <input 
                   type="text" 
                   value={riwayatSearchQuery}
                   onChange={(e) => setRiwayatSearchQuery(e.target.value)}
                   placeholder="Cari nama penerima atau jenis bansos..."
-                  className="w-full bg-slate-50 border-2 border-transparent focus:border-[#005E6A]/20 focus:bg-white text-[11px] font-bold text-slate-600 pl-12 pr-6 py-4 rounded-2xl outline-none transition-all duration-300 shadow-sm placeholder:text-slate-300 placeholder:font-black placeholder:uppercase placeholder:tracking-widest"
+                  className="w-full bg-slate-50 border-2 border-transparent focus:border-[#005E6A]/20 dark:border-teal-800/40 focus:bg-white text-[11px] font-bold text-slate-600 dark:text-slate-300 dark:text-slate-200 pl-12 pr-6 py-4 rounded-2xl outline-none transition-all duration-300 shadow-sm placeholder:text-slate-300 dark:text-slate-200 placeholder:font-black placeholder:uppercase placeholder:tracking-widest"
                 />
                 {riwayatSearchQuery && (
                   <button 
                     onClick={() => setRiwayatSearchQuery("")}
-                    className="absolute inset-y-0 right-4 flex items-center px-2 text-slate-300 hover:text-slate-500 transition-colors"
+                    className="absolute inset-y-0 right-4 flex items-center px-2 text-slate-300 hover:text-slate-500 dark:text-slate-300 dark:text-slate-200 transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1779,15 +1782,15 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
               </div>
             </div>
 
-            <div className="border border-slate-100 rounded-[2rem] overflow-x-auto shadow-sm bg-white scrollbar-hide">
+            <div className="border border-slate-100 dark:border-slate-800 rounded-[2rem] overflow-x-auto shadow-sm bg-white scrollbar-hide">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Tanggal</th>
-                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest">Nama Penerima</th>
-                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Jenis</th>
-                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
-                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                  <tr className="bg-slate-50 border-b border-slate-100 dark:border-slate-800">
+                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest whitespace-nowrap">Tanggal</th>
+                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Nama Penerima</th>
+                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest whitespace-nowrap">Jenis</th>
+                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest text-right whitespace-nowrap">Nominal</th>
+                    <th className="px-2 sm:px-4 py-4 text-[7px] sm:text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -1816,14 +1819,14 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                         <React.Fragment key={index}>
                           {showTahapHeader && (
                             <tr className="bg-slate-50/50">
-                              <td colSpan={5} className="px-4 py-3 border-y border-slate-100">
+                              <td colSpan={5} className="px-4 py-3 border-y border-slate-100 dark:border-slate-800">
                                 <div className="flex items-center gap-3">
                                   <div className="w-1.5 h-1.5 rounded-full bg-[#FF6600]" />
-                                  <span className="text-[9px] font-black text-slate-900 uppercase tracking-[0.15em]">
+                                  <span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-[0.15em]">
                                     {tahapLabel} {y}
                                   </span>
                                   <div className="flex-1 h-[1px] bg-slate-100" />
-                                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">
+                                  <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
                                     {tahapPeriod}
                                   </span>
                                 </div>
@@ -1831,9 +1834,9 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                             </tr>
                           )}
                           <tr className="hover:bg-slate-50 transition-colors">
-                            <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-bold text-slate-400 whitespace-nowrap">{getRelativeDay(item.tanggal)}</td>
+                            <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 whitespace-nowrap">{getRelativeDay(item.tanggal)}</td>
                             <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-black text-black uppercase tracking-tight leading-tight min-w-[80px]">{item.nama}</td>
-                            <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-bold text-slate-600 whitespace-nowrap">
+                            <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-bold text-slate-600 dark:text-slate-300 dark:text-slate-200 whitespace-nowrap">
                               <span className={`px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[7px] sm:text-[9px] font-black tracking-tight ${item.jenis.includes('PKH') ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>
                                 {item.jenis}
                               </span>
@@ -1842,7 +1845,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                               Rp {item.nominal.toLocaleString('id-ID')}
                             </td>
                             <td className="px-2 sm:px-4 py-4 text-[8px] sm:text-[9px] font-bold text-center whitespace-nowrap">
-                              <div className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border ${isSelesai ? 'bg-emerald-50 text-emerald-600 border-emerald-100/50' : 'bg-amber-50 text-amber-600 border-amber-100/50'}`}>
+                              <div className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border ${isSelesai ? 'bg-emerald-50 text-emerald-600 border-emerald-100/50' : 'bg-amber-50 text-amber-600 border-amber-100 dark:border-amber-900/50/50'}`}>
                                 <StatusIcon className="w-2.5 sm:w-3 h-2.5 sm:h-3" />
                                 <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest">{isSelesai ? 'Selesai' : 'Belum'}</span>
                               </div>
@@ -1853,7 +1856,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                     });
                   })() : (
                     <tr>
-                      <td colSpan={5} className="px-4 py-12 text-center text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                      <td colSpan={5} className="px-4 py-12 text-center text-[9px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest">
                         Belum ada data pencairan
                       </td>
                     </tr>
@@ -1880,18 +1883,18 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                 initial={{ scale: 0.9, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100"
+                className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800"
               >
                 <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-6">
                   <HelpCircle className="w-6 h-6 text-[#005E6A]" />
                 </div>
                 <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-4">Informasi Dana PKH</h3>
-                <p className="text-[10px] text-slate-500 font-bold leading-relaxed mb-6">
+                <p className="text-[10px] text-slate-500 dark:text-slate-300 dark:text-slate-200 font-bold leading-relaxed mb-6">
                   Nominal PKH berbeda untuk setiap KPM karena bergantung pada komponen keluarga:
                 </p>
                 <ul className="space-y-2 mb-8">
                   {["Anak Sekolah (SD, SMP, SMA)", "Balita / Ibu Hamil", "Lansia / Disabilitas"].map((item, i) => (
-                    <li key={i} className="flex items-center gap-2 text-[9px] font-black text-slate-400 bg-slate-50 p-2 rounded-lg">
+                    <li key={i} className="flex items-center gap-2 text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 bg-slate-50 p-2 rounded-lg">
                       <CheckCircle2 className="w-3 h-3 text-green-500" />
                       {item.toUpperCase()}
                     </li>
@@ -1941,7 +1944,7 @@ const PromoSection = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
 
   return (
     <section className="px-6 py-2">
-      <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+      <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-bold text-black uppercase tracking-wider">Promo & Info</h2>
           <div className="flex gap-1">
@@ -1991,7 +1994,7 @@ const PromoSection = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
                   onError={() => setImageError(true)}
                 />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-200 text-slate-400 p-8 text-center">
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-200 text-slate-400 dark:text-slate-300 dark:text-slate-200 p-8 text-center">
                   <Bot className="w-12 h-12 mb-2 opacity-20" />
                   <p className="text-[10px] font-bold uppercase tracking-widest leading-tight">
                     Gambar tidak dapat dimuat.
@@ -2028,13 +2031,13 @@ const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
 
   return (
     <section className="px-6 py-1">
-      <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 relative z-10">
+      <div className="bg-white rounded-[2rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800 relative z-10">
         <div className="flex items-center justify-between mb-4">
           <div className="flex flex-col w-fit">
             <h2 className="text-base font-black text-black uppercase tracking-[0.2em] leading-none">{t("Layanan", "Services")}</h2>
             <div className="flex justify-between w-full mt-1">
               {(language === "en" ? "virtual products" : "produk virtual").split("").map((char, i) => (
-                <span key={i} className="text-[6px] font-bold text-slate-400 uppercase leading-none">
+                <span key={i} className="text-[6px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase leading-none">
                   {char === " " ? "\u00A0" : char}
                 </span>
               ))}
@@ -2072,7 +2075,7 @@ const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
               <div className={`w-12 h-12 ${service.bgColor} rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all`}>
                 {service.icon}
               </div>
-              <span className="text-[9px] font-bold text-slate-500 text-center leading-tight px-0.5">{service.displayName}</span>
+              <span className="text-[9px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 text-center leading-tight px-0.5">{service.displayName}</span>
             </motion.button>
           ))}
         </div>
@@ -2087,7 +2090,7 @@ const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setAc
   const { t } = useLanguage();
   const allNavItems = [
     { id: "beranda", label: t("Beranda", "Home"), icon: Home },
-    { id: "belanja", label: t("Belanja", "Shop"), icon: ShoppingCart },
+    { id: "belanja", label: t("Belanja", "Shop"), icon: ShoppingBag },
     { id: "riwayat", label: t("Riwayat", "History"), icon: History, protected: true },
     { id: "settings", label: t("Profil", "Profile"), icon: User },
   ];
@@ -2095,7 +2098,7 @@ const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setAc
   const navItems = allNavItems.filter(item => !item.protected || user);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 px-6 py-4 z-50 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 px-6 py-4 z-50 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
       {navItems.map((item) => {
         const isActive = activeTab === item.id;
         const Icon = item.icon;
@@ -2127,7 +2130,7 @@ const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setAc
               >
                 <Icon 
                   className={`w-5 h-5 transition-all duration-500 ${
-                    isActive ? "text-white" : "text-slate-400 group-hover:text-[#005E6A]"
+                    isActive ? "text-white" : "text-slate-400 dark:text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A]"
                   }`} 
                   strokeWidth={isActive ? 2.5 : 2}
                 />
@@ -2158,6 +2161,70 @@ const ScrollToTop = () => {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [pathname]);
+
+  return null;
+};
+
+const ThemeHandler = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    const applyTheme = () => {
+      const root = document.documentElement;
+      const isAdminPage = pathname.startsWith('/admin');
+
+      if (isAdminPage) {
+        root.classList.remove('dark');
+        root.setAttribute('data-theme', 'light');
+        return;
+      }
+
+      const savedTheme = localStorage.getItem('app_theme') || 'system';
+
+      let isDark = false;
+      if (savedTheme === 'dark') {
+        isDark = true;
+      } else if (savedTheme === 'light' || savedTheme === 'siang' || savedTheme === 'teal' || savedTheme === 'orange') {
+        isDark = false;
+      } else {
+        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+
+      if (isDark) {
+        root.classList.add('dark');
+        root.setAttribute('data-theme', 'dark');
+      } else {
+        root.classList.remove('dark');
+        root.setAttribute('data-theme', 'light');
+      }
+    };
+
+    applyTheme();
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleMediaChange = () => {
+      const savedTheme = localStorage.getItem('app_theme') || 'system';
+      if (savedTheme === 'system' || !savedTheme) {
+        applyTheme();
+      }
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleMediaChange);
+    } else if ((mediaQuery as any).addListener) {
+      (mediaQuery as any).addListener(handleMediaChange);
+    }
+    window.addEventListener('app_theme_changed', applyTheme);
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleMediaChange);
+      } else if ((mediaQuery as any).removeListener) {
+        (mediaQuery as any).removeListener(handleMediaChange);
+      }
+      window.removeEventListener('app_theme_changed', applyTheme);
+    };
   }, [pathname]);
 
   return null;
@@ -2313,14 +2380,14 @@ const LoginPage = ({
         initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
         animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className="w-full max-w-sm bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-8 flex flex-col items-center relative"
+        className="w-full max-w-sm bg-white rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 p-8 flex flex-col items-center relative"
       >
         {/* Decorative Elements */}
         <div className="absolute inset-0 overflow-hidden rounded-[2.5rem] pointer-events-none">
           <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />
         </div>
         
-        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl shadow-slate-200/50 border-4 border-slate-50 overflow-hidden relative z-10">
+        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl shadow-slate-200/50 border-4 border-slate-50 dark:border-slate-800/50 overflow-hidden relative z-10">
           <img 
             src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
             alt="Warung Tomi Logo" 
@@ -2331,7 +2398,7 @@ const LoginPage = ({
         <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight mb-2 relative z-10">
           Portal <span className="text-[#F15A24]">Pelanggan</span>
         </h2>
-        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-8 text-center relative z-10">
+        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] mb-8 text-center relative z-10">
           Silakan masuk untuk mengakses fitur lengkap
         </p>
 
@@ -2340,7 +2407,7 @@ const LoginPage = ({
             <div className="space-y-4">
               <div className="relative">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2">
-                  <User className="w-4 h-4 text-slate-400" />
+                  <User className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
                 </div>
                 <input 
                   type="text" 
@@ -2350,7 +2417,7 @@ const LoginPage = ({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleLoginAttempt();
                   }}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
+                  className="w-full bg-slate-50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 dark:border-teal-800/40 transition-all"
                 />
                 
                 <AnimatePresence>
@@ -2359,7 +2426,7 @@ const LoginPage = ({
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-50"
+                      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden z-50"
                     >
                       {suggestions.map((s, i) => (
                         <button
@@ -2377,7 +2444,7 @@ const LoginPage = ({
                               navigate("/");
                             }
                           }}
-                          className="w-full px-5 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between group"
+                          className="w-full px-5 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-0 flex items-center justify-between group"
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-6 h-6 bg-orange-50/50 rounded-full flex items-center justify-center text-[#F15A24] shrink-0 border border-[#F15A24]/10">
@@ -2385,7 +2452,7 @@ const LoginPage = ({
                             </div>
                             <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{s.Nama}</span>
                           </div>
-                          <ArrowRight className="w-3 h-3 text-slate-300 group-hover:text-[#F15A24] transition-colors" />
+                          <ArrowRight className="w-3 h-3 text-slate-300 dark:text-slate-200 group-hover:text-[#F15A24] transition-colors" />
                         </button>
                       ))}
                     </motion.div>
@@ -2402,7 +2469,7 @@ const LoginPage = ({
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between mb-4">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-[#005E6A] rounded-full flex items-center justify-center text-white font-black text-[10px]">
                     {selectedCustomer?.Nama?.charAt(0)}
@@ -2422,7 +2489,7 @@ const LoginPage = ({
 
               <div className="relative">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2">
-                  <Lock className="w-4 h-4 text-slate-400" />
+                  <Lock className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
                 </div>
                 <input 
                   type="password" 
@@ -2433,7 +2500,7 @@ const LoginPage = ({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handlePinSubmit();
                   }}
-                  className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
+                  className="w-full bg-slate-50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 dark:border-teal-800/40 transition-all"
                 />
               </div>
 
@@ -2466,7 +2533,7 @@ const LoginPage = ({
                   setIsAdminPopupOpen(true);
                 }
               }}
-              className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em] hover:text-slate-400 transition-colors"
+              className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em] hover:text-slate-400 dark:text-slate-300 dark:text-slate-200 transition-colors"
             >
               Masuk Akses Admin
             </button>
@@ -2487,19 +2554,19 @@ const LoginPage = ({
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100"
+              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800"
             >
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-widest">Akses Admin</h3>
                 <button onClick={() => setIsAdminPopupOpen(false)} className="p-2 hover:bg-slate-50 rounded-full transition-colors">
-                  <X className="w-4 h-4 text-slate-400" />
+                  <X className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
                 </button>
               </div>
 
               <div className="space-y-6">
                 <div className="relative">
                   <div className="absolute left-5 top-1/2 -translate-y-1/2">
-                    <ShieldCheck className="w-4 h-4 text-slate-400" />
+                    <ShieldCheck className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
                   </div>
                   <input 
                     type="password" 
@@ -2510,7 +2577,7 @@ const LoginPage = ({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleAdminSubmit();
                     }}
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
+                    className="w-full bg-slate-50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 dark:border-teal-800/40 transition-all"
                   />
                 </div>
 
@@ -2534,7 +2601,7 @@ const AssetPieChart = ({ data, compact = false }: { data: any[], compact?: boole
     <div className={`${compact ? 'h-full' : 'h-64'} w-full relative flex items-center justify-center`}>
       {!compact && (
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Komposisi</p>
+          <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em]">Komposisi</p>
           <p className="text-xs font-black text-[#005E6A]">{data.length} Kategori</p>
         </div>
       )}
@@ -2570,11 +2637,11 @@ const AssetPieChart = ({ data, compact = false }: { data: any[], compact?: boole
                 const item = payload[0].payload;
                 const percentage = ((item.value / total) * 100).toFixed(1);
                 return (
-                  <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-100 flex flex-col items-center">
+                  <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col items-center">
                     <div className="w-2 h-2 rounded-full mb-1" style={{ backgroundColor: item.color }} />
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.name}</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{item.name}</p>
                     <p className="text-xs font-black text-[#005E6A]">Rp {item.value.toLocaleString('id-ID')}</p>
-                    <p className="text-[9px] font-bold text-slate-400 mt-1">{percentage}% dari total</p>
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 mt-1">{percentage}% dari total</p>
                   </div>
                 );
               }
@@ -2655,14 +2722,14 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
         {/* Search Customer Input (Direct Layout) */}
         <div className="-mt-7 mb-8 relative z-20">
           <div className="absolute left-4.5 top-1/2 -translate-y-1/2 z-10">
-            <Search className="w-4 h-4 text-slate-400" />
+            <Search className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
           </div>
           <input 
             type="text"
             placeholder={user ? "Cari nama pelanggan lain..." : "CARI NAMA PELANGGAN DI SINI..."}
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            className="w-full bg-white border-2 border-slate-100 rounded-3xl pl-12 pr-6 py-4.5 text-xs font-black text-[#005E6A] focus:outline-none focus:border-[#005E6A] transition-all uppercase placeholder:text-slate-300 shadow-sm"
+            className="w-full bg-white border-2 border-slate-100 dark:border-slate-800 rounded-3xl pl-12 pr-6 py-4.5 text-xs font-black text-[#005E6A] focus:outline-none focus:border-[#005E6A] transition-all uppercase placeholder:text-slate-300 dark:text-slate-200 shadow-sm"
           />
           
           <AnimatePresence>
@@ -2671,7 +2738,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
-                className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden z-[100]"
+                className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden z-[100]"
               >
                 {suggestions.map((s, i) => {
                   const sPoints = calculateActivePoints(s.Nama, transactions, redeemedPoints);
@@ -2679,7 +2746,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
                     <button
                       key={i}
                       onClick={() => navigate(`/poin/${encodeURIComponent(s.Nama)}`)}
-                      className="w-full px-5 py-4 text-left hover:bg-slate-50 border-b border-slate-50 last:border-0 flex items-center justify-between group transition-colors"
+                      className="w-full px-5 py-4 text-left hover:bg-slate-50 border-b border-slate-50 dark:border-slate-800/50 last:border-0 flex items-center justify-between group transition-colors"
                     >
                       <div className="flex items-center gap-3.5">
                         <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center text-[#005E6A] shrink-0 border border-teal-500/10">
@@ -2692,7 +2759,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
                           <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-500" />
                           {sPoints.toLocaleString('id-ID')} Poin
                         </span>
-                        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#F15A24] group-hover:translate-x-1 transition-all" />
+                        <ArrowRight className="w-4 h-4 text-slate-300 dark:text-slate-200 group-hover:text-[#F15A24] group-hover:translate-x-1 transition-all" />
                       </div>
                     </button>
                   );
@@ -2707,7 +2774,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
           <button
             onClick={() => setActiveTab("HADIAH")}
             className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${
-              activeTab === "HADIAH" ? "bg-white text-[#005E6A] shadow-md" : "text-slate-400"
+              activeTab === "HADIAH" ? "bg-white text-[#005E6A] shadow-md" : "text-slate-400 dark:text-slate-300 dark:text-slate-200"
             }`}
           >
             Daftar Hadiah
@@ -2715,7 +2782,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
           <button
             onClick={() => setActiveTab("CARA")}
             className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all ${
-              activeTab === "CARA" ? "bg-white text-[#F15A24] shadow-md" : "text-slate-400"
+              activeTab === "CARA" ? "bg-white text-[#F15A24] shadow-md" : "text-slate-400 dark:text-slate-300 dark:text-slate-200"
             }`}
           >
             Cara Dapat Poin
@@ -2730,10 +2797,10 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
                   key={reward.id}
                   whileHover={{ y: -3 }}
                   transition={{ duration: 0.25, ease: "easeOut" }}
-                  className="group relative bg-white rounded-[2rem] border p-5 flex items-center gap-5 transition-all duration-300 border-slate-100 shadow-sm hover:border-slate-200"
+                  className="group relative bg-white rounded-[2rem] border p-5 flex items-center gap-5 transition-all duration-300 border-slate-100 dark:border-slate-800 shadow-sm hover:border-slate-200 dark:border-slate-700"
                 >
                   {/* Image container */}
-                  <div className="relative w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100/80 flex items-center justify-center group-hover:shadow-inner transition-all duration-300">
+                  <div className="relative w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100/80 dark:border-slate-800/80 flex items-center justify-center group-hover:shadow-inner transition-all duration-300">
                     <img 
                       src={reward.image} 
                       alt={reward.name} 
@@ -2746,7 +2813,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
                   {/* Content Section */}
                   <div className="flex-1 min-w-0 flex flex-col justify-center h-24 py-1">
                     <div>
-                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight mb-2 truncate leading-tight group-hover:text-black transition-colors">
+                      <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-2 truncate leading-tight group-hover:text-black transition-colors">
                         {reward.name}
                       </h4>
 
@@ -2764,38 +2831,38 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
               <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center mb-4">
                 <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
               </div>
               <h3 className="text-sm font-black text-[#005E6A] uppercase mb-2">Belanja Berhadiah Poin</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-loose mb-4">
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-loose mb-4">
                 Dapatkan 1 Poin untuk setiap kelipatan transaksi sebesar <span className="text-[#F15A24]">Rp 10.000</span>. Semakin banyak belanja, semakin banyak poin yang terkumpul!
               </p>
               
-              <div className="space-y-2 border-t border-slate-50 pt-4">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Contoh Perolehan:</p>
+              <div className="space-y-2 border-t border-slate-50 dark:border-slate-800/50 pt-4">
+                <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] mb-2">Contoh Perolehan:</p>
                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                  <span className="text-[9px] font-bold text-slate-600 uppercase">Tarik Tunai Rp 100.000</span>
+                  <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 dark:text-slate-200 uppercase">Tarik Tunai Rp 100.000</span>
                   <span className="text-[9px] font-black text-green-600">+10 Poin</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                  <span className="text-[9px] font-bold text-slate-600 uppercase">Beli Pulsa Rp 12.000</span>
+                  <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 dark:text-slate-200 uppercase">Beli Pulsa Rp 12.000</span>
                   <span className="text-[9px] font-black text-green-600">+1 Poin</span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                  <span className="text-[9px] font-bold text-slate-600 uppercase">Token Listrik Rp 50.000</span>
+                  <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 dark:text-slate-200 uppercase">Token Listrik Rp 50.000</span>
                   <span className="text-[9px] font-black text-green-600">+5 Poin</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+            <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
               <div className="w-12 h-12 bg-purple-50 rounded-2xl flex items-center justify-center mb-4">
                 <Trophy className="w-6 h-6 text-purple-600" />
               </div>
               <h3 className="text-sm font-black text-[#005E6A] uppercase mb-2">Bonus Level Pelanggan</h3>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-loose mb-4">
+              <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-loose mb-4">
                 Naikkan level Anda untuk mendapatkan keuntungan lebih banyak:
               </p>
               <div className="space-y-3">
@@ -2805,10 +2872,10 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
                       {level.icon}
                     </div>
                     <div>
-                      <p className="text-[9px] font-black text-slate-900 uppercase mb-1">{level.name}</p>
+                      <p className="text-[9px] font-black text-slate-900 dark:text-white uppercase mb-1">{level.name}</p>
                       <ul className="space-y-1">
                         {level.benefits.map((b, j) => (
-                          <li key={j} className="text-[7px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 leading-relaxed">
+                          <li key={j} className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5 leading-relaxed">
                             <div className="w-1 h-1 rounded-full bg-slate-300" />
                             {b}
                           </li>
@@ -3004,12 +3071,12 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
         {/* Rewards list container that scrolls UP and overlays the points card */}
         <div className="relative z-10 bg-slate-50 rounded-t-[2.5rem] pt-6 pb-24 -mx-6 px-6 min-h-[100vh] space-y-4 shadow-[0_-12px_30px_rgba(0,0,0,0.03)] mt-6">
           {/* Sticky dual tabs selector */}
-          <div className="sticky top-[80px] z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50 mb-4">
+          <div className="sticky top-[80px] z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50 dark:border-slate-800/50 mb-4">
             <div className="flex bg-slate-200/60 p-1 rounded-2xl relative">
               <button
                 onClick={() => setActiveTab('tukar')}
                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
-                  activeTab === 'tukar' ? 'text-[#005E6A]' : 'text-slate-400'
+                  activeTab === 'tukar' ? 'text-[#005E6A]' : 'text-slate-400 dark:text-slate-300 dark:text-slate-200'
                 }`}
               >
                 Tukar Hadiah
@@ -3027,7 +3094,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                   setHistoryFilter('all');
                 }}
                 className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all relative z-10 ${
-                  activeTab === 'riwayat' ? 'text-[#005E6A]' : 'text-slate-400'
+                  activeTab === 'riwayat' ? 'text-[#005E6A]' : 'text-slate-400 dark:text-slate-300 dark:text-slate-200'
                 }`}
               >
                 Riwayat Poin
@@ -3066,10 +3133,10 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                         key={reward.id}
                         whileHover={{ y: -3 }}
                         transition={{ duration: 0.25, ease: "easeOut" }}
-                        className="group relative bg-white rounded-[2rem] border p-5 flex items-center gap-5 transition-all duration-300 border-emerald-100 shadow-sm hover:shadow-md hover:border-emerald-200"
+                        className="group relative bg-white rounded-[2rem] border p-5 flex items-center gap-5 transition-all duration-300 border-emerald-100 dark:border-emerald-900/50 shadow-sm hover:shadow-md hover:border-emerald-200"
                       >
                         {/* Image container with subtle badge */}
-                        <div className="relative w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100/80 flex items-center justify-center group-hover:shadow-inner transition-all duration-300">
+                        <div className="relative w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100/80 dark:border-slate-800/80 flex items-center justify-center group-hover:shadow-inner transition-all duration-300">
                           <img 
                             src={reward.image} 
                             alt={reward.name} 
@@ -3082,7 +3149,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                         {/* Content Section */}
                         <div className="flex-1 min-w-0 flex flex-col justify-center h-24 py-1">
                           <div>
-                            <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight mb-2 truncate leading-tight group-hover:text-black transition-colors">
+                            <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-2 truncate leading-tight group-hover:text-black transition-colors">
                               {reward.name}
                             </h4>
 
@@ -3116,8 +3183,8 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                 {lockedRewards.length > 0 && (
                   <>
                     <div className="pt-4 pb-1 flex items-center gap-3">
-                      <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-slate-500 bg-slate-50 px-3 py-1 rounded-full border border-slate-500/10">
-                        <Lock className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-300 dark:text-slate-200 bg-slate-50 px-3 py-1 rounded-full border border-slate-500/10">
+                        <Lock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
                         Belum Cukup
                       </span>
                       <div className="h-px bg-slate-100 flex-1" />
@@ -3130,10 +3197,10 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                           key={reward.id}
                           whileHover={{ y: -3 }}
                           transition={{ duration: 0.25, ease: "easeOut" }}
-                          className="group relative bg-white rounded-[2rem] border p-5 flex items-center gap-5 transition-all duration-300 border-slate-100 shadow-sm hover:border-slate-200"
+                          className="group relative bg-white rounded-[2rem] border p-5 flex items-center gap-5 transition-all duration-300 border-slate-100 dark:border-slate-800 shadow-sm hover:border-slate-200 dark:border-slate-700"
                         >
                           {/* Image container */}
-                          <div className="relative w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100/80 flex items-center justify-center group-hover:shadow-inner transition-all duration-300">
+                          <div className="relative w-24 h-24 bg-slate-50 rounded-2xl overflow-hidden shrink-0 border border-slate-100/80 dark:border-slate-800/80 flex items-center justify-center group-hover:shadow-inner transition-all duration-300">
                             <img 
                               src={reward.image} 
                               alt={reward.name} 
@@ -3146,7 +3213,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                           {/* Content Section */}
                           <div className="flex-1 min-w-0 flex flex-col justify-between h-24 py-1">
                             <div>
-                              <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight mb-2 truncate leading-tight group-hover:text-black transition-colors">
+                              <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight mb-2 truncate leading-tight group-hover:text-black transition-colors">
                                 {reward.name}
                               </h4>
 
@@ -3161,12 +3228,12 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                             {/* Progress bar */}
                             <div className="mt-1">
                               <div className="flex justify-between items-center mb-1">
-                                <span className="text-[8px] font-bold uppercase text-slate-400 tracking-wider">Progress</span>
-                                <span className="text-[9px] font-black text-slate-500">
+                                <span className="text-[8px] font-bold uppercase text-slate-400 dark:text-slate-300 dark:text-slate-200 tracking-wider">Progress</span>
+                                <span className="text-[9px] font-black text-slate-500 dark:text-slate-300 dark:text-slate-200">
                                   kurang <span className="text-rose-500">{(reward.points - activePoints).toLocaleString('id-ID')}</span> poin
                                 </span>
                               </div>
-                              <div className="bg-slate-100 rounded-full h-1.5 w-full overflow-hidden relative border border-slate-200/20">
+                              <div className="bg-slate-100 rounded-full h-1.5 w-full overflow-hidden relative border border-slate-200/20 dark:border-slate-800/30">
                                 <div 
                                   className="bg-gradient-to-r from-amber-400 via-amber-500 to-[#F15A24] h-full rounded-full transition-all duration-500" 
                                   style={{ width: `${progressPercentage}%` }}
@@ -3196,7 +3263,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                     className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
                       historyFilter === 'all' 
                         ? 'bg-[#005E6A] text-white shadow-sm' 
-                        : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
+                        : 'bg-white text-slate-500 dark:text-slate-300 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:bg-slate-50'
                     }`}
                   >
                     Semua
@@ -3206,7 +3273,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                     className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
                       historyFilter === 'earn' 
                         ? 'bg-emerald-600 text-white shadow-sm' 
-                        : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
+                        : 'bg-white text-slate-500 dark:text-slate-300 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:bg-slate-50'
                     }`}
                   >
                     Poin Masuk
@@ -3216,7 +3283,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                     className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
                       historyFilter === 'redeem' 
                         ? 'bg-amber-500 text-white shadow-sm' 
-                        : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
+                        : 'bg-white text-slate-500 dark:text-slate-300 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:bg-slate-50'
                     }`}
                   >
                     Poin Ditukar
@@ -3226,7 +3293,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                     className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
                       historyFilter === 'expire' 
                         ? 'bg-rose-500 text-white shadow-sm' 
-                        : 'bg-white text-slate-500 border border-slate-100 hover:bg-slate-50'
+                        : 'bg-white text-slate-500 dark:text-slate-300 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:bg-slate-50'
                     }`}
                   >
                     Poin Hangus
@@ -3234,10 +3301,10 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                 </div>
 
                 {filteredHistory.length === 0 ? (
-                  <div className="bg-white rounded-2xl p-8 border border-slate-100 text-center text-slate-400 space-y-2">
-                    <History className="w-8 h-8 mx-auto text-slate-300" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Belum Ada Riwayat</p>
-                    <p className="text-[9px] text-slate-400 normal-case leading-relaxed">
+                  <div className="bg-white rounded-2xl p-8 border border-slate-100 dark:border-slate-800 text-center text-slate-400 dark:text-slate-300 dark:text-slate-200 space-y-2">
+                    <History className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-200" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-300 dark:text-slate-200">Belum Ada Riwayat</p>
+                    <p className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 normal-case leading-relaxed">
                       {historyFilter === 'all' && 'Transaksi belanja Anda akan otomatis menghasilkan poin aktif di sini.'}
                       {historyFilter === 'earn' && 'Belum ada riwayat poin masuk dari transaksi belanja Anda.'}
                       {historyFilter === 'redeem' && 'Anda belum pernah melakukan penukaran poin dengan hadiah.'}
@@ -3277,7 +3344,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                                 navigate(`/detail-belanja/${encodeURIComponent(item.transactionId)}`);
                               }
                             }}
-                            className={`bg-white rounded-2xl border border-slate-100 p-4 flex items-center justify-between gap-4 shadow-sm ${
+                            className={`bg-white rounded-2xl border border-slate-100 dark:border-slate-800 p-4 flex items-center justify-between gap-4 shadow-sm ${
                               isEarn && item.transactionId ? 'cursor-pointer hover:bg-slate-50/80 transition-colors active:scale-[0.99] duration-150' : ''
                             }`}
                           >
@@ -3292,9 +3359,9 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                                 {isExpire && <AlertTriangle className="w-5 h-5" />}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-xs font-black text-slate-800 truncate">{item.title}</p>
-                                <p className="text-[10px] text-slate-500 line-clamp-1 mt-0.5 leading-relaxed">{item.description}</p>
-                                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-1">{item.date}</p>
+                                <p className="text-xs font-black text-slate-800 dark:text-slate-100 truncate">{item.title}</p>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-300 dark:text-slate-200 line-clamp-1 mt-0.5 leading-relaxed">{item.description}</p>
+                                <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mt-1">{item.date}</p>
                               </div>
                             </div>
                             
@@ -3330,7 +3397,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.9, opacity: 0, y: 20 }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
-                  className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 text-center relative"
+                  className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800 text-center relative"
                 >
                   <button 
                     onClick={() => {
@@ -3339,19 +3406,19 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                     }}
                     className="absolute top-5 right-5 p-2 hover:bg-slate-50 rounded-full transition-colors"
                   >
-                    <X className="w-4 h-4 text-slate-400" />
+                    <X className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
                   </button>
 
                   {activePoints >= selectedReward.points ? (
                     <>
-                      <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-100 shadow-sm">
+                      <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-100 dark:border-emerald-900/50 shadow-sm">
                         <Gift className="w-7 h-7 text-emerald-600" />
                       </div>
                       <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-4">Tukar Hadiah</h3>
                       
                       {/* Kartu Hadiah Terpilih */}
-                      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4 mb-5 flex items-center gap-4 text-left shadow-inner">
-                        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white overflow-hidden border border-slate-200/80 shrink-0 flex items-center justify-center p-1 shadow-sm">
+                      <div className="bg-slate-50 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 mb-5 flex items-center gap-4 text-left shadow-inner">
+                        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white overflow-hidden border border-slate-200/80 dark:border-slate-700/80 shrink-0 flex items-center justify-center p-1 shadow-sm">
                           <img 
                             src={selectedReward.image} 
                             alt={selectedReward.name} 
@@ -3360,7 +3427,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-snug">
+                          <p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight line-clamp-2 leading-snug">
                             {selectedReward.name}
                           </p>
                           <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200/60 px-3 py-1 rounded-full mt-2">
@@ -3371,7 +3438,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                         </div>
                       </div>
 
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed mb-6">
+                      <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-relaxed mb-6">
                         Apakah Anda yakin ingin menukarkan poin untuk hadiah di atas? Klik tombol di bawah untuk mengajukan penukaran ke admin.
                       </p>
                       <a 
@@ -3391,14 +3458,14 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                     </>
                   ) : (
                     <>
-                      <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-100 shadow-sm">
+                      <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-100 dark:border-amber-900/50 shadow-sm">
                         <AlertTriangle className="w-7 h-7 text-amber-500 animate-pulse" />
                       </div>
                       <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest mb-4">Poin Kurang</h3>
                       
                       {/* Kartu Hadiah Terpilih */}
-                      <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4 mb-4 flex items-center gap-4 text-left shadow-inner">
-                        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white overflow-hidden border border-slate-200/80 shrink-0 flex items-center justify-center p-1 shadow-sm">
+                      <div className="bg-slate-50 rounded-2xl border border-slate-100 dark:border-slate-800 p-4 mb-4 flex items-center gap-4 text-left shadow-inner">
+                        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white overflow-hidden border border-slate-200/80 dark:border-slate-700/80 shrink-0 flex items-center justify-center p-1 shadow-sm">
                           <img 
                             src={selectedReward.image} 
                             alt={selectedReward.name} 
@@ -3407,7 +3474,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-black text-slate-800 uppercase tracking-tight line-clamp-2 leading-snug">
+                          <p className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight line-clamp-2 leading-snug">
                             {selectedReward.name}
                           </p>
                           <div className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200/60 px-3 py-1 rounded-full mt-2">
@@ -3418,10 +3485,10 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                         </div>
                       </div>
 
-                      <p className="text-[11px] font-bold text-slate-600 uppercase tracking-widest leading-relaxed mb-3">
+                      <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-relaxed mb-3">
                         Poin Anda kurang <span className="text-red-500 font-black">{(selectedReward.points - activePoints).toLocaleString('id-ID')} poin</span> untuk menukarkan hadiah ini.
                       </p>
-                      <p className="text-[9px] text-slate-400 mb-6 normal-case leading-relaxed">
+                      <p className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 mb-6 normal-case leading-relaxed">
                         Kumpulkan lebih banyak poin dengan meningkatkan transaksi belanja Anda di Warung Tomi!
                       </p>
                       <button 
@@ -3448,13 +3515,13 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   exit={{ scale: 0.9, opacity: 0, y: 20 }}
                   transition={{ duration: 0.3, ease: "easeOut" }}
-                  className="bg-white rounded-[2.5rem] p-7 w-full max-w-sm shadow-2xl border border-slate-100 relative"
+                  className="bg-white rounded-[2.5rem] p-7 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800 relative"
                 >
                   <button 
                     onClick={() => setShowCalcPopup(false)}
                     className="absolute top-5 right-5 p-2 hover:bg-slate-50 rounded-full transition-colors cursor-pointer"
                   >
-                    <X className="w-4 h-4 text-slate-400" />
+                    <X className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
                   </button>
 
                   <div className="w-12 h-12 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -3462,64 +3529,64 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
                   </div>
                   
                   <h3 className="text-center text-sm font-black text-[#005E6A] uppercase tracking-widest mb-1">Rincian Perhitungan Poin</h3>
-                  <p className="text-center text-[8px] font-black text-slate-400 uppercase tracking-widest leading-normal mb-6">
+                  <p className="text-center text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-normal mb-6">
                     Berdasarkan transaksi sejak 1 Nov 2025
                   </p>
 
                   <div className="space-y-4 mb-6">
                     {/* Akumulasi */}
-                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-start gap-3">
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-start gap-3">
                       <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 text-emerald-600 font-bold text-sm">
                         +
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-baseline">
-                          <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Poin Diperoleh</span>
+                          <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">Poin Diperoleh</span>
                           <span className="text-xs font-black text-emerald-600">+{totalEarned.toLocaleString('id-ID')}</span>
                         </div>
-                        <p className="text-[8px] text-slate-400 mt-0.5 leading-relaxed">
+                        <p className="text-[8px] text-slate-400 dark:text-slate-300 dark:text-slate-200 mt-0.5 leading-relaxed">
                           Akumulasi poin didapat dari total transaksi belanja (Kelipatan Rp 10.000 = 1 Poin).
                         </p>
                       </div>
                     </div>
 
                     {/* Ditukar */}
-                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-start gap-3">
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-start gap-3">
                       <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center shrink-0 text-amber-600 font-bold text-sm">
                         -
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-baseline">
-                          <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Poin Ditukar</span>
+                          <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">Poin Ditukar</span>
                           <span className="text-xs font-black text-amber-600">-{totalRedeemed.toLocaleString('id-ID')}</span>
                         </div>
-                        <p className="text-[8px] text-slate-400 mt-0.5 leading-relaxed">
+                        <p className="text-[8px] text-slate-400 dark:text-slate-300 dark:text-slate-200 mt-0.5 leading-relaxed">
                           Total poin yang telah sukses ditukarkan dengan berbagai hadiah pilihan Anda.
                         </p>
                       </div>
                     </div>
 
                     {/* Hangus */}
-                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-start gap-3">
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-start gap-3">
                       <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center shrink-0 text-rose-600 font-bold text-sm">
                         -
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-baseline">
-                          <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider">Poin Hangus</span>
+                          <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">Poin Hangus</span>
                           <span className="text-xs font-black text-rose-600">-{totalExpired.toLocaleString('id-ID')}</span>
                         </div>
-                        <p className="text-[8px] text-slate-400 mt-0.5 leading-relaxed">
+                        <p className="text-[8px] text-slate-400 dark:text-slate-300 dark:text-slate-200 mt-0.5 leading-relaxed">
                           Poin otomatis hangus jika tidak digunakan dalam jangka waktu 1 tahun.
                         </p>
                       </div>
                     </div>
 
                     {/* Border line */}
-                    <div className="border-t border-dashed border-slate-200 my-2" />
+                    <div className="border-t border-dashed border-slate-200 dark:border-slate-700 my-2" />
 
                     {/* Sisa Aktif */}
-                    <div className="bg-teal-50 p-4 rounded-2xl border border-teal-100 flex items-start gap-3">
+                    <div className="bg-teal-50 p-4 rounded-2xl border border-teal-100 dark:border-teal-900/50 flex items-start gap-3">
                       <div className="w-8 h-8 rounded-xl bg-[#005E6A] flex items-center justify-center shrink-0 text-white font-bold text-sm">
                         =
                       </div>
@@ -3650,11 +3717,11 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-white rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 mb-6 relative overflow-hidden group border border-slate-100"
+          className="bg-white rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 mb-6 relative overflow-hidden group border border-slate-100 dark:border-slate-800"
         >
           <div className="flex items-center justify-between relative z-10 gap-6">
             <div className="flex flex-col justify-center">
-              <h2 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2">
+              <h2 className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.3em] mb-2">
                 Total Aset
               </h2>
               <div className="flex items-center gap-1">
@@ -3670,11 +3737,11 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
               </div>
               <div className="flex items-center gap-1.5 mt-3">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Portfolio Analytics</span>
+                <span className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Portfolio Analytics</span>
               </div>
             </div>
 
-            <div className="w-28 h-28 bg-slate-50/50 rounded-[1.5rem] flex items-center justify-center p-1.5 border border-slate-100/50 shadow-inner">
+            <div className="w-28 h-28 bg-slate-50/50 rounded-[1.5rem] flex items-center justify-center p-1.5 border border-slate-100/50 dark:border-slate-800/50 shadow-inner">
               <div className="w-full h-full transform transition-transform group-hover:scale-105">
                 <AssetPieChart data={assetData} compact={true} />
               </div>
@@ -3682,9 +3749,9 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
           </div>
 
           {/* Integrated Balance Grid */}
-          <div className="mt-8 pt-6 border-t border-slate-50 flex flex-col gap-4 relative z-10">
+          <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800/50 flex flex-col gap-4 relative z-10">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Rincian Saldo</h3>
+              <h3 className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.3em]">Rincian Saldo</h3>
               <div className="h-0.5 w-8 bg-[#F15A24]/30 rounded-full" />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -3778,21 +3845,21 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
         {/* Target Impian Section - Moved to Bottom */}
 
         <div className="mt-10">
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group border border-slate-100">
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group border border-slate-100 dark:border-slate-800">
           <div className="absolute top-0 right-0 w-32 h-32 bg-[#005E6A]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#005E6A]/10 transition-colors" />
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-[#005E6A]/10 rounded-lg flex items-center justify-center">
                 <Trophy className="w-4 h-4 text-[#005E6A]" />
               </div>
-              <h3 className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Target Impian</h3>
+              <h3 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">Target Impian</h3>
             </div>
             <button 
               onClick={() => {
                 setTempGoal(targetGoal.toLocaleString('id-ID'));
                 setIsEditingGoal(true);
               }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#005E6A]/5 hover:bg-[#005E6A]/10 rounded-full transition-colors border border-[#005E6A]/10"
+              className="flex items-center gap-2 px-3 py-1.5 bg-[#005E6A]/5 hover:bg-[#005E6A]/10 rounded-full transition-colors border border-[#005E6A]/10 dark:border-teal-800/30"
             >
               <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">
                 Goal: {targetGoal >= 1000000 ? `${(targetGoal / 1000000).toFixed(0)}jt` : formatCurrency(targetGoal)}
@@ -3803,10 +3870,10 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
           
           <div className="space-y-3">
             <div className="flex justify-between items-end">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Progres Tabungan</p>
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Progres Tabungan</p>
               <p className="text-xs font-black text-[#005E6A]">{Math.min(Math.round((tabunganBalance / targetGoal) * 100), 100)}%</p>
             </div>
-            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
+            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-50 dark:border-slate-800/50">
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min((tabunganBalance / targetGoal) * 100, 100)}%` }}
@@ -3814,7 +3881,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
                 className="h-full bg-gradient-to-r from-[#005E6A] to-[#00b8c4] rounded-full shadow-sm"
               />
             </div>
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tight italic">"Kumpulkan aset untuk mencapai kebebasan finansial"</p>
+            <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-tight italic">"Kumpulkan aset untuk mencapai kebebasan finansial"</p>
           </div>
         </div>
       </div>
@@ -3843,7 +3910,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
                     </div>
                     <div>
                       <h3 className="text-[#005E6A] font-black text-sm uppercase tracking-widest">Set Target Goal</h3>
-                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-tight">Tentukan nominal impian Anda</p>
+                      <p className="text-slate-400 dark:text-slate-300 dark:text-slate-200 text-[10px] font-bold uppercase tracking-tight">Tentukan nominal impian Anda</p>
                     </div>
                   </div>
 
@@ -3857,7 +3924,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
                           const val = e.target.value.replace(/\D/g, "");
                           setTempGoal(val ? parseInt(val).toLocaleString('id-ID') : "");
                         }}
-                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-6 py-4 text-xl font-black text-[#005E6A] focus:outline-none focus:border-[#F15A24] transition-all"
+                        className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl pl-12 pr-6 py-4 text-xl font-black text-[#005E6A] focus:outline-none focus:border-[#F15A24] transition-all"
                         placeholder="Contoh: 10.000.000"
                         autoFocus
                       />
@@ -3867,7 +3934,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
                         <button
                           key={val}
                           onClick={() => setTempGoal(val.toLocaleString('id-ID'))}
-                          className="py-2.5 rounded-xl border border-slate-100 text-[10px] font-black text-[#005E6A] hover:bg-slate-50 transition-colors uppercase tracking-widest"
+                          className="py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 text-[10px] font-black text-[#005E6A] hover:bg-slate-50 transition-colors uppercase tracking-widest"
                         >
                           {(val / 1000000).toFixed(0)} Juta
                         </button>
@@ -3936,7 +4003,7 @@ const SavingsPromotionPage = () => {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-50"
+          className="bg-white rounded-[2.5rem] p-8 shadow-2xl border border-slate-50 dark:border-slate-800/50"
         >
           <div className="flex flex-col items-center text-center mb-8">
             <div className="w-16 h-16 bg-[#E6F4F5] rounded-2xl flex items-center justify-center text-[#005E6A] mb-4 shadow-lg shadow-teal-100">
@@ -3990,16 +4057,16 @@ const SavingsPromotionPage = () => {
                   <item.icon className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest mb-1">{item.title}</h3>
-                  <p className="text-[9px] font-bold text-slate-400 leading-relaxed uppercase tracking-tight">{item.desc}</p>
+                  <h3 className="text-[11px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest mb-1">{item.title}</h3>
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 leading-relaxed uppercase tracking-tight">{item.desc}</p>
                 </div>
               </motion.div>
             ))}
           </div>
 
-          <div className="mt-12 bg-slate-50 p-6 rounded-[2rem] border border-slate-100 text-center">
+          <div className="mt-12 bg-slate-50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 text-center">
             <h4 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest mb-2">Mulai Menabung Hari Ini!</h4>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight leading-relaxed mb-6">Datang langsung ke Warung Tomi atau hubungi kami melalui WhatsApp.</p>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-tight leading-relaxed mb-6">Datang langsung ke Warung Tomi atau hubungi kami melalui WhatsApp.</p>
             <div className="grid grid-cols-2 gap-3">
               <button 
                 onClick={() => window.open("https://wa.me/6287774138090", "_blank")}
@@ -4258,21 +4325,21 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="sticky top-[88px] z-0 bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm mb-8"
+              className="sticky top-[88px] z-0 bg-white rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-sm mb-8"
             >
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Grafik Perbandingan</h4>
-                  <p className="text-[10px] font-bold text-slate-400 mt-1">Setor vs Tarik</p>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Grafik Perbandingan</h4>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 mt-1">Setor vs Tarik</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-[8px] font-black text-slate-400 uppercase">Setor</span>
+                    <span className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">Setor</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-red-500" />
-                    <span className="text-[8px] font-black text-slate-400 uppercase">Tarik</span>
+                    <span className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">Tarik</span>
                   </div>
                 </div>
               </div>
@@ -4293,8 +4360,8 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                         content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             return (
-                              <div className="bg-white p-3 rounded-xl border border-slate-100 shadow-xl">
-                                <p className="text-[10px] font-black text-slate-900 uppercase mb-2">{payload[0].payload.name}</p>
+                              <div className="bg-white p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-xl">
+                                <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase mb-2">{payload[0].payload.name}</p>
                                 <div className="space-y-1">
                                   <p className="text-[9px] font-bold text-green-600 flex justify-between gap-4">
                                     <span>Setor:</span>
@@ -4327,7 +4394,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
 
           
           {activeTab === 'riwayat' && (
-            <div className="sticky top-[80px] z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50">
+            <div className="sticky top-[80px] z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50 dark:border-slate-800/50">
               {/* Month Tabs */}
               <div ref={tabContainerRef} className="relative flex gap-2 overflow-x-auto no-scrollbar pb-1 snap-x">
                 {allMonths.map((m, i) => {
@@ -4340,7 +4407,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                       className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap snap-start transition-all duration-200 border ${
                         isActive 
                           ? 'bg-[#005E6A] text-white border-[#005E6A] shadow-sm' 
-                          : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
+                          : 'bg-white text-slate-500 dark:text-slate-300 dark:text-slate-200 border-slate-100 dark:border-slate-800 hover:bg-slate-50'
                       }`}
                     >
                       {m.label}
@@ -4402,7 +4469,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                       <div 
                         key={i} 
                         onClick={() => navigate(`/detail-tabungan/${encodeURIComponent(t.id || t.id_tabungan || '')}`)}
-                        className="bg-white rounded-2xl border border-slate-100 hover:border-green-100 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all duration-200 overflow-hidden relative group"
+                        className="bg-white rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-green-100 dark:border-green-900/50 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all duration-200 overflow-hidden relative group"
                       >
                         <div className="p-4 flex items-center gap-4">
                           {/* Icon Left */}
@@ -4424,10 +4491,10 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                                   <div className="flex items-center gap-2">
                                     <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-widest leading-none">{t.Tipe}</p>
                                     {t.Berita && t.Berita !== t.Tipe && (
-                                      <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest truncate max-w-[120px]">| {t.Berita}</span>
+                                      <span className="text-[8px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest truncate max-w-[120px]">| {t.Berita}</span>
                                     )}
                                   </div>
-                                  <p className="text-[9px] font-bold text-slate-400 leading-none">{t.Tanggal}</p>
+                                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 leading-none">{t.Tanggal}</p>
                                 </div>
                               </div>
                               <div className="text-right">
@@ -4451,7 +4518,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                       </div>
                     ))
                   ) : (
-                    <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
+                    <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
                       <div className="flex flex-col items-center gap-2 opacity-20">
                         <History className="w-8 h-8" />
                         <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada mutasi</p>
@@ -4471,7 +4538,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                 }).reverse();
 
                 return (
-                  <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden transition-all duration-300">
+                  <div key={i} className="bg-white rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden transition-all duration-300">
                     <button 
                       onClick={() => setExpandedMonth(isExpanded ? null : `${data.year}-${data.month}`)}
                       className="w-full p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors"
@@ -4484,16 +4551,16 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                       {/* Stats */}
                       <div className="flex-1 grid grid-cols-2 gap-4 text-left">
                         <div className="space-y-1">
-                          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Setor</p>
+                          <p className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Total Setor</p>
                           <p className="text-xs font-black text-green-600">Rp {formatCurrency(data.setor)}</p>
                         </div>
                         <div className="space-y-1">
-                          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Tarik</p>
+                          <p className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Total Tarik</p>
                           <p className="text-xs font-black text-red-600">Rp {formatCurrency(data.tarik)}</p>
                         </div>
                       </div>
 
-                      <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                      <ChevronDown className={`w-4 h-4 text-slate-300 dark:text-slate-200 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                     </button>
 
                     <AnimatePresence>
@@ -4504,17 +4571,17 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                           exit={{ height: 0, opacity: 0 }}
                           transition={{ duration: 0.3, ease: "easeInOut" }}
                         >
-                          <div className="px-4 pb-4 pt-2 border-t border-slate-50 space-y-2">
+                          <div className="px-4 pb-4 pt-2 border-t border-slate-50 dark:border-slate-800/50 space-y-2">
                             {monthTransactions.length > 0 ? (
                               monthTransactions.map((mt, j) => (
                                 <div 
                                   key={j} 
                                   onClick={() => navigate(`/detail-tabungan/${encodeURIComponent(mt.id || mt.id_tabungan || '')}`)}
-                                  className="flex items-center justify-between py-2 px-2 border-b border-slate-50 last:border-0 cursor-pointer hover:bg-slate-50 rounded-xl transition-all duration-200"
+                                  className="flex items-center justify-between py-2 px-2 border-b border-slate-50 dark:border-slate-800/50 last:border-0 cursor-pointer hover:bg-slate-50 rounded-xl transition-all duration-200"
                                 >
                                   <div className="space-y-1">
                                     <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{mt.Tipe}</p>
-                                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{mt.Tanggal}</p>
+                                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{mt.Tanggal}</p>
                                   </div>
                                   <p className={`text-xs font-black ${mt.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'}`}>
                                     {mt.Tipe === 'SETOR' ? '+' : '-'}{formatCurrency(mt.Nominal)}
@@ -4522,7 +4589,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                                 </div>
                               ))
                             ) : (
-                              <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest text-center py-4">Tidak ada riwayat</p>
+                              <p className="text-[8px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest text-center py-4">Tidak ada riwayat</p>
                             )}
                           </div>
                         </motion.div>
@@ -4539,11 +4606,11 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
 
       {/* Bottom Navbar for Savings Detail */}
       {displayUser && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-8 py-2 z-50 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 dark:border-slate-800 px-8 py-2 z-50 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
           <button 
             onClick={() => setActiveTab('riwayat')}
             className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-              activeTab === 'riwayat' ? 'text-green-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+              activeTab === 'riwayat' ? 'text-green-600 scale-105' : 'text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:text-slate-200'
             }`}
           >
             <div className={`p-1.5 rounded-xl transition-all duration-300 ${activeTab === 'riwayat' ? 'bg-green-50' : 'bg-transparent'}`}>
@@ -4554,7 +4621,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
           <button 
             onClick={() => setActiveTab('statistik')}
             className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-              activeTab === 'statistik' ? 'text-green-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+              activeTab === 'statistik' ? 'text-green-600 scale-105' : 'text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:text-slate-200'
             }`}
           >
             <div className={`p-1.5 rounded-xl transition-all duration-300 ${activeTab === 'statistik' ? 'bg-green-50' : 'bg-transparent'}`}>
@@ -4573,30 +4640,30 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative border border-slate-100 flex flex-col overflow-hidden"
+              className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden"
             >
               {/* Header */}
-              <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+              <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
                     selectedSavingTx.Tipe === 'SETOR' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
                   }`}>
                     <PiggyBank className="w-4 h-4" />
                   </div>
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
                     {selectedSavingTx.Tipe === 'SETOR' ? 'Rincian Setor Tabungan' : 'Rincian Tarik Tabungan'}
                   </h3>
                 </div>
                 <button 
                   onClick={() => setSelectedSavingTx(null)}
-                  className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"
+                  className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-500 dark:text-slate-300 dark:text-slate-200 rounded-full flex items-center justify-center transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Date Tag */}
-              <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-black uppercase tracking-widest mb-4">
+              <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-300 dark:text-slate-200 text-[9px] font-black uppercase tracking-widest mb-4">
                 <Calendar className="w-3.5 h-3.5" />
                 <span>{selectedSavingTx.Tanggal}</span>
               </div>
@@ -4607,23 +4674,23 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                   /* SETOR (DEPOSIT) CASE */
                   <div className="space-y-4 relative">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Saldo Awal</p>
-                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedSavingTx.SaldoAkhir - selectedSavingTx.Nominal)}</p>
+                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50 dark:border-slate-800/50">
+                        <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-0.5">Saldo Awal</p>
+                        <p className="text-xs font-black text-slate-700 dark:text-slate-200">Rp {formatCurrency(selectedSavingTx.SaldoAkhir - selectedSavingTx.Nominal)}</p>
                       </div>
-                      <div className="p-3 bg-green-50/50 rounded-2xl border border-green-100/30">
+                      <div className="p-3 bg-green-50/50 rounded-2xl border border-green-100 dark:border-green-900/50/30">
                         <p className="text-[8px] font-black text-green-400 uppercase tracking-widest mb-0.5">Tambah Setor</p>
                         <p className="text-xs font-black text-green-600">+Rp {formatCurrency(selectedSavingTx.Nominal)}</p>
                       </div>
                     </div>
 
                     <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
-                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Saldo Akhir</span>
+                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-300 dark:text-slate-200">Saldo Akhir</span>
                       <span className="text-sm font-black text-emerald-400">Rp {formatCurrency(selectedSavingTx.SaldoAkhir)}</span>
                     </div>
 
                     {/* Encouraging Section with Animation */}
-                    <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50/30 rounded-2xl border border-emerald-100/50 flex flex-col items-center text-center space-y-2 relative overflow-hidden">
+                    <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50/30 rounded-2xl border border-emerald-100 dark:border-emerald-900/50/50 flex flex-col items-center text-center space-y-2 relative overflow-hidden">
                       {/* Floating Animated Stars */}
                       {[...Array(3)].map((_, i) => (
                         <motion.div
@@ -4664,9 +4731,9 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                   /* TARIK (WITHDRAWAL) CASE */
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Saldo Awal</p>
-                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedSavingTx.SaldoAkhir + selectedSavingTx.Nominal)}</p>
+                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50 dark:border-slate-800/50">
+                        <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-0.5">Saldo Awal</p>
+                        <p className="text-xs font-black text-slate-700 dark:text-slate-200">Rp {formatCurrency(selectedSavingTx.SaldoAkhir + selectedSavingTx.Nominal)}</p>
                       </div>
                       <div className="p-3 bg-red-50/50 rounded-2xl border border-red-100/30">
                         <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-0.5">Ditarik</p>
@@ -4675,11 +4742,11 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
                     </div>
 
                     <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
-                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Sisa Saldo</span>
+                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-300 dark:text-slate-200">Sisa Saldo</span>
                       <span className="text-sm font-black text-orange-400">Rp {formatCurrency(selectedSavingTx.SaldoAkhir)}</span>
                     </div>
 
-                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100/50 flex flex-col items-center text-center space-y-2 relative overflow-hidden">
+                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 dark:border-amber-900/50/50 flex flex-col items-center text-center space-y-2 relative overflow-hidden">
                       <div className="text-amber-500 bg-white p-2.5 rounded-full shadow-sm">
                         <PiggyBank className="w-6 h-6 text-amber-500 animate-pulse" />
                       </div>
@@ -5004,12 +5071,12 @@ const DebtDetailPage = ({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[2.5rem] p-6 shadow-xl mb-8 border border-slate-100"
+              className="bg-white rounded-[2.5rem] p-6 shadow-xl mb-8 border border-slate-100 dark:border-slate-800"
             >
               <div className="flex items-center justify-between mb-6">
                 <div className="space-y-1">
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Tren Hutang</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Historis Kasbon Per Periode</p>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest">Tren Hutang</h3>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">Historis Kasbon Per Periode</p>
                 </div>
                 <div className="p-2 bg-red-50 rounded-xl">
                   <BarChart3 className="w-5 h-5 text-red-600" />
@@ -5068,7 +5135,7 @@ const DebtDetailPage = ({
               <div className="mt-4 flex items-center justify-center gap-4">
                  <div className="flex items-center gap-2">
                    <div className="w-2 h-2 rounded-full bg-red-600" />
-                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Kasbon</span>
+                   <span className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Total Kasbon</span>
                  </div>
               </div>
             </motion.div>
@@ -5116,7 +5183,7 @@ const DebtDetailPage = ({
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05 }}
                     onClick={() => navigate(`/detail-hutang/${encodeURIComponent(t.id || t.id_hutang || '')}`)}
-                    className="bg-white rounded-2xl p-4 border border-slate-100 hover:border-red-100 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all duration-200 flex items-center justify-between group relative overflow-hidden"
+                    className="bg-white rounded-2xl p-4 border border-slate-100 dark:border-slate-800 hover:border-red-100 hover:shadow-md cursor-pointer active:scale-[0.98] transition-all duration-200 flex items-center justify-between group relative overflow-hidden"
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
@@ -5126,17 +5193,17 @@ const DebtDetailPage = ({
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <p className="text-xs font-black text-slate-900 uppercase tracking-tight">
+                          <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
                             {t.Tipe === 'TAMBAH' ? 'KASBON' : 'BAYAR'}
                           </p>
                           {t.Keterangan && t.Keterangan !== "-" && (
-                             <span className="bg-slate-100 text-slate-500 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-200/50 italic">
+                             <span className="bg-slate-100 text-slate-500 dark:text-slate-300 dark:text-slate-200 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-200/50 dark:border-slate-700/50 italic">
                                {t.Keterangan}
                              </span>
                           )}
                         </div>
                         <div className="flex flex-col">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{t.Tanggal}</p>
+                          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-tight">{t.Tanggal}</p>
                         </div>
                       </div>
                     </div>
@@ -5155,7 +5222,7 @@ const DebtDetailPage = ({
                   </motion.div>
                 ))
               ) : (
-                <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100 border-dashed">
+                <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
                   <div className="flex flex-col items-center gap-3 opacity-20">
                     <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
                       <History className="w-8 h-8" />
@@ -5172,7 +5239,7 @@ const DebtDetailPage = ({
                     key={i}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden"
+                    className="bg-white rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden"
                   >
                     <button 
                       onClick={() => setExpandedPeriod(expandedPeriod === i ? null : i)}
@@ -5191,22 +5258,22 @@ const DebtDetailPage = ({
                           }`}>
                             Periode {period.id} ({period.status})
                           </p>
-                          <ChevronDown className={`w-4 h-4 text-slate-300 transition-transform ${expandedPeriod === i ? 'rotate-180' : ''}`} />
+                          <ChevronDown className={`w-4 h-4 text-slate-300 dark:text-slate-200 transition-transform ${expandedPeriod === i ? 'rotate-180' : ''}`} />
                         </div>
                         
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-0.5">
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Total Kasbon</p>
-                            <p className="text-sm font-black text-slate-900">Rp {formatCurrency(period.totalBorrowed)}</p>
+                            <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Total Kasbon</p>
+                            <p className="text-sm font-black text-slate-900 dark:text-white">Rp {formatCurrency(period.totalBorrowed)}</p>
                           </div>
                           <div className="space-y-0.5">
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Lama Kasbon</p>
-                            <p className="text-sm font-black text-slate-900">{period.durationDays} Hari</p>
+                            <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Lama Kasbon</p>
+                            <p className="text-sm font-black text-slate-900 dark:text-white">{period.durationDays} Hari</p>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-1 border-t border-slate-50">
-                           <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">
+                        <div className="flex items-center justify-between pt-1 border-t border-slate-50 dark:border-slate-800/50">
+                           <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
                              {period.startDate} — {period.endDate}
                            </p>
                         </div>
@@ -5219,9 +5286,9 @@ const DebtDetailPage = ({
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
-                          className="px-5 pb-5 pt-2 border-t border-slate-50 space-y-2 bg-slate-50/30"
+                          className="px-5 pb-5 pt-2 border-t border-slate-50 dark:border-slate-800/50 space-y-2 bg-slate-50/30"
                         >
-                           <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Detail Mutasi Periode Ini</p>
+                           <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] mb-3">Detail Mutasi Periode Ini</p>
                            {period.transactions.map((mt, j) => (
                               <div 
                                 key={j} 
@@ -5229,8 +5296,8 @@ const DebtDetailPage = ({
                                 className="flex items-center justify-between py-2 border-b border-white last:border-0 cursor-pointer hover:bg-white/40 p-1.5 -mx-1.5 rounded-xl transition-all"
                               >
                                 <div className="space-y-0.5">
-                                  <p className="text-[9px] font-black text-slate-700 uppercase">{mt.Tipe === 'TAMBAH' ? 'KASBON' : 'BAYAR'}</p>
-                                  <p className="text-[7px] font-bold text-slate-400">{mt.Tanggal}</p>
+                                  <p className="text-[9px] font-black text-slate-700 dark:text-slate-200 uppercase">{mt.Tipe === 'TAMBAH' ? 'KASBON' : 'BAYAR'}</p>
+                                  <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">{mt.Tanggal}</p>
                                 </div>
                                 <p className={`text-[10px] font-black ${mt.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'}`}>
                                   {mt.Tipe === 'TAMBAH' ? '+' : '-'}{formatCurrency(mt.Jumlah)}
@@ -5243,7 +5310,7 @@ const DebtDetailPage = ({
                   </motion.div>
                 ))
               ) : (
-                <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100 border-dashed">
+                <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
                   <p className="text-[10px] font-black opacity-20 uppercase tracking-[0.2em]">Belum ada periode tuntas</p>
                 </div>
               )
@@ -5255,11 +5322,11 @@ const DebtDetailPage = ({
 
     {/* Bottom Navbar for Debt Detail */}
     {displayUser && (
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-8 py-2 z-50 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 dark:border-slate-800 px-8 py-2 z-50 flex items-center justify-around shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
         <button 
           onClick={() => setActiveTab('riwayat')}
           className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-            activeTab === 'riwayat' ? 'text-red-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+            activeTab === 'riwayat' ? 'text-red-600 scale-105' : 'text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:text-slate-200'
           }`}
         >
           <div className={`p-1.5 rounded-xl transition-all duration-300 ${activeTab === 'riwayat' ? 'bg-red-50' : 'bg-transparent'}`}>
@@ -5270,7 +5337,7 @@ const DebtDetailPage = ({
         <button 
           onClick={() => setActiveTab('statistik')}
           className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-            activeTab === 'statistik' ? 'text-red-600 scale-105' : 'text-slate-400 hover:text-slate-600'
+            activeTab === 'statistik' ? 'text-red-600 scale-105' : 'text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:text-slate-200'
           }`}
         >
           <div className={`p-1.5 rounded-xl transition-all duration-300 ${activeTab === 'statistik' ? 'bg-red-50' : 'bg-transparent'}`}>
@@ -5290,30 +5357,30 @@ const DebtDetailPage = ({
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative border border-slate-100 flex flex-col overflow-visible"
+              className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl relative border border-slate-100 dark:border-slate-800 flex flex-col overflow-visible"
             >
               {/* Header */}
-              <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100">
+              <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
                     selectedTx.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
                   }`}>
                     {selectedTx.Tipe === 'TAMBAH' ? <PlusCircle className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
                   </div>
-                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
                     {selectedTx.Tipe === 'TAMBAH' ? 'Rincian Kasbon' : 'Rincian Pembayaran'}
                   </h3>
                 </div>
                 <button 
                   onClick={() => setSelectedTx(null)}
-                  className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full flex items-center justify-center transition-colors"
+                  className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-500 dark:text-slate-300 dark:text-slate-200 rounded-full flex items-center justify-center transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Date Tag */}
-              <div className="flex items-center gap-1.5 text-slate-400 text-[9px] font-black uppercase tracking-widest mb-4">
+              <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-300 dark:text-slate-200 text-[9px] font-black uppercase tracking-widest mb-4">
                 <Calendar className="w-3.5 h-3.5" />
                 <span>{selectedTx.Tanggal}</span>
               </div>
@@ -5324,9 +5391,9 @@ const DebtDetailPage = ({
                   /* KASBON CASE */
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Hutang Awal</p>
-                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedTx.SaldoAkhir - selectedTx.Jumlah)}</p>
+                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50 dark:border-slate-800/50">
+                        <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-0.5">Hutang Awal</p>
+                        <p className="text-xs font-black text-slate-700 dark:text-slate-200">Rp {formatCurrency(selectedTx.SaldoAkhir - selectedTx.Jumlah)}</p>
                       </div>
                       <div className="p-3 bg-red-50/50 rounded-2xl border border-red-100/30">
                         <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-0.5">Tambah</p>
@@ -5335,34 +5402,34 @@ const DebtDetailPage = ({
                     </div>
 
                     <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
-                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Total Hutang</span>
+                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-300 dark:text-slate-200">Total Hutang</span>
                       <span className="text-sm font-black text-orange-400">Rp {formatCurrency(selectedTx.SaldoAkhir)}</span>
                     </div>
 
                     {/* Transaction details */}
                     {matchingSalesTx ? (
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
-                        <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3">
+                        <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest pb-1 border-b border-slate-200/50 dark:border-slate-700/50">
                           <Receipt className="w-3.5 h-3.5 text-[#005E6A]" />
                           <span>Detail Item Belanja</span>
                         </div>
                         <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1 no-scrollbar">
                           {parseItems(matchingSalesTx.Jenis, matchingSalesTx.Pemasukan, matchingSalesTx.HargaModal, matchingSalesTx.Melalui).map((item, idx) => (
                             <div key={idx} className="flex justify-between items-baseline gap-2 text-[10px]">
-                              <span className="font-bold text-slate-700 uppercase truncate max-w-[170px]">{item.name}</span>
+                              <span className="font-bold text-slate-700 dark:text-slate-200 uppercase truncate max-w-[170px]">{item.name}</span>
                               <div className="flex gap-2 shrink-0">
                                 {item.qty > 1 && item.price && (
-                                  <span className="text-slate-400 font-medium">({item.qty}x Rp {formatCurrency(item.price)})</span>
+                                  <span className="text-slate-400 dark:text-slate-300 dark:text-slate-200 font-medium">({item.qty}x Rp {formatCurrency(item.price)})</span>
                                 )}
-                                <span className="text-slate-900 font-black">
+                                <span className="text-slate-900 dark:text-white font-black">
                                   Rp {formatCurrency(item.qty * (item.price || matchingSalesTx.Pemasukan / item.qty))}
                                 </span>
                               </div>
                             </div>
                           ))}
                         </div>
-                        <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between text-[9px]">
-                          <span className="font-bold text-slate-400 uppercase tracking-wider">ID Transaksi</span>
+                        <div className="pt-2 border-t border-dashed border-slate-200 dark:border-slate-700 flex justify-between text-[9px]">
+                          <span className="font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">ID Transaksi</span>
                           <span className="font-black text-[#005E6A] uppercase tracking-wider">
                             {matchingSalesTx.id_transaksi || `TRX-${matchingSalesTx.Tanggal.replace(/[^0-9]/g, '').slice(0, 10)}`}
                           </span>
@@ -5370,12 +5437,12 @@ const DebtDetailPage = ({
                       </div>
                     ) : (
                       /* Fallback Details */
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                        <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
-                          <Info className="w-3.5 h-3.5 text-slate-400" />
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+                        <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest pb-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                          <Info className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
                           <span>Keterangan Tambah</span>
                         </div>
-                        <p className="text-[10px] font-black text-slate-700 uppercase leading-relaxed pt-1">
+                        <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase leading-relaxed pt-1">
                           {selectedTx.Keterangan && selectedTx.Keterangan !== "-" ? selectedTx.Keterangan : "Penambahan Kasbon Manual"}
                         </p>
                       </div>
@@ -5385,27 +5452,27 @@ const DebtDetailPage = ({
                   /* BAYAR CASE */
                   <div className="space-y-3 relative">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Hutang Awal</p>
-                        <p className="text-xs font-black text-slate-700">Rp {formatCurrency(selectedTx.SaldoAkhir + selectedTx.Jumlah)}</p>
+                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100/50 dark:border-slate-800/50">
+                        <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-0.5">Hutang Awal</p>
+                        <p className="text-xs font-black text-slate-700 dark:text-slate-200">Rp {formatCurrency(selectedTx.SaldoAkhir + selectedTx.Jumlah)}</p>
                       </div>
-                      <div className="p-3 bg-green-50/50 rounded-2xl border border-green-100/30">
+                      <div className="p-3 bg-green-50/50 rounded-2xl border border-green-100 dark:border-green-900/50/30">
                         <p className="text-[8px] font-black text-green-400 uppercase tracking-widest mb-0.5">Bayar</p>
                         <p className="text-xs font-black text-green-600">-Rp {formatCurrency(selectedTx.Jumlah)}</p>
                       </div>
                     </div>
 
                     <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] flex justify-between items-center shadow-md">
-                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Sisa Hutang</span>
+                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-300 dark:text-slate-200">Sisa Hutang</span>
                       <span className="text-sm font-black text-emerald-400">Rp {formatCurrency(selectedTx.SaldoAkhir)}</span>
                     </div>
 
-                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                      <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 uppercase tracking-widest pb-1 border-b border-slate-200/50">
-                        <Info className="w-3.5 h-3.5 text-slate-400" />
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2">
+                      <div className="flex items-center gap-1 text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest pb-1 border-b border-slate-200/50 dark:border-slate-700/50">
+                        <Info className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
                         <span>Keterangan Bayar</span>
                       </div>
-                      <p className="text-[10px] font-black text-slate-700 uppercase leading-relaxed pt-1">
+                      <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase leading-relaxed pt-1">
                         {selectedTx.Keterangan && selectedTx.Keterangan !== "-" ? selectedTx.Keterangan : "Pelunasan Hutang Tunai"}
                       </p>
                     </div>
@@ -5594,7 +5661,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.1 }}
           onClick={() => setExpandedIndex(isExpanded ? null : i)}
-          className="bg-white rounded-[2.5rem] text-slate-900 shadow-xl relative overflow-hidden cursor-pointer transition-all border border-slate-100"
+          className="bg-white rounded-[2.5rem] text-slate-900 dark:text-white shadow-xl relative overflow-hidden cursor-pointer transition-all border border-slate-100 dark:border-slate-800"
         >
           {/* Background Decorative Elements */}
           <div className="absolute top-0 right-0 w-48 h-48 bg-slate-50 rounded-full -mr-20 -mt-20 blur-3xl opacity-50" />
@@ -5624,7 +5691,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
           <div className="p-7 space-y-8 relative z-10">
             {/* Top Summary Row */}
             <div className="flex items-center justify-between gap-4">
-              <span className="text-[8px] sm:text-[10px] font-black tracking-[0.1em] text-slate-400 uppercase truncate flex-1">{refId}</span>
+              <span className="text-[8px] sm:text-[10px] font-black tracking-[0.1em] text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase truncate flex-1">{refId}</span>
               {isA_Aktif && (
                 <div className="flex items-center gap-2">
                   {/* Growing Money Animation */}
@@ -5653,7 +5720,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                     <motion.div
                       animate={{ scale: [1, 1.12, 1] }}
                       transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-                      className="text-emerald-500 bg-emerald-50 p-1 rounded-full border border-emerald-100/30 flex items-center justify-center"
+                      className="text-emerald-500 bg-emerald-50 p-1 rounded-full border border-emerald-100 dark:border-emerald-900/50/30 flex items-center justify-center"
                     >
                       <TrendingUp className="w-3 h-3" />
                     </motion.div>
@@ -5669,7 +5736,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
             {/* Estimate Section */}
             <div className="space-y-4">
               <div className="space-y-1">
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                <p className="text-[11px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
                   {isA_Aktif ? "Estimasi Pengembalian Total" : "Sudah Dicairkan Ke Tabungan"}
                 </p>
                 <h4 className="text-4xl font-black tracking-tight tabular-nums text-[#6D28D9] font-black">Rp {formatCurrency(estimate.total)}</h4>
@@ -5677,13 +5744,13 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                 {isA_Aktif && (
                   <div className="space-y-3 pt-2">
                     {t.Keterangan && (
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{t.Keterangan}</p>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">{t.Keterangan}</p>
                     )}
                     
                     {/* Progress Bar moved here */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <h5 className="text-[8px] font-black uppercase tracking-widest text-[#6D28D9]">Progress <span className="text-slate-400 ml-1">({progress}% Berjalan)</span></h5>
+                        <h5 className="text-[8px] font-black uppercase tracking-widest text-[#6D28D9]">Progress <span className="text-slate-400 dark:text-slate-300 dark:text-slate-200 ml-1">({progress}% Berjalan)</span></h5>
                       </div>
                       <div className="relative pt-0.5">
                         <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -5697,12 +5764,12 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                       </div>
                       <div className="flex items-center justify-between opacity-60">
                          <div className="flex flex-col">
-                           <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Akad</span>
-                           <span className="text-[8px] font-black text-slate-900">{t.Tanggal}</span>
+                           <span className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Akad</span>
+                           <span className="text-[8px] font-black text-slate-900 dark:text-white">{t.Tanggal}</span>
                          </div>
                          <div className="flex flex-col text-right">
-                           <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Tempo</span>
-                           <span className="text-[8px] font-black text-slate-900">{t.JatuhTempo}</span>
+                           <span className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Tempo</span>
+                           <span className="text-[8px] font-black text-slate-900 dark:text-white">{t.JatuhTempo}</span>
                          </div>
                       </div>
                     </div>
@@ -5711,8 +5778,8 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
               </div>
 
               <div className="flex items-center justify-between">
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 rounded-full">
-                  <p className="text-[9px] font-bold text-slate-500">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-full">
+                  <p className="text-[9px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200">
                     {isA_Aktif 
                       ? (<>+Rp {formatCurrency(estimate.profit)} <span className="text-[#6D28D9] font-black">(Est. {estimate.rateYearly}% pertahun)</span></>)
                       : `Pada Tanggal ${t.JatuhTempo}`
@@ -5742,32 +5809,32 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                   <div className="pt-2 space-y-8">
                     {/* Sharpened Detail Cards (Slightly off-white for depth) */}
                     <div className="space-y-3 pt-2">
-                      <div className="bg-slate-50 rounded-xl p-5 shadow-sm flex items-center gap-4 border border-slate-100">
+                      <div className="bg-slate-50 rounded-xl p-5 shadow-sm flex items-center gap-4 border border-slate-100 dark:border-slate-800">
                         <div className="flex-1 space-y-3">
                           <h6 className="text-[11px] font-black text-[#6D28D9] uppercase tracking-widest">Pokok & Keuntungan</h6>
                           <div className="grid grid-cols-1 gap-2">
-                            <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                              <span className="text-[10px] font-bold text-slate-400">Nilai Pokok</span>
-                              <span className="text-[10px] font-black text-slate-800 tracking-tight text-lg">Rp {formatCurrency(t.Nominal)}</span>
+                            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">Nilai Pokok</span>
+                              <span className="text-[10px] font-black text-slate-800 dark:text-slate-100 tracking-tight text-lg">Rp {formatCurrency(t.Nominal)}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-[10px] font-bold text-slate-400">Bagi Hasil ({estimate.rateYearly}% pertahun)</span>
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">Bagi Hasil ({estimate.rateYearly}% pertahun)</span>
                               <span className="text-[10px] font-black text-green-600">Rp {formatCurrency(estimate.profit)}</span>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <div className="bg-slate-50 rounded-xl p-5 shadow-sm flex items-center gap-4 border border-slate-100">
+                      <div className="bg-slate-50 rounded-xl p-5 shadow-sm flex items-center gap-4 border border-slate-100 dark:border-slate-800">
                         <div className="flex-1 space-y-3">
                           <h6 className="text-[11px] font-black text-[#6D28D9] uppercase tracking-widest">Waktu Kontrak</h6>
-                          <div className="grid grid-cols-1 gap-2 text-slate-600">
-                            <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                              <span className="text-[10px] font-bold text-slate-400">Jangka Waktu</span>
+                          <div className="grid grid-cols-1 gap-2 text-slate-600 dark:text-slate-300 dark:text-slate-200">
+                            <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-700 pb-2">
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">Jangka Waktu</span>
                               <span className="text-[10px] font-black tracking-tight">{t.Tenor}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-[10px] font-bold text-slate-400">Masa Berakhir</span>
+                              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">Masa Berakhir</span>
                               <span className="text-[10px] font-black tracking-tight">{t.JatuhTempo}</span>
                             </div>
                           </div>
@@ -5789,8 +5856,8 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                       )}
 
                       {!isA_Aktif && t.Keterangan && (
-                         <div className="px-5 py-4 bg-slate-100/50 border border-slate-200 rounded-xl">
-                            <p className="text-[10px] font-medium italic text-slate-500 leading-relaxed text-center">{t.Keterangan}</p>
+                         <div className="px-5 py-4 bg-slate-100/50 border border-slate-200 dark:border-slate-700 rounded-xl">
+                            <p className="text-[10px] font-medium italic text-slate-500 dark:text-slate-300 dark:text-slate-200 leading-relaxed text-center">{t.Keterangan}</p>
                          </div>
                       )}
                     </div>
@@ -5873,16 +5940,16 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                 <Gift className="w-6 h-6" />
               </div>
               <div className="text-left">
-                <h3 className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider">Penawaran Investasi Spesial</h3>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Pilihan Tenor & Imbal Hasil Menarik</p>
+                <h3 className="text-xs sm:text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Penawaran Investasi Spesial</h3>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mt-0.5">Pilihan Tenor & Imbal Hasil Menarik</p>
               </div>
             </div>
             <motion.div
               animate={{ rotate: showOffers ? 180 : 0 }}
               transition={{ duration: 0.2 }}
-              className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-100"
+              className="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-100 dark:border-slate-800"
             >
-              <ChevronDown className="w-4 h-4 text-slate-500" />
+              <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-300 dark:text-slate-200" />
             </motion.div>
           </div>
 
@@ -5900,21 +5967,21 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                   <div className="flex overflow-x-auto gap-3.5 pb-4 snap-x -mx-7 px-7 scrollbar-hide items-stretch">
                     {/* Left side introduction text - placed inline inside scrollable container, no card wrapper */}
                     <div className="flex-shrink-0 w-44 flex flex-col justify-start items-start text-left space-y-3 snap-start py-4 pl-7">
-                      <span className="text-[10px] font-black text-[#6D28D9] uppercase tracking-[0.15em] bg-white border border-purple-100 px-3 py-1 rounded-md shadow-sm">
+                      <span className="text-[10px] font-black text-[#6D28D9] uppercase tracking-[0.15em] bg-white border border-purple-100 dark:border-purple-900/50 px-3 py-1 rounded-md shadow-sm">
                         PILIHAN TERBAIK
                       </span>
                       <div className="space-y-1.5">
-                        <h4 className="text-sm font-black text-slate-800 leading-tight uppercase tracking-tight">
+                        <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 leading-tight uppercase tracking-tight">
                           Kembangkan Dana Anda
                         </h4>
                         <div className="h-0.5 w-10 bg-[#6D28D9] rounded-full" />
                       </div>
-                      <p className="text-[9px] font-bold text-slate-500 leading-relaxed uppercase tracking-wider">
+                      <p className="text-[9px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 leading-relaxed uppercase tracking-wider">
                         Investasikan dana dengan imbal hasil optimal 10% setiap tahunnya.
                       </p>
 
                       {/* Animated Illustration */}
-                      <div className="relative w-full h-16 mt-2 flex items-center justify-center bg-purple-50/50 rounded-xl border border-purple-100/40 overflow-hidden">
+                      <div className="relative w-full h-16 mt-2 flex items-center justify-center bg-purple-50/50 rounded-xl border border-purple-100 dark:border-purple-900/50/40 overflow-hidden">
                         {/* Glowing/pulsing ambient light */}
                         <motion.div
                           animate={{
@@ -6085,7 +6152,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 px-2">
                     <div className="h-2 w-2 rounded-full bg-slate-400" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Riwayat Investasi Selesai</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300 dark:text-slate-200">Riwayat Investasi Selesai</span>
                     <div className="h-px bg-slate-200 flex-1" />
                   </div>
                   <div className="space-y-6">
@@ -6098,14 +6165,14 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
               )}
             </>
           ) : (
-            <div className="bg-white rounded-[2.5rem] p-16 text-center border border-slate-100 border-dashed shadow-inner bg-slate-50/20">
+            <div className="bg-white rounded-[2.5rem] p-16 text-center border border-slate-100 dark:border-slate-800 border-dashed shadow-inner bg-slate-50/20">
               <div className="flex flex-col items-center gap-4 opacity-30">
                 <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm">
-                  <TrendingUp className="w-10 h-10 text-slate-300" />
+                  <TrendingUp className="w-10 h-10 text-slate-300 dark:text-slate-200" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-900">Portofolio Kosong</p>
-                  <p className="text-[10px] font-bold text-slate-400">Belum ada kontrak investasi aktif untuk saat ini</p>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-900 dark:text-white">Portofolio Kosong</p>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">Belum ada kontrak investasi aktif untuk saat ini</p>
                 </div>
               </div>
             </div>
@@ -6156,7 +6223,7 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                    </div>
  
                    <div className="p-8 space-y-6 overflow-y-auto flex-1">
-                     <p className="text-xs text-slate-500 leading-relaxed font-semibold text-left">
+                     <p className="text-xs text-slate-500 dark:text-slate-300 dark:text-slate-200 leading-relaxed font-semibold text-left">
                        {selectedOffer.desc}
                      </p>
  
@@ -6174,27 +6241,27 @@ const InvestasiPage = ({ user, transactions, customers }: { user: Customer | nul
                              const val = e.target.value.replace(/[^\d]/g, '');
                              setCalcAmount(val);
                            }}
-                           className="w-full bg-purple-50/40 hover:bg-purple-50/60 focus:bg-white border-2 border-purple-100 focus:border-purple-500 focus:ring-0 rounded-2xl py-4 pl-12 pr-6 text-lg font-black text-purple-950 transition-all text-left shadow-inner"
+                           className="w-full bg-purple-50/40 hover:bg-purple-50/60 focus:bg-white border-2 border-purple-100 dark:border-purple-900/50 focus:border-purple-500 focus:ring-0 rounded-2xl py-4 pl-12 pr-6 text-lg font-black text-purple-950 transition-all text-left shadow-inner"
                            placeholder="0"
                          />
                        </div>
                        <div className="flex justify-between items-center px-1">
-                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Mulai Rp 100.000</span>
+                         <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Mulai Rp 100.000</span>
                          <span className="text-[8px] font-bold text-purple-600 uppercase tracking-wider">Suku Bunga 10% p.a.</span>
                        </div>
                      </div>
  
                      {/* Dynamic Profit Calculation Block (Gambaran Hasil Keuntungan) */}
-                     <div className="space-y-4 bg-purple-50/50 rounded-2xl p-5 border border-purple-100/50">
+                     <div className="space-y-4 bg-purple-50/50 rounded-2xl p-5 border border-purple-100 dark:border-purple-900/50/50">
                        <h5 className="text-[9px] font-black text-purple-800 uppercase tracking-widest text-left">Simulasi Hasil Keuntungan:</h5>
                        
                        <div className="space-y-2 text-left">
                          <div className="flex justify-between items-center">
-                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Modal Awal</span>
-                           <span className="text-xs font-black text-slate-700">Rp {formatCurrency(parsedAmount)}</span>
+                           <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Modal Awal</span>
+                           <span className="text-xs font-black text-slate-700 dark:text-slate-200">Rp {formatCurrency(parsedAmount)}</span>
                          </div>
                          <div className="flex justify-between items-center">
-                           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Keuntungan ({selectedOffer.periodRate})</span>
+                           <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Keuntungan ({selectedOffer.periodRate})</span>
                            <span className="text-xs font-black text-emerald-600 font-bold">+ Rp {formatCurrency(calculatedProfit)}</span>
                          </div>
                          
@@ -6242,7 +6309,7 @@ Mohon bantuan dan panduannya untuk memproses pengajuan investasi saya ini. Terim
                        
                        <button
                          onClick={() => setSelectedOffer(null)}
-                         className="w-full bg-slate-50 hover:bg-slate-100 text-slate-500 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all border border-slate-200/60"
+                         className="w-full bg-slate-50 hover:bg-slate-100 text-slate-500 dark:text-slate-300 dark:text-slate-200 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all border border-slate-200/60 dark:border-slate-700/60"
                        >
                          Kembali
                        </button>
@@ -6388,7 +6455,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                         {isNewDate && (
                           <div className="pt-4 pb-1 px-2 first:pt-0">
                             <h4 className="text-[10px] font-black text-orange-600 uppercase tracking-[0.15em] flex items-center gap-3">
-                              <span className="flex-shrink-0 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100">
+                              <span className="flex-shrink-0 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100 dark:border-orange-900/50">
                                 {formatIndonesianDateWithDay(t.Tanggal)}
                               </span>
                               <div className="h-px bg-slate-200/50 flex-1" />
@@ -6401,7 +6468,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: i * 0.05 }}
                           onClick={() => setExpandedId(expandedId === `diproses-${i}` ? null : `diproses-${i}`)}
-                          className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
+                          className="bg-white rounded-3xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
                         >
                           <div className="relative z-10">
                             <div className="flex justify-between items-center">
@@ -6412,7 +6479,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                                     DIPROSES
                                   </span>
                                 </div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{getWaktuLabel(t.Tanggal)} • {t.Tanggal}</p>
+                                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">{getWaktuLabel(t.Tanggal)} • {t.Tanggal}</p>
                               </div>
                               <div className="flex items-center gap-4">
                                 <div className="text-right">
@@ -6433,10 +6500,10 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                                   exit={{ height: 0, opacity: 0, marginTop: 0 }}
                                   className="overflow-hidden"
                                 >
-                                  <div className="flex items-stretch gap-6 pt-4 border-t border-slate-50">
+                                  <div className="flex items-stretch gap-6 pt-4 border-t border-slate-50 dark:border-slate-800/50">
                                     <div className="flex-1">
-                                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Keterangan</p>
-                                      <p className="text-xs font-black text-slate-700 uppercase">{t.Melalui}</p>
+                                      <p className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1.5">Keterangan</p>
+                                      <p className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">{t.Melalui}</p>
                                     </div>
                                   </div>
                                 </motion.div>
@@ -6471,7 +6538,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                         {isNewDate && (
                           <div className="pt-4 pb-1 px-2 first:pt-0">
                             <h4 className="text-[10px] font-black text-teal-600 uppercase tracking-[0.15em] flex items-center gap-3">
-                              <span className="flex-shrink-0 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-100">
+                              <span className="flex-shrink-0 bg-teal-50 px-2.5 py-1 rounded-full border border-teal-100 dark:border-teal-900/50">
                                 {formatIndonesianDateWithDay(t.Tanggal)}
                               </span>
                               <div className="h-px bg-slate-200/50 flex-1" />
@@ -6484,18 +6551,18 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: i * 0.05 }}
                           onClick={() => setExpandedId(expandedId === `belum-${i}` ? null : `belum-${i}`)}
-                          className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
+                          className="bg-white rounded-3xl p-5 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group cursor-pointer active:scale-[0.98] transition-all"
                         >
                           <div className="relative z-10">
                             <div className="flex justify-between items-center">
                               <div className="space-y-1">
                                 <div className="flex items-center gap-2">
                                   <p className="text-sm font-black text-[#005E6A] uppercase tracking-tight">{t.Jenis}</p>
-                                  <span className="bg-slate-100 text-slate-500 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-200/50">
+                                  <span className="bg-slate-100 text-slate-500 dark:text-slate-300 dark:text-slate-200 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-200/50 dark:border-slate-700/50">
                                     {t.Melalui}
                                   </span>
                                 </div>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{getWaktuLabel(t.Tanggal)} • {t.Tanggal}</p>
+                                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">{getWaktuLabel(t.Tanggal)} • {t.Tanggal}</p>
                               </div>
                               <div className="flex items-center gap-4">
                                 <div className="text-right">
@@ -6520,14 +6587,14 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                                   exit={{ height: 0, opacity: 0, marginTop: 0 }}
                                   className="overflow-hidden"
                                 >
-                                  <div className="flex items-stretch gap-6 pt-4 border-t border-slate-50">
+                                  <div className="flex items-stretch gap-6 pt-4 border-t border-slate-50 dark:border-slate-800/50">
                                     <div className="flex-1">
-                                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Nominal Transaksi</p>
-                                      <p className="text-xs font-black text-slate-700">Rp {formatCurrency(parseCurrency(t.Pemasukan) || 0)}</p>
+                                      <p className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1.5">Nominal Transaksi</p>
+                                      <p className="text-xs font-black text-slate-700 dark:text-slate-200">Rp {formatCurrency(parseCurrency(t.Pemasukan) || 0)}</p>
                                     </div>
                                     <div className="w-px bg-slate-100 self-stretch" />
                                     <div className="flex-1">
-                                      <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Biaya & Potongan</p>
+                                      <p className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1.5">Biaya & Potongan</p>
                                       <div className="space-y-1">
                                         {(() => {
                                           const melalui = (t.Melalui || "").toUpperCase().trim();
@@ -6560,7 +6627,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
                                                 <p className="text-[9px] font-bold text-teal-500">Bonus: Rp {formatCurrency(bonus)}</p>
                                               )}
                                               {isEDC && (
-                                                <p className="text-[9px] font-bold text-slate-500">Biaya EDC: Rp {formatCurrency(3000)}</p>
+                                                <p className="text-[9px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200">Biaya EDC: Rp {formatCurrency(3000)}</p>
                                               )}
                                             </>
                                           );
@@ -6585,10 +6652,10 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
           )}
 
           {userTransactions.length === 0 && (
-            <div className="bg-white rounded-[2rem] p-12 text-center border-2 border-dashed border-slate-100">
+            <div className="bg-white rounded-[2rem] p-12 text-center border-2 border-dashed border-slate-100 dark:border-slate-800">
               <div className="flex flex-col items-center gap-4 opacity-30">
-                <History className="w-12 h-12 text-slate-400" />
-                <p className="text-[10px] font-bold text-slate-400">Tidak ada riwayat transaksi aktif</p>
+                <History className="w-12 h-12 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">Tidak ada riwayat transaksi aktif</p>
               </div>
             </div>
           )}
@@ -6785,25 +6852,25 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
         {/* Stats Card */}
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden relative">
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden relative">
           <div className="text-center mb-8">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Total Pemasukan</p>
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] mb-3">Total Pemasukan</p>
             <h3 className="text-4xl font-black text-[#005E6A] tracking-tighter">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
           </div>
           
-          <div className="grid grid-cols-2 border-t border-slate-50 pt-8 mt-2">
-            <div className="text-center border-r border-slate-100">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Total Transaksi</p>
+          <div className="grid grid-cols-2 border-t border-slate-50 dark:border-slate-800/50 pt-8 mt-2">
+            <div className="text-center border-r border-slate-100 dark:border-slate-800">
+              <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.15em] mb-2">Total Transaksi</p>
               <h4 className="text-xl font-black text-[#F15A24] tracking-tight">{totalTransaksi}</h4>
             </div>
             <div className="text-center">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.15em] mb-2">Total Keuntungan</p>
+              <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.15em] mb-2">Total Keuntungan</p>
               <h4 className="text-xl font-black text-green-600 tracking-tight">Rp {totalKeuntungan.toLocaleString('id-ID')}</h4>
             </div>
           </div>
 
           {/* Collapsible summary section of transaction types */}
-          <div className="mt-6 border-t border-slate-100 pt-6">
+          <div className="mt-6 border-t border-slate-100 dark:border-slate-800 pt-6">
             <button 
               onClick={() => setShowSummary(!showSummary)}
               className="w-full flex items-center justify-between text-left focus:outline-none group"
@@ -6812,10 +6879,10 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
                 <div className="w-6 h-6 rounded-lg bg-[#005E6A]/10 flex items-center justify-center">
                   <ClipboardList className="w-3.5 h-3.5 text-[#005E6A]" />
                 </div>
-                <span className="text-[9px] font-black text-slate-600 uppercase tracking-wider group-hover:text-[#005E6A] transition-colors">
+                <span className="text-[9px] font-black text-slate-600 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider group-hover:text-[#005E6A] transition-colors">
                   Ringkasan Kategori
                 </span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase">
+                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">
                   ({groupedSummary.length} Jenis)
                 </span>
               </div>
@@ -6846,25 +6913,25 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
                         {groupedSummary.map((item, idx) => (
                           <div 
                             key={idx} 
-                            className="bg-slate-50/40 hover:bg-slate-50/80 p-3 rounded-2xl border border-slate-100/70 transition-colors flex flex-col justify-between"
+                            className="bg-slate-50/40 hover:bg-slate-50/80 p-3 rounded-2xl border border-slate-100/70 dark:border-slate-800/70 transition-colors flex flex-col justify-between"
                           >
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] font-black text-slate-700 uppercase tracking-wide truncate max-w-[150px]">
+                              <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide truncate max-w-[150px]">
                                 {item.jenis}
                               </span>
-                              <span className="text-[8px] font-bold text-slate-400 bg-white border border-slate-100 px-2 py-0.5 rounded-lg shrink-0">
+                              <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 bg-white border border-slate-100 dark:border-slate-800 px-2 py-0.5 rounded-lg shrink-0">
                                 {item.count} Transaksi
                               </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-[9px] border-t border-slate-100/60 pt-2 mt-1">
+                            <div className="grid grid-cols-2 gap-2 text-[9px] border-t border-slate-100/60 dark:border-slate-800/60 pt-2 mt-1">
                               <div>
-                                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Pemasukan</p>
+                                <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Pemasukan</p>
                                 <p className="text-[10px] font-black text-[#005E6A] mt-0.5">
                                   Rp {item.pemasukan.toLocaleString('id-ID')}
                                 </p>
                               </div>
-                              <div className="border-l border-slate-200/50 pl-2">
-                                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Keuntungan</p>
+                              <div className="border-l border-slate-200/50 dark:border-slate-700/50 pl-2">
+                                <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Keuntungan</p>
                                 <p className="text-[10px] font-black text-green-600 mt-0.5">
                                   Rp {item.keuntungan.toLocaleString('id-ID')}
                                 </p>
@@ -6874,7 +6941,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-6 text-slate-400 text-[8px] font-black uppercase tracking-widest">
+                      <div className="text-center py-6 text-slate-400 dark:text-slate-300 dark:text-slate-200 text-[8px] font-black uppercase tracking-widest">
                         Tidak ada transaksi pada tanggal ini
                       </div>
                     )}
@@ -6886,13 +6953,13 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
         </div>
 
         {/* Main Tab Selector */}
-        <div className="w-full bg-slate-100 p-1 rounded-2xl border border-slate-200/40 flex gap-1.5 shadow-sm">
+        <div className="w-full bg-slate-100 p-1 rounded-2xl border border-slate-200/40 dark:border-slate-700/40 flex gap-1.5 shadow-sm">
           <button
             onClick={() => handleTabChange('transaksi')}
             className={`flex-1 relative py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
               activeMainTab === 'transaksi'
                 ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/10'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-white/50'
             }`}
           >
             <FileText className="w-4 h-4" />
@@ -6904,7 +6971,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
             className={`flex-1 relative py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
               activeMainTab === 'input'
                 ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/10'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-white/50'
             }`}
           >
             <FileSpreadsheet className="w-4 h-4" />
@@ -6916,7 +6983,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
             className={`flex-1 relative py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
               activeMainTab === 'koreksi'
                 ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/10'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-white/50'
             }`}
           >
             <ExternalLink className="w-4 h-4" />
@@ -6937,38 +7004,38 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
                 className="space-y-6 w-full"
               >
                 {/* Unified Filter Card */}
-                <div className="bg-white px-2 py-3.5 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-2 min-h-[56px]">
+                <div className="bg-white px-2 py-3.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2 min-h-[56px]">
                   {/* Search Section */}
-                  <div className="flex-1 min-w-0 flex items-center gap-3 pl-3 pr-3 border-r border-slate-100">
-                    <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div className="flex-1 min-w-0 flex items-center gap-3 pl-3 pr-3 border-r border-slate-100 dark:border-slate-800">
+                    <Search className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200 shrink-0" />
                     <input 
                       type="text"
                       placeholder="Cari transaksi..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="flex-1 w-full min-w-0 bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none placeholder:text-slate-300 placeholder:font-bold"
+                      className="flex-1 w-full min-w-0 bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none placeholder:text-slate-300 dark:text-slate-200 placeholder:font-bold"
                     />
                     {searchQuery && (
                       <button 
                         onClick={() => setSearchQuery("")}
                         className="p-1 px-2 hover:bg-slate-50 rounded-lg transition-colors group shrink-0"
                       >
-                        <X className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500" />
+                        <X className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 dark:text-slate-300 dark:text-slate-200" />
                       </button>
                     )}
                   </div>
 
                   {/* Date Section with Chevron Navigation */}
-                  <div className="flex items-center gap-1.5 px-3 shrink-0 bg-slate-50 border border-slate-100/80 rounded-xl py-1">
+                  <div className="flex items-center gap-1.5 px-3 shrink-0 bg-slate-50 border border-slate-100/80 dark:border-slate-800/80 rounded-xl py-1">
                     <button 
                       onClick={() => changeDate(-1)}
-                      className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 rounded-lg transition-all active:scale-90"
+                      className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-lg transition-all active:scale-90"
                       title="Sebelumnya"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 dark:text-slate-200 shrink-0" />
                       <input 
                         type="date" 
                         value={filterDate}
@@ -6988,7 +7055,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
                     </div>
                     <button 
                       onClick={() => changeDate(1)}
-                      className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 rounded-lg transition-all active:scale-90"
+                      className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-lg transition-all active:scale-90"
                       title="Berikutnya"
                     >
                       <ChevronRight className="w-4 h-4" />
@@ -7000,7 +7067,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-2">
                     <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Transaksi</h3>
-                    <Badge className="bg-slate-100 text-slate-500 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 shrink-0">
+                    <Badge className="bg-slate-100 text-slate-500 dark:text-slate-300 dark:text-slate-200 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 shrink-0">
                       {filteredTransactions.length} Data
                     </Badge>
                   </div>
@@ -7026,7 +7093,7 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
                             <TransactionCard key={i} t={t} index={i} isAdmin={true} />
                           ))
                         ) : (
-                          <div className="col-span-full bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
+                          <div className="col-span-full bg-white rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
                             <div className="flex flex-col items-center gap-2 opacity-20">
                               <FileText className="w-8 h-8" />
                               <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi pada {formattedFilterDate}</p>
@@ -7071,8 +7138,8 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
                 <div className="w-16 h-16 bg-[#107C41]/10 rounded-2xl flex items-center justify-center text-[#107C41] mb-6">
                   <FileSpreadsheet className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Koreksi Data Terintegrasi</h3>
-                <p className="text-xs text-slate-500 mt-2 mb-8 leading-relaxed max-w-sm">
+                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Koreksi Data Terintegrasi</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-300 dark:text-slate-200 mt-2 mb-8 leading-relaxed max-w-sm">
                   Koreksi data dilakukan langsung menggunakan aplikasi Google Sheets agar lebih cepat, responsif, dan mudah diedit secara real-time.
                 </p>
                 <a 
@@ -7373,7 +7440,7 @@ const AdminDashboard = ({
         <div className="flex items-center gap-2 lg:gap-4 overflow-x-auto no-scrollbar pb-1">
           <button 
             onClick={() => navigate("/admin/stock")}
-            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-[#F15A24]/10"
+            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-[#F15A24]/10"
           >
             <div className="w-10 h-10 lg:w-12 lg:h-12 bg-orange-50 rounded-xl flex items-center justify-center text-[#F15A24] group-hover:scale-110 transition-transform">
               <Package className="w-5 h-5 lg:w-6 lg:h-6" />
@@ -7382,7 +7449,7 @@ const AdminDashboard = ({
           </button>
           <button 
             onClick={() => navigate("/admin/vouchers")}
-            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-purple-100"
+            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-purple-100"
           >
             <div className="w-10 h-10 lg:w-12 lg:h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
               <Ticket className="w-5 h-5 lg:w-6 lg:h-6" />
@@ -7391,7 +7458,7 @@ const AdminDashboard = ({
           </button>
           <button 
             onClick={() => navigate("/admin/rewards")}
-            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-amber-100"
+            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-amber-100"
           >
             <div className="w-10 h-10 lg:w-12 lg:h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
               <Star className="w-5 h-5 lg:w-6 lg:h-6" />
@@ -7404,14 +7471,14 @@ const AdminDashboard = ({
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,400px),1fr))] gap-6">
           {/* Asset Distribution Chart */}
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 h-full">
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 h-full">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Distribusi Aset</h3>
               <div className="flex flex-col gap-0.5 mt-0.5">
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Bruto: Rp {grossAssets.toLocaleString('id-ID')}</p>
+                <p className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase tracking-widest">Bruto: Rp {grossAssets.toLocaleString('id-ID')}</p>
                 <div className="flex items-center gap-2">
-                  <p className="text-[10px] text-slate-700 font-black uppercase tracking-widest">Neto: Rp {totalAssets.toLocaleString('id-ID')}</p>
+                  <p className="text-[10px] text-slate-700 dark:text-slate-200 font-black uppercase tracking-widest">Neto: Rp {totalAssets.toLocaleString('id-ID')}</p>
                   {grossAssets > 0 && (
                     <div className={`px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter ${
                       (totalHutang / grossAssets) > 0.3 ? 'bg-red-100 text-red-600' : 'bg-teal-100 text-[#005E6A]'
@@ -7461,16 +7528,16 @@ const AdminDashboard = ({
                 <button 
                   key={i} 
                   onClick={() => navigate(item.path)}
-                  className="flex items-center gap-2 text-left hover:bg-slate-50 p-2 rounded-xl transition-colors group border border-transparent hover:border-slate-100 min-w-0"
+                  className="flex items-center gap-2 text-left hover:bg-slate-50 p-2 rounded-xl transition-colors group border border-transparent hover:border-slate-100 dark:border-slate-800 min-w-0"
                 >
                   <div className="w-2 h-2 rounded-full group-hover:scale-125 transition-transform shrink-0" style={{ backgroundColor: item.color }} />
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1">
-                      <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest group-hover:text-[#F15A24] transition-colors truncate">{item.name}</span>
-                      <span className="text-[8px] font-black text-slate-300 shrink-0">({Math.round(item.percentage)}%)</span>
+                      <span className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest group-hover:text-[#F15A24] transition-colors truncate">{item.name}</span>
+                      <span className="text-[8px] font-black text-slate-300 dark:text-slate-200 shrink-0">({Math.round(item.percentage)}%)</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-black text-slate-700 truncate">Rp {item.value.toLocaleString('id-ID')}</span>
+                      <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 truncate">Rp {item.value.toLocaleString('id-ID')}</span>
                     </div>
                   </div>
                 </button>
@@ -7481,7 +7548,7 @@ const AdminDashboard = ({
 
         {/* Chart Card */}
         <div 
-          className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 transition-all group/card"
+          className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 transition-all group/card"
         >
           <div className="flex flex-col gap-4 mb-6">
             <div className="flex items-center justify-between">
@@ -7491,19 +7558,19 @@ const AdminDashboard = ({
                   {(chartTab === "semua" || chartTab === "penjualan") && (
                     <div className="flex items-center gap-1">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#F15A24]" />
-                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Penjualan</p>
+                      <p className="text-[8px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-black uppercase tracking-widest">Penjualan</p>
                     </div>
                   )}
                   {(chartTab === "semua" || chartTab === "keuntungan") && (
                     <div className="flex items-center gap-1">
                       <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Keuntungan</p>
+                      <p className="text-[8px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-black uppercase tracking-widest">Keuntungan</p>
                     </div>
                   )}
                   {(chartTab === "semua" || chartTab === "transaksi") && (
                     <div className="flex items-center gap-1">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
-                      <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest">Transaksi</p>
+                      <p className="text-[8px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-black uppercase tracking-widest">Transaksi</p>
                     </div>
                   )}
                 </div>
@@ -7518,7 +7585,7 @@ const AdminDashboard = ({
               <select 
                 value={timeFilter}
                 onChange={(e) => setTimeFilter(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-100 text-slate-700 text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#005E6A]/20 cursor-pointer hover:bg-slate-100 transition-colors"
+                className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#005E6A]/20 cursor-pointer hover:bg-slate-100 transition-colors"
               >
                 <optgroup label="Cepat">
                   <option value="Hari ini">Hari ini</option>
@@ -7550,7 +7617,7 @@ const AdminDashboard = ({
                 className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
                   chartTab === "semua"
                     ? "bg-[#005E6A] text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-50"
                 }`}
               >
                 Semua
@@ -7560,7 +7627,7 @@ const AdminDashboard = ({
                 className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
                   chartTab === "penjualan"
                     ? "bg-[#F15A24] text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-50"
                 }`}
               >
                 Penjualan
@@ -7570,7 +7637,7 @@ const AdminDashboard = ({
                 className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
                   chartTab === "keuntungan"
                     ? "bg-green-600 text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-50"
                 }`}
               >
                 Keuntungan
@@ -7580,7 +7647,7 @@ const AdminDashboard = ({
                 className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
                   chartTab === "transaksi"
                     ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    : "text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-50"
                 }`}
               >
                 Transaksi
@@ -7594,7 +7661,7 @@ const AdminDashboard = ({
               {growth >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
               <span className="text-[10px] font-black">{Math.abs(growth)}%</span>
             </div>
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+            <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
               {growth >= 0 ? "Pertumbuhan Omzet" : "Penurunan Omzet"} bln ini
             </p>
           </div>
@@ -7655,8 +7722,8 @@ const AdminDashboard = ({
                       const transactionsVal = (payload.find(p => p.name === 'transactions' || p.dataKey === 'transactions')?.value as number) || 0;
                       
                       return (
-                        <div className="bg-white p-4 rounded-[1.2rem] shadow-xl border border-slate-100 text-[11px] font-black space-y-1 text-slate-700">
-                          <p className="text-[#005E6A] font-black border-b border-slate-100 pb-1 mb-1.5">{formattedDate}</p>
+                        <div className="bg-white p-4 rounded-[1.2rem] shadow-xl border border-slate-100 dark:border-slate-800 text-[11px] font-black space-y-1 text-slate-700 dark:text-slate-200">
+                          <p className="text-[#005E6A] font-black border-b border-slate-100 dark:border-slate-800 pb-1 mb-1.5">{formattedDate}</p>
                           <div className="space-y-0.5">
                             {(chartTab === "semua" || chartTab === "penjualan") && (
                               <p className="text-[#F15A24] flex items-center gap-1">
@@ -7728,10 +7795,10 @@ const AdminDashboard = ({
             </ResponsiveContainer>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-slate-100/50 flex flex-col gap-6" onClick={(e) => e.stopPropagation()}>
+          <div className="mt-6 pt-6 border-t border-slate-100/50 dark:border-slate-800/50 flex flex-col gap-6" onClick={(e) => e.stopPropagation()}>
             <div className="grid grid-cols-3 gap-3">
               {/* Card Penjualan (Orange) */}
-              <div className="bg-orange-50/40 hover:bg-orange-50/80 border border-orange-100/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
+              <div className="bg-orange-50/40 hover:bg-orange-50/80 border border-orange-100 dark:border-orange-900/50/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
                 <div className="w-7 h-7 rounded-xl bg-orange-100/50 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
                   <TrendingUp className="w-3.5 h-3.5 text-[#F15A24]" />
                 </div>
@@ -7740,7 +7807,7 @@ const AdminDashboard = ({
               </div>
 
               {/* Card Keuntungan (Green) */}
-              <div className="bg-green-50/40 hover:bg-green-50/80 border border-green-100/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
+              <div className="bg-green-50/40 hover:bg-green-50/80 border border-green-100 dark:border-green-900/50/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
                 <div className="w-7 h-7 rounded-xl bg-green-100/50 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
                   <DollarSign className="w-3.5 h-3.5 text-green-600" />
                 </div>
@@ -7749,7 +7816,7 @@ const AdminDashboard = ({
               </div>
 
               {/* Card Transaksi (Blue) */}
-              <div className="bg-blue-50/40 hover:bg-blue-50/80 border border-blue-100/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
+              <div className="bg-blue-50/40 hover:bg-blue-50/80 border border-blue-100 dark:border-blue-900/50/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
                 <div className="w-7 h-7 rounded-xl bg-blue-100/50 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
                   <Receipt className="w-3.5 h-3.5 text-blue-600" />
                 </div>
@@ -7760,7 +7827,7 @@ const AdminDashboard = ({
 
           {/* Detailed Stats Analysis */}
           {stats && (
-            <div className="mt-8 pt-8 border-t border-slate-100/80">
+            <div className="mt-8 pt-8 border-t border-slate-100/80 dark:border-slate-800/80">
                 {/* Header Section: Lively & Energetic */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
                   <div className="space-y-1.5">
@@ -7771,7 +7838,7 @@ const AdminDashboard = ({
                       </div>
                       <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] leading-none">Snapshot Performa</p>
                     </div>
-                    <h4 className="text-sm font-black text-slate-800 uppercase tracking-wide">Ikhtisar Analitik & Tren Laba</h4>
+                    <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">Ikhtisar Analitik & Tren Laba</h4>
                   </div>
                   
                   {/* Glassmorphic Average Sales Badge */}
@@ -7790,7 +7857,7 @@ const AdminDashboard = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   
                   {/* Penjualan Bento Card - Warm Energizing Sunrise Gradient */}
-                  <div className="group bg-gradient-to-br from-orange-50/40 via-amber-50/10 to-white hover:from-orange-50/70 hover:via-amber-50/30 hover:to-white border border-orange-100/70 rounded-3xl p-6 transition-all duration-500 shadow-[0_10px_30px_rgba(241,90,36,0.03)] hover:shadow-[0_20px_40px_rgba(241,90,36,0.08)] hover:-translate-y-1 relative overflow-hidden">
+                  <div className="group bg-gradient-to-br from-orange-50/40 via-amber-50/10 to-white hover:from-orange-50/70 hover:via-amber-50/30 hover:to-white border border-orange-100 dark:border-orange-900/50/70 rounded-3xl p-6 transition-all duration-500 shadow-[0_10px_30px_rgba(241,90,36,0.03)] hover:shadow-[0_20px_40px_rgba(241,90,36,0.08)] hover:-translate-y-1 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-orange-200/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700 pointer-events-none" />
                     
                     <div className="flex items-center justify-between mb-5 relative z-10">
@@ -7805,9 +7872,9 @@ const AdminDashboard = ({
                     
                     <div className="space-y-4 relative z-10">
                       <div>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Penjualan Tertinggi (Puncak)</p>
+                        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mb-1">Penjualan Tertinggi (Puncak)</p>
                         <div className="flex items-baseline gap-1.5">
-                          <span className="text-lg font-black text-slate-800 tracking-tight">Rp {stats.maxSales.total.toLocaleString('id-ID')}</span>
+                          <span className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">Rp {stats.maxSales.total.toLocaleString('id-ID')}</span>
                         </div>
                         <div className="mt-2 inline-flex items-center gap-1 bg-orange-100/80 px-2 py-0.5 rounded-lg border border-orange-200 text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
                           <Calendar className="w-2.5 h-2.5" />
@@ -7819,9 +7886,9 @@ const AdminDashboard = ({
                       
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Penjualan Terendah</p>
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mb-1">Penjualan Terendah</p>
                           <div className="flex items-baseline gap-1.5">
-                            <span className="text-sm font-black text-slate-700">Rp {stats.minSales.total.toLocaleString('id-ID')}</span>
+                            <span className="text-sm font-black text-slate-700 dark:text-slate-200">Rp {stats.minSales.total.toLocaleString('id-ID')}</span>
                           </div>
                           <div className="mt-2 inline-flex items-center gap-1 bg-orange-100/60 px-2 py-0.5 rounded-lg border border-orange-200/60 text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
                             <Calendar className="w-2.5 h-2.5" />
@@ -7834,7 +7901,7 @@ const AdminDashboard = ({
                   </div>
 
                   {/* Keuntungan Bento Card - Fresh Revitalizing Emerald Gradient */}
-                  <div className="group bg-gradient-to-br from-emerald-50/40 via-teal-50/10 to-white hover:from-emerald-50/70 hover:via-teal-50/30 hover:to-white border border-emerald-100/70 rounded-3xl p-6 transition-all duration-500 shadow-[0_10px_30px_rgba(16,185,129,0.03)] hover:shadow-[0_20px_40px_rgba(16,185,129,0.08)] hover:-translate-y-1 relative overflow-hidden">
+                  <div className="group bg-gradient-to-br from-emerald-50/40 via-teal-50/10 to-white hover:from-emerald-50/70 hover:via-teal-50/30 hover:to-white border border-emerald-100 dark:border-emerald-900/50/70 rounded-3xl p-6 transition-all duration-500 shadow-[0_10px_30px_rgba(16,185,129,0.03)] hover:shadow-[0_20px_40px_rgba(16,185,129,0.08)] hover:-translate-y-1 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-200/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700 pointer-events-none" />
                     
                     <div className="flex items-center justify-between mb-5 relative z-10">
@@ -7849,7 +7916,7 @@ const AdminDashboard = ({
                     
                     <div className="space-y-4 relative z-10">
                       <div>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Laba Bersih Tertinggi</p>
+                        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mb-1">Laba Bersih Tertinggi</p>
                         <div className="flex items-baseline gap-1.5">
                           <span className="text-lg font-black text-[#005E6A] tracking-tight">Rp {stats.maxProfit.profit.toLocaleString('id-ID')}</span>
                         </div>
@@ -7863,9 +7930,9 @@ const AdminDashboard = ({
                       
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Laba Bersih Terendah</p>
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mb-1">Laba Bersih Terendah</p>
                           <div className="flex items-baseline gap-1.5">
-                            <span className="text-sm font-black text-slate-700">Rp {stats.minProfit.profit.toLocaleString('id-ID')}</span>
+                            <span className="text-sm font-black text-slate-700 dark:text-slate-200">Rp {stats.minProfit.profit.toLocaleString('id-ID')}</span>
                           </div>
                           <div className="mt-2 inline-flex items-center gap-1 bg-emerald-100/60 px-2 py-0.5 rounded-lg border border-emerald-200/60 text-[9px] font-black text-emerald-700 uppercase tracking-wider">
                             <Calendar className="w-2.5 h-2.5" />
@@ -7918,7 +7985,7 @@ const AdminDashboard = ({
 
         <div className="grid grid-cols-1 gap-6">
           {/* Top Selling Products Card */}
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col h-full">
+          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col h-full">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Produk Terlaris</h3>
               <div className="w-8 h-8 bg-amber-50 rounded-full flex items-center justify-center">
@@ -7944,18 +8011,18 @@ const AdminDashboard = ({
                   className="flex items-center justify-between w-full hover:bg-slate-50 p-2 -mx-2 rounded-xl transition-colors group cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center text-[10px] font-black text-[#005E6A] group-hover:bg-white transition-colors">
+                    <div className="w-8 h-8 bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-lg flex items-center justify-center text-[10px] font-black text-[#005E6A] group-hover:bg-white transition-colors">
                       #{i+1}
                     </div>
                     <div className="space-y-0.5 text-left">
-                      <p className="text-[10px] font-black text-slate-700 uppercase tracking-tight line-clamp-1">{p.name}</p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{p.count} Transaksi</p>
+                      <p className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight line-clamp-1">{p.name}</p>
+                      <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{p.count} Transaksi</p>
                     </div>
                   </div>
                   <p className="text-[10px] font-black text-[#F15A24]">Rp {p.revenue.toLocaleString('id-ID')}</p>
                 </button>
               )) : (
-                <p className="text-center text-[9px] text-slate-400 font-bold uppercase py-4">Belum ada data transaksi</p>
+                <p className="text-center text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase py-4">Belum ada data transaksi</p>
               )}
             </div>
           </div>
@@ -7967,7 +8034,7 @@ const AdminDashboard = ({
             <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Transaksi Terakhir</h3>
             <button 
               onClick={() => navigate("/admin/report")}
-              className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 hover:text-[#F15A24] hover:bg-orange-50 transition-all font-black text-[10px] uppercase tracking-widest gap-2 min-w-max px-4"
+              className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:text-[#F15A24] hover:bg-orange-50 transition-all font-black text-[10px] uppercase tracking-widest gap-2 min-w-max px-4"
             >
               <span>Lihat Semua</span>
               <ArrowRight className="w-4 h-4" />
@@ -8053,10 +8120,10 @@ const AdminManagementPage = ({
       </div>
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100">
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 dark:border-slate-800">
           {stats ? (
             <div className="space-y-4">
-              <div className="border-b border-slate-100 pb-4 mb-2 text-center">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-4 mb-2 text-center">
                 <h3 className="text-xs sm:text-sm font-black text-[#005E6A] uppercase tracking-wider">{totalLabel}</h3>
               </div>
 
@@ -8087,10 +8154,10 @@ const AdminManagementPage = ({
                               if (active && payload && payload.length) {
                                 const data = payload[0].payload;
                                 return (
-                                  <div className="bg-white p-2.5 rounded-xl shadow-xl border border-slate-50 text-[10px]">
+                                  <div className="bg-white p-2.5 rounded-xl shadow-xl border border-slate-50 dark:border-slate-800/50 text-[10px]">
                                     <p className="text-[8px] font-black uppercase tracking-widest text-[#005E6A] mb-0.5">{data.label}</p>
-                                    <p className="text-xs font-black text-slate-800">Rp {data.value.toLocaleString('id-ID')}</p>
-                                    <p className="text-[7px] font-bold text-slate-500">{data.count} Transaksi</p>
+                                    <p className="text-xs font-black text-slate-800 dark:text-slate-100">Rp {data.value.toLocaleString('id-ID')}</p>
+                                    <p className="text-[7px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200">{data.count} Transaksi</p>
                                   </div>
                                 );
                               }
@@ -8160,7 +8227,7 @@ const AdminManagementPage = ({
                             <div className="flex flex-col items-start text-left">
                               <div className="flex items-center gap-1.5">
                                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: statBelum?.color || "#3b82f6" }} />
-                                <span className="text-slate-700 uppercase tracking-tight">{statBelum?.label}</span>
+                                <span className="text-slate-700 dark:text-slate-200 uppercase tracking-tight">{statBelum?.label}</span>
                               </div>
                               <p className="text-xs text-[#005E6A] mt-1 font-black">Rp {statBelum?.value?.toLocaleString('id-ID')}</p>
                             </div>
@@ -8168,7 +8235,7 @@ const AdminManagementPage = ({
                             {/* Keterangan Diproses (Right side) */}
                             <div className="flex flex-col items-end text-right">
                               <div className="flex items-center gap-1.5 justify-end">
-                                <span className="text-slate-700 uppercase tracking-tight">{statProses?.label}</span>
+                                <span className="text-slate-700 dark:text-slate-200 uppercase tracking-tight">{statProses?.label}</span>
                                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: statProses?.color || "#f59e0b" }} />
                               </div>
                               <p className="text-xs text-[#F15A24] mt-1 font-black">Rp {statProses?.value?.toLocaleString('id-ID')}</p>
@@ -8201,10 +8268,10 @@ const AdminManagementPage = ({
                           if (active && payload && payload.length) {
                             const data = payload[0].payload;
                             return (
-                              <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">{data.label}</p>
+                              <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50 dark:border-slate-800/50">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-300 dark:text-slate-200 mb-1">{data.label}</p>
                                 <p className="text-xs font-black text-[#005E6A]">Rp {data.value.toLocaleString('id-ID')}</p>
-                                <p className="text-[7px] font-bold text-slate-500">{data.count} Orang</p>
+                                <p className="text-[7px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200">{data.count} Orang</p>
                               </div>
                             );
                           }
@@ -8224,7 +8291,7 @@ const AdminManagementPage = ({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center text-center p-4">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{totalLabel}</p>
+              <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-2">{totalLabel}</p>
               <h3 className={`text-2xl font-black ${colorClass}`}>Rp {totalValue.toLocaleString('id-ID')}</h3>
             </div>
           )}
@@ -8252,7 +8319,7 @@ const AdminManagementPage = ({
               <React.Fragment key={i}>
                 {item.isHeader ? (
                   <div className="mt-6 mb-2 px-2 col-span-full">
-                    <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
+                    <h4 className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] flex items-center gap-3">
                       <span className="flex-shrink-0">{item.name}</span>
                       <div className="h-px bg-slate-100 flex-1" />
                     </h4>
@@ -8263,11 +8330,11 @@ const AdminManagementPage = ({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
                     onClick={() => onItemClick && onItemClick(item.name)}
-                    className={`bg-white px-4 py-4 rounded-[1.8rem] shadow-sm border border-slate-100 flex justify-between items-center relative overflow-hidden h-full ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
+                    className={`bg-white px-4 py-4 rounded-[1.8rem] shadow-sm border border-slate-100 dark:border-slate-800 flex justify-between items-center relative overflow-hidden h-full ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
                   >
                     <div className="flex items-center gap-3">
                       <div 
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${item.color ? '' : (item.badge?.iconColorClass ? item.badge.iconColorClass : 'bg-slate-100 text-slate-400')}`}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${item.color ? '' : (item.badge?.iconColorClass ? item.badge.iconColorClass : 'bg-slate-100 text-slate-400 dark:text-slate-300 dark:text-slate-200')}`}
                         style={item.color ? { backgroundColor: `${item.color}25`, color: item.color } : (item.badge?.customIconColor ? { backgroundColor: `${item.badge.customIconColor}25`, color: item.badge.customIconColor } : {})}
                       >
                         <User className="w-4.5 h-4.5" />
@@ -8280,10 +8347,10 @@ const AdminManagementPage = ({
                           )}
                           <div className="flex items-center gap-2">
                             {item.transactionCount !== undefined && (!item.startDate || item.statusBadge) && (
-                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.transactionCount} Transaksi</p>
+                              <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{item.transactionCount} Transaksi</p>
                             )}
                             {!item.transactionCount && (!item.startDate || item.statusBadge) && item.subtext && (
-                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">{item.subtext}</p>
+                              <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">{item.subtext}</p>
                             )}
                           </div>
                         </div>
@@ -8310,8 +8377,8 @@ const AdminManagementPage = ({
               </React.Fragment>
             ))}
             {items.length === 0 && (
-              <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 border-dashed">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Tidak ada data</p>
+              <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
+                <p className="text-[10px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest">Tidak ada data</p>
               </div>
             )}
           </div>
@@ -8416,7 +8483,7 @@ const TransactionModal = ({
       <motion.div 
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden"
+        className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden"
       >
         <div className={`p-6 ${type === 'SETOR' ? 'bg-green-600' : 'bg-red-600'} text-white`}>
           <div className="flex items-center justify-between">
@@ -8429,10 +8496,10 @@ const TransactionModal = ({
 
         <div className="p-6 space-y-4">
           <div className="space-y-2 relative">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nama Nasabah</label>
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest px-1">Nama Nasabah</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                <Search className="w-4 h-4 text-slate-300" />
+                <Search className="w-4 h-4 text-slate-300 dark:text-slate-200" />
               </div>
               <input 
                 type="text"
@@ -8443,12 +8510,12 @@ const TransactionModal = ({
                   setSelected(null);
                 }}
                 disabled={!!selected}
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all"
+                className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all"
               />
               {selected && (
                 <button 
                   onClick={() => {setSelected(null); setSearch("");}}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-red-500"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-200 hover:text-red-500"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -8457,7 +8524,7 @@ const TransactionModal = ({
             
             {/* Auto-suggestions */}
             {!selected && search.length > 0 && (
-              <div className="absolute z-10 w-full left-0 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden mt-1 max-h-[200px] overflow-y-auto">
+              <div className="absolute z-10 w-full left-0 bg-white border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden mt-1 max-h-[200px] overflow-y-auto">
                 {filtered.length > 0 ? (
                   filtered.map((c, i) => (
                     <button
@@ -8466,33 +8533,33 @@ const TransactionModal = ({
                         setSelected(c);
                         setSearch("");
                       }}
-                      className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 last:border-0 group"
+                      className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 last:border-0 group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 group-hover:text-[#F15A24] transition-colors shrink-0">
+                        <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 dark:text-slate-200 group-hover:text-[#F15A24] transition-colors shrink-0">
                           <User className="w-4 h-4" />
                         </div>
                         <div>
                           <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama || "Pelanggan Umum"}</p>
-                          <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
+                          <p className="text-[9px] font-bold text-slate-300 dark:text-slate-200 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
                         </div>
                       </div>
                       <div className="text-right">
                          <p className="text-[10px] font-black text-[#005E6A]">Rp {parseCurrency(c.Tabungan).toLocaleString('id-ID')}</p>
-                         <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">Saldo</p>
+                         <p className="text-[7px] font-bold text-slate-300 dark:text-slate-200 uppercase tracking-widest">Saldo</p>
                       </div>
                     </button>
                   ))
                 ) : (
                   <div className="p-4 text-center">
-                    <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Nasabah tidak ditemukan</p>
+                    <p className="text-[9px] font-bold text-slate-300 dark:text-slate-200 uppercase tracking-widest">Nasabah tidak ditemukan</p>
                   </div>
                 )}
               </div>
             )}
             
             {selected && (
-              <div className="px-1 flex justify-between items-center bg-teal-50/50 p-3 rounded-xl border border-teal-100/50">
+              <div className="px-1 flex justify-between items-center bg-teal-50/50 p-3 rounded-xl border border-teal-100 dark:border-teal-900/50/50">
                 <p className="text-[9px] font-bold text-teal-600 uppercase tracking-widest leading-none">Saldo Saat Ini</p>
                 <p className="text-xs font-black text-[#005E6A]">Rp {parseCurrency(selected.Tabungan).toLocaleString('id-ID')}</p>
               </div>
@@ -8500,29 +8567,29 @@ const TransactionModal = ({
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nominal</label>
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest px-1">Nominal</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                <span className="text-sm font-black text-slate-300">Rp</span>
+                <span className="text-sm font-black text-slate-300 dark:text-slate-200">Rp</span>
               </div>
               <input 
                 type="text"
                 placeholder="0"
                 value={amount}
                 onChange={handleAmountChange}
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-black text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200"
+                className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl pl-12 pr-4 py-4 text-sm font-black text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Keterangan (Opsional)</label>
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest px-1">Keterangan (Opsional)</label>
             <input 
               type="text"
               placeholder="Berita acara..."
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-4 text-sm font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200"
+              className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-4 text-sm font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200"
             />
           </div>
 
@@ -8530,7 +8597,7 @@ const TransactionModal = ({
             <button 
               onClick={onClose}
               disabled={isSaving}
-              className="flex-1 bg-slate-50 text-slate-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-colors disabled:opacity-50"
+              className="flex-1 bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-colors disabled:opacity-50"
             >
               Batal
             </button>
@@ -8663,14 +8730,14 @@ const AdminSavingsManagement = ({
   const extraContent = (
     <div className="w-full space-y-4">
       {/* Cash Flow Summary */}
-      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 pt-4 mt-2">
+      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 dark:border-slate-800/50 pt-4 mt-2">
         <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Setoran Bulan Ini</p>
+          <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.1em] mb-1">Setoran Bulan Ini</p>
           <p className="text-xs font-black text-green-600">+ Rp {cashFlow.setor.toLocaleString('id-ID')}</p>
         </div>
         <div className="w-[1px] h-8 bg-slate-100 flex-shrink-0 mx-2" />
         <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Tarikan Bulan Ini</p>
+          <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.1em] mb-1">Tarikan Bulan Ini</p>
           <p className="text-xs font-black text-red-600">- Rp {cashFlow.tarik.toLocaleString('id-ID')}</p>
         </div>
       </div>
@@ -8680,7 +8747,7 @@ const AdminSavingsManagement = ({
         <div className="bg-slate-50 rounded-2xl p-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Keaktifan Menabung</span>
+            <span className="text-[9px] font-black text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Keaktifan Menabung</span>
           </div>
           <span className="text-[10px] font-black text-[#005E6A]">{activeRate}% Aktif (30hr)</span>
         </div>
@@ -8694,14 +8761,14 @@ const AdminSavingsManagement = ({
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => setShowSetorModal(true)}
-        className="relative overflow-hidden group bg-white p-5 rounded-[2rem] border border-green-100 shadow-sm flex items-center gap-4 text-left transition-all hover:shadow-md"
+        className="relative overflow-hidden group bg-white p-5 rounded-[2rem] border border-green-100 dark:border-green-900/50 shadow-sm flex items-center gap-4 text-left transition-all hover:shadow-md"
       >
         <div className="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center text-white shadow-green-200 shadow-lg shrink-0">
           <PlusCircle className="w-6 h-6" />
         </div>
         <div className="flex flex-col">
           <span className="text-xs font-black text-green-600 uppercase tracking-widest leading-none mb-1">Setor Tunai</span>
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Menabung</span>
+          <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider leading-none">Menabung</span>
         </div>
         <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
           <PiggyBank className="w-10 h-10 text-green-600" />
@@ -8719,7 +8786,7 @@ const AdminSavingsManagement = ({
         </div>
         <div className="flex flex-col">
           <span className="text-xs font-black text-red-600 uppercase tracking-widest leading-none mb-1">Tarik Saldo</span>
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Pencairan</span>
+          <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider leading-none">Pencairan</span>
         </div>
         <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
           <Wallet className="w-10 h-10 text-red-600" />
@@ -8771,9 +8838,9 @@ const AdminSavingsManagement = ({
       <div className="px-6 pb-12 space-y-4">
         <div className="flex items-center justify-between px-2">
           <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Aktivitas Terakhir</h3>
-          <History className="w-4 h-4 text-slate-400" />
+          <History className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
         </div>
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
           <div className="divide-y divide-slate-50">
             {recentGlobalTransactions.map((t, i) => (
               <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
@@ -8783,14 +8850,14 @@ const AdminSavingsManagement = ({
                   </div>
                   <div>
                     <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama || "Pelanggan Umum"}</p>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t.Tanggal}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className={`text-xs font-black ${t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'}`}>
                     {t.Tipe === 'SETOR' ? '+' : '-'}{t.Nominal.toLocaleString('id-ID')}
                   </p>
-                  <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">
+                  <p className="text-[7px] font-bold text-slate-300 dark:text-slate-200 uppercase tracking-widest">
                     {t.Tipe} {t.Berita && t.Berita !== t.Tipe ? `| ${t.Berita}` : ''}
                   </p>
                 </div>
@@ -8907,10 +8974,10 @@ const AdminCustomerDetailPage = ({
   if (!customer) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
-        <div className="bg-white p-12 rounded-[3rem] shadow-xl border border-slate-100">
+        <div className="bg-white p-12 rounded-[3rem] shadow-xl border border-slate-100 dark:border-slate-800">
            <User className="w-16 h-16 text-slate-100 mx-auto mb-4" />
            <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tighter">Pelanggan<br/>Tidak Ditemukan</h2>
-           <p className="text-xs font-bold text-slate-400 mt-2 mb-8 uppercase tracking-widest leading-relaxed">Data yang Anda cari tidak tersedia atau telah dihapus.</p>
+           <p className="text-xs font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 mt-2 mb-8 uppercase tracking-widest leading-relaxed">Data yang Anda cari tidak tersedia atau telah dihapus.</p>
            <Button onClick={() => navigate("/admin/customers")} className="w-full bg-[#005E6A] hover:bg-[#004e58] text-white py-6 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-teal-100">Kembali</Button>
         </div>
       </div>
@@ -9020,8 +9087,8 @@ const AdminCustomerDetailPage = ({
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
         {/* Profile Card */}
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 flex items-center gap-5">
-           <div className="w-20 h-20 rounded-[2rem] bg-slate-50 overflow-hidden border border-slate-100 flex items-center justify-center shadow-inner shrink-0">
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 dark:border-slate-800 flex items-center gap-5">
+           <div className="w-20 h-20 rounded-[2rem] bg-slate-50 overflow-hidden border border-slate-100 dark:border-slate-800 flex items-center justify-center shadow-inner shrink-0">
               {customer.Foto ? (
                 <img src={customer.Foto} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -9033,14 +9100,14 @@ const AdminCustomerDetailPage = ({
                 <h3 className="text-lg font-black text-[#005E6A] uppercase leading-none truncate">{customer.Nama}</h3>
                 <button 
                   onClick={() => navigate("/admin/customers")} // For now, navigate back to list where editing is available
-                  className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-teal-50 hover:text-[#005E6A] transition-all"
+                  className="p-2 bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-xl hover:bg-teal-50 hover:text-[#005E6A] transition-all"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                 <div className="bg-slate-50 px-3 py-2 rounded-xl border border-slate-100">
-                    <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">ID Pelanggan</p>
+                 <div className="bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <p className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-0.5">ID Pelanggan</p>
                     <p className="text-[10px] font-black text-[#005E6A] font-mono">{customer.id_pelanggan || '-'}</p>
                  </div>
                  <div className="bg-[#F15A24]/5 px-3 py-2 rounded-xl border border-[#F15A24]/10">
@@ -9051,17 +9118,17 @@ const AdminCustomerDetailPage = ({
            </div>
         </div>
 
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 flex items-center divide-x divide-slate-50">
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 dark:border-slate-800 flex items-center divide-x divide-slate-50">
            <div className="flex-1 text-center">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Poin Aktif</p>
+              <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1 leading-none">Poin Aktif</p>
               <h3 className={`text-2xl font-black tabular-nums leading-none ${activePoints < 0 ? 'text-red-600' : 'text-[#F15A24]'}`}>{activePoints}</h3>
               {activePoints < 0 && (
                  <p className="text-[6px] font-bold text-red-500 uppercase tracking-tighter mt-1 leading-tight max-w-[80px] mx-auto">Tukar melebihi dapat</p>
               )}
            </div>
            <div className="flex-1 text-center">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none">Level Member</p>
-              <h3 className={`text-xs font-black uppercase tracking-tighter ${levelColorMap[levelInfo.name] || 'text-slate-600'}`}>
+              <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1 leading-none">Level Member</p>
+              <h3 className={`text-xs font-black uppercase tracking-tighter ${levelColorMap[levelInfo.name] || 'text-slate-600 dark:text-slate-300 dark:text-slate-200'}`}>
                 {levelInfo.name}
               </h3>
            </div>
@@ -9132,7 +9199,7 @@ const AdminCustomerDetailPage = ({
                <select 
                  value={selectedFilter}
                  onChange={(e) => setSelectedFilter(e.target.value)}
-                 className="bg-white border border-slate-100 rounded-xl px-3 py-1.5 text-[9px] font-black text-[#005E6A] outline-none shadow-sm"
+                 className="bg-white border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-1.5 text-[9px] font-black text-[#005E6A] outline-none shadow-sm"
                >
                  {availableMonths.map((opt, idx) => (
                    <option key={idx} value={`${opt.month}-${opt.year}`}>{opt.label.toUpperCase()}</option>
@@ -9146,9 +9213,9 @@ const AdminCustomerDetailPage = ({
                 <TransactionCard key={i} t={t} index={i} isAdmin={true} />
              ))}
              {filteredUserSales.length === 0 && (
-               <div className="bg-white p-12 rounded-[2.5rem] border border-dashed border-slate-200 text-center">
+               <div className="bg-white p-12 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-slate-700 text-center">
                  <ShoppingBag className="w-10 h-10 text-slate-200 mx-auto mb-3 opacity-20" />
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Belum ada riwayat transaksi</p>
+                 <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Belum ada riwayat transaksi</p>
                </div>
              )}
            </div>
@@ -9274,27 +9341,27 @@ const AdminCashier = ({
     <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)] p-1">
       {/* Product Selection */}
       <div className={`flex-1 space-y-6 ${checkoutStep === 2 ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden max-h-[85vh]">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden max-h-[85vh]">
           {/* STICKY HEADER */}
-          <div className="sticky top-0 z-40 bg-white border-b border-slate-50 p-6">
+          <div className="sticky top-0 z-40 bg-white border-b border-slate-50 dark:border-slate-800/50 p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Kasir Pintar</h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pilih barang untuk transaksi</p>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Pilih barang untuk transaksi</p>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setIsScanning(!isScanning)}
-                  className={`p-2.5 rounded-lg border transition-all ${isScanning ? 'bg-red-500 border-red-500 text-white shadow-lg' : 'bg-white border-slate-100 text-[#005E6A] hover:bg-slate-50'}`}
+                  className={`p-2.5 rounded-lg border transition-all ${isScanning ? 'bg-red-500 border-red-500 text-white shadow-lg' : 'bg-white border-slate-100 dark:border-slate-800 text-[#005E6A] hover:bg-slate-50'}`}
                 >
                   <ScanLine className="w-5 h-5" />
                 </button>
                 <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
                   <input 
                     type="text" 
                     placeholder="Cari atau scan..."
-                    className="w-full bg-slate-50 border border-slate-100 rounded-lg pl-10 pr-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                    className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-lg pl-10 pr-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -9303,7 +9370,7 @@ const AdminCashier = ({
             </div>
 
             {isScanning && (
-              <div className="mt-4 rounded-xl overflow-hidden border-2 border-dashed border-[#005E6A]/20">
+              <div className="mt-4 rounded-xl overflow-hidden border-2 border-dashed border-[#005E6A]/20 dark:border-teal-800/40">
                 <BarcodeScannerComponent onResult={onScanResult} />
               </div>
             )}
@@ -9317,13 +9384,13 @@ const AdminCashier = ({
                 key={item.id}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => addToCart(item)}
-                className="bg-white border border-slate-100 rounded-md p-2 cursor-pointer hover:border-[#005E6A]/20 transition-all shadow-sm group active:shadow-inner"
+                className="bg-white border border-slate-100 dark:border-slate-800 rounded-md p-2 cursor-pointer hover:border-[#005E6A]/20 dark:border-teal-800/40 transition-all shadow-sm group active:shadow-inner"
               >
                 <div className="aspect-square rounded-sm bg-slate-50 mb-2 overflow-hidden">
                   {item.Image ? (
                     <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                    <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-200">
                       <Package className="w-6 h-6" />
                     </div>
                   )}
@@ -9331,7 +9398,7 @@ const AdminCashier = ({
                 <h4 className="text-[9px] font-black text-[#005E6A] uppercase tracking-tight truncate mb-0.5 leading-tight">{item.Nama}</h4>
                 <div className="flex flex-col gap-0.5">
                   <p className="text-[9px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</p>
-                  <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest leading-none">Stok: {item.Stok}</p>
+                  <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">Stok: {item.Stok}</p>
                 </div>
               </motion.div>
             ))}
@@ -9342,7 +9409,7 @@ const AdminCashier = ({
 
       {/* Cart & Payment */}
       <div className="w-full lg:w-[450px] space-y-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 sticky top-6">
+        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 sticky top-6">
           {checkoutStep === 1 ? (
             <>
               <div className="flex items-center gap-3 mb-6">
@@ -9351,34 +9418,34 @@ const AdminCashier = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-tight">Keranjang Belanja</h3>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{cart.length} item unik</p>
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{cart.length} item unik</p>
                 </div>
               </div>
 
               <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {cart.length === 0 ? (
                   <div className="text-center py-8">
-                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-3">
+                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-200 mx-auto mb-3">
                       <ShoppingCart className="w-6 h-6" />
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Keranjang Kosong</p>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Keranjang Kosong</p>
                   </div>
                 ) : (
                   cart.map((item) => (
                     <div key={item.product.id} className="flex gap-3 items-center">
                       <div className="w-10 h-10 rounded-md bg-slate-50 overflow-hidden flex-shrink-0">
-                        {item.product.Image ? <img src={item.product.Image} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 m-3 text-slate-300" />}
+                        {item.product.Image ? <img src={item.product.Image} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 m-3 text-slate-300 dark:text-slate-200" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[9px] font-black text-[#005E6A] uppercase truncate">{item.product.Nama}</p>
                         <p className="text-[8px] font-bold text-[#F15A24]">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => updateQty(item.product.id, item.qty - 1)} className="w-5 h-5 rounded-md border border-slate-100 flex items-center justify-center text-slate-400 hover:bg-slate-50">
+                        <button onClick={() => updateQty(item.product.id, item.qty - 1)} className="w-5 h-5 rounded-md border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:bg-slate-50">
                           <Minus className="w-3 h-3" />
                         </button>
                         <span className="text-[10px] font-black text-[#005E6A] tabular-nums">{item.qty}</span>
-                        <button onClick={() => updateQty(item.product.id, item.qty + 1)} className="w-5 h-5 rounded-md border border-slate-100 flex items-center justify-center text-[#005E6A] hover:bg-slate-50">
+                        <button onClick={() => updateQty(item.product.id, item.qty + 1)} className="w-5 h-5 rounded-md border border-slate-100 dark:border-slate-800 flex items-center justify-center text-[#005E6A] hover:bg-slate-50">
                           <Plus className="w-3 h-3" />
                         </button>
                       </div>
@@ -9387,7 +9454,7 @@ const AdminCashier = ({
                 )}
               </div>
 
-              <div className="pt-6 border-t border-slate-50">
+              <div className="pt-6 border-t border-slate-50 dark:border-slate-800/50">
                  <div className="bg-[#005E6A] p-4 rounded-lg text-white shadow-xl shadow-[#005E6A]/20 mb-4">
                   <div className="flex justify-between items-center mb-1 opacity-60">
                     <span className="text-[9px] font-black uppercase tracking-widest">Total Belanja</span>
@@ -9400,7 +9467,7 @@ const AdminCashier = ({
                   disabled={cart.length === 0}
                   className={`w-full py-4 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
                     cart.length === 0 
-                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      ? 'bg-slate-100 text-slate-400 dark:text-slate-300 dark:text-slate-200 cursor-not-allowed'
                       : 'bg-[#F15A24] text-white shadow-lg shadow-[#F15A24]/30 hover:scale-[1.02] active:scale-98'
                   } flex items-center justify-center gap-2`}
                 >
@@ -9411,20 +9478,20 @@ const AdminCashier = ({
           ) : (
             <>
               <div className="flex items-center gap-3 mb-6">
-                <button onClick={() => setCheckoutStep(1)} className="w-8 h-8 rounded-lg border border-slate-100 flex items-center justify-center text-[#005E6A] hover:bg-slate-50">
+                <button onClick={() => setCheckoutStep(1)} className="w-8 h-8 rounded-lg border border-slate-100 dark:border-slate-800 flex items-center justify-center text-[#005E6A] hover:bg-slate-50">
                   <ArrowLeft className="w-4 h-4" />
                 </button>
                 <div>
                   <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-tight">Metode Pembayaran</h3>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total: Rp {total.toLocaleString('id-ID')}</p>
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Total: Rp {total.toLocaleString('id-ID')}</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Pilih Pelanggan</label>
+                  <label className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Pilih Pelanggan</label>
                   <select 
-                    className="w-full bg-slate-50 border border-slate-100 rounded-lg px-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-lg px-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none"
                     value={selectedCustomer?.id || ""}
                     onChange={(e) => {
                       const c = customers.find(u => u.id === e.target.value);
@@ -9465,8 +9532,8 @@ const AdminCashier = ({
                           paymentMethod === m.id 
                             ? 'border-[#005E6A] bg-[#005E6A] text-white shadow-lg shadow-[#005E6A]/20' 
                             : isDisabled 
-                              ? 'border-slate-50 bg-slate-50 text-slate-300 cursor-not-allowed opacity-50'
-                              : 'border-slate-100 bg-white text-slate-400 hover:border-[#005E6A]/30'
+                              ? 'border-slate-50 dark:border-slate-800/50 bg-slate-50 text-slate-300 dark:text-slate-200 cursor-not-allowed opacity-50'
+                              : 'border-slate-100 dark:border-slate-800 bg-white text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:border-[#005E6A]/30'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -9474,7 +9541,7 @@ const AdminCashier = ({
                           <span>{m.label}</span>
                         </div>
                         {m.id === "Tabungan" && selectedCustomer && (
-                          <span className={`text-[8px] ${paymentMethod === m.id ? 'text-white/60' : 'text-slate-400'}`}>
+                          <span className={`text-[8px] ${paymentMethod === m.id ? 'text-white/60' : 'text-slate-400 dark:text-slate-300 dark:text-slate-200'}`}>
                             Saldo: Rp {balance.toLocaleString('id-ID')}
                           </span>
                         )}
@@ -9513,14 +9580,14 @@ const AdminCashier = ({
                   <Receipt className="w-6 h-6" />
                 </div>
                 <h2 className="text-sm font-black text-[#005E6A] uppercase tracking-[0.2em]">WARUNG TOMI</h2>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-relaxed">
                   Dusun Manis, RT009/RW005<br/>Desa Wilanagara, Kuningan
                 </p>
-                <p className="text-[7px] font-medium text-slate-300 tabular-nums">{lastTransaction.date}</p>
+                <p className="text-[7px] font-medium text-slate-300 dark:text-slate-200 tabular-nums">{lastTransaction.date}</p>
               </div>
 
               <div className="space-y-3 mb-6 print:mb-4">
-                <div className="flex justify-between text-[10px] font-black text-slate-300 uppercase tracking-widest border-b border-slate-50 pb-2">
+                <div className="flex justify-between text-[10px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800/50 pb-2">
                   <span>Nama Barang</span>
                   <span>Total</span>
                 </div>
@@ -9528,21 +9595,21 @@ const AdminCashier = ({
                   <div key={item.product.id} className="flex justify-between items-baseline gap-2">
                     <div className="flex-1">
                       <p className="text-[11px] font-black text-[#005E6A] uppercase">{item.product.Nama}</p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
+                      <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
                     </div>
                     <span className="text-[11px] font-black text-[#005E6A] tabular-nums">Rp {(item.qty * item.product.HargaJual).toLocaleString('id-ID')}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="space-y-1.5 py-4 border-y border-dashed border-slate-200 print:py-2">
+              <div className="space-y-1.5 py-4 border-y border-dashed border-slate-200 dark:border-slate-700 print:py-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Metode Bayar</span>
+                  <span className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Metode Bayar</span>
                   <span className="text-[10px] font-black text-[#005E6A] uppercase">{lastTransaction.paymentMethod}</span>
                 </div>
                 {lastTransaction.customer && (
                   <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pelanggan</span>
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Pelanggan</span>
                     <span className="text-[10px] font-black text-[#005E6A] uppercase">{lastTransaction.customer.Nama}</span>
                   </div>
                 )}
@@ -9554,7 +9621,7 @@ const AdminCashier = ({
 
               {lastTransaction.paymentMethod === "QRIS" && (
                 <div className="mt-6 text-center space-y-3 print:mt-4">
-                  <div className="w-32 h-32 bg-slate-50 border border-slate-100 rounded-2xl mx-auto flex items-center justify-center p-2 relative overflow-hidden">
+                  <div className="w-32 h-32 bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl mx-auto flex items-center justify-center p-2 relative overflow-hidden">
                     <img 
                       src="https://iconlogovector.com/uploads/images/2023/10/lg-594c94fa1be2e68065275e7a9b0c6198816.jpg" 
                       className="w-full h-full object-contain grayscale opacity-60" 
@@ -9564,7 +9631,7 @@ const AdminCashier = ({
                        <ScanLine className="w-8 h-8 text-[#005E6A] opacity-30" />
                     </div>
                   </div>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">Scan QRIS "Warung Tomi"<br/>untuk pembayaran nontunai</p>
+                  <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-relaxed">Scan QRIS "Warung Tomi"<br/>untuk pembayaran nontunai</p>
                 </div>
               )}
 
@@ -9586,7 +9653,7 @@ const AdminCashier = ({
                 </button>
                 <button 
                   onClick={() => setShowReceipt(false)}
-                  className="flex-1 py-3 bg-slate-50 text-slate-400 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-100"
+                  className="flex-1 py-3 bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-100"
                 >
                   TUTUP
                 </button>
@@ -9666,18 +9733,18 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
         {/* Restructured Stats Card */}
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
           <div className="p-6 text-center">
             <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-3">
               <DollarSign className="w-6 h-6 text-green-500" />
             </div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Aset Stok</p>
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] mb-1">Aset Stok</p>
             <h2 className="text-3xl font-black text-[#005E6A]">Rp {totalValue.toLocaleString('id-ID')}</h2>
           </div>
           
-          <div className="flex items-center border-t border-slate-50">
+          <div className="flex items-center border-t border-slate-50 dark:border-slate-800/50">
             <div className="flex-1 p-4 text-center">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Barang</p>
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1">Total Barang</p>
               <div className="flex items-center justify-center gap-2 text-[#005E6A]">
                 <Package className="w-3.5 h-3.5" />
                 <span className="text-sm font-black">{stock.length}</span>
@@ -9685,7 +9752,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
             </div>
             <div className="w-[1px] h-12 bg-slate-50" />
             <div className="flex-1 p-4 text-center">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Stok Menipis</p>
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1">Stok Menipis</p>
               <div className="flex items-center justify-center gap-2 text-orange-500">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span className="text-sm font-black">{lowStockItems.length}</span>
@@ -9697,13 +9764,13 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
         {/* Search and Filter */}
         <div className="space-y-4">
           <div className="relative group">
-            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#005E6A] transition-colors" />
+            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-300 dark:text-slate-200 group-focus-within:text-[#005E6A] transition-colors" />
             <input 
               type="text"
               placeholder="Cari Barang..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white border border-slate-200 rounded-2xl pl-12 pr-6 py-4 text-[13px] font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 focus:border-[#005E6A] transition-all w-full shadow-sm placeholder:text-slate-300"
+              className="bg-white border border-slate-200 dark:border-slate-700 rounded-2xl pl-12 pr-6 py-4 text-[13px] font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 focus:border-[#005E6A] transition-all w-full shadow-sm placeholder:text-slate-300 dark:text-slate-200"
             />
           </div>
 
@@ -9715,7 +9782,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
                 className={`px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                   categoryFilter === cat 
                     ? "bg-slate-900 text-white shadow-lg" 
-                    : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+                    : "bg-white text-slate-400 dark:text-slate-300 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:bg-slate-50"
                 }`}
               >
                 {cat}
@@ -9746,13 +9813,13 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 flex gap-4 items-center group hover:shadow-md hover:border-[#005E6A]/10 transition-all cursor-pointer"
+                  className="bg-white p-3 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 flex gap-4 items-center group hover:shadow-md hover:border-[#005E6A]/10 dark:border-teal-800/30 transition-all cursor-pointer"
                 >
                   <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-slate-50 flex-shrink-0 shadow-inner">
                     {item.Image ? (
                       <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-300">
+                      <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-200">
                         <Package className="w-6 h-6" />
                       </div>
                     )}
@@ -9766,19 +9833,19 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
                       <h4 className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate">{item.Nama}</h4>
-                      <span className="text-[7px] font-black px-1.5 py-0.5 bg-slate-50 text-slate-400 rounded-md border border-slate-100 uppercase tracking-widest whitespace-nowrap">{item.Kategori}</span>
+                      <span className="text-[7px] font-black px-1.5 py-0.5 bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-md border border-slate-100 dark:border-slate-800 uppercase tracking-widest whitespace-nowrap">{item.Kategori}</span>
                     </div>
                     
                     <div className="flex items-center gap-3">
                       <div className="flex items-baseline gap-1">
                         <span className={`text-[13px] font-black tabular-nums ${isLow ? 'text-orange-600' : 'text-[#005E6A]'}`}>{item.Stok}</span>
-                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.Satuan}</span>
+                        <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{item.Satuan}</span>
                       </div>
                       <div className="w-[1px] h-3 bg-slate-100" />
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black text-[#F15A24]">Jual: Rp {item.HargaJual.toLocaleString('id-ID')}</span>
                         <div className="w-1 h-1 rounded-full bg-slate-200" />
-                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-none">Modal: Rp {item.HargaModal.toLocaleString('id-ID')}</span>
+                        <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">Modal: Rp {item.HargaModal.toLocaleString('id-ID')}</span>
                       </div>
                     </div>
                   </div>
@@ -9787,9 +9854,9 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
             })}
 
             {filteredItems.length === 0 && (
-              <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-200 text-center">
+              <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 text-center">
                 <Search className="w-8 h-8 text-slate-200 mx-auto mb-3" />
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Barang tidak ditemukan</p>
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Barang tidak ditemukan</p>
               </div>
             )}
           </div>
@@ -9834,7 +9901,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
                 {/* Scanner Section */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID / Barcode</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">ID / Barcode</label>
                     <button 
                       onClick={() => setIsScanning(!isScanning)}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all ${
@@ -9847,7 +9914,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
                   </div>
                   
                   {isScanning && (
-                    <div className="relative rounded-2xl overflow-hidden bg-slate-100 border-2 border-[#005E6A]/20">
+                    <div className="relative rounded-2xl overflow-hidden bg-slate-100 border-2 border-[#005E6A]/20 dark:border-teal-800/40">
                       <BarcodeScannerComponent 
                         onResult={(decodedText) => {
                           const idInput = document.getElementById('new-product-id') as HTMLInputElement;
@@ -9862,25 +9929,25 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
                     id="new-product-id"
                     type="text" 
                     placeholder="Masukkan atau Scan ID Barang"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                    className="w-full bg-slate-50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Barang</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Nama Barang</label>
                     <input 
                       id="new-product-name"
                       type="text" 
                       placeholder="Contoh: Indomie Goreng"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                      className="w-full bg-slate-50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kategori</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Kategori</label>
                     <select 
                       id="new-product-category"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 appearance-none"
+                      className="w-full bg-slate-50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 appearance-none"
                     >
                       <option value="Sembako">Sembako</option>
                       <option value="Mie instan">Mie instan</option>
@@ -9894,51 +9961,51 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">URL Gambar Barang (Opsional)</label>
+                  <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">URL Gambar Barang (Opsional)</label>
                   <input 
                     id="new-product-image"
                     type="text" 
                     placeholder="https://..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                    className="w-full bg-slate-50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Harga Jual</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Harga Jual</label>
                     <input 
                       id="new-product-price"
                       type="number" 
                       placeholder="0"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                      className="w-full bg-slate-50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">modal</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">modal</label>
                     <input 
                       id="new-product-cost"
                       type="number" 
                       placeholder="0"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                      className="w-full bg-slate-50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stok</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Stok</label>
                     <input 
                       id="new-product-stock"
                       type="number" 
                       placeholder="0"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                      className="w-full bg-slate-50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Satuan</label>
+                    <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Satuan</label>
                     <select 
                       id="new-product-unit"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 appearance-none"
+                      className="w-full bg-slate-50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 appearance-none"
                     >
                       <option value="pcs">pcs</option>
                       <option value="bks">bks</option>
@@ -9952,7 +10019,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
                 </div>
               </div>
 
-              <div className="p-6 bg-slate-50 border-t border-slate-100 shrink-0">
+              <div className="p-6 bg-slate-50 border-t border-slate-100 dark:border-slate-800 shrink-0">
                 <button 
                   onClick={async () => {
                     const id = (document.getElementById('new-product-id') as HTMLInputElement).value;
@@ -10456,8 +10523,8 @@ const AdminRewardManagement = ({
           >
             <div className={`p-4 rounded-2xl shadow-xl flex items-center gap-3 border ${
               toastType === "success" 
-                ? "bg-teal-50 border-teal-100 text-teal-800" 
-                : "bg-rose-50 border-rose-100 text-rose-800"
+                ? "bg-teal-50 border-teal-100 dark:border-teal-900/50 text-teal-800" 
+                : "bg-rose-50 border-rose-100 dark:border-rose-900/50 text-rose-800"
             }`}>
               {toastType === "success" ? (
                 <CheckCircle2 className="w-5 h-5 text-teal-600 shrink-0" />
@@ -10467,7 +10534,7 @@ const AdminRewardManagement = ({
               <p className="text-[10px] font-bold uppercase tracking-wide leading-tight flex-1">{toastMessage}</p>
               <button 
                 onClick={() => setToastMessage(null)}
-                className="text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+                className="text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:text-slate-200 transition-colors shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -10489,7 +10556,7 @@ const AdminRewardManagement = ({
               initial={{ scale: 0.95, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 15 }}
-              className="bg-white rounded-[2rem] p-6 w-full max-w-md shadow-2xl border border-slate-100 text-left relative overflow-hidden"
+              className="bg-white rounded-[2rem] p-6 w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-800 text-left relative overflow-hidden"
             >
               <div className="absolute top-0 left-0 right-0 h-2 bg-[#005E6A]" />
               
@@ -10498,40 +10565,40 @@ const AdminRewardManagement = ({
                   <Gift className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest leading-none">Konfirmasi Penukaran Poin</h3>
-                  <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wider mt-1">Admin Warung Tomi</p>
+                  <h3 className="text-xs font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">Konfirmasi Penukaran Poin</h3>
+                  <p className="text-[10px] text-slate-300 dark:text-slate-200 font-bold uppercase tracking-wider mt-1">Admin Warung Tomi</p>
                 </div>
               </div>
 
               <div className="bg-slate-50 p-4 rounded-2xl mb-5 space-y-3">
                 <div className="flex justify-between items-start">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Pelanggan</span>
+                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Pelanggan</span>
                   <div className="text-right">
-                    <span className="text-xs font-black text-slate-800 uppercase block">{confirmRedeemObj.customer.Nama}</span>
-                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">{confirmRedeemObj.customer.id_pelanggan || "CUST-XXXX"}</span>
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase block">{confirmRedeemObj.customer.Nama}</span>
+                    <span className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase tracking-wider block mt-0.5">{confirmRedeemObj.customer.id_pelanggan || "CUST-XXXX"}</span>
                   </div>
                 </div>
                 
-                <div className="border-t border-slate-200/50 my-1" />
+                <div className="border-t border-slate-200/50 dark:border-slate-700/50 my-1" />
 
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Hadiah</span>
+                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Hadiah</span>
                   <span className="text-xs font-black text-[#005E6A] uppercase tracking-tight">{confirmRedeemObj.reward.name}</span>
                 </div>
 
-                <div className="border-t border-slate-200/50 my-1" />
+                <div className="border-t border-slate-200/50 dark:border-slate-700/50 my-1" />
 
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Poin Saat Ini</span>
-                  <span className="text-xs font-black text-slate-700">{confirmRedeemObj.activePoints} Poin</span>
+                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Poin Saat Ini</span>
+                  <span className="text-xs font-black text-slate-700 dark:text-slate-200">{confirmRedeemObj.activePoints} Poin</span>
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Poin Terpotong</span>
+                  <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Poin Terpotong</span>
                   <span className="text-xs font-black text-rose-600">-{confirmRedeemObj.reward.points} Poin</span>
                 </div>
 
-                <div className="border-t border-slate-200/50 my-1" />
+                <div className="border-t border-slate-200/50 dark:border-slate-700/50 my-1" />
 
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Sisa Poin</span>
@@ -10543,7 +10610,7 @@ const AdminRewardManagement = ({
                 <button 
                   type="button"
                   onClick={() => setConfirmRedeemObj(null)}
-                  className="flex-1 py-3 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform"
+                  className="flex-1 py-3 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-slate-500 dark:text-slate-300 dark:text-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform"
                 >
                   Batal
                 </button>
@@ -10592,46 +10659,46 @@ const AdminRewardManagement = ({
       <div className="px-6 -mt-12 relative z-20 space-y-6 max-w-full">
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center text-[#005E6A] shrink-0">
               <Gift className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Penukaran</p>
-              <p className="text-lg font-black text-slate-800 leading-none">{totalRedeemed} Kali</p>
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none mb-1">Total Penukaran</p>
+              <p className="text-lg font-black text-slate-800 dark:text-slate-100 leading-none">{totalRedeemed} Kali</p>
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500 shrink-0">
               <Star className="w-6 h-6 fill-amber-500" />
             </div>
             <div>
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Poin Ditukarkan</p>
-              <p className="text-lg font-black text-slate-800 leading-none">{totalPoints.toLocaleString('id-ID')} Poin</p>
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none mb-1">Poin Ditukarkan</p>
+              <p className="text-lg font-black text-slate-800 dark:text-slate-100 leading-none">{totalPoints.toLocaleString('id-ID')} Poin</p>
             </div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4">
             <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 shrink-0">
               <Trophy className="w-6 h-6" />
             </div>
             <div className="min-w-0">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 truncate">Terpopuler</p>
-              <p className="text-sm font-black text-slate-800 leading-none truncate pr-2" title={mostPopularReward}>{mostPopularReward}</p>
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none mb-1 truncate">Terpopuler</p>
+              <p className="text-sm font-black text-slate-800 dark:text-slate-100 leading-none truncate pr-2" title={mostPopularReward}>{mostPopularReward}</p>
             </div>
           </div>
         </div>
 
         {/* Tab Selection & Search */}
-        <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="bg-white p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex gap-2 w-full md:w-auto overflow-x-auto no-scrollbar">
             <button 
               onClick={() => setSubTab("grouped")}
               className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                 subTab === "grouped" 
                   ? "bg-[#005E6A] text-white shadow-md shadow-[#005E6A]/10" 
-                  : "bg-slate-50 text-slate-400 hover:bg-slate-100"
+                  : "bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:bg-slate-100"
               }`}
             >
               Penerima Hadiah
@@ -10641,7 +10708,7 @@ const AdminRewardManagement = ({
               className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                 subTab === "redeem" 
                   ? "bg-[#005E6A] text-white shadow-md shadow-[#005E6A]/10" 
-                  : "bg-slate-50 text-slate-400 hover:bg-slate-100"
+                  : "bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:bg-slate-100"
               }`}
             >
               Tukar Hadiah
@@ -10651,7 +10718,7 @@ const AdminRewardManagement = ({
               className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                 subTab === "logs" 
                   ? "bg-[#005E6A] text-white shadow-md shadow-[#005E6A]/10" 
-                  : "bg-slate-50 text-slate-400 hover:bg-slate-100"
+                  : "bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:bg-slate-100"
               }`}
             >
               Log Penukaran
@@ -10660,26 +10727,26 @@ const AdminRewardManagement = ({
 
           {subTab === "logs" && (
             <div className="relative w-full md:w-80 shrink-0">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
               <input 
                 type="text" 
                 placeholder="Cari pelanggan / hadiah..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#005E6A]/20 focus:border-[#005E6A] transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#005E6A]/20 focus:border-[#005E6A] transition-all"
               />
             </div>
           )}
 
           {subTab === "redeem" && (
             <div className="relative w-full md:w-80 shrink-0">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
               <input 
                 type="text" 
                 placeholder="Cari pelanggan memenuhi syarat..." 
                 value={redeemSearch}
                 onChange={(e) => setRedeemSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-700 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#005E6A]/20 focus:border-[#005E6A] transition-all"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#005E6A]/20 focus:border-[#005E6A] transition-all"
               />
             </div>
           )}
@@ -10703,11 +10770,11 @@ const AdminRewardManagement = ({
                 return (
                   <div 
                     key={index}
-                    className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md"
+                    className="bg-white rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md"
                   >
-                    <div className="p-4 flex items-center justify-between gap-4 border-b border-slate-50">
+                    <div className="p-4 flex items-center justify-between gap-4 border-b border-slate-50 dark:border-slate-800/50">
                       <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-16 h-16 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0">
+                        <div className="w-16 h-16 rounded-xl bg-slate-50 border border-slate-100 dark:border-slate-800 overflow-hidden shrink-0">
                           <img 
                             src={group.image} 
                             alt={group.rewardName} 
@@ -10716,7 +10783,7 @@ const AdminRewardManagement = ({
                           />
                         </div>
                         <div className="min-w-0">
-                          <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight truncate pr-1">{group.rewardName}</h3>
+                          <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight truncate pr-1">{group.rewardName}</h3>
                           <div className="flex items-center gap-1.5 mt-1">
                             <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
                             <span className="text-[10px] font-black text-[#F15A24]">{group.points.toLocaleString('id-ID')} Poin</span>
@@ -10725,7 +10792,7 @@ const AdminRewardManagement = ({
                       </div>
                       <div className="flex flex-col items-end shrink-0 gap-1">
                         <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
-                          hasClaims ? "bg-[#005E6A]/10 text-[#005E6A]" : "bg-slate-100 text-slate-400"
+                          hasClaims ? "bg-[#005E6A]/10 text-[#005E6A]" : "bg-slate-100 text-slate-400 dark:text-slate-300 dark:text-slate-200"
                         }`}>
                           {group.recipients.length} Klaim
                         </span>
@@ -10733,7 +10800,7 @@ const AdminRewardManagement = ({
                         {hasClaims && (
                           <button 
                             onClick={() => setExpandedReward(isExpanded ? null : group.rewardName)}
-                            className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 mt-1 text-slate-500 hover:text-[#005E6A] transition-colors"
+                            className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 dark:border-slate-700 mt-1 text-slate-500 dark:text-slate-300 dark:text-slate-200 hover:text-[#005E6A] transition-colors"
                           >
                             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                           </button>
@@ -10748,25 +10815,25 @@ const AdminRewardManagement = ({
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.25 }}
-                        className="bg-slate-50/50 border-t border-slate-50 overflow-hidden"
+                        className="bg-slate-50/50 border-t border-slate-50 dark:border-slate-800/50 overflow-hidden"
                       >
                         <div className="p-4 space-y-2.5 max-h-[250px] overflow-y-auto no-scrollbar">
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.14em] mb-1.5">Penerima Hadiah ini:</p>
+                          <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.14em] mb-1.5">Penerima Hadiah ini:</p>
                           {group.recipients.map((rp, ri) => (
                             <div 
                               key={ri}
                               onClick={() => navigate(`/admin/customers/${encodeURIComponent(rp.Nama)}`)}
-                              className="bg-white p-3 rounded-2xl border border-slate-100/60 shadow-sm flex items-center justify-between gap-4 cursor-pointer hover:border-[#005E6A]/30 active:scale-[0.99] transition-all"
+                              className="bg-white p-3 rounded-2xl border border-slate-100/60 dark:border-slate-800/60 shadow-sm flex items-center justify-between gap-4 cursor-pointer hover:border-[#005E6A]/30 active:scale-[0.99] transition-all"
                             >
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center text-white text-[11px] font-black shrink-0 shadow-sm">
                                   {rp.Nama.substring(0, 1).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-xs font-bold text-slate-800 truncate leading-snug">{rp.Nama}</p>
+                                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate leading-snug">{rp.Nama}</p>
                                   <div className="flex items-center gap-1.5 mt-0.5">
-                                    <Calendar className="w-3 h-3 text-slate-300" />
-                                    <span className="text-[9px] text-slate-400 font-medium">{rp.Tanggal}</span>
+                                    <Calendar className="w-3 h-3 text-slate-300 dark:text-slate-200" />
+                                    <span className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-medium">{rp.Tanggal}</span>
                                   </div>
                                 </div>
                               </div>
@@ -10780,8 +10847,8 @@ const AdminRewardManagement = ({
                     )}
 
                     {!hasClaims && (
-                      <div className="bg-slate-50/30 p-4 text-center mt-auto border-t border-slate-50">
-                        <p className="text-[10px] text-slate-400 font-bold italic">Belum ada pelanggan yang menukar hadiah ini</p>
+                      <div className="bg-slate-50/30 p-4 text-center mt-auto border-t border-slate-50 dark:border-slate-800/50">
+                        <p className="text-[10px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold italic">Belum ada pelanggan yang menukar hadiah ini</p>
                       </div>
                     )}
                   </div>
@@ -10804,11 +10871,11 @@ const AdminRewardManagement = ({
                 return (
                   <div 
                     key={index}
-                    className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md"
+                    className="bg-white rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md"
                   >
                     {/* Header of Reward Card */}
-                    <div className="p-4 bg-slate-50/55 flex items-center gap-4 border-b border-slate-100">
-                      <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-100 overflow-hidden shrink-0">
+                    <div className="p-4 bg-slate-50/55 flex items-center gap-4 border-b border-slate-100 dark:border-slate-800">
+                      <div className="w-14 h-14 rounded-xl bg-slate-50 border border-slate-100 dark:border-slate-800 overflow-hidden shrink-0">
                         <img 
                           src={reward.image} 
                           alt={reward.name} 
@@ -10817,14 +10884,14 @@ const AdminRewardManagement = ({
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight truncate">{reward.name}</h3>
+                        <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight truncate">{reward.name}</h3>
                         <div className="flex items-center gap-1.5 mt-1">
                           <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
                           <span className="text-[10px] font-black text-[#F15A24]">{reward.points.toLocaleString('id-ID')} Poin</span>
                         </div>
                       </div>
                       <span className={`px-2.5 py-1 rounded-full text-[8.5px] font-black uppercase tracking-widest shrink-0 ${
-                        totalEligible > 0 ? "bg-[#005E6A]/15 text-[#005E6A]" : "bg-slate-100 text-slate-400"
+                        totalEligible > 0 ? "bg-[#005E6A]/15 text-[#005E6A]" : "bg-slate-100 text-slate-400 dark:text-slate-300 dark:text-slate-200"
                       }`}>
                         {totalEligible} Memenuhi Syarat
                       </span>
@@ -10834,25 +10901,25 @@ const AdminRewardManagement = ({
                     <div className="p-4 flex-1 flex flex-col justify-start">
                       {totalEligible === 0 ? (
                         <div className="py-8 text-center my-auto flex flex-col items-center justify-center">
-                          <Gift className="w-8 h-8 text-slate-300 mb-2 opacity-50" />
-                          <p className="text-[10px] text-slate-400 font-bold italic">Belum ada pelanggan yang poin aktifnya mencukupi ({reward.points} P)</p>
+                          <Gift className="w-8 h-8 text-slate-300 dark:text-slate-200 mb-2 opacity-50" />
+                          <p className="text-[10px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold italic">Belum ada pelanggan yang poin aktifnya mencukupi ({reward.points} P)</p>
                         </div>
                       ) : (
                         <div className="space-y-2.5 max-h-[300px] overflow-y-auto no-scrollbar pr-1">
                           {eligibleList.map(({ customer, activePoints }) => (
                             <div 
                               key={customer.Nama}
-                              className="bg-slate-50/60 p-3 rounded-2xl border border-slate-100 flex items-center justify-between gap-4"
+                              className="bg-slate-50/60 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4"
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center text-white text-[11px] font-black shrink-0 shadow-sm">
                                   {customer.Nama.substring(0, 1).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-xs font-bold text-slate-800 truncate leading-snug">{customer.Nama}</p>
+                                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate leading-snug">{customer.Nama}</p>
                                   <div className="flex items-center gap-1.5 mt-0.5">
                                     <Star className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
-                                    <span className="text-[9px] text-slate-400 font-black">{activePoints} Poin</span>
+                                    <span className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-black">{activePoints} Poin</span>
                                   </div>
                                 </div>
                               </div>
@@ -10882,26 +10949,26 @@ const AdminRewardManagement = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.3 }}
-              className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden"
+              className="bg-white rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden"
             >
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100">
-                      <th className="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center w-12">No</th>
-                      <th className="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Pelanggan</th>
-                      <th className="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Hadiah</th>
-                      <th className="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest text-center">Poin Terpakai</th>
-                      <th className="p-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">Tanggal</th>
+                    <tr className="bg-slate-50 border-b border-slate-100 dark:border-slate-800">
+                      <th className="p-4 text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest text-center w-12">No</th>
+                      <th className="p-4 text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Pelanggan</th>
+                      <th className="p-4 text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Hadiah</th>
+                      <th className="p-4 text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest text-center">Poin Terpakai</th>
+                      <th className="p-4 text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Tanggal</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {filteredLogs.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="p-8 text-center">
-                          <Gift className="w-10 h-10 text-slate-300 mx-auto mb-3 animate-pulse" />
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-wider">Log Penukaran Kosong</p>
-                          <p className="text-[10px] text-slate-300 font-bold mt-1">Tidak ada data penukaran poin yang cocok</p>
+                          <Gift className="w-10 h-10 text-slate-300 dark:text-slate-200 mx-auto mb-3 animate-pulse" />
+                          <p className="text-xs font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Log Penukaran Kosong</p>
+                          <p className="text-[10px] text-slate-300 dark:text-slate-200 font-bold mt-1">Tidak ada data penukaran poin yang cocok</p>
                         </td>
                       </tr>
                     ) : (
@@ -10915,21 +10982,21 @@ const AdminRewardManagement = ({
                             className="hover:bg-slate-50/50 cursor-pointer transition-colors"
                             onClick={() => navigate(`/admin/customers/${encodeURIComponent(log.Nama)}`)}
                           >
-                            <td className="p-4 text-center text-xs font-black text-slate-400">{index + 1}</td>
+                            <td className="p-4 text-center text-xs font-black text-slate-400 dark:text-slate-300 dark:text-slate-200">{index + 1}</td>
                             <td className="p-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-xs font-black shrink-0 border border-slate-200">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 dark:text-slate-300 dark:text-slate-200 text-xs font-black shrink-0 border border-slate-200 dark:border-slate-700">
                                   {log.Nama.substring(0, 1).toUpperCase()}
                                 </div>
                                 <div>
-                                  <p className="text-xs font-bold text-slate-800 leading-tight">{log.Nama}</p>
-                                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">ID: {log.id_pelanggan || "CUST"}</p>
+                                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-tight">{log.Nama}</p>
+                                  <p className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase tracking-wider mt-0.5">ID: {log.id_pelanggan || "CUST"}</p>
                                 </div>
                               </div>
                             </td>
                             <td className="p-4">
                               <div className="flex items-center gap-2.5">
-                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-50 border border-slate-100 shrink-0">
+                                <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-50 border border-slate-100 dark:border-slate-800 shrink-0">
                                   <img 
                                     src={rewardImage} 
                                     alt={log.Hadiah} 
@@ -10937,7 +11004,7 @@ const AdminRewardManagement = ({
                                     referrerPolicy="no-referrer"
                                   />
                                 </div>
-                                <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{log.Hadiah}</span>
+                                <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight">{log.Hadiah}</span>
                               </div>
                             </td>
                             <td className="p-4 text-center">
@@ -10946,7 +11013,7 @@ const AdminRewardManagement = ({
                                 {log.Poin} Poin
                               </span>
                             </td>
-                            <td className="p-4 text-xs font-black text-slate-500 whitespace-nowrap">{log.Tanggal}</td>
+                            <td className="p-4 text-xs font-black text-slate-500 dark:text-slate-300 dark:text-slate-200 whitespace-nowrap">{log.Tanggal}</td>
                           </tr>
                         );
                       })
@@ -11034,9 +11101,9 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
   if (error) {
     return (
       <div className="w-full aspect-square bg-slate-900 rounded-lg flex flex-col items-center justify-center p-6 text-center">
-        <CameraOff className="w-12 h-12 text-slate-500 mb-4" />
+        <CameraOff className="w-12 h-12 text-slate-500 dark:text-slate-300 dark:text-slate-200 mb-4" />
         <p className="text-white text-xs font-bold leading-relaxed">{error}</p>
-        <p className="text-slate-400 text-[10px] mt-2 font-medium uppercase tracking-widest">Muat ulang halaman setelah mengizinkan akses</p>
+        <p className="text-slate-400 dark:text-slate-300 dark:text-slate-200 text-[10px] mt-2 font-medium uppercase tracking-widest">Muat ulang halaman setelah mengizinkan akses</p>
       </div>
     );
   }
@@ -11050,7 +11117,7 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
            <p className="text-[10px] font-black text-white uppercase tracking-widest animate-pulse">Scanning...</p>
         </div>
       </div>
-      <div className="absolute inset-0 pointer-events-none border-[6px] border-[#005E6A]/10" />
+      <div className="absolute inset-0 pointer-events-none border-[6px] border-[#005E6A]/10 dark:border-teal-800/30" />
     </div>
   );
 };
@@ -11311,12 +11378,12 @@ const CatalogPage = ({
       {/* Fixed Search Section - positioned below the global header (top-[80px]) */}
       <div className="fixed top-[80px] left-1/2 -translate-x-1/2 w-full max-w-lg z-[45] bg-slate-50/95 backdrop-blur-md py-3 px-6">
         <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0 bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2">
-            <Search className="w-5 h-5 text-slate-300 shrink-0" />
+          <div className="flex-1 min-w-0 bg-white p-3 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2">
+            <Search className="w-5 h-5 text-slate-300 dark:text-slate-200 shrink-0" />
             <input 
               type="text" 
               placeholder={t("Cari barang...", "Search items...")} 
-              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300 dark:text-slate-200"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -11426,7 +11493,7 @@ const CatalogPage = ({
         </div>
 
       {/* Sticky Horizontal Category Selector with custom Icons */}
-      <div className="sticky top-[152px] z-[40] bg-slate-50/95 backdrop-blur-md py-3 border-b border-slate-200/50 mb-4">
+      <div className="sticky top-[152px] z-[40] bg-slate-50/95 backdrop-blur-md py-3 border-b border-slate-200/50 dark:border-slate-700/50 mb-4">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {categories.map((cat) => {
             const isActive = selectedCategory === cat;
@@ -11437,7 +11504,7 @@ const CatalogPage = ({
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[10px] font-black transition-all duration-300 whitespace-nowrap shrink-0 border cursor-pointer uppercase tracking-wider ${
                   isActive
                     ? "bg-[#005E6A] text-white border-[#005E6A] shadow-md shadow-[#005E6A]/10"
-                    : "bg-white text-slate-500 border-slate-200/60 hover:bg-slate-50 hover:text-[#005E6A]"
+                    : "bg-white text-slate-500 dark:text-slate-300 dark:text-slate-200 border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-50 hover:text-[#005E6A]"
                 }`}
               >
                 {getCategoryIcon(cat)}
@@ -11456,7 +11523,7 @@ const CatalogPage = ({
               <motion.div
                 layout
                 key={item.id}
-                className="bg-white border border-slate-100 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow group flex flex-col"
+                className="bg-white border border-slate-100 dark:border-slate-800 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow group flex flex-col"
               >
                 <div className="aspect-square rounded-md bg-slate-50 overflow-hidden mb-3 relative shrink-0">
                   {item.Image ? (
@@ -11477,7 +11544,7 @@ const CatalogPage = ({
                   <span className="text-[11px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</span>
                   <div className="flex items-center gap-1">
                     <div className={`w-1.5 h-1.5 rounded-full ${item.Stok > 5 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                    <span className="text-[8px] font-bold text-slate-400">{item.Stok} {item.Satuan}</span>
+                    <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">{item.Stok} {item.Satuan}</span>
                   </div>
                 </div>
 
@@ -11640,10 +11707,10 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
       </div>
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100">
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 dark:border-slate-800">
           <div className="flex justify-between items-center px-2 mb-4">
             <div className="space-y-1">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Pelanggan</p>
+              <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">Total Pelanggan</p>
               <h3 className="text-sm font-black text-[#005E6A]">{activeCustomersCount} Orang</h3>
             </div>
           </div>
@@ -11669,8 +11736,8 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
                       return (
-                        <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50">
-                          <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">{data.name}</p>
+                        <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50 dark:border-slate-800/50">
+                          <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-300 dark:text-slate-200 mb-1">{data.name}</p>
                           <p className="text-xs font-black text-[#005E6A]">{data.value} Pelanggan</p>
                         </div>
                       );
@@ -11687,11 +11754,11 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
               <div key={idx} className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: item.color }} />
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.1em]">{item.name}</span>
+                  <span className="text-[9px] font-black text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.1em]">{item.name}</span>
                 </div>
                 <div className="flex items-center gap-1.5 font-black text-[#005E6A]">
                   <span className="text-xs">{item.value}</span>
-                  <span className="text-[8px] text-slate-400 uppercase tracking-widest font-bold">Pelanggan</span>
+                  <span className="text-[8px] text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest font-bold">Pelanggan</span>
                 </div>
               </div>
             ))}
@@ -11700,13 +11767,13 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
 
         {/* Pencarian Nama */}
         <div className="relative group px-2">
-          <Search className="w-4 h-4 absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#005E6A] transition-colors" />
+          <Search className="w-4 h-4 absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-300 dark:text-slate-200 group-focus-within:text-[#005E6A] transition-colors" />
           <input 
             type="text"
             placeholder="Cari Nama Pelanggan..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-white border border-slate-200 rounded-3xl pl-12 pr-6 py-4 text-[13px] font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 focus:border-[#005E6A] transition-all w-full shadow-sm placeholder:text-slate-300"
+            className="bg-white border border-slate-200 dark:border-slate-700 rounded-3xl pl-12 pr-6 py-4 text-[13px] font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5 focus:border-[#005E6A] transition-all w-full shadow-sm placeholder:text-slate-300 dark:text-slate-200"
           />
         </div>
 
@@ -11721,7 +11788,7 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
                   className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                     levelFilter === label 
                       ? "bg-slate-900 text-white shadow-lg" 
-                      : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+                      : "bg-white text-slate-400 dark:text-slate-300 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:bg-slate-50"
                   }`}
                 >
                   {label}
@@ -11738,32 +11805,32 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(i * 0.03, 0.5) }}
-                  className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center group hover:border-[#005E6A]/20 transition-all cursor-pointer"
+                  className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex justify-between items-center group hover:border-[#005E6A]/20 dark:border-teal-800/40 transition-all cursor-pointer"
                   onClick={() => navigate(`/admin/customers/${encodeURIComponent(c.Nama)}`)}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${levelColorMap[c.level]?.iconBg || 'bg-slate-50'} ${levelColorMap[c.level]?.iconColor || 'text-slate-400'} transition-all`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${levelColorMap[c.level]?.iconBg || 'bg-slate-50'} ${levelColorMap[c.level]?.iconColor || 'text-slate-400 dark:text-slate-300 dark:text-slate-200'} transition-all`}>
                       <User className="w-5 h-5 transition-transform group-hover:scale-110" />
                     </div>
                     <div>
                       <p className="text-[12px] font-black text-[#005E6A] uppercase tracking-tight">{c.Nama || "Pelanggan Umum"}</p>
                       <div className="flex items-center gap-1.5 mt-0.5 font-black">
                         <span className={`text-[10px] tabular-nums ${c.activePoints < 0 ? 'text-red-600' : 'text-[#F15A24]'}`}>{c.activePoints}</span>
-                        <span className="text-[7px] text-slate-400 uppercase tracking-widest font-bold">Poin Aktif</span>
+                        <span className="text-[7px] text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest font-bold">Poin Aktif</span>
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <Badge className={`${levelColorMap[c.level]?.bg || "bg-slate-50"} ${levelColorMap[c.level]?.text || "text-slate-600"} border-none text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full`}>
+                    <Badge className={`${levelColorMap[c.level]?.bg || "bg-slate-50"} ${levelColorMap[c.level]?.text || "text-slate-600 dark:text-slate-300 dark:text-slate-200"} border-none text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full`}>
                       {c.level}
                     </Badge>
                   </div>
                 </motion.div>
               ))
             ) : (
-              <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-200 text-center">
+              <div className="bg-white p-12 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 text-center">
                 <Search className="w-8 h-8 text-slate-200 mx-auto mb-3" />
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pelanggan tidak ditemukan</p>
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Pelanggan tidak ditemukan</p>
               </div>
             )}
           </div>
@@ -11851,7 +11918,7 @@ const DebtTransactionModal = ({
       <motion.div 
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-100 overflow-hidden"
+        className="bg-white rounded-[2.5rem] w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden"
       >
         <div className={`p-6 ${type === 'TAMBAH' ? 'bg-red-600' : 'bg-green-600'} text-white`}>
           <div className="flex items-center justify-between">
@@ -11864,10 +11931,10 @@ const DebtTransactionModal = ({
 
         <div className="p-6 space-y-4">
           <div className="space-y-2 relative">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nama Nasabah</label>
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest px-1">Nama Nasabah</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                <Search className="w-4 h-4 text-slate-300" />
+                <Search className="w-4 h-4 text-slate-300 dark:text-slate-200" />
               </div>
               <input 
                 type="text"
@@ -11878,12 +11945,12 @@ const DebtTransactionModal = ({
                   setSelected(null);
                 }}
                 disabled={!!selected}
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all"
+                className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all"
               />
               {selected && (
                 <button 
                   onClick={() => {setSelected(null); setSearch("");}}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-red-500"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 dark:text-slate-200 hover:text-red-500"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -11891,7 +11958,7 @@ const DebtTransactionModal = ({
             </div>
             
             {!selected && search.length > 0 && (
-              <div className="absolute z-10 w-full left-0 bg-white border border-slate-100 rounded-2xl shadow-xl overflow-hidden mt-1 max-h-[200px] overflow-y-auto">
+              <div className="absolute z-10 w-full left-0 bg-white border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden mt-1 max-h-[200px] overflow-y-auto">
                 {filtered.length > 0 ? (
                   filtered.map((c, i) => (
                     <button
@@ -11900,26 +11967,26 @@ const DebtTransactionModal = ({
                         setSelected(c);
                         setSearch("");
                       }}
-                      className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 last:border-0 group"
+                      className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 last:border-0 group"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 group-hover:text-[#F15A24] transition-colors shrink-0">
+                        <div className="w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-300 dark:text-slate-200 group-hover:text-[#F15A24] transition-colors shrink-0">
                           <User className="w-4 h-4" />
                         </div>
                         <div>
                           <p className="text-xs font-black text-[#005E6A] uppercase group-hover:text-[#F15A24] transition-colors">{c.Nama || "Pelanggan Umum"}</p>
-                          <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
+                          <p className="text-[9px] font-bold text-slate-300 dark:text-slate-200 uppercase tracking-widest mt-0.5">Member Warung Tomi</p>
                         </div>
                       </div>
                       <div className="text-right">
                          <p className="text-[10px] font-black text-red-600">Rp {parseCurrency(c.Hutang).toLocaleString('id-ID')}</p>
-                         <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">Hutang</p>
+                         <p className="text-[7px] font-bold text-slate-300 dark:text-slate-200 uppercase tracking-widest">Hutang</p>
                       </div>
                     </button>
                   ))
                 ) : (
                   <div className="p-4 text-center">
-                    <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Pelanggan tidak ditemukan</p>
+                    <p className="text-[9px] font-bold text-slate-300 dark:text-slate-200 uppercase tracking-widest">Pelanggan tidak ditemukan</p>
                   </div>
                 )}
               </div>
@@ -11934,29 +12001,29 @@ const DebtTransactionModal = ({
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Nominal</label>
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest px-1">Nominal</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                <span className="text-sm font-black text-slate-300">Rp</span>
+                <span className="text-sm font-black text-slate-300 dark:text-slate-200">Rp</span>
               </div>
               <input 
                 type="text"
                 value={amount}
                 onChange={handleAmountChange}
                 placeholder="0"
-                className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-12 pr-4 py-4 text-lg font-black text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200"
+                className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl pl-12 pr-4 py-4 text-lg font-black text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Keterangan (Opsional)</label>
+            <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest px-1">Keterangan (Opsional)</label>
             <textarea 
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Contoh: Bayar kasbon minggu lalu"
               rows={2}
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200 resize-none"
+              className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl px-4 py-3 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all placeholder:text-slate-200 resize-none"
             />
           </div>
         </div>
@@ -11964,7 +12031,7 @@ const DebtTransactionModal = ({
         <div className="p-6 bg-slate-50 flex gap-3">
           <button 
             onClick={onClose}
-            className="flex-1 px-4 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white border border-slate-100"
+            className="flex-1 px-4 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-300 dark:text-slate-200 bg-white border border-slate-100 dark:border-slate-800"
           >
             Batal
           </button>
@@ -12111,14 +12178,14 @@ const AdminDebtManagement = ({
   const extraContent = (
     <div className="w-full space-y-4">
       {/* Debt Flow Summary */}
-      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 pt-4 mt-2">
+      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 dark:border-slate-800/50 pt-4 mt-2">
         <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1">Kasbon Bulan Ini</p>
+          <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.1em] mb-1">Kasbon Bulan Ini</p>
           <p className="text-xs font-black text-red-600">+ Rp {debtFlow.kasbon.toLocaleString('id-ID')}</p>
         </div>
         <div className="w-[1px] h-8 bg-slate-100 flex-shrink-0 mx-2" />
         <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-1 whitespace-nowrap">Bayar Bulan Ini</p>
+          <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.1em] mb-1 whitespace-nowrap">Bayar Bulan Ini</p>
           <p className="text-xs font-black text-green-600">- Rp {debtFlow.bayar.toLocaleString('id-ID')}</p>
         </div>
       </div>
@@ -12134,7 +12201,7 @@ const AdminDebtManagement = ({
           className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
             statusFilter === label 
               ? "bg-slate-900 text-white shadow-lg" 
-              : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+              : "bg-white text-slate-400 dark:text-slate-300 dark:text-slate-200 border border-slate-100 dark:border-slate-800 hover:bg-slate-50"
           }`}
         >
           {label}
@@ -12156,7 +12223,7 @@ const AdminDebtManagement = ({
         </div>
         <div className="flex flex-col">
           <span className="text-xs font-black text-red-600 uppercase tracking-widest leading-none mb-1">Tambah Kasbon</span>
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Manual Input</span>
+          <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider leading-none">Manual Input</span>
         </div>
         <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
           <Receipt className="w-10 h-10 text-red-600" />
@@ -12167,14 +12234,14 @@ const AdminDebtManagement = ({
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => { setModalType("BAYAR"); setIsModalOpen(true); }}
-        className="relative overflow-hidden group bg-white p-5 rounded-[2rem] border border-green-100 shadow-sm flex items-center gap-4 text-left transition-all hover:shadow-md"
+        className="relative overflow-hidden group bg-white p-5 rounded-[2rem] border border-green-100 dark:border-green-900/50 shadow-sm flex items-center gap-4 text-left transition-all hover:shadow-md"
       >
         <div className="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center text-white shadow-green-200 shadow-lg shrink-0">
           <CheckCircle2 className="w-6 h-6" />
         </div>
         <div className="flex flex-col">
           <span className="text-xs font-black text-green-600 uppercase tracking-widest leading-none mb-1">Bayar Hutang</span>
-          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Pelunasan</span>
+          <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider leading-none">Pelunasan</span>
         </div>
         <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
           <CheckCircle2 className="w-10 h-10 text-green-600" />
@@ -12216,9 +12283,9 @@ const AdminDebtManagement = ({
       <div className="px-6 pb-12 space-y-4">
         <div className="flex items-center justify-between px-2">
           <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Aktivitas Terakhir</h3>
-          <History className="w-4 h-4 text-slate-400" />
+          <History className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
         </div>
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
           <div className="divide-y divide-slate-50">
             {recentGlobalDebts.length > 0 ? recentGlobalDebts.map((t, i) => (
               <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
@@ -12228,18 +12295,18 @@ const AdminDebtManagement = ({
                   </div>
                   <div>
                     <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama || "Pelanggan Umum"}</p>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t.Tanggal}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <p className={`text-xs font-black ${t.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'}`}>
                     {t.Tipe === 'TAMBAH' ? '+' : '-'}{t.Jumlah.toLocaleString('id-ID')}
                   </p>
-                  <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">{t.Tipe === 'TAMBAH' ? 'Kasbon' : 'Pelunasan'}</p>
+                  <p className="text-[7px] font-bold text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t.Tipe === 'TAMBAH' ? 'Kasbon' : 'Pelunasan'}</p>
                 </div>
               </div>
             )) : (
-              <p className="p-12 text-center text-[10px] font-black text-slate-300 uppercase tracking-widest">Belum ada aktivitas</p>
+              <p className="p-12 text-center text-[10px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest">Belum ada aktivitas</p>
             )}
           </div>
         </div>
@@ -12252,33 +12319,33 @@ const DataComparisonView = ({ collections }: { collections: any[] }) => {
   return (
     <div className="space-y-6">
       {/* Header Info */}
-      <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
+      <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-4 mb-8">
           <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 shadow-inner">
             <RefreshCw className="w-7 h-7" />
           </div>
           <div>
-            <h3 className="text-xl font-black text-slate-800 tracking-tight uppercase">Audit & Migrasi Data</h3>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mt-1">Status database saat ini (Multi-Sheets)</p>
+            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase">Audit & Migrasi Data</h3>
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none mt-1">Status database saat ini (Multi-Sheets)</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {collections.filter(c => c.id !== 'comparison').map(col => (
-            <div key={col.id} className="group p-5 bg-slate-50 hover:bg-white rounded-[2rem] border border-slate-100 hover:border-blue-100 hover:shadow-lg transition-all duration-300">
+            <div key={col.id} className="group p-5 bg-slate-50 hover:bg-white rounded-[2rem] border border-slate-100 dark:border-slate-800 hover:border-blue-100 dark:border-blue-900/50 hover:shadow-lg transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400 group-hover:text-blue-500 transition-colors">
+                  <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400 dark:text-slate-300 dark:text-slate-200 group-hover:text-blue-500 transition-colors">
                     <col.icon className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{col.label}</p>
-                    <p className="text-sm font-black text-slate-700 uppercase tracking-tight">{col.id}</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none mb-1">{col.label}</p>
+                    <p className="text-sm font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight">{col.id}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-black text-slate-300 uppercase leading-none mb-1">Data Lama</p>
-                  <p className="text-lg font-black text-blue-600">{col.data.length} <span className="text-[9px] uppercase text-slate-400">Rows</span></p>
+                  <p className="text-[10px] font-black text-slate-300 dark:text-slate-200 uppercase leading-none mb-1">Data Lama</p>
+                  <p className="text-lg font-black text-blue-600">{col.data.length} <span className="text-[9px] uppercase text-slate-400 dark:text-slate-300 dark:text-slate-200">Rows</span></p>
                 </div>
               </div>
             </div>
@@ -12553,11 +12620,11 @@ const AdminMasterDataPage = ({
 
   const getCategoryStyles = (category: string) => {
     switch (category) {
-      case 'Tabungan': return { bg: 'bg-emerald-600', text: 'text-emerald-700', border: 'border-emerald-100', softBg: 'bg-emerald-50' };
-      case 'Hutang': return { bg: 'bg-rose-600', text: 'text-rose-700', border: 'border-rose-100', softBg: 'bg-rose-50' };
+      case 'Tabungan': return { bg: 'bg-emerald-600', text: 'text-emerald-700', border: 'border-emerald-100 dark:border-emerald-900/50', softBg: 'bg-emerald-50' };
+      case 'Hutang': return { bg: 'bg-rose-600', text: 'text-rose-700', border: 'border-rose-100 dark:border-rose-900/50', softBg: 'bg-rose-50' };
       case 'Investasi': return { bg: 'bg-amber-600', text: 'text-amber-700', border: 'border-amber-100', softBg: 'bg-amber-50' };
       case 'Penjualan': return { bg: 'bg-blue-600', text: 'text-blue-700', border: 'border-blue-100', softBg: 'bg-blue-50' };
-      case 'Poin': return { bg: 'bg-purple-600', text: 'text-purple-700', border: 'border-purple-100', softBg: 'bg-purple-50' };
+      case 'Poin': return { bg: 'bg-purple-600', text: 'text-purple-700', border: 'border-purple-100 dark:border-purple-900/50', softBg: 'bg-purple-50' };
       default: return { bg: 'bg-[#005E6A]', text: 'text-teal-700', border: 'border-teal-100', softBg: 'bg-teal-50' };
     }
   };
@@ -12595,18 +12662,18 @@ const AdminMasterDataPage = ({
       </div>
 
       <div className="max-w-7xl mx-auto px-6 space-y-6 -mt-12 relative z-20">
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100">
+        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800">
           {/* Migration Tabs */}
           <div className="flex bg-slate-100 p-1.5 rounded-2xl mb-6">
             <button 
               onClick={() => setViewMode("lama")}
-              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === "lama" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === "lama" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:text-slate-200'}`}
             >
               Data Lama <span className="opacity-40 ml-1">(Saat Ini)</span>
             </button>
             <button 
               onClick={() => setViewMode("baru")}
-              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === "baru" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === "baru" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:text-slate-200'}`}
             >
               Data Baru <span className="opacity-40 ml-1">(Persiapan Migrasi)</span>
             </button>
@@ -12624,7 +12691,7 @@ const AdminMasterDataPage = ({
                     // On-demand load
                     fetchData(false, newCol);
                   }}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-tight text-[#005E6A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all cursor-pointer shadow-sm"
+                  className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl px-5 py-4 text-sm font-black uppercase tracking-tight text-[#005E6A] appearance-none focus:outline-none focus:ring-2 focus:ring-[#005E6A]/10 transition-all cursor-pointer shadow-sm"
                 >
                   {collectionSpecs.map(col => (
                     <option key={col.id} value={col.id}>
@@ -12646,12 +12713,12 @@ const AdminMasterDataPage = ({
 
           <div className="grid grid-cols-2 gap-4 mt-6 px-2">
             <div className="space-y-1">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Baris</p>
-              <h3 className="text-base font-black text-[#005E6A]">{(viewMode === "lama" ? currentData.length : migrationData.length).toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Items</span></h3>
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">Total Baris</p>
+              <h3 className="text-base font-black text-[#005E6A]">{(viewMode === "lama" ? currentData.length : migrationData.length).toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 dark:text-slate-200 ml-1 uppercase">Items</span></h3>
             </div>
-            <div className="text-right space-y-1 border-l border-slate-100 pl-4">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Sel</p>
-              <h3 className="text-base font-black text-[#F15A24]">{(viewMode === "lama" ? currentData.length * columns.length : migrationData.length * migrationColumns.length).toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 ml-1 uppercase">Sel</span></h3>
+            <div className="text-right space-y-1 border-l border-slate-100 dark:border-slate-800 pl-4">
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">Total Sel</p>
+              <h3 className="text-base font-black text-[#F15A24]">{(viewMode === "lama" ? currentData.length * columns.length : migrationData.length * migrationColumns.length).toLocaleString('id-ID')} <span className="text-[10px] text-slate-300 dark:text-slate-200 ml-1 uppercase">Sel</span></h3>
             </div>
           </div>
         </div>
@@ -12660,16 +12727,16 @@ const AdminMasterDataPage = ({
         {activeCollection === "comparison" && viewMode === "lama" ? (
           <DataComparisonView collections={collections} />
         ) : (
-          <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden">
-            <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+            <div className="p-6 border-b border-slate-50 dark:border-slate-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="relative flex-1 w-full">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 dark:text-slate-200" />
               <input 
                 type="text"
                 placeholder={viewMode === "lama" ? `Cari di ${collections.find(c => c.id === activeCollection)?.label}...` : "Cari di Data Migrasi..."}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all"
+                className="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all"
               />
             </div>
             
@@ -12713,7 +12780,7 @@ const AdminMasterDataPage = ({
                       "Poin": "Poin"
                     };
                     return (
-                      <th key={col} className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      <th key={col} className="px-6 py-4 text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
                         {labelMapping[col] || col}
                       </th>
                     );
@@ -12738,13 +12805,13 @@ const AdminMasterDataPage = ({
                             type="text"
                             value={editValues[col] || ""}
                             onChange={(e) => setEditValues({ ...editValues, [col]: e.target.value })}
-                            className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-xs font-bold focus:outline-none focus:border-teal-500"
+                            className="w-full px-2 py-1 bg-white border border-slate-200 dark:border-slate-700 rounded text-xs font-bold focus:outline-none focus:border-teal-500"
                           />
                         ) : (
-                          <span className={`text-xs font-bold block max-w-[200px] truncate ${col === "Kategori" ? "uppercase text-teal-600 bg-teal-50 px-2 py-0.5 rounded border border-teal-100 w-fit" : "text-slate-600"}`}>
+                          <span className={`text-xs font-bold block max-w-[200px] truncate ${col === "Kategori" ? "uppercase text-teal-600 bg-teal-50 px-2 py-0.5 rounded border border-teal-100 dark:border-teal-900/50 w-fit" : "text-slate-600 dark:text-slate-300 dark:text-slate-200"}`}>
                             {col === "Image" || col === "Foto" ? (
                               item[col] ? (
-                                <img src={item[col]} alt="Asset" className="w-8 h-8 rounded-lg object-cover border border-slate-100" referrerPolicy="no-referrer" />
+                                <img src={item[col]} alt="Asset" className="w-8 h-8 rounded-lg object-cover border border-slate-100 dark:border-slate-800" referrerPolicy="no-referrer" />
                               ) : "-"
                             ) : typeof item[col] === 'object' && item[col]?.seconds 
                               ? new Date(item[col].seconds * 1000).toLocaleDateString()
@@ -12766,7 +12833,7 @@ const AdminMasterDataPage = ({
                     <td colSpan={(viewMode === "lama" ? columns.length : migrationColumns.length)} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <AlertCircle className="w-8 h-8 text-slate-200" />
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tidak ada data ditemukan</p>
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Tidak ada data ditemukan</p>
                       </div>
                     </td>
                   </tr>
@@ -12776,10 +12843,10 @@ const AdminMasterDataPage = ({
           </div>
 
           {(viewMode === "lama" ? filteredData.length : filteredMigrationData.length) > visibleCount && (
-            <div className="p-6 border-t border-slate-50 flex justify-center">
+            <div className="p-6 border-t border-slate-50 dark:border-slate-800/50 flex justify-center">
               <button 
                 onClick={() => setVisibleCount(prev => prev + 50)}
-                className="flex items-center gap-2 px-8 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                className="flex items-center gap-2 px-8 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 dark:text-slate-300 dark:text-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span>Muat Lebih Banyak ({(viewMode === "lama" ? filteredData.length : filteredMigrationData.length) - visibleCount} lagi)</span>
@@ -12852,15 +12919,15 @@ const AdminMasterDataPage = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Row 1: Nama Pelanggan | ID Pelanggan */}
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nama Pelanggan</p>
-                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Nama Pelanggan</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                       {customers.find(c => c.id_pelanggan === (isEditingPopup ? popupEditValues.id_pelanggan : selectedMigrationItem.id_pelanggan))?.Nama || "Pelanggan Tidak Dikenal"}
                     </div>
                   </div>
                   
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ID Pelanggan</p>
-                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-mono font-bold text-slate-700 min-h-[52px] flex items-center">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">ID Pelanggan</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-mono font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                       {isEditingPopup ? (
                         <input 
                           type="text"
@@ -12876,8 +12943,8 @@ const AdminMasterDataPage = ({
 
                   {/* Row 2: Tanggal | Status (Status only for PENJUALAN) */}
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tanggal</p>
-                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Tanggal</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                       {isEditingPopup ? (
                         <input 
                           type="text"
@@ -12893,8 +12960,8 @@ const AdminMasterDataPage = ({
 
                   {selectedMigrationItem.Kategori?.toUpperCase() === 'PENJUALAN' && (
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</p>
-                      <div className={`p-4 rounded-2xl text-sm font-black min-h-[52px] flex items-center ${isEditingPopup ? 'bg-slate-50 text-slate-700' : (selectedMigrationItem.Status?.toUpperCase() === 'KASBON' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Status</p>
+                      <div className={`p-4 rounded-2xl text-sm font-black min-h-[52px] flex items-center ${isEditingPopup ? 'bg-slate-50 text-slate-700 dark:text-slate-200' : (selectedMigrationItem.Status?.toUpperCase() === 'KASBON' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600')}`}>
                         {isEditingPopup ? (
                           <select 
                             value={popupEditValues.Status?.toUpperCase()}
@@ -12915,15 +12982,15 @@ const AdminMasterDataPage = ({
 
                   {/* Row 3: Kategori | Tipe */}
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Kategori</p>
-                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-black text-slate-700 min-h-[52px] flex items-center">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Kategori</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-black text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                       {selectedMigrationItem.Kategori?.toUpperCase() || ""}
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tipe</p>
-                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Tipe</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                       {isEditingPopup ? (
                         selectedMigrationItem.Kategori?.toUpperCase() === 'PENJUALAN' ? (
                           <select 
@@ -12952,8 +13019,8 @@ const AdminMasterDataPage = ({
                   {selectedMigrationItem.Kategori?.toUpperCase() === 'PENJUALAN' && (
                     <>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Melalui</p>
-                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Melalui</p>
+                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                           {isEditingPopup ? (
                             <input 
                               type="text"
@@ -12968,8 +13035,8 @@ const AdminMasterDataPage = ({
                       </div>
 
                       <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Metode</p>
-                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Metode</p>
+                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                           {isEditingPopup ? (
                             <input 
                               type="text"
@@ -12987,8 +13054,8 @@ const AdminMasterDataPage = ({
 
                   {/* Row 5: Nominal | Modal */}
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nominal</p>
-                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-black text-slate-700 min-h-[52px] flex items-center">
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Nominal</p>
+                    <div className="bg-slate-50 p-4 rounded-2xl text-sm font-black text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                       {isEditingPopup ? (
                         <div className="flex items-center w-full">
                           <span className="mr-1 opacity-50">Rp</span>
@@ -13009,8 +13076,8 @@ const AdminMasterDataPage = ({
 
                   {selectedMigrationItem.Kategori?.toUpperCase() === 'PENJUALAN' && (
                     <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Modal</p>
-                      <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                      <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Modal</p>
+                      <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                         {isEditingPopup ? (
                           <div className="flex items-center w-full">
                             <span className="mr-1 opacity-50">Rp</span>
@@ -13034,8 +13101,8 @@ const AdminMasterDataPage = ({
                   {selectedMigrationItem.Kategori?.toUpperCase() === 'PENJUALAN' && (
                     <>
                       <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sebagian</p>
-                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Sebagian</p>
+                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                           {isEditingPopup ? (
                             <div className="flex items-center w-full">
                               <span className="mr-1 opacity-50">Rp</span>
@@ -13055,8 +13122,8 @@ const AdminMasterDataPage = ({
                       </div>
 
                       <div className="space-y-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Poin</p>
-                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 min-h-[52px] flex items-center">
+                        <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Poin</p>
+                        <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                           {isEditingPopup ? (
                             <input 
                               type="number"
@@ -13077,28 +13144,28 @@ const AdminMasterDataPage = ({
 
                 {(isEditingPopup || selectedMigrationItem.Keterangan) && (
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Keterangan / Berita</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Keterangan / Berita</p>
                     {isEditingPopup ? (
                       <textarea 
                         value={popupEditValues.Keterangan}
                         onChange={(e) => setPopupEditValues({ ...popupEditValues, Keterangan: e.target.value })}
                         rows={3}
-                        className="w-full bg-slate-50 p-4 rounded-2xl text-sm font-medium text-slate-600 border border-slate-200 outline-none focus:border-indigo-500 transition-colors resize-none"
+                        className="w-full bg-slate-50 p-4 rounded-2xl text-sm font-medium text-slate-600 dark:text-slate-300 dark:text-slate-200 border border-slate-200 dark:border-slate-700 outline-none focus:border-indigo-500 transition-colors resize-none"
                       />
                     ) : (
-                      <div className="bg-slate-50 p-4 rounded-2xl text-sm font-medium text-slate-600 italic">
+                      <div className="bg-slate-50 p-4 rounded-2xl text-sm font-medium text-slate-600 dark:text-slate-300 dark:text-slate-200 italic">
                         {selectedMigrationItem.Keterangan}
                       </div>
                     )}
                   </div>
                 )}
 
-                <div className="flex gap-3 pt-6 border-t border-slate-100 flex-col sm:flex-row">
+                <div className="flex gap-3 pt-6 border-t border-slate-100 dark:border-slate-800 flex-col sm:flex-row">
                   {isEditingPopup ? (
                     <>
                       <button 
                         onClick={() => setIsEditingPopup(false)}
-                        className="flex-1 flex items-center justify-center gap-2 py-4 border-2 border-slate-200 text-slate-500 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all"
+                        className="flex-1 flex items-center justify-center gap-2 py-4 border-2 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-300 dark:text-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all"
                       >
                         Batal
                       </button>
@@ -13184,26 +13251,26 @@ const AdminSettingsPage = () => {
       icon: <Ticket className="w-6 h-6 text-purple-500" />,
       content: (
         <div className="space-y-4">
-          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600">
                 <Ticket className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Double Poin Weekend</p>
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Double Poin Weekend</p>
                 <p className="text-xs font-bold text-[#005E6A]">Sisa 2 Hari Lagi</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <button className="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-purple-600 transition-colors">
+              <button className="p-2 bg-white border border-slate-200 dark:border-slate-700 rounded-lg text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:text-purple-600 transition-colors">
                 <Edit3 className="w-4 h-4" />
               </button>
-              <button className="p-2 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-rose-600 transition-colors">
+              <button className="p-2 bg-white border border-slate-200 dark:border-slate-700 rounded-lg text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:text-rose-600 transition-colors">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </div>
-          <button className="w-full py-4 border-2 border-dashed border-slate-100 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+          <button className="w-full py-4 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
             <Plus className="w-4 h-4" /> Tambah Promo Baru
           </button>
         </div>
@@ -13218,8 +13285,8 @@ const AdminSettingsPage = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="relative group">
-              <div className="aspect-[21/9] bg-slate-100 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border-2 border-slate-200">
-                <ImageIcon className="w-8 h-8 text-slate-300" />
+              <div className="aspect-[21/9] bg-slate-100 rounded-2xl overflow-hidden shadow-inner flex items-center justify-center border-2 border-slate-200 dark:border-slate-700">
+                <ImageIcon className="w-8 h-8 text-slate-300 dark:text-slate-200" />
                 <p className="absolute bottom-2 left-2 px-2 py-1 bg-black/50 text-white text-[8px] font-black rounded uppercase">Slide {i}</p>
               </div>
               <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -13228,7 +13295,7 @@ const AdminSettingsPage = () => {
               </div>
             </div>
           ))}
-          <button className="aspect-[21/9] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 hover:bg-slate-50 transition-all">
+          <button className="aspect-[21/9] border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:bg-slate-50 transition-all">
             <Plus className="w-5 h-5" />
             <span className="text-[8px] font-black uppercase tracking-widest">Tambah Slide</span>
           </button>
@@ -13244,8 +13311,8 @@ const AdminSettingsPage = () => {
         <div className="flex flex-col md:flex-row gap-8">
           <div className="flex-1 space-y-4">
             <div className="flex items-center gap-2 mb-2">
-              <Type className="w-4 h-4 text-slate-400" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ukuran Text</p>
+              <Type className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
+              <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Ukuran Text</p>
             </div>
             <div className="grid grid-cols-3 gap-2">
               {['small', 'medium', 'large'].map(size => (
@@ -13255,7 +13322,7 @@ const AdminSettingsPage = () => {
                   className={`py-3 rounded-xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${
                     fontSize === size 
                     ? 'border-[#005E6A] bg-[#005E6A] text-white' 
-                    : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'
+                    : 'border-slate-100 dark:border-slate-800 bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:border-slate-200 dark:border-slate-700'
                   }`}
                 >
                   {size}
@@ -13265,8 +13332,8 @@ const AdminSettingsPage = () => {
           </div>
           <div className="flex-1 space-y-4">
             <div className="flex items-center gap-2 mb-2">
-              <Palette className="w-4 h-4 text-slate-400" />
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tema Warna</p>
+              <Palette className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
+              <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Tema Warna</p>
             </div>
             <div className="flex gap-4">
               {[
@@ -13352,14 +13419,14 @@ const AdminSettingsPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.1 }}
-            className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 overflow-hidden"
+            className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden"
           >
-            <div className="p-8 border-b border-slate-50">
+            <div className="p-8 border-b border-slate-50 dark:border-slate-800/50">
               <div className="flex items-center gap-4 mb-2">
                 {section.icon}
                 <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">{section.title}</h3>
               </div>
-              <p className="text-[10px] text-slate-400 font-bold ml-10">{section.desc}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold ml-10">{section.desc}</p>
             </div>
             <div className="p-8 bg-slate-50/30">
               {section.content}
@@ -13494,7 +13561,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
           borderColor: "#94A3B8",
           accentColor: "#475569",
           badgeBg: "bg-slate-100 text-slate-600",
-          itemBg: "bg-slate-50/50 border-slate-100"
+          itemBg: "bg-slate-50/50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
         };
       case 2: // Gold
         return {
@@ -13508,14 +13575,14 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
           borderColor: "#475569",
           accentColor: "#1E293B",
           badgeBg: "bg-slate-100 text-slate-800",
-          itemBg: "bg-slate-50/60 border-slate-200/40"
+          itemBg: "bg-slate-50/60 dark:bg-slate-800/60 border-slate-200/40 dark:border-slate-700/40"
         };
       default:
         return {
           borderColor: "#e2e8f0",
           accentColor: "#0ea5e9",
           badgeBg: "bg-sky-50 text-sky-600",
-          itemBg: "bg-slate-50/50 border-slate-100"
+          itemBg: "bg-slate-50/50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800"
         };
     }
   };
@@ -13673,13 +13740,13 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
         <div className="px-6">
 
           {/* Graph Card */}
-          <div className="bg-white rounded-xl border border-slate-100 shadow-xl p-6 mt-6 mb-6 relative z-20 text-slate-800">
+          <div className="bg-white rounded-xl border border-slate-100 dark:border-slate-800 shadow-xl p-6 mt-6 mb-6 relative z-20 text-slate-800 dark:text-slate-100">
             <div className="px-1.5">
               <div className="flex justify-between items-center mb-3">
                 <div className="space-y-1">
-                  <h4 className="text-sm font-black text-slate-800 leading-none">TREND AKUMULASI</h4>
+                  <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 leading-none">TREND AKUMULASI</h4>
                 </div>
-                <span className="text-[8px] font-black text-[#F15A24] bg-orange-50 border border-orange-100/50 px-2 py-0.5 rounded-full uppercase tracking-widest leading-none">Real-time</span>
+                <span className="text-[8px] font-black text-[#F15A24] bg-orange-50 border border-orange-100 dark:border-orange-900/50/50 px-2 py-0.5 rounded-full uppercase tracking-widest leading-none">Real-time</span>
               </div>
               <div className="h-28 w-full -ml-3">
                 <ResponsiveContainer width="100%" height="100%">
@@ -13732,8 +13799,8 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
               {/* Monthly Breakdown Grid for light theme */}
               <div className="mt-4 grid grid-cols-3 gap-2">
                 {last3MonthsData.map((m, idx) => (
-                  <div key={idx} className="text-center p-2 rounded-xl bg-slate-50 border border-slate-100/60">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 truncate">{m.label}</p>
+                  <div key={idx} className="text-center p-2 rounded-xl bg-slate-50 border border-slate-100/60 dark:border-slate-800/60">
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mb-0.5 truncate">{m.label}</p>
                     <p className="text-[10px] font-black text-[#F15A24] tracking-tight">
                       Rp {formatCurrency(m.total)}
                     </p>
@@ -13744,10 +13811,10 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
           </div>
 
           {/* Trophy & Keuntungan Card */}
-          <div className="bg-white rounded-xl border border-slate-100 shadow-xl p-6 mb-6 relative z-20 transition-all duration-500 text-slate-800">
+          <div className="bg-white rounded-xl border border-slate-100 dark:border-slate-800 shadow-xl p-6 mb-6 relative z-20 transition-all duration-500 text-slate-800 dark:text-slate-100">
             {/* Title / Header of the card */}
             <div className="flex justify-between items-center mb-4 px-1">
-              <h4 className="text-sm font-black text-slate-800 leading-none">JENIS LEVEL</h4>
+              <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 leading-none">JENIS LEVEL</h4>
               <span className="text-[8.5px] font-bold text-[#005E6A] flex items-center gap-1 bg-[#005E6A]/5 px-2.5 py-1 rounded-full uppercase tracking-wider">
                 Geser Level ⇄
               </span>
@@ -13785,7 +13852,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                     <div className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
                       isActive 
                         ? `bg-gradient-to-br ${bgActiveGradient} text-white shadow-lg scale-110 -translate-y-0.5 ring-2 ring-[#F15A24] ring-offset-2` 
-                        : "bg-slate-50 text-slate-400 hover:bg-slate-100 border border-slate-100/60"
+                        : "bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-100/60 dark:border-slate-800/60"
                     }`}>
                       <Trophy className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'text-white' : iconColorClass}`} />
                       
@@ -13797,7 +13864,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                       )}
                     </div>
                     <span className={`text-[9px] font-black uppercase tracking-wider transition-colors duration-300 ${
-                      isActive ? "text-slate-800" : "text-slate-400"
+                      isActive ? "text-slate-800 dark:text-slate-100" : "text-slate-400 dark:text-slate-300 dark:text-slate-200"
                     }`}>
                       {level.name}
                     </span>
@@ -13814,7 +13881,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
             </div>
 
             {/* Divider */}
-            <div className="border-t border-slate-100/80 my-4" />
+            <div className="border-t border-slate-100/80 dark:border-slate-800/80 my-4" />
 
             {/* Swipable Level Benefits Container */}
             <div 
@@ -13834,26 +13901,26 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                   <div key={i} className="w-full flex-shrink-0 snap-center">
                     <div className="space-y-4">
                       {/* Selected Level Info */}
-                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                      <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
                         <div className="space-y-1">
-                          <p className="text-sm font-black uppercase tracking-wider text-slate-800">KEUNTUNGAN {level.name.toUpperCase()}</p>
-                          <p className="text-[10px] font-bold text-slate-500">
+                          <p className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-100">KEUNTUNGAN {level.name.toUpperCase()}</p>
+                          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200">
                             {level.max === Infinity ? `Syarat: ≥ Rp ${formatCurrency(level.min)}` : `Syarat: Rp ${formatCurrency(level.min)} - ${formatCurrency(level.max)}`}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           {level.name === currentLevelInfo.name && (
-                            <Badge className="bg-[#005E6A] hover:bg-[#005E6A] text-white border border-[#005E6A]/20 text-[8px] font-black uppercase tracking-widest px-2.5 py-1 shadow-sm">
+                            <Badge className="bg-[#005E6A] hover:bg-[#005E6A] text-white border border-[#005E6A]/20 dark:border-teal-800/40 text-[8px] font-black uppercase tracking-widest px-2.5 py-1 shadow-sm">
                               Level Anda
                             </Badge>
                           )}
                           {isLocked && (
-                            <Badge className="bg-slate-100 text-slate-500 border border-slate-200/50 text-[8px] font-black uppercase tracking-widest px-2.5 py-1">
+                            <Badge className="bg-slate-100 text-slate-500 dark:text-slate-300 dark:text-slate-200 border border-slate-200/50 dark:border-slate-700/50 text-[8px] font-black uppercase tracking-widest px-2.5 py-1">
                               Terkunci
                             </Badge>
                           )}
                           {isCompleted && (
-                            <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[8px] font-black uppercase tracking-widest px-2.5 py-1">
+                            <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 dark:border-emerald-900/50 text-[8px] font-black uppercase tracking-widest px-2.5 py-1">
                               Tercapai
                             </Badge>
                           )}
@@ -13864,7 +13931,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                       <div className="space-y-3">
                         {level.benefits.map((benefit, idx) => {
                           // Determine style based on category
-                          let benefitIcon = <Ticket className="w-5 h-5 text-slate-500" />;
+                          let benefitIcon = <Ticket className="w-5 h-5 text-slate-500 dark:text-slate-300 dark:text-slate-200" />;
                           let benefitBg = "bg-slate-50";
                           let textAccentColor = "text-slate-600";
                           const textLower = benefit.toLowerCase();
@@ -13896,10 +13963,10 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                           return (
                             <div 
                               key={idx} 
-                              className={`relative flex items-stretch bg-white rounded-lg border border-slate-100 shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden min-h-[90px] ${isLocked ? "opacity-60" : ""}`}
+                              className={`relative flex items-stretch bg-white rounded-lg border border-slate-100 dark:border-slate-800 shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden min-h-[90px] ${isLocked ? "opacity-60" : ""}`}
                             >
                               {/* Left Section - Voucher Info (70%) */}
-                              <div className="flex-1 p-3.5 flex items-start gap-3.5 pr-4 text-slate-800">
+                              <div className="flex-1 p-3.5 flex items-start gap-3.5 pr-4 text-slate-800 dark:text-slate-100">
                                 {/* Icon Holder */}
                                 <div className={`w-11 h-11 rounded-md ${benefitBg} flex items-center justify-center flex-shrink-0 relative shadow-inner overflow-hidden border border-black/5 mt-0.5`}>
                                   {benefitIcon}
@@ -13910,10 +13977,10 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                                   <span className={`text-[7.5px] font-black uppercase tracking-[0.2em] ${textAccentColor} leading-none block`}>
                                     VOUCHER LEVEL {level.name.toUpperCase()}
                                   </span>
-                                  <p className="text-[11px] font-black leading-snug text-slate-800 line-clamp-2">
+                                  <p className="text-[11px] font-black leading-snug text-slate-800 dark:text-slate-100 line-clamp-2">
                                     {benefit}
                                   </p>
-                                  <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest block">
+                                  <span className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest block">
                                     Berlaku Selamanya • S&K Berlaku
                                   </span>
                                 </div>
@@ -13922,28 +13989,28 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                               {/* Voucher Tear Divider */}
                               <div className="relative w-3 flex items-center justify-center">
                                 {/* Top semi-circle cut-out */}
-                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-b border-slate-100/40 z-10" style={{ backgroundColor: cutOutBgColor }} />
+                                <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-b border-slate-100/40 dark:border-slate-800/40 z-10" style={{ backgroundColor: cutOutBgColor }} />
                                 
                                 {/* Vertical Dashed Line */}
-                                <div className="h-[70%] w-0 border-l border-dashed border-slate-200" />
+                                <div className="h-[70%] w-0 border-l border-dashed border-slate-200 dark:border-slate-700" />
                                 
                                 {/* Bottom semi-circle cut-out */}
-                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-t border-slate-100/40 z-10" style={{ backgroundColor: cutOutBgColor }} />
+                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-t border-slate-100/40 dark:border-slate-800/40 z-10" style={{ backgroundColor: cutOutBgColor }} />
                               </div>
 
                               {/* Right Section - Voucher Action (30%) */}
-                              <div className="w-24 bg-slate-50/50 flex flex-col items-center justify-center px-2 text-center border-l border-slate-100">
+                              <div className="w-24 bg-slate-50/50 flex flex-col items-center justify-center px-2 text-center border-l border-slate-100 dark:border-slate-800">
                                 {isLocked ? (
                                   <div className="flex flex-col items-center gap-1">
-                                    <Lock className="w-4 h-4 text-slate-400" />
-                                    <span className="text-[8px] font-black tracking-wider text-slate-400 uppercase">Locked</span>
+                                    <Lock className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
+                                    <span className="text-[8px] font-black tracking-wider text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">Locked</span>
                                   </div>
                                 ) : (
                                   <div className="flex flex-col items-center gap-1">
-                                    <span className="text-[9px] font-black tracking-widest text-teal-600 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-100/50 animate-pulse">
+                                    <span className="text-[9px] font-black tracking-widest text-teal-600 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-100 dark:border-teal-900/50/50 animate-pulse">
                                       KLAIM
                                     </span>
-                                    <span className="text-[6.5px] font-black text-slate-400 tracking-widest uppercase mt-0.5">
+                                    <span className="text-[6.5px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 tracking-widest uppercase mt-0.5">
                                       PAKAI SEKARANG
                                     </span>
                                   </div>
@@ -13963,7 +14030,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
             </div>
 
             {/* Divider */}
-            <div className="border-t border-slate-100/80 mt-6 mb-4" />
+            <div className="border-t border-slate-100/80 dark:border-slate-800/80 mt-6 mb-4" />
 
             {/* Integrated Customer List Section */}
             <div 
@@ -13971,18 +14038,18 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
               className="flex items-center justify-between gap-4 cursor-pointer group hover:bg-slate-50/50 -mx-6 px-6 py-2 transition-all duration-200"
             >
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center border border-orange-100 flex-shrink-0 group-hover:scale-105 transition-transform">
+                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center border border-orange-100 dark:border-orange-900/50 flex-shrink-0 group-hover:scale-105 transition-transform">
                   <Users className="w-5 h-5 text-[#F15A24]" />
                 </div>
                 <div className="text-left">
-                  <h4 className="text-xs font-black text-slate-800 leading-snug">DAFTAR PELANGGAN {LEVELS[activeIndex].name.toUpperCase()}</h4>
-                  <p className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-wider">
+                  <h4 className="text-xs font-black text-slate-800 dark:text-slate-100 leading-snug">DAFTAR PELANGGAN {LEVELS[activeIndex].name.toUpperCase()}</h4>
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 mt-0.5 uppercase tracking-wider">
                     LIHAT NASABAH DI LEVEL INI
                   </p>
                 </div>
               </div>
-              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 group-hover:bg-orange-50 group-hover:border-orange-100 transition-all">
-                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#F15A24]" />
+              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 dark:border-slate-800 group-hover:bg-orange-50 group-hover:border-orange-100 dark:border-orange-900/50 transition-all">
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 dark:text-slate-200 group-hover:text-[#F15A24]" />
               </div>
             </div>
           </div>
@@ -14017,32 +14084,32 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                   animate={{ y: 0 }}
                   exit={{ y: "100%" }}
                   transition={{ type: "spring", damping: 28, stiffness: 240 }}
-                  className="relative w-full max-w-xl bg-white border border-slate-100 rounded-t-[2rem] sm:rounded-2xl p-6 pb-8 sm:pb-6 shadow-2xl text-slate-800 z-10 overflow-hidden"
+                  className="relative w-full max-w-xl bg-white border border-slate-100 dark:border-slate-800 rounded-t-[2rem] sm:rounded-2xl p-6 pb-8 sm:pb-6 shadow-2xl text-slate-800 dark:text-slate-100 z-10 overflow-hidden"
                 >
                   {/* Bottom sheet indicator line for mobile only */}
                   <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-4 sm:hidden" />
                   {/* Header */}
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-slate-50 border border-slate-100">
+                      <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-slate-50 border border-slate-100 dark:border-slate-800">
                         <Users className="w-5 h-5" style={{ color: modalTheme.accentColor }} />
                       </div>
                       <div>
-                        <h4 className="text-lg font-black tracking-tight text-slate-900">Pelanggan {LEVELS[activeIndex].name}</h4>
-                        <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Warung Tomi Loyalty</p>
+                        <h4 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">Pelanggan {LEVELS[activeIndex].name}</h4>
+                        <p className="text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-300 dark:text-slate-200 font-bold">Warung Tomi Loyalty</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setIsModalOpen(false)}
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 bg-slate-50 hover:bg-slate-100 transition-colors"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 dark:text-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
 
                   {/* Total Count Banner */}
-                  <div className="mb-4 p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
-                    <span className="text-xs font-medium text-slate-500">Total Pelanggan:</span>
+                  <div className="mb-4 p-3 bg-slate-50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-300 dark:text-slate-200">Total Pelanggan:</span>
                     <span className="px-3 py-1 text-xs font-black rounded-full" style={{ backgroundColor: `${modalTheme.accentColor}15`, color: modalTheme.accentColor }}>
                       {totalCustomersCount} Pelanggan
                     </span>
@@ -14057,7 +14124,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                   ) : (
                     <div>
                       {loadedCustomers.length === 0 ? (
-                        <div className="text-center py-12 text-slate-400 text-xs italic">
+                        <div className="text-center py-12 text-slate-400 dark:text-slate-300 dark:text-slate-200 text-xs italic">
                           Belum ada pelanggan di level ini
                         </div>
                       ) : (
@@ -14074,7 +14141,7 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                                 }}
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center border border-slate-100 bg-slate-50">
+                                  <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center border border-slate-100 dark:border-slate-800 bg-slate-50">
                                     {cust.Foto ? (
                                       <img src={cust.Foto} alt={cust.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                     ) : (
@@ -14084,12 +14151,12 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                                     )}
                                   </div>
                                   <div>
-                                    <p className="font-bold text-sm text-slate-800">{cust.Nama}</p>
-                                    <p className="text-[9px] text-slate-400">ID: {cust.id_pelanggan || cust.id || '-'}</p>
+                                    <p className="font-bold text-sm text-slate-800 dark:text-slate-100">{cust.Nama}</p>
+                                    <p className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200">ID: {cust.id_pelanggan || cust.id || '-'}</p>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <p className="text-[9px] text-slate-400 uppercase tracking-widest">Transaksi (3 Bln)</p>
+                                  <p className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Transaksi (3 Bln)</p>
                                   <p className="text-xs font-black" style={{ color: modalTheme.accentColor }}>Rp {formatCurrency(custLevelInfo.total)}</p>
                                 </div>
                               </div>
@@ -14098,10 +14165,10 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
                         </div>
                       )}
                       
-                      <div className="mt-6 flex justify-end border-t border-slate-100 pt-4">
+                      <div className="mt-6 flex justify-end border-t border-slate-100 dark:border-slate-800 pt-4">
                         <button
                           onClick={() => setIsModalOpen(false)}
-                          className="px-6 py-2.5 font-bold text-xs rounded-xl transition-all text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 active:scale-95 shadow-sm"
+                          className="px-6 py-2.5 font-bold text-xs rounded-xl transition-all text-slate-600 hover:text-slate-800 dark:text-slate-100 bg-slate-100 hover:bg-slate-200 active:scale-95 shadow-sm"
                         >
                           Tutup
                         </button>
@@ -14219,7 +14286,7 @@ const NotificationPage = ({
       case 'tabungan': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
       case 'hutang': return 'bg-rose-50 text-rose-600 border-rose-100';
       case 'investasi': return 'bg-purple-50 text-purple-600 border-purple-100';
-      default: return 'bg-slate-50 text-slate-600 border-slate-100';
+      default: return 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-100 dark:border-slate-800';
     }
   };
 
@@ -14326,39 +14393,39 @@ const NotificationPage = ({
       case 'investasi':
         return <TrendingUp className="w-5 h-5 text-purple-600" />;
       default:
-        return <Bell className="w-5 h-5 text-slate-600" />;
+        return <Bell className="w-5 h-5 text-slate-600 dark:text-slate-200" />;
     }
   };
 
   const getIconBgForType = (type: string) => {
     switch (type) {
       case 'belanja':
-        return 'bg-orange-50 border border-orange-100';
+        return 'bg-orange-50 dark:bg-orange-950/50 border border-orange-100 dark:border-orange-900/50';
       case 'tabungan':
-        return 'bg-emerald-50 border border-emerald-100';
+        return 'bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-900/50';
       case 'hutang':
-        return 'bg-rose-50 border border-rose-100';
+        return 'bg-rose-50 dark:bg-rose-950/50 border border-rose-100 dark:border-rose-900/50';
       case 'investasi':
-        return 'bg-purple-50 border border-purple-100';
+        return 'bg-purple-50 dark:bg-purple-950/50 border border-purple-100 dark:border-purple-900/50';
       default:
-        return 'bg-slate-50 border border-slate-100';
+        return 'bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700';
     }
   };
 
   return (
-    <div className="pt-4 pb-12 px-6 text-left min-h-screen bg-slate-50">
+    <div className="pt-4 pb-12 px-6 text-left min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Sticky Tabs Container */}
-      <div className="sticky top-[80px] z-40 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100 mb-6">
-        <div className="flex bg-slate-100 p-1 rounded-2xl border border-[#F15A24]/10 w-full">
+      <div className="sticky top-[80px] z-40 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100 dark:border-slate-800 mb-6">
+        <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl border border-[#F15A24]/10 dark:border-slate-800 w-full">
           <button 
             onClick={() => setSubTab("notifikasi")}
             className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
               subTab === "notifikasi" 
-                ? "bg-[#F15A24] text-white shadow-md shadow-orange-100/50 font-black" 
-                : "text-slate-500 hover:text-[#F15A24] font-bold"
+                ? "bg-[#F15A24] text-white shadow-md shadow-orange-100/50 dark:shadow-none font-black" 
+                : "text-slate-500 dark:text-slate-200 hover:text-[#F15A24] font-bold"
             }`}
           >
-            <Bell className={`w-3.5 h-3.5 stroke-[2.5] ${subTab === "notifikasi" ? "text-white" : "text-slate-400"}`} />
+            <Bell className={`w-3.5 h-3.5 stroke-[2.5] ${subTab === "notifikasi" ? "text-white" : "text-slate-400 dark:text-slate-300 dark:text-slate-200"}`} />
             Notifikasi
             {unreadCount > 0 && (
               <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full min-w-4 text-center transition-colors shadow-sm ${
@@ -14372,11 +14439,11 @@ const NotificationPage = ({
             onClick={() => setSubTab("promo")}
             className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
               subTab === "promo" 
-                ? "bg-[#F15A24] text-white shadow-md shadow-orange-100/50 font-black" 
-                : "text-slate-500 hover:text-[#F15A24] font-bold"
+                ? "bg-[#F15A24] text-white shadow-md shadow-orange-100/50 dark:shadow-none font-black" 
+                : "text-slate-500 dark:text-slate-200 hover:text-[#F15A24] font-bold"
             }`}
           >
-            <Percent className={`w-3.5 h-3.5 stroke-[2.5] ${subTab === "promo" ? "text-white" : "text-slate-400"}`} />
+            <Percent className={`w-3.5 h-3.5 stroke-[2.5] ${subTab === "promo" ? "text-white" : "text-slate-400 dark:text-slate-300 dark:text-slate-200"}`} />
             Promosi
           </button>
         </div>
@@ -14393,12 +14460,12 @@ const NotificationPage = ({
             className="space-y-4"
           >
             {notifications.length === 0 ? (
-              <div className="bg-white rounded-[2rem] border border-slate-100 p-12 text-center shadow-sm mt-4">
-                <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4 text-slate-300">
+              <div className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 p-12 text-center shadow-sm mt-4">
+                <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 flex items-center justify-center mx-auto mb-4 text-slate-300 dark:text-slate-100">
                   <Bell className="w-8 h-8 stroke-[1.5]" />
                 </div>
-                <h3 className="text-slate-800 font-black text-sm uppercase tracking-wide">Belum Ada Notifikasi</h3>
-                <p className="text-slate-400 text-xs mt-1.5 leading-relaxed font-medium max-w-xs mx-auto">
+                <h3 className="text-slate-800 dark:text-slate-100 font-black text-sm uppercase tracking-wide">Belum Ada Notifikasi</h3>
+                <p className="text-slate-400 dark:text-slate-200 text-xs mt-1.5 leading-relaxed font-medium max-w-xs mx-auto">
                   Semua transaksi setor, tarik, belanja, dan investasi Anda akan muncul di sini secara real-time.
                 </p>
 
@@ -14409,7 +14476,7 @@ const NotificationPage = ({
                   <div className="flex justify-end px-2 pt-1 mb-2">
                     <button
                       onClick={markAllAsRead}
-                      className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 bg-slate-100/60 hover:bg-slate-100 border border-slate-200/40 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                      className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-200 hover:text-slate-600 dark:text-slate-200 dark:hover:text-slate-200 bg-slate-100/60 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/40 dark:border-slate-700/50 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                     >
                       <CheckCircle2 className="w-3 h-3 stroke-[2.5]" />
                       Tandai Semua Sudah Dibaca
@@ -14420,16 +14487,16 @@ const NotificationPage = ({
                 {groupedNotifications.map((group) => (
                   <div key={group.label} className="space-y-0">
                     {/* Sticky Date Divider Header */}
-                    <div className="sticky top-[146px] z-30 bg-slate-50/95 backdrop-blur-md py-2.5 px-6 -mx-6 border-b border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-[#005E6A]">
+                    <div className="sticky top-[146px] z-30 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-2.5 px-6 -mx-6 border-b border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300">
                         {group.label}
                       </span>
-                      <span className="text-[9px] font-bold text-slate-400">
+                      <span className="text-[9px] font-bold text-slate-400 dark:text-slate-200">
                         {group.items.length} Notifikasi
                       </span>
                     </div>
 
-                    <div className="divide-y divide-slate-100/70 -mx-6 bg-white overflow-hidden border-b border-slate-100/70">
+                    <div className="divide-y divide-slate-100/70 dark:divide-slate-800/70 -mx-6 bg-white dark:bg-slate-900 overflow-hidden border-b border-slate-100/70 dark:border-slate-800/70">
                       {group.items.map((notif) => {
                         const isUnread = !readNotificationIds.includes(notif.id);
                         const notificationTime = getFormattedTime(notif.tanggal, notif.id);
@@ -14452,11 +14519,11 @@ const NotificationPage = ({
                                 navigate(`/investasi/${encodeURIComponent(user?.Nama || '')}?showInvestasiId=${encodeURIComponent(itemId)}`);
                               }
                             }}
-                            whileHover={{ backgroundColor: isUnread ? "rgba(241, 90, 36, 0.12)" : "rgba(248, 250, 252, 1)" }}
-                            className={`py-3.5 px-6 flex items-center justify-between gap-4 transition-all cursor-pointer border-b border-slate-100/70 ${
-                              isUnread ? "border-l-4 border-l-[#F15A24]" : "border-l-4 border-l-transparent"
+                            className={`py-3.5 px-6 flex items-center justify-between gap-4 transition-all cursor-pointer border-b border-slate-100/70 dark:border-slate-800/70 ${
+                              isUnread 
+                                ? "bg-[#F15A24]/10 dark:bg-[#F15A24]/15 border-l-4 border-l-[#F15A24]" 
+                                : "bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 border-l-4 border-l-transparent"
                             }`}
-                            style={{ backgroundColor: isUnread ? "rgba(241, 90, 36, 0.08)" : "#ffffff" }}
                           >
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                               {/* Compact Icon */}
@@ -14467,17 +14534,17 @@ const NotificationPage = ({
                               {/* Text */}
                               <div className="min-w-0 flex-1 space-y-0.5">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className={`text-[11px] uppercase tracking-wide truncate ${isUnread ? "font-black text-slate-900" : "font-bold text-slate-600"}`}>
+                                  <span className={`text-[11px] uppercase tracking-wide truncate ${isUnread ? "font-black text-slate-900 dark:text-slate-100" : "font-bold text-slate-600 dark:text-slate-300 dark:text-slate-200"}`}>
                                     {notif.title}
                                   </span>
                                   {isUnread && (
                                     <span className="w-1.5 h-1.5 rounded-full bg-[#F15A24] shrink-0 animate-ping" />
                                   )}
                                 </div>
-                                <p className={`text-[11px] truncate leading-normal ${isUnread ? "text-slate-700 font-medium" : "text-slate-400 font-normal"}`}>
+                                <p className={`text-[11px] truncate leading-normal ${isUnread ? "text-slate-700 dark:text-slate-300 font-medium" : "text-slate-400 dark:text-slate-200 font-normal"}`}>
                                   {notif.description}
                                 </p>
-                                <span className="text-[9px] text-slate-400 font-medium block">
+                                <span className="text-[9px] text-slate-400 dark:text-slate-200 font-medium block">
                                   Pukul {notificationTime} WIB
                                 </span>
                               </div>
@@ -14485,7 +14552,7 @@ const NotificationPage = ({
 
                             {/* Right Side: Amount */}
                             <div className="text-right shrink-0">
-                              <span className={`text-xs tabular-nums ${isUnread ? "font-black text-[#005E6A]" : "font-bold text-slate-500"}`}>
+                              <span className={`text-xs tabular-nums ${isUnread ? "font-black text-[#005E6A] dark:text-teal-300" : "font-bold text-slate-500 dark:text-slate-200"}`}>
                                 {notif.type === "tabungan" && notif.rawItem.Tipe === "SETOR" ? "+" : ""}
                                 {notif.type === "investasi" ? "+" : ""}
                                 Rp {formatCurrency(notif.amount)}
@@ -14502,7 +14569,7 @@ const NotificationPage = ({
                   <div className="py-6 text-center">
                     <button
                       onClick={() => setVisibleCount(prev => Math.min(prev + 20, notifications.length))}
-                      className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-700 bg-slate-100 hover:bg-slate-200/80 border border-slate-200/50 px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm"
+                      className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:text-slate-200 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 border border-slate-200/50 dark:border-slate-700/50 px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-sm"
                     >
                       Muat 20 Notifikasi Lagi
                     </button>
@@ -14524,10 +14591,10 @@ const NotificationPage = ({
                 key={promo.id}
                 whileHover={{ y: -1 }}
                 onClick={() => setSelectedPromo(promo)}
-                className="bg-white rounded-lg border border-slate-100 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer text-left flex gap-4 items-start"
+                className="bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 p-4 shadow-sm hover:shadow-md transition-all cursor-pointer text-left flex gap-4 items-start"
               >
                 {/* Simplified Compact Image */}
-                <div className="w-20 h-20 bg-slate-50 rounded border border-slate-100 overflow-hidden shrink-0 relative">
+                <div className="w-20 h-20 bg-slate-50 dark:bg-slate-800 rounded border border-slate-100 dark:border-slate-800 overflow-hidden shrink-0 relative">
                   <img src={promo.image} alt={promo.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
 
@@ -14537,14 +14604,14 @@ const NotificationPage = ({
                     <span className="text-[8px] font-black tracking-widest text-[#F15A24] uppercase">
                       {promo.category}
                     </span>
-                    <span className="bg-slate-100 text-[#005E6A] text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                    <span className="bg-slate-100 dark:bg-slate-800 text-[#005E6A] dark:text-teal-300 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
                       {promo.tag}
                     </span>
                   </div>
-                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-tight leading-snug line-clamp-1">
+                  <h3 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight leading-snug line-clamp-1">
                     {promo.title}
                   </h3>
-                  <p className="text-[10px] text-slate-500 font-medium leading-relaxed line-clamp-2">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-200 font-medium leading-relaxed line-clamp-2">
                     {promo.desc}
                   </p>
                 </div>
@@ -14569,7 +14636,7 @@ const NotificationPage = ({
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-sm bg-white rounded-xl overflow-hidden shadow-2xl text-left"
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-2xl text-left border border-slate-100 dark:border-slate-800"
             >
               <div className="bg-[#005E6A] p-6 text-white relative">
                 <button
@@ -14587,29 +14654,29 @@ const NotificationPage = ({
 
               <div className="p-6 space-y-6">
                 <div className="space-y-4">
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">Jumlah Transaksi</span>
-                    <span className="text-xl font-black text-slate-800 tabular-nums">
+                  <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <span className="text-[8px] font-black text-slate-400 dark:text-slate-200 uppercase tracking-widest block mb-0.5">Jumlah Transaksi</span>
+                    <span className="text-xl font-black text-slate-800 dark:text-slate-100 tabular-nums">
                       Rp {formatCurrency(selectedNotification.amount)}
                     </span>
                   </div>
 
                   <div className="space-y-3 px-1">
-                    <div className="flex justify-between items-start text-xs border-b border-dashed border-slate-100 pb-2.5">
-                      <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Status Transaksi</span>
+                    <div className="flex justify-between items-start text-xs border-b border-dashed border-slate-100 dark:border-slate-800 pb-2.5">
+                      <span className="text-slate-400 dark:text-slate-200 font-bold uppercase text-[9px] tracking-wider">Status Transaksi</span>
                       <span className={`font-black uppercase text-[9px] tracking-wider px-2 py-0.5 rounded-full border ${selectedNotification.badgeColorClass}`}>
                         {selectedNotification.badgeText}
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-start text-xs border-b border-dashed border-slate-100 pb-2.5">
-                      <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Pelanggan</span>
-                      <span className="text-slate-800 font-black uppercase text-[10px]">{user?.Nama}</span>
+                    <div className="flex justify-between items-start text-xs border-b border-dashed border-slate-100 dark:border-slate-800 pb-2.5">
+                      <span className="text-slate-400 dark:text-slate-200 font-bold uppercase text-[9px] tracking-wider">Pelanggan</span>
+                      <span className="text-slate-800 dark:text-slate-100 font-black uppercase text-[10px]">{user?.Nama}</span>
                     </div>
 
                     <div className="space-y-1 text-xs">
-                      <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Keterangan / Berita</span>
-                      <p className="text-slate-600 font-medium leading-relaxed bg-slate-50/60 p-3 rounded-xl border border-slate-100/50">
+                      <span className="text-slate-400 dark:text-slate-200 font-bold uppercase text-[9px] tracking-wider block">Keterangan / Berita</span>
+                      <p className="text-slate-600 dark:text-slate-300 dark:text-slate-200 font-medium leading-relaxed bg-slate-50/60 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100/50 dark:border-slate-800">
                         {selectedNotification.description}
                       </p>
                     </div>
@@ -14643,9 +14710,9 @@ const NotificationPage = ({
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-sm bg-white rounded-xl overflow-hidden shadow-2xl text-left"
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-2xl text-left border border-slate-100 dark:border-slate-800"
             >
-              <div className="aspect-[16/9] w-full bg-slate-100 relative">
+              <div className="aspect-[16/9] w-full bg-slate-100 dark:bg-slate-800 relative">
                 <img src={selectedPromo.image} alt={selectedPromo.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 <button
                   onClick={() => setSelectedPromo(null)}
@@ -14654,7 +14721,7 @@ const NotificationPage = ({
                   <X className="w-4 h-4" />
                 </button>
                 <div className="absolute bottom-4 left-4">
-                  <span className="bg-white/95 backdrop-blur-sm text-[#005E6A] text-[9px] font-black px-2.5 py-1 rounded-full shadow-sm border border-slate-100 uppercase tracking-widest">
+                  <span className="bg-white/95 dark:bg-slate-900/95 text-[#005E6A] dark:text-teal-300 text-[9px] font-black px-2.5 py-1 rounded-full shadow-sm border border-slate-100 dark:border-slate-800 uppercase tracking-widest">
                     {selectedPromo.tag}
                   </span>
                 </div>
@@ -14663,17 +14730,17 @@ const NotificationPage = ({
               <div className="p-6 space-y-4">
                 <div className="space-y-1.5">
                   <span className="text-[9px] font-black tracking-widest text-[#F15A24] uppercase">{selectedPromo.category}</span>
-                  <h3 className="text-base font-black text-slate-800 uppercase tracking-tight leading-snug">{selectedPromo.title}</h3>
+                  <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight leading-snug">{selectedPromo.title}</h3>
                 </div>
                 
-                <p className="text-slate-600 text-xs leading-relaxed font-medium">
+                <p className="text-slate-600 dark:text-slate-300 dark:text-slate-200 text-xs leading-relaxed font-medium">
                   {selectedPromo.desc}
                 </p>
 
                 <div className="flex gap-3 pt-2">
                   <button 
                     onClick={() => setSelectedPromo(null)}
-                    className="flex-1 py-3 bg-slate-50 hover:bg-slate-100 text-slate-500 border border-slate-100 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-transform cursor-pointer"
+                    className="flex-1 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-300 dark:text-slate-200 border border-slate-100 dark:border-slate-700 rounded-xl text-xs font-black uppercase tracking-widest active:scale-95 transition-transform cursor-pointer"
                   >
                     Tutup
                   </button>
@@ -15095,13 +15162,13 @@ Terima kasih telah berbelanja di Warung Tomi!`;
           <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-2xl">
             <button 
               onClick={() => setActiveTab("trend")}
-              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "trend" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
+              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "trend" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400 dark:text-slate-300 dark:text-slate-200'}`}
             >
               {t("Trend", "Trend")}
             </button>
             <button 
               onClick={() => setActiveTab("rincian")}
-              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "rincian" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
+              className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === "rincian" ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400 dark:text-slate-300 dark:text-slate-200'}`}
             >
               {t("Rincian", "Details")}
             </button>
@@ -15110,10 +15177,10 @@ Terima kasih telah berbelanja di Warung Tomi!`;
           {activeTab === "trend" ? (
             <div className="mb-2">
               {/* 6-Month Trend Chart with Integrated Total */}
-              <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 mb-2 relative overflow-hidden">
+              <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800 mb-2 relative overflow-hidden">
                 <div className="relative z-10 mb-6 flex items-center justify-between">
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("Total Transaksi", "Total Transactions")} {selectedMonthLabel}</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1">{t("Total Transaksi", "Total Transactions")} {selectedMonthLabel}</p>
                     <h4 className="text-xl font-black text-[#005E6A]">
                       Rp {formatCurrency(totalSelectedMonth)}
                     </h4>
@@ -15149,8 +15216,8 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                           content={({ active, payload }) => {
                             if (active && payload && payload.length) {
                               return (
-                                <div className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xl text-[10px] font-black">
-                                  <p className="text-slate-400 uppercase mb-1">{payload[0].payload.label}</p>
+                                <div className="bg-white p-3 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl text-[10px] font-black">
+                                  <p className="text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase mb-1">{payload[0].payload.label}</p>
                                   <p className="text-[#F15A24] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
                                 </div>
                               );
@@ -15187,10 +15254,10 @@ Terima kasih telah berbelanja di Warung Tomi!`;
           ) : (
             <div className="mb-2">
               {/* Pie Chart Section with Integrated Total */}
-              <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-slate-100 mb-2 relative overflow-hidden">
+              <div className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-slate-100 dark:border-slate-800 mb-2 relative overflow-hidden">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{t("Total Belanja", "Total Shopping")} {selectedMonthLabel}</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1">{t("Total Belanja", "Total Shopping")} {selectedMonthLabel}</p>
                     <h4 className="text-xl font-black text-[#005E6A]">
                       Rp {formatCurrency(totalSelectedMonth)}
                     </h4>
@@ -15201,7 +15268,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                 </div>
 
                 {pieData.length > 0 && (
-                  <div className="mb-4 bg-orange-50/50 p-3 rounded-2xl border border-orange-100/50">
+                  <div className="mb-4 bg-orange-50/50 p-3 rounded-2xl border border-orange-100 dark:border-orange-900/50/50">
                     <div className="flex items-center gap-2">
                       <Zap className="w-3 h-3 text-[#F15A24]" />
                       <p className="text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
@@ -15232,8 +15299,8 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                         content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             return (
-                              <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-50 text-[10px] font-black">
-                                <p className="text-slate-400 uppercase mb-1">{payload[0].name}</p>
+                              <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-50 dark:border-slate-800/50 text-[10px] font-black">
+                                <p className="text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase mb-1">{payload[0].name}</p>
                                 <p className="text-[#005E6A] text-sm">Rp {formatCurrency(payload[0].value as number)}</p>
                               </div>
                             );
@@ -15247,12 +15314,12 @@ Terima kasih telah berbelanja di Warung Tomi!`;
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3 mt-4 px-2">
                   {pieData.sort((a,b) => b.value - a.value).map((item: any, i) => (
-                    <div key={i} className="flex items-center justify-between border-b border-slate-50 pb-1">
+                    <div key={i} className="flex items-center justify-between border-b border-slate-50 dark:border-slate-800/50 pb-1">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-                        <p className="text-[8px] font-black text-slate-500 uppercase truncate">{item.name}</p>
+                        <p className="text-[8px] font-black text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase truncate">{item.name}</p>
                       </div>
-                      <p className="text-[8px] font-black text-slate-400">{Math.round(item.percentage)}%</p>
+                      <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200">{Math.round(item.percentage)}%</p>
                     </div>
                   ))}
                 </div>
@@ -15266,7 +15333,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
           {activeTab === "trend" ? (
             <div>
               {/* Sticky Month Tabs */}
-              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 mb-4 -mx-6">
+              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 dark:border-slate-800/50 mb-4 -mx-6">
                 <div ref={tabContainerRef1} className="relative flex gap-2 overflow-x-auto no-scrollbar snap-x px-6">
                   {chartData.map((m, i) => {
                     const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
@@ -15278,7 +15345,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                         className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap snap-start transition-all duration-200 border ${
                           isActive 
                             ? 'bg-[#005E6A] text-white border-[#005E6A] shadow-sm' 
-                            : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
+                            : 'bg-white text-slate-500 dark:text-slate-300 dark:text-slate-200 border-slate-100 dark:border-slate-800 hover:bg-slate-50'
                         }`}
                       >
                         {m.label}
@@ -15354,27 +15421,27 @@ Terima kasih telah berbelanja di Warung Tomi!`;
 
                       const getStatusColor = (status: string) => {
                         const s = status.toLowerCase();
-                        if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
-                        if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
-                        if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
-                        if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
-                        return 'bg-slate-400/10 text-slate-500';
+                        if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-emerald-300';
+                        if (s.includes('kasbon')) return 'bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-rose-300';
+                        if (s.includes('proses')) return 'bg-yellow-500/10 dark:bg-yellow-500/20 text-yellow-600 dark:text-amber-300';
+                        if (s.includes('belum diambil')) return 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-sky-300';
+                        return 'bg-slate-400/10 dark:bg-slate-700/50 text-slate-500 dark:text-slate-200';
                       };
 
                       return (
                         <div 
                           key={i} 
                           onClick={() => navigate(`/detail-belanja/${encodeURIComponent(item.id || item.id_transaksi || '')}`)}
-                          className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 shadow-sm relative overflow-hidden cursor-pointer hover:bg-slate-50/80 transition-colors active:scale-[0.99] duration-150"
+                          className="bg-white p-4 rounded-2xl flex items-center justify-between border border-slate-50 dark:border-slate-800/50 shadow-sm relative overflow-hidden cursor-pointer hover:bg-slate-50/80 transition-colors active:scale-[0.99] duration-150"
                         >
                           <div className="flex items-center gap-3">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bgColorClass}`}>
                               <IconComponent className={`w-5 h-5 ${iconColorClass}`} />
                             </div>
                             <div>
-                              <p className="text-xs font-bold text-slate-800">{item.Jenis}</p>
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{item.Jenis}</p>
                               <div className="flex items-center gap-2 mt-1">
-                                <p className="text-[8px] text-slate-400 uppercase tracking-widest">{item.Tanggal}</p>
+                                <p className="text-[8px] text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{item.Tanggal}</p>
                                 <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full w-fit ${getStatusColor(item.Status)}`}>
                                   {item.Status}
                                 </p>
@@ -15404,7 +15471,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
           ) : (
             <div>
               {/* Sticky Month Tabs */}
-              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 mb-4 -mx-6">
+              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 dark:border-slate-800/50 mb-4 -mx-6">
                 <div ref={tabContainerRef2} className="relative flex gap-2 overflow-x-auto no-scrollbar snap-x px-6">
                   {chartData.map((m, i) => {
                     const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
@@ -15416,7 +15483,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                         className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider whitespace-nowrap snap-start transition-all duration-200 border ${
                           isActive 
                             ? 'bg-[#005E6A] text-white border-[#005E6A] shadow-sm' 
-                            : 'bg-white text-slate-500 border-slate-100 hover:bg-slate-50'
+                            : 'bg-white text-slate-500 dark:text-slate-300 dark:text-slate-200 border-slate-100 dark:border-slate-800 hover:bg-slate-50'
                         }`}
                       >
                         {m.label}
@@ -15471,7 +15538,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                   }}
                   className="space-y-3 touch-pan-y active:cursor-grabbing"
                 >
-                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Kategori Transaksi</h3>
+                  <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest px-2 mb-2">Kategori Transaksi</h3>
                   {Object.entries(groupedTransactions).length > 0 ? (
                     Object.entries(groupedTransactions)
                       .sort(([, a], [, b]) => (b as any).total - (a as any).total)
@@ -15496,15 +15563,15 @@ Terima kasih telah berbelanja di Warung Tomi!`;
 
                       const getStatusColor = (status: string) => {
                         const s = status.toLowerCase();
-                        if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 text-green-600';
-                        if (s.includes('kasbon')) return 'bg-red-500/10 text-red-600';
-                        if (s.includes('proses')) return 'bg-yellow-500/10 text-yellow-600';
-                        if (s.includes('belum diambil')) return 'bg-blue-500/10 text-blue-600';
-                        return 'bg-slate-400/10 text-slate-500';
+                        if (s.includes('selesai') || s.includes('lunas')) return 'bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-emerald-300';
+                        if (s.includes('kasbon')) return 'bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-rose-300';
+                        if (s.includes('proses')) return 'bg-yellow-500/10 dark:bg-yellow-500/20 text-yellow-600 dark:text-amber-300';
+                        if (s.includes('belum diambil')) return 'bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-sky-300';
+                        return 'bg-slate-400/10 dark:bg-slate-700/50 text-slate-500 dark:text-slate-200';
                       };
 
                       return (
-                        <div key={jenis} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                        <div key={jenis} className="bg-white rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
                           <button 
                             onClick={() => toggleGroup(jenis)}
                             className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
@@ -15514,13 +15581,13 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                                 <IconComponent className={`w-4 h-4 ${iconColorClass}`} />
                               </div>
                               <div className="text-left">
-                                <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{jenis}</p>
-                                <p className="text-[9px] text-slate-400 font-bold">{data.items.length} Transaksi</p>
+                                <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">{jenis}</p>
+                                <p className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold">{data.items.length} Transaksi</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-4">
                               <p className="text-xs font-black text-[#005E6A]">Rp {formatCurrency(data.total)}</p>
-                              {expandedGroups.includes(jenis) ? <ChevronUp className="w-4 h-4 text-slate-300" /> : <ChevronDown className="w-4 h-4 text-slate-300" />}
+                              {expandedGroups.includes(jenis) ? <ChevronUp className="w-4 h-4 text-slate-300 dark:text-slate-200" /> : <ChevronDown className="w-4 h-4 text-slate-300 dark:text-slate-200" />}
                             </div>
                           </button>
 
@@ -15530,7 +15597,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                                 initial={{ height: 0, opacity: 0 }}
                                 animate={{ height: "auto", opacity: 1 }}
                                 exit={{ height: 0, opacity: 0 }}
-                                className="border-t border-slate-50 bg-slate-50/30"
+                                className="border-t border-slate-50 dark:border-slate-800/50 bg-slate-50/30"
                               >
                                 <div className="p-2 space-y-2">
                                   {data.items.map((item, i) => (
@@ -15541,7 +15608,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                                     >
                                       <div>
                                         <div className="flex items-center gap-2">
-                                          <p className="text-[10px] font-bold text-slate-600">{item.Tanggal}</p>
+                                          <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 dark:text-slate-200">{item.Tanggal}</p>
                                           <p className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full ${getStatusColor(item.Status)}`}>
                                             {item.Status}
                                           </p>
@@ -15585,7 +15652,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className="bg-white w-full max-w-sm p-6 shadow-2xl relative print:shadow-none print:p-4 print-receipt-modal border-x border-slate-100"
+                className="bg-white w-full max-w-sm p-6 shadow-2xl relative print:shadow-none print:p-4 print-receipt-modal border-x border-slate-100 dark:border-slate-800"
               >
                 {/* Jagged top edge */}
                 <div className="absolute top-0 left-0 right-0 h-2 flex overflow-hidden -translate-y-[99%] select-none pointer-events-none print:hidden">
@@ -15604,7 +15671,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                 {/* Close Button (Hidden in print) */}
                 <button 
                   onClick={() => setSelectedTransaction(null)}
-                  className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors print:hidden"
+                  className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-300 dark:text-slate-200 transition-colors print:hidden"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -15615,38 +15682,38 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                     <Receipt className="w-6 h-6" />
                   </div>
                   <h2 className="text-sm font-black text-[#005E6A] uppercase tracking-[0.2em]">WARUNG TOMI</h2>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                  <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-relaxed">
                     Dusun Manis, RT009/RW005<br/>Desa Wilanagara, Kuningan
                   </p>
                   <div className="h-[1px] w-12 bg-slate-100 mx-auto my-2" />
-                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-wider">
+                  <p className="text-[8px] font-black text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">
                     ID: {selectedTransaction.id_transaksi || selectedTransaction.id || `TRX-${selectedTransaction.Tanggal.replace(/[^0-9]/g, '').slice(0, 12)}`}
                   </p>
                 </div>
 
                 {/* Invoice Meta Grid */}
-                <div className="grid grid-cols-2 gap-y-2 gap-x-4 border-y border-slate-100 py-3 mb-4 text-[9px]">
+                <div className="grid grid-cols-2 gap-y-2 gap-x-4 border-y border-slate-100 dark:border-slate-800 py-3 mb-4 text-[9px]">
                   <div>
-                    <p className="font-bold text-slate-400 uppercase tracking-wider">Tanggal</p>
-                    <p className="font-black text-slate-700 uppercase tracking-tight mt-0.5">{selectedTransaction.Tanggal}</p>
+                    <p className="font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Tanggal</p>
+                    <p className="font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight mt-0.5">{selectedTransaction.Tanggal}</p>
                   </div>
                   <div>
-                    <p className="font-bold text-slate-400 uppercase tracking-wider">Pelanggan</p>
+                    <p className="font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Pelanggan</p>
                     <p className="font-black text-[#005E6A] uppercase tracking-tight mt-0.5">{selectedTransaction.Nama || "Pelanggan Umum"}</p>
                   </div>
                   <div>
-                    <p className="font-bold text-slate-400 uppercase tracking-wider">Metode</p>
+                    <p className="font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Metode</p>
                     <p className="font-black text-[#005E6A] uppercase tracking-tight mt-0.5">{selectedTransaction.Metode || "Tunai"}</p>
                   </div>
                   <div>
-                    <p className="font-bold text-slate-400 uppercase tracking-wider">Status</p>
+                    <p className="font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Status</p>
                     <p className="font-black text-[#005E6A] uppercase tracking-tight mt-0.5">{selectedTransaction.Status}</p>
                   </div>
                 </div>
 
                 {/* Items Listing */}
                 <div className="space-y-3 mb-5">
-                  <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-1.5">
+                  <div className="flex justify-between text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 pb-1.5">
                     <span>Deskripsi Layanan / Produk</span>
                     <span>Total</span>
                   </div>
@@ -15657,12 +15724,12 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] font-black text-[#005E6A] uppercase truncate">{item.name}</p>
                           {item.qty > 1 && item.price && (
-                            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                            <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mt-0.5">
                               {item.qty} x Rp {formatCurrency(item.price)}
                             </p>
                           )}
                         </div>
-                        <span className="text-[10px] font-black text-slate-700 shrink-0">
+                        <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 shrink-0">
                           Rp {formatCurrency(item.qty * (item.price || selectedTransaction.Pemasukan / item.qty))}
                         </span>
                       </div>
@@ -15671,9 +15738,9 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                 </div>
 
                 {/* Total & Points Summary */}
-                <div className="space-y-2 py-3.5 border-t border-dashed border-slate-200">
+                <div className="space-y-2 py-3.5 border-t border-dashed border-slate-200 dark:border-slate-700">
                   <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    <span className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
                       {getIsEdcBni(selectedTransaction.Melalui) && selectedTransaction.HargaModal > 0
                         ? "Total Diterima"
                         : getIsCashOut(selectedTransaction.Jenis) && selectedTransaction.HargaModal > 0
@@ -15692,15 +15759,15 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                   </div>
                   {Math.floor(selectedTransaction.Pemasukan / 10000) > 0 && (
                     <div className="flex justify-between items-center pt-0.5">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Poin Diperoleh</span>
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Poin Diperoleh</span>
                       <span className="text-[8px] font-black text-white bg-[#F15A24] px-1.5 py-0.5 rounded-md uppercase tracking-wider">
                         +{Math.floor(selectedTransaction.Pemasukan / 10000)} Poin
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between items-center pt-0.5">
-                    <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Operator</span>
-                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">
+                    <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Operator</span>
+                    <span className="text-[8px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">
                       {selectedTransaction.Melalui || "Sistem"}
                     </span>
                   </div>
@@ -15737,7 +15804,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
                   )}
                   <button 
                     onClick={() => setSelectedTransaction(null)}
-                    className="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-colors"
+                    className="flex-1 py-2.5 bg-slate-100 text-slate-600 dark:text-slate-300 dark:text-slate-200 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-200 transition-colors"
                   >
                     Tutup
                   </button>
@@ -15824,23 +15891,26 @@ const ProfilPage = ({
   // Interactive settings states with persistence & dynamic theme/language application
   const { language, setLanguage, t } = useLanguage();
   const [themeMode, setThemeModeState] = useState(() => {
-    return localStorage.getItem("app_theme") || "teal";
+    return localStorage.getItem("app_theme") || "system";
+  });
+  const [textSize, setTextSizeState] = useState(() => {
+    return localStorage.getItem("app_text_size") || "normal";
   });
   const [toastNotice, setToastNotice] = useState<string | null>(null);
+  const [settingModal, setSettingModal] = useState<"language" | "theme" | "textSize" | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
-    if (themeMode === "dark") {
-      root.classList.add("dark");
-      root.setAttribute("data-theme", "dark");
-    } else if (themeMode === "orange") {
-      root.classList.remove("dark");
-      root.setAttribute("data-theme", "orange");
+    if (textSize === "xsmall" || textSize === "sangat_kecil") {
+      root.style.fontSize = "12px";
+    } else if (textSize === "small" || textSize === "kecil") {
+      root.style.fontSize = "14px";
+    } else if (textSize === "large" || textSize === "besar") {
+      root.style.fontSize = "18px";
     } else {
-      root.classList.remove("dark");
-      root.setAttribute("data-theme", "teal");
+      root.style.fontSize = "16px";
     }
-  }, [themeMode]);
+  }, [textSize]);
 
   const handleLanguageChange = (lang: Language) => {
     setLanguage(lang);
@@ -15851,12 +15921,28 @@ const ProfilPage = ({
   const handleThemeChange = (mode: string) => {
     setThemeModeState(mode);
     localStorage.setItem("app_theme", mode);
-    const labelMap: Record<string, string> = {
-      teal: "Teal (Hijau Toska)",
-      orange: "Oranye (Sutra Warm)",
-      dark: "Gelap (Dark Mode)"
+    window.dispatchEvent(new Event("app_theme_changed"));
+    const labelMap: Record<string, { id: string, en: string }> = {
+      system: { id: "Sistem (Default)", en: "System (Default)" },
+      light: { id: "Mode Siang", en: "Day Mode" },
+      dark: { id: "Mode Malam", en: "Night Mode" }
     };
-    setToastNotice(`Tema aplikasi diubah ke ${labelMap[mode] || mode}`);
+    const label = language === "en" ? labelMap[mode]?.en : labelMap[mode]?.id;
+    setToastNotice(language === "en" ? `Theme changed to ${label}` : `Tema aplikasi diubah ke ${label}`);
+    setTimeout(() => setToastNotice(null), 3000);
+  };
+
+  const handleTextSizeChange = (size: "xsmall" | "small" | "normal" | "large") => {
+    setTextSizeState(size);
+    localStorage.setItem("app_text_size", size);
+    const sizeLabels: Record<string, { id: string, en: string }> = {
+      xsmall: { id: "Sangat Kecil (12px)", en: "Very Small (12px)" },
+      small: { id: "Kecil (14px)", en: "Small (14px)" },
+      normal: { id: "Sedang (16px)", en: "Medium (16px)" },
+      large: { id: "Besar (18px)", en: "Large (18px)" }
+    };
+    const label = language === "en" ? sizeLabels[size]?.en : sizeLabels[size]?.id;
+    setToastNotice(language === "en" ? `Text size changed to ${label}` : `Ukuran teks diubah ke ${label}`);
     setTimeout(() => setToastNotice(null), 3000);
   };
   
@@ -16027,20 +16113,20 @@ const ProfilPage = ({
 
       {/* 2. KELOMPOK REWARD (Pindahkan ke atas aset) */}
       {user && (
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
           <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">{t("Loyalitas & Reward", "Loyalty & Rewards")}</h3>
           <div className="grid grid-cols-2 gap-4">
             
             {/* Level (Sebelah Kiri) */}
             <div 
               onClick={() => navigate("/level")}
-              className="bg-slate-50 hover:bg-slate-100/50 border border-slate-100/50 p-4 rounded-lg cursor-pointer transition-all active:scale-95 flex items-center gap-3"
+              className="bg-slate-50 hover:bg-slate-100/50 border border-slate-100/50 dark:border-slate-800/50 p-4 rounded-lg cursor-pointer transition-all active:scale-95 flex items-center gap-3"
             >
               <div className={`w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 shrink-0`}>
                 <Trophy className="w-5 h-5 text-[#F15A24] fill-[#F15A24]" />
               </div>
               <div className="min-w-0">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">{t("Level Pelanggan", "Customer Level")}</p>
+                <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">{t("Level Pelanggan", "Customer Level")}</p>
                 <p className="text-xs font-black text-[#F15A24] uppercase truncate">{customerLevel.name}</p>
               </div>
             </div>
@@ -16048,13 +16134,13 @@ const ProfilPage = ({
             {/* Poin (Sebelah Kanan) */}
             <div 
               onClick={() => navigate(user ? `/poin/${encodeURIComponent(user.Nama)}` : '/poin')}
-              className="bg-slate-50 hover:bg-slate-100/50 border border-slate-100/50 p-4 rounded-lg cursor-pointer transition-all active:scale-95 flex items-center gap-3"
+              className="bg-slate-50 hover:bg-slate-100/50 border border-slate-100/50 dark:border-slate-800/50 p-4 rounded-lg cursor-pointer transition-all active:scale-95 flex items-center gap-3"
             >
               <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
                 <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
               </div>
               <div className="min-w-0">
-                <p className="text-[8px] font-black text-slate-400 uppercase tracking-wider">{t("Poin Saya", "My Points")}</p>
+                <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">{t("Poin Saya", "My Points")}</p>
                 <p className="text-xs font-black text-amber-600 uppercase truncate">
                   {activePoints.toLocaleString('id-ID')} {t("Poin", "Pts")}
                 </p>
@@ -16067,7 +16153,7 @@ const ProfilPage = ({
 
       {/* 3. KELOMPOK ASET */}
       {user && (
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
+        <div className="bg-white rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
           <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">{t("Aset/Hutang", "Assets & Liabilities")}</h3>
           <div 
             ref={assetScrollRef}
@@ -16185,7 +16271,7 @@ const ProfilPage = ({
                 
                 <div className="min-w-0 text-left flex-1">
                   <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
-                    Lainnya
+                    {t("Lainnya", "Others")}
                   </p>
                   <div className="flex items-center gap-0.5 leading-none">
                     <span className="text-[7px] font-black text-white/70 italic">Rp</span>
@@ -16226,7 +16312,7 @@ const ProfilPage = ({
                 
                 <div className="min-w-0 text-left flex-1">
                   <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
-                    Hutang
+                    {t("Hutang", "Debt")}
                   </p>
                   <div className="flex items-center gap-0.5 leading-none">
                     <span className="text-[7px] font-black text-white/70 italic">Rp</span>
@@ -16258,137 +16344,419 @@ const ProfilPage = ({
       </AnimatePresence>
 
       {/* 4. KELOMPOK PENGATURAN */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
-        <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-2">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 p-6">
+        <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-3">
           {language === "en" ? "Settings" : "Pengaturan"}
         </h3>
-        <div className="divide-y divide-slate-100">
+        <div className="space-y-1">
           
           {/* Bahasa */}
-          <div className="flex items-center justify-between py-3.5">
+          <button 
+            onClick={() => setSettingModal("language")}
+            className="w-full py-3 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all rounded-2xl px-2 -mx-2 text-left group cursor-pointer"
+          >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-500">
-                <Globe className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-500 shrink-0">
+                <Globe className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-xs font-black text-[#005E6A] uppercase tracking-tight">
+                <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">
                   {language === "en" ? "Language" : "Bahasa"}
                 </p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
                   {language === "en" ? "Select application language" : "Pilih bahasa aplikasi"}
                 </p>
               </div>
             </div>
-            <div className="flex bg-slate-100 p-1 rounded-2xl">
-              <button 
-                onClick={() => handleLanguageChange("id")}
-                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${language === "id" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
-              >
-                IND
-              </button>
-              <button 
-                onClick={() => handleLanguageChange("en")}
-                className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${language === "en" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
-              >
-                ENG
-              </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-[#F15A24] dark:text-orange-400 uppercase tracking-wider">
+                {language === "id" ? "INDONESIA" : "ENGLISH"}
+              </span>
+              <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A] dark:group-hover:text-teal-400 transition-colors" />
             </div>
-          </div>
+          </button>
+
+          <div className="border-t border-slate-100 dark:border-slate-800/80 ml-13" />
 
           {/* Tema */}
-          <div className="flex items-center justify-between py-3.5">
+          <button 
+            onClick={() => setSettingModal("theme")}
+            className="w-full py-3 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all rounded-2xl px-2 -mx-2 text-left group cursor-pointer"
+          >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-purple-50 flex items-center justify-center text-purple-500">
-                <Settings className="w-5 h-5 text-purple-600" />
+              <div className="w-10 h-10 rounded-2xl bg-yellow-50 dark:bg-yellow-950/50 flex items-center justify-center text-yellow-500 shrink-0">
+                <Sun className="w-5 h-5 text-yellow-500 dark:text-yellow-400" />
               </div>
               <div>
-                <p className="text-xs font-black text-[#005E6A] uppercase tracking-tight">
+                <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">
                   {language === "en" ? "Theme" : "Tema"}
                 </p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                  {language === "en" ? "Choose color scheme" : "Pilih skema warna"}
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
+                  {language === "en" ? "Day / Night Mode" : "Mode Siang / Malam"}
                 </p>
               </div>
             </div>
-            <div className="flex bg-slate-100 p-1 rounded-2xl gap-0.5">
-              <button 
-                onClick={() => handleThemeChange("teal")}
-                className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${themeMode === "teal" ? "bg-[#005E6A] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
-              >
-                Teal
-              </button>
-              <button 
-                onClick={() => handleThemeChange("orange")}
-                className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${themeMode === "orange" ? "bg-[#F15A24] text-white shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
-              >
-                Oranye
-              </button>
-              <button 
-                onClick={() => handleThemeChange("dark")}
-                className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${themeMode === "dark" ? "bg-slate-900 text-amber-400 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
-              >
-                Gelap
-              </button>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-[#F15A24] dark:text-orange-400 uppercase tracking-wider">
+                {themeMode === "light" 
+                  ? (language === "en" ? "Day Mode" : "Mode Siang") 
+                  : themeMode === "dark" 
+                  ? (language === "en" ? "Night Mode" : "Mode Malam") 
+                  : (language === "en" ? "System" : "Sistem")}
+              </span>
+              <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A] dark:group-hover:text-teal-400 transition-colors" />
             </div>
-          </div>
+          </button>
+
+          <div className="border-t border-slate-100 dark:border-slate-800/80 ml-13" />
+
+          {/* Ukuran Teks */}
+          <button 
+            onClick={() => setSettingModal("textSize")}
+            className="w-full py-3 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all rounded-2xl px-2 -mx-2 text-left group cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-950/50 flex items-center justify-center text-red-500 shrink-0">
+                <Type className="w-5 h-5 text-red-500 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">
+                  {language === "en" ? "Text Size" : "Ukuran Teks"}
+                </p>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
+                  {language === "en" ? "Adjust font size" : "Atur besar font aplikasi"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-[#F15A24] dark:text-orange-400 uppercase tracking-wider">
+                {textSize === "xsmall" 
+                  ? (language === "en" ? "Very Small" : "Sangat Kecil") 
+                  : textSize === "small" 
+                  ? (language === "en" ? "Small" : "Kecil") 
+                  : textSize === "large" 
+                  ? (language === "en" ? "Large" : "Besar") 
+                  : (language === "en" ? "Medium" : "Sedang")}
+              </span>
+              <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A] dark:group-hover:text-teal-400 transition-colors" />
+            </div>
+          </button>
 
         </div>
       </div>
 
+      {/* POPUP SELECTION MODALS FOR SETTINGS */}
+      <AnimatePresence>
+        {settingModal && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSettingModal(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            />
+
+            {/* Modal Box */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-sm sm:max-w-md bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 shadow-2xl border border-slate-100 dark:border-slate-800 z-10 overflow-hidden max-h-[90vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                    settingModal === "language" ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400" :
+                    settingModal === "theme" ? "bg-yellow-50 text-yellow-600 dark:bg-yellow-950 dark:text-yellow-400" :
+                    "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400"
+                  }`}>
+                    {settingModal === "language" && <Globe className="w-5 h-5" />}
+                    {settingModal === "theme" && <Sun className="w-5 h-5" />}
+                    {settingModal === "textSize" && <Type className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">
+                      {settingModal === "language" && (language === "en" ? "Select Language" : "Pilih Bahasa")}
+                      {settingModal === "theme" && (language === "en" ? "Select App Theme" : "Pilih Tema Aplikasi")}
+                      {settingModal === "textSize" && (language === "en" ? "Select Text Size" : "Pilih Ukuran Teks")}
+                    </h3>
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
+                      {settingModal === "language" && (language === "en" ? "Application Display Language" : "Bahasa Tampilan Aplikasi")}
+                      {settingModal === "theme" && (language === "en" ? "Choose Day / Night Appearance" : "Pilihan Mode Terang / Gelap")}
+                      {settingModal === "textSize" && (language === "en" ? "Adjust text scale with dot slider" : "Geser titik progres bar untuk atur besar font")}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSettingModal(null)}
+                  className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:text-slate-200 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* POPUP 1: BAHASA */}
+              {settingModal === "language" && (
+                <div className="space-y-3 py-2">
+                  {[
+                    { code: "id", label: "Bahasa Indonesia", sub: "Indonesian Language", flag: "🇮🇩" },
+                    { code: "en", label: "English", sub: "English (United States)", flag: "🇺🇸" }
+                  ].map((item) => {
+                    const isSelected = language === item.code;
+                    return (
+                      <button
+                        key={item.code}
+                        onClick={() => {
+                          handleLanguageChange(item.code as Language);
+                          setSettingModal(null);
+                        }}
+                        className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left cursor-pointer ${
+                          isSelected 
+                            ? "bg-[#E6F4F5] dark:bg-teal-950/50 border-[#005E6A] dark:border-teal-500 shadow-sm" 
+                            : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3.5">
+                          <span className="text-2xl">{item.flag}</span>
+                          <div>
+                            <p className={`text-xs font-black uppercase tracking-tight ${
+                              isSelected ? "text-[#005E6A] dark:text-teal-300" : "text-slate-800 dark:text-slate-200"
+                            }`}>
+                              {item.label}
+                            </p>
+                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
+                              {item.sub}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-colors ${
+                          isSelected 
+                            ? "bg-[#005E6A] border-[#005E6A] text-white" 
+                            : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700"
+                        }`}>
+                          {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* POPUP 2: TEMA */}
+              {settingModal === "theme" && (
+                <div className="space-y-3 py-2">
+                  {[
+                    { 
+                      mode: "system", 
+                      icon: <Monitor className="w-5 h-5 text-blue-500" />,
+                      label: language === "en" ? "System Default" : "Sistem (Default)",
+                      desc: language === "en" ? "Follow device system settings" : "Mengikuti pengaturan tampilan perangkat"
+                    },
+                    { 
+                      mode: "light", 
+                      icon: <Sun className="w-5 h-5 text-amber-500" />,
+                      label: language === "en" ? "Day Mode" : "Mode Siang",
+                      desc: language === "en" ? "Bright & clear light theme" : "Tampilan terang & cerah untuk siang hari"
+                    },
+                    { 
+                      mode: "dark", 
+                      icon: <Moon className="w-5 h-5 text-purple-400" />,
+                      label: language === "en" ? "Night Mode" : "Mode Malam",
+                      desc: language === "en" ? "Comfortable dark theme" : "Tampilan gelap nyaman di mata untuk malam hari"
+                    }
+                  ].map((item) => {
+                    const isSelected = themeMode === item.mode || (!themeMode && item.mode === "system");
+                    return (
+                      <button
+                        key={item.mode}
+                        onClick={() => {
+                          handleThemeChange(item.mode);
+                          setSettingModal(null);
+                        }}
+                        className={`w-full p-4 rounded-2xl flex items-center justify-between border transition-all text-left cursor-pointer ${
+                          isSelected 
+                            ? "bg-[#E6F4F5] dark:bg-teal-950/50 border-[#005E6A] dark:border-teal-500 shadow-sm" 
+                            : "bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3.5">
+                          <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center shadow-xs border border-slate-100 dark:border-slate-700">
+                            {item.icon}
+                          </div>
+                          <div>
+                            <p className={`text-xs font-black uppercase tracking-tight ${
+                              isSelected ? "text-[#005E6A] dark:text-teal-300" : "text-slate-800 dark:text-slate-200"
+                            }`}>
+                              {item.label}
+                            </p>
+                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
+                              {item.desc}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-colors ${
+                          isSelected 
+                            ? "bg-[#005E6A] border-[#005E6A] text-white" 
+                            : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700"
+                        }`}>
+                          {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* POPUP 3: UKURAN TEKS DENGAN TITIK PROGRESS BAR */}
+              {settingModal === "textSize" && (
+                <div className="py-2">
+                  {/* Progress Bar with 4 Step Dots */}
+                  <div className="relative my-8 px-3">
+                    {/* Background Line */}
+                    <div className="absolute top-4 left-6 right-6 h-2 bg-slate-100 dark:bg-slate-800 rounded-full" />
+                    
+                    {/* Active Progress Line */}
+                    <motion.div 
+                      className="absolute top-4 left-6 h-2 bg-[#005E6A] dark:bg-teal-400 rounded-full"
+                      animate={{ 
+                        width: textSize === "xsmall" ? "0%" 
+                             : textSize === "small" ? "33.33%" 
+                             : textSize === "large" ? "100%" 
+                             : "66.66%" 
+                      }}
+                      transition={{ type: "spring", stiffness: 300, damping: 28 }}
+                    />
+
+                    {/* Step Dots Array */}
+                    <div className="relative z-10 flex items-center justify-between">
+                      {[
+                        { id: "xsmall", label: "sangat kecil", px: "12px", idx: 0 },
+                        { id: "small", label: "kecil", px: "14px", idx: 1 },
+                        { id: "normal", label: "sedang", px: "16px", idx: 2 },
+                        { id: "large", label: "besar", px: "18px", idx: 3 }
+                      ].map((step) => {
+                        const stepIdxMap: Record<string, number> = { xsmall: 0, small: 1, normal: 2, large: 3 };
+                        const currentIdx = stepIdxMap[textSize] ?? 2;
+                        const isActive = textSize === step.id;
+                        const isPassed = currentIdx >= step.idx;
+
+                        return (
+                          <button
+                            key={step.id}
+                            onClick={() => handleTextSizeChange(step.id as any)}
+                            className="flex flex-col items-center group cursor-pointer focus:outline-none"
+                          >
+                            <motion.div
+                              whileHover={{ scale: 1.2 }}
+                              whileTap={{ scale: 0.9 }}
+                              animate={{ scale: isActive ? 1.25 : 1 }}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+                                isActive
+                                  ? "bg-[#005E6A] text-white ring-4 ring-[#005E6A]/20 dark:ring-teal-400/20 shadow-lg"
+                                  : isPassed
+                                  ? "bg-[#005E6A] text-white"
+                                  : "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-300 dark:text-slate-200"
+                              }`}
+                            >
+                              {isActive ? (
+                                <div className="w-3 h-3 rounded-full bg-white shadow-xs" />
+                              ) : (
+                                <div className={`w-2 h-2 rounded-full ${isPassed ? "bg-white" : "bg-slate-400"}`} />
+                              )}
+                            </motion.div>
+                            <span className={`text-[10px] font-black uppercase tracking-tight mt-3 transition-colors ${
+                              isActive 
+                                ? "text-[#005E6A] dark:text-teal-300 font-extrabold" 
+                                : "text-slate-400 dark:text-slate-200 group-hover:text-slate-700 dark:text-slate-200 dark:group-hover:text-slate-300 dark:text-slate-200"
+                            }`}>
+                              {step.label}
+                            </span>
+                            <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">
+                              {step.px}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Simpan / Selesai Button */}
+                  <button
+                    onClick={() => setSettingModal(null)}
+                    className="w-full mt-6 py-4 bg-[#005E6A] hover:bg-[#004e58] text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-md transition-all active:scale-98 cursor-pointer"
+                  >
+                    {language === "en" ? "Done" : "Selesai"}
+                  </button>
+                </div>
+              )}
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* 5. KELOMPOK PUSAT INFORMASI */}
-      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
-        <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-2">Pusat Informasi</h3>
-        <div className="divide-y divide-slate-100">
+      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 p-6">
+        <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-3">{t("Pusat Informasi", "Information Center")}</h3>
+        <div className="space-y-1">
           
           {/* Lokasi */}
           <button 
             onClick={() => window.open("https://www.google.com/maps/search/?api=1&query=Warung+Tomi+Dusun+Manis+Desa+Wilanagara", "_blank")}
-            className="w-full py-3.5 flex items-center justify-between hover:bg-slate-50/80 transition-all rounded-xl px-2 -mx-2 text-left group cursor-pointer"
+            className="w-full py-3 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all rounded-xl px-2 -mx-2 text-left group cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-[#E6F4F5] flex items-center justify-center text-[#005E6A]">
-                <MapPin className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                <MapPin className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <p className="text-xs font-black text-[#005E6A] uppercase tracking-tight">Lokasi Toko</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Dusun Manis, Desa Wilanagara</p>
+                <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">{t("Lokasi Toko", "Store Location")}</p>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t("Dusun Manis, Desa Wilanagara", "Dusun Manis, Wilanagara Village")}</p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#005E6A] transition-colors" />
+            <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A] dark:group-hover:text-teal-400 transition-colors" />
           </button>
+
+          <div className="border-t border-slate-100 dark:border-slate-800/80 ml-13" />
 
           {/* Bantuan */}
           <button 
             onClick={() => navigate("/bantuan")}
-            className="w-full py-3.5 flex items-center justify-between hover:bg-slate-50/80 transition-all rounded-xl px-2 -mx-2 text-left group cursor-pointer"
+            className="w-full py-3 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all rounded-xl px-2 -mx-2 text-left group cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-teal-50 flex items-center justify-center text-[#005E6A]">
-                <HelpCircle className="w-5 h-5 text-[#005E6A]" />
+              <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/50 flex items-center justify-center text-purple-600 dark:text-purple-400 shrink-0">
+                <HelpCircle className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <p className="text-xs font-black text-[#005E6A] uppercase tracking-tight">Pusat Bantuan</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pertanyaan & Jawaban</p>
+                <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">{t("Pusat Bantuan", "Help Center")}</p>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t("Pertanyaan & Jawaban", "Q & A")}</p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#005E6A] transition-colors" />
+            <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A] dark:group-hover:text-teal-400 transition-colors" />
           </button>
+
+          <div className="border-t border-slate-100 dark:border-slate-800/80 ml-13" />
 
           {/* Hubungi Admin */}
           <button 
             onClick={() => window.open("https://wa.me/6287774138090", "_blank")}
-            className="w-full py-3.5 flex items-center justify-between hover:bg-slate-50/80 transition-all rounded-xl px-2 -mx-2 text-left group cursor-pointer"
+            className="w-full py-3 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all rounded-xl px-2 -mx-2 text-left group cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-orange-50 flex items-center justify-center text-orange-500">
-                <MessageSquare className="w-5 h-5 text-orange-600" />
+              <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-orange-950/50 flex items-center justify-center text-orange-500 shrink-0">
+                <MessageSquare className="w-5 h-5 text-orange-600 dark:text-orange-400" />
               </div>
               <div>
-                <p className="text-xs font-black text-[#005E6A] uppercase tracking-tight">Hubungi Admin</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Layanan WhatsApp Center</p>
+                <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">{t("Hubungi Admin", "Contact Admin")}</p>
+                <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t("Layanan WhatsApp Center", "WhatsApp Center Service")}</p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#005E6A] transition-colors" />
+            <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A] dark:group-hover:text-teal-400 transition-colors" />
           </button>
 
         </div>
@@ -16399,10 +16767,10 @@ const ProfilPage = ({
         <div className="px-2 mb-20">
           <button 
             onClick={onLogout}
-            className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 p-5 rounded-[2rem] flex items-center justify-center gap-3 transition-all active:scale-95 border border-rose-100 shadow-sm group cursor-pointer"
+            className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 p-5 rounded-[2rem] flex items-center justify-center gap-3 transition-all active:scale-95 border border-rose-100 dark:border-rose-900/50 shadow-sm group cursor-pointer"
           >
             <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-black uppercase tracking-[0.3em]">Keluar Akun</span>
+            <span className="text-xs font-black uppercase tracking-[0.3em]">{t("Keluar Akun", "Log Out")}</span>
           </button>
         </div>
       ) : (
@@ -16424,11 +16792,11 @@ const ProfilPage = ({
                 initial={{ scale: 0.9, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col items-center relative text-center"
+                className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col items-center relative text-center"
               >
                 <button 
                   onClick={() => setShowQR(false)}
-                  className="absolute top-6 right-6 text-slate-300 hover:text-slate-500 cursor-pointer"
+                  className="absolute top-6 right-6 text-slate-300 hover:text-slate-500 dark:text-slate-300 dark:text-slate-200 cursor-pointer"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -16438,9 +16806,9 @@ const ProfilPage = ({
                 </div>
                 
                 <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-1">QR Code Pelanggan</h3>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-6">Gunakan untuk transaksi cepat</p>
+                <p className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase tracking-widest mb-6">Gunakan untuk transaksi cepat</p>
                 
-                <div className="p-4 bg-white border border-slate-100 rounded-3xl shadow-inner mb-6 flex items-center justify-center w-56 h-56">
+                <div className="p-4 bg-white border border-slate-100 dark:border-slate-800 rounded-3xl shadow-inner mb-6 flex items-center justify-center w-56 h-56">
                   <img 
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(customerId)}`}
                     alt="Customer QR Code"
@@ -16449,9 +16817,9 @@ const ProfilPage = ({
                   />
                 </div>
 
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 w-full text-center">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 dark:border-slate-800 w-full text-center">
                   <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-wider mb-0.5">{user?.Nama}</p>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">ID: {customerId}</p>
+                  <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">ID: {customerId}</p>
                 </div>
               </motion.div>
             </motion.div>
@@ -16474,11 +16842,11 @@ const ProfilPage = ({
                 initial={{ scale: 0.9, opacity: 0, y: 20 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col relative"
+                className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col relative"
               >
                 <button 
                   onClick={() => setShowLevelBenefits(false)}
-                  className="absolute top-6 right-6 text-slate-300 hover:text-slate-500 cursor-pointer"
+                  className="absolute top-6 right-6 text-slate-300 hover:text-slate-500 dark:text-slate-300 dark:text-slate-200 cursor-pointer"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -16486,7 +16854,7 @@ const ProfilPage = ({
                   <Trophy className="w-8 h-8 text-white" />
                 </div>
                 <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-1">Keuntungan Level {customerLevel.name}</h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-8">Nikmati benefit eksklusif Anda</p>
+                <p className="text-[10px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase tracking-widest mb-8">Nikmati benefit eksklusif Anda</p>
                 
                 <div className="space-y-4 mb-8">
                   {customerLevel.benefits?.map((benefit: string, i: number) => (
@@ -16494,13 +16862,13 @@ const ProfilPage = ({
                       <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                         <CheckCircle2 className="w-3 h-3 text-white" />
                       </div>
-                      <p className="text-[10px] font-bold text-slate-600 leading-relaxed uppercase tracking-tight">{benefit}</p>
+                      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-300 dark:text-slate-200 leading-relaxed uppercase tracking-tight">{benefit}</p>
                     </div>
                   ))}
                 </div>
 
-                <div className="p-4 rounded-2xl border border-slate-100 text-center">
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Belanja 3 Bulan</p>
+                <div className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 text-center">
+                  <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1">Total Belanja 3 Bulan</p>
                   <p className="text-sm font-black text-[#F15A24]">Rp {customerLevel.total.toLocaleString('id-ID')}</p>
                 </div>
               </motion.div>
@@ -16562,26 +16930,26 @@ const HelpPage = () => {
       className="min-h-screen bg-white pb-24"
     >
       {/* Header */}
-      <div className="p-6 border-b border-slate-50 flex items-center gap-4">
+      <div className="p-6 border-b border-slate-50 dark:border-slate-800/50 flex items-center gap-4">
         <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full hover:bg-slate-50 flex items-center justify-center transition-colors">
-          <ArrowLeft className="w-5 h-5 text-slate-800" />
+          <ArrowLeft className="w-5 h-5 text-slate-800 dark:text-slate-100" />
         </button>
         <div>
           <h1 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Pusat Bantuan</h1>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Pertanyaan & Jawaban</p>
+          <p className="text-[10px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase tracking-widest mt-0.5">Pertanyaan & Jawaban</p>
         </div>
       </div>
 
       <div className="p-6">
         {/* Search Bar */}
         <div className="relative mb-8">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
           <input 
             type="text" 
             placeholder="Cari solusi atau pertanyaan..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 transition-all"
+            className="w-full bg-slate-50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 dark:border-teal-800/40 transition-all"
           />
         </div>
 
@@ -16595,7 +16963,7 @@ const HelpPage = () => {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className={`bg-white rounded-3xl border transition-all duration-300 ${isExpanded ? 'border-[#005E6A]/20 shadow-xl shadow-[#005E6A]/5' : 'border-slate-100 shadow-sm'}`}
+                className={`bg-white rounded-3xl border transition-all duration-300 ${isExpanded ? 'border-[#005E6A]/20 shadow-xl shadow-[#005E6A]/5' : 'border-slate-100 dark:border-slate-800 shadow-sm'}`}
               >
                 <button 
                   onClick={() => setExpandedIndex(isExpanded ? null : index)}
@@ -16605,12 +16973,12 @@ const HelpPage = () => {
                     <span className="text-[10px] font-black">Q</span>
                   </div>
                   <div className="flex-1 pr-4">
-                    <h3 className={`text-[11px] font-black leading-relaxed uppercase tracking-tight transition-colors ${isExpanded ? 'text-[#005E6A]' : 'text-slate-800'}`}>
+                    <h3 className={`text-[11px] font-black leading-relaxed uppercase tracking-tight transition-colors ${isExpanded ? 'text-[#005E6A]' : 'text-slate-800 dark:text-slate-100'}`}>
                       {faq.q}
                     </h3>
                   </div>
                   <div className={`mt-1 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                    <ChevronDown className={`w-4 h-4 ${isExpanded ? 'text-[#005E6A]' : 'text-slate-300'}`} />
+                    <ChevronDown className={`w-4 h-4 ${isExpanded ? 'text-[#005E6A]' : 'text-slate-300 dark:text-slate-200'}`} />
                   </div>
                 </button>
 
@@ -16627,7 +16995,7 @@ const HelpPage = () => {
                         <div className="w-8 h-8 rounded-xl bg-teal-50 flex items-center justify-center shrink-0">
                           <span className="text-[10px] font-black text-teal-600">A</span>
                         </div>
-                        <p className="text-[11px] text-slate-500 font-bold leading-relaxed">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-300 dark:text-slate-200 font-bold leading-relaxed">
                           {faq.a}
                         </p>
                       </div>
@@ -16639,7 +17007,7 @@ const HelpPage = () => {
           }) : (
             <div className="py-20 text-center">
               <HelpCircle className="w-12 h-12 text-slate-100 mx-auto mb-4" />
-              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Maaf, pertanyaan tidak ditemukan</p>
+              <p className="text-[10px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest">Maaf, pertanyaan tidak ditemukan</p>
             </div>
           )}
         </div>
@@ -16704,7 +17072,7 @@ const QRISPage = () => {
       </div>
 
       <div className="px-6 -mt-12 relative z-20 space-y-6">
-        <div className="bg-white p-4 rounded-[2.5rem] shadow-lg border border-slate-100 flex flex-col items-center">
+        <div className="bg-white p-4 rounded-[2.5rem] shadow-lg border border-slate-100 dark:border-slate-800 flex flex-col items-center">
           <div 
             className="w-full aspect-square bg-white rounded-[3rem] overflow-hidden flex items-center justify-center cursor-pointer group mt-4 mb-2"
             onClick={() => setIsFullScreen(true)}
@@ -16732,7 +17100,7 @@ const QRISPage = () => {
           </button>
         </div>
 
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2 mb-6">
             <Info className="w-4 h-4 text-[#005E6A]" />
             <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Cara Menggunakan Qris</h3>
@@ -16752,7 +17120,7 @@ const QRISPage = () => {
                 <div className="w-5 h-5 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
                   <span className="text-[8px] font-black text-[#005E6A]">{i + 1}</span>
                 </div>
-                <p className="text-[10px] text-slate-500 leading-relaxed font-medium">{step}</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-300 dark:text-slate-200 leading-relaxed font-medium">{step}</p>
               </div>
             ))}
           </div>
@@ -16906,18 +17274,18 @@ const TarikTunaiPage = () => {
       <div className="px-6 -mt-12 relative z-20 space-y-8">
         {/* Status & Directions */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center">
+          <div className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center text-center">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               <span className="text-[10px] font-black text-[#005E6A] uppercase">Uang Tunai</span>
             </div>
-            <p className="text-[9px] font-bold text-slate-400 uppercase">Tersedia di Kasir</p>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">Tersedia di Kasir</p>
           </div>
           <a 
             href="https://maps.app.goo.gl/bnUitCFdP5sgqiw49" 
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center active:scale-95 transition-transform"
+            className="bg-white p-4 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center justify-center text-center active:scale-95 transition-transform"
           >
             <MapPin className="w-4 h-4 text-[#F15A24] mb-1" />
             <span className="text-[9px] font-black text-[#005E6A] uppercase leading-tight">Petunjuk Arah</span>
@@ -16933,13 +17301,13 @@ const TarikTunaiPage = () => {
             </h2>
           </div>
 
-          <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 relative overflow-hidden">
+          <div className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 dark:border-slate-800 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-6 opacity-5">
               <Calculator className="w-24 h-24 text-[#005E6A]" />
             </div>
             
             <div className="relative z-10">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Masukan Nominal Tarik</p>
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-4">Masukan Nominal Tarik</p>
               <div className="relative mb-6">
                  <span className="absolute left-0 bottom-3 text-2xl font-black text-[#005E6A]">Rp</span>
                  <input 
@@ -16951,13 +17319,13 @@ const TarikTunaiPage = () => {
                      setCalcAmount(val ? parseInt(val).toLocaleString('id-ID') : "");
                    }}
                    placeholder="0"
-                   className="w-full bg-transparent border-b-2 border-slate-100 pb-2 pl-10 text-3xl font-black text-[#005E6A] focus:outline-none focus:border-[#F15A24] transition-colors placeholder:text-slate-100"
+                   className="w-full bg-transparent border-b-2 border-slate-100 dark:border-slate-800 pb-2 pl-10 text-3xl font-black text-[#005E6A] focus:outline-none focus:border-[#F15A24] transition-colors placeholder:text-slate-100"
                  />
               </div>
 
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-slate-50 p-4 rounded-2xl">
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Potongan Admin</p>
+                  <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1">Potongan Admin</p>
                   <p className="text-xs font-black text-rose-500">-{formatIDR(adminFee)}</p>
                 </div>
                 <div className="bg-[#005E6A] p-4 rounded-2xl text-white">
@@ -16968,7 +17336,7 @@ const TarikTunaiPage = () => {
 
               <button 
                 onClick={() => setShowFeeTable(!showFeeTable)}
-                className="w-full py-3 rounded-xl border border-slate-100 text-[9px] font-black text-slate-400 uppercase tracking-widest active:bg-slate-50 transition-colors"
+                className="w-full py-3 rounded-xl border border-slate-100 dark:border-slate-800 text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest active:bg-slate-50 transition-colors"
               >
                 {showFeeTable ? "Tutup Tabel Biaya" : "Lihat Rincian Biaya Admin"}
               </button>
@@ -16991,8 +17359,8 @@ const TarikTunaiPage = () => {
                          { range: "4.000.000 - 4.999.999", fee: "25.000" },
                          { range: "> 5.000.000", fee: "0,5% Dari Nominal" },
                        ].map((item, i) => (
-                         <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-                           <span className="text-[9px] font-bold text-slate-500 uppercase">{item.range}</span>
+                         <div key={i} className="flex items-center justify-between py-2 border-b border-slate-50 dark:border-slate-800/50 last:border-0">
+                           <span className="text-[9px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase">{item.range}</span>
                            <span className="text-[10px] font-black text-[#005E6A]">Rp {item.fee}</span>
                          </div>
                        ))}
@@ -17013,7 +17381,7 @@ const TarikTunaiPage = () => {
             </h2>
           </div>
           
-          <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-100">
+          <div className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-100 dark:border-slate-800">
             <div className="relative aspect-[16/10] bg-slate-100">
               <img 
                 src="https://www.bni.co.id/portals/1/BNI/ebanking/Images/edc-bni.jpg" 
@@ -17033,41 +17401,41 @@ const TarikTunaiPage = () => {
               </div>
             </div>
             <div className="p-6">
-              <p className="text-[10px] font-black text-slate-600 leading-relaxed uppercase tracking-wider text-center mb-6">
+              <p className="text-[10px] font-black text-slate-600 dark:text-slate-300 dark:text-slate-200 leading-relaxed uppercase tracking-wider text-center mb-6">
                 Gesek atau masukkan kartu ATM/Debet Anda ke mesin <span className="text-[#005E6A]">EDC BNI</span> di lokasi warung.
               </p>
               
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-widest mb-3 border-b border-slate-200 pb-2">Cek Saldo</p>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-widest mb-3 border-b border-slate-200 dark:border-slate-700 pb-2">Cek Saldo</p>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase">BNI/PKH</span>
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">BNI/PKH</span>
                       <span className="text-[9px] font-black text-green-600">GRATIS</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase">BANK LAIN</span>
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">BANK LAIN</span>
                       <span className="text-[9px] font-black text-[#005E6A]">Rp 4.000</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-widest mb-3 border-b border-slate-200 pb-2">Tarik Tunai</p>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                  <p className="text-[9px] font-black text-[#005E6A] uppercase tracking-widest mb-3 border-b border-slate-200 dark:border-slate-700 pb-2">Tarik Tunai</p>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase">BNI/PKH</span>
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">BNI/PKH</span>
                       <span className="text-[9px] font-black text-[#005E6A]">Rp 3.000</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase">BANK LAIN</span>
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">BANK LAIN</span>
                       <span className="text-[9px] font-black text-[#005E6A]">Rp 9.500</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-6 flex items-start gap-3 bg-rose-50 p-4 rounded-2xl border border-rose-100">
+              <div className="mt-6 flex items-start gap-3 bg-rose-50 p-4 rounded-2xl border border-rose-100 dark:border-rose-900/50">
                 <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                 <p className="text-[8px] font-black text-rose-600 uppercase tracking-wider leading-relaxed text-left italic">
                   * Biaya di atas adalah biaya layanan EDC yang dipotong langsung dari saldo ATM oleh Bank, belum termasuk biaya administrasi warung.
@@ -17093,8 +17461,8 @@ const TarikTunaiPage = () => {
             </h2>
           </div>
           
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-6 leading-relaxed">
+          <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800">
+            <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-6 leading-relaxed">
               {activeTransferTab === 'bank' 
                 ? "Kirim ke salah satu rekening di bawah ini, lalu tunjukkan bukti kirimnya."
                 : "Kirim ke nomor E-Wallet di bawah ini, lalu tunjukkan bukti kirimnya."}
@@ -17103,13 +17471,13 @@ const TarikTunaiPage = () => {
             <div className="flex p-1 bg-slate-50 rounded-2xl mb-6">
               <button 
                 onClick={() => setActiveTransferTab('bank')}
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTransferTab === 'bank' ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTransferTab === 'bank' ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400 dark:text-slate-300 dark:text-slate-200'}`}
               >
                 Bank
               </button>
               <button 
                 onClick={() => setActiveTransferTab('ewallet')}
-                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTransferTab === 'ewallet' ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400'}`}
+                className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTransferTab === 'ewallet' ? 'bg-white text-[#005E6A] shadow-sm' : 'text-slate-400 dark:text-slate-300 dark:text-slate-200'}`}
               >
                 E-Wallet
               </button>
@@ -17118,9 +17486,9 @@ const TarikTunaiPage = () => {
             <div className="space-y-3">
               {activeTransferTab === 'bank' ? (
                 bankAccounts.map((account, idx) => (
-                  <div key={idx} className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative group overflow-hidden">
+                  <div key={idx} className="bg-white p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-300 relative group overflow-hidden">
                     <div className="flex items-center gap-4 relative z-10">
-                      <div className="w-10 h-10 rounded-full border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-2">
+                      <div className="w-10 h-10 rounded-full border border-slate-100 dark:border-slate-800 bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-2">
                         <img 
                           src={account.logo} 
                           alt={account.bank} 
@@ -17135,7 +17503,7 @@ const TarikTunaiPage = () => {
                         </p>
                         <div className="flex items-center gap-1.5">
                           <div className="w-1 h-1 rounded-full bg-slate-200" />
-                          <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{account.name}</span>
+                          <span className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{account.name}</span>
                         </div>
                       </div>
 
@@ -17144,7 +17512,7 @@ const TarikTunaiPage = () => {
                           navigator.clipboard.writeText(account.number);
                           alert(`Nomor ${account.bank} berhasil disalin!`);
                         }}
-                        className="p-2 text-slate-300 hover:text-[#005E6A] transition-all active:scale-75"
+                        className="p-2 text-slate-300 dark:text-slate-200 hover:text-[#005E6A] transition-all active:scale-75"
                       >
                         <Copy className="w-4 h-4" />
                       </button>
@@ -17153,10 +17521,10 @@ const TarikTunaiPage = () => {
                 ))
               ) : (
                 ewalletAccounts.map((wallet, idx) => (
-                  <div key={idx} className="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden">
+                  <div key={idx} className="bg-white p-5 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden">
                     <div className="flex items-start gap-4">
                       {/* Logo Area */}
-                      <div className="w-10 h-10 rounded-full border border-slate-100 bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-2 mt-1">
+                      <div className="w-10 h-10 rounded-full border border-slate-100 dark:border-slate-800 bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-2 mt-1">
                         <img 
                           src={wallet.logo} 
                           alt={wallet.provider} 
@@ -17168,14 +17536,14 @@ const TarikTunaiPage = () => {
                       {/* Numbers Area */}
                       <div className="flex-1 space-y-4 pt-1">
                         {wallet.accounts.map((acc, aIdx) => (
-                          <div key={aIdx} className="flex items-center justify-between group/item border-b border-slate-50 last:border-0 pb-3 last:pb-0">
+                          <div key={aIdx} className="flex items-center justify-between group/item border-b border-slate-50 dark:border-slate-800/50 last:border-0 pb-3 last:pb-0">
                             <div className="min-w-0">
                               <p className="text-sm font-black text-[#005E6A] tracking-wider tabular-nums leading-none mb-1">
                                 {acc.number}
                               </p>
                               <div className="flex items-center gap-1.5">
                                 <div className="w-1 h-1 rounded-full bg-slate-100" />
-                                <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">{acc.name}</span>
+                                <span className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{acc.name}</span>
                               </div>
                             </div>
                             <button 
@@ -17183,7 +17551,7 @@ const TarikTunaiPage = () => {
                                 navigator.clipboard.writeText(acc.number);
                                 alert(`Nomor ${wallet.provider} ${acc.name} berhasil disalin!`);
                               }}
-                              className="p-2 text-slate-300 hover:text-[#005E6A] transition-all active:scale-75"
+                              className="p-2 text-slate-300 dark:text-slate-200 hover:text-[#005E6A] transition-all active:scale-75"
                             >
                               <Copy className="w-4 h-4" />
                             </button>
@@ -17207,9 +17575,9 @@ const TarikTunaiPage = () => {
             </h2>
           </div>
           
-          <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 text-center">
+          <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 dark:border-slate-800 text-center">
              <div 
-               className="w-48 h-48 rounded-[2.5rem] bg-indigo-50 flex items-center justify-center mx-auto mb-6 border border-indigo-100 overflow-hidden p-3 cursor-pointer group hover:scale-105 transition-transform"
+               className="w-48 h-48 rounded-[2.5rem] bg-indigo-50 flex items-center justify-center mx-auto mb-6 border border-indigo-100 dark:border-indigo-900/50 overflow-hidden p-3 cursor-pointer group hover:scale-105 transition-transform"
                onClick={() => setIsFullScreen(true)}
              >
                <img 
@@ -17220,7 +17588,7 @@ const TarikTunaiPage = () => {
                />
              </div>
              <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest mb-2 leading-none">Scan Kode QR</p>
-             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-6 leading-relaxed px-4">
+             <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-6 leading-relaxed px-4">
                Cairkan saldo E-Wallet (ShopeePay, Dana, OVO, dll) meskipun belum berstatus premium.
              </p>
              
@@ -17290,7 +17658,7 @@ const AdminLayout = ({
 
   return (
     <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans flex flex-row">
-      <nav className="sticky top-0 h-screen w-16 md:w-68 bg-white/95 backdrop-blur-xl border-r border-slate-100 z-50 flex flex-col items-center md:items-stretch px-2 md:px-4 py-8 md:py-10 shadow-xl md:shadow-none">
+      <nav className="sticky top-0 h-screen w-16 md:w-68 bg-white/95 backdrop-blur-xl border-r border-slate-100 dark:border-slate-800 z-50 flex flex-col items-center md:items-stretch px-2 md:px-4 py-8 md:py-10 shadow-xl md:shadow-none">
         {/* Logo Section */}
         <div className="flex flex-col gap-1 mb-10 px-1 md:px-2">
           <div className="flex items-center gap-3">
@@ -17299,7 +17667,7 @@ const AdminLayout = ({
             </div>
             <div className="hidden md:block">
               <h1 className="text-[15px] font-black text-[#005E6A] tracking-tighter leading-none uppercase">WARUNG <span className="text-[#F15A24]">TOMI</span></h1>
-              <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 opacity-80">Admin Center</p>
+              <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mt-1.5 opacity-80">Admin Center</p>
             </div>
           </div>
         </div>
@@ -17338,7 +17706,7 @@ const AdminLayout = ({
                     className={`w-5 h-5 shrink-0 transition-all duration-300 ${
                       isActive 
                         ? "text-[#F15A24]" 
-                        : "text-slate-400 group-hover:text-[#F15A24]"
+                        : "text-slate-400 dark:text-slate-300 dark:text-slate-200 group-hover:text-[#F15A24]"
                     }`} 
                     strokeWidth={isActive ? 2.5 : 2}
                   />
@@ -17348,7 +17716,7 @@ const AdminLayout = ({
                       className={`text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap transition-all duration-300 ${
                         isActive 
                           ? "text-[#005E6A]" 
-                          : "text-slate-400 group-hover:text-[#005E6A]"
+                          : "text-slate-400 dark:text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A]"
                       }`}
                     >
                       {item.label}
@@ -17361,10 +17729,10 @@ const AdminLayout = ({
         </div>
 
         {/* Bottom Sidebar Footer */}
-        <div className="flex flex-col items-center md:items-stretch gap-2 mt-auto pb-6 border-t border-slate-50 pt-8 w-full">
+        <div className="flex flex-col items-center md:items-stretch gap-2 mt-auto pb-6 border-t border-slate-50 dark:border-slate-800/50 pt-8 w-full">
           <button 
             onClick={() => navigate('/')}
-            className="flex items-center justify-center md:justify-start gap-4 p-3 md:px-5 md:py-3.5 w-12 md:w-full rounded-xl md:rounded-2xl text-slate-400 hover:text-[#005E6A] hover:bg-slate-50 transition-all group"
+            className="flex items-center justify-center md:justify-start gap-4 p-3 md:px-5 md:py-3.5 w-12 md:w-full rounded-xl md:rounded-2xl text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:text-[#005E6A] hover:bg-slate-50 transition-all group"
             title="Ke Beranda"
           >
             <Home className="w-5 h-5 shrink-0 transition-transform group-hover:-translate-x-1" />
@@ -17376,7 +17744,7 @@ const AdminLayout = ({
               localStorage.removeItem("admin_session");
               navigate("/");
             }}
-            className="flex items-center justify-center md:justify-start gap-4 p-3 md:px-5 md:py-3.5 w-12 md:w-full rounded-xl md:rounded-2xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all group"
+            className="flex items-center justify-center md:justify-start gap-4 p-3 md:px-5 md:py-3.5 w-12 md:w-full rounded-xl md:rounded-2xl text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:text-red-500 hover:bg-red-50 transition-all group"
             title="Keluar Sesi"
           >
             <LogOut className="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" />
@@ -17982,7 +18350,7 @@ const HomePage = ({
               {/* Overlapping Horizontal Card */}
               <div className="-mt-10 px-6 relative z-10">
                 <div 
-                  className="bg-white rounded-[2.2rem] p-5 shadow-xl shadow-slate-200/50 border border-slate-100 transition-all duration-300"
+                  className="bg-white rounded-[2.2rem] p-5 shadow-xl shadow-slate-200/50 border border-slate-100 dark:border-slate-800 transition-all duration-300"
                 >
                   {/* Clickable Header Trigger */}
                   <div 
@@ -17995,7 +18363,7 @@ const HomePage = ({
                       </div>
                       <div className="text-left min-w-0">
                         <p className="text-base sm:text-lg font-black text-[#005E6A] leading-none uppercase">{t("Saldo", "Balance")}</p>
-                        <p className="text-[8px] sm:text-[9.5px] font-bold text-slate-500 uppercase tracking-wide mt-1.5 leading-normal">
+                        <p className="text-[8px] sm:text-[9.5px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wide mt-1.5 leading-normal">
                           {t("Tabungan + Investasi + Lainnya - Hutang", "Savings + Investment + Others - Debt")}
                         </p>
                       </div>
@@ -18007,7 +18375,7 @@ const HomePage = ({
                           Rp {(portfolioData?.saldoBersih || 0).toLocaleString('id-ID')}
                         </p>
                       </div>
-                      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover/trigger:bg-slate-100 group-hover/trigger:text-slate-600 transition-colors">
+                      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover/trigger:bg-slate-100 group-hover/trigger:text-slate-600 dark:text-slate-300 dark:text-slate-200 transition-colors">
                         {isAssetsExpanded ? (
                           <ChevronUp className="w-4 h-4 text-[#005E6A]" />
                         ) : (
@@ -18091,7 +18459,7 @@ const HomePage = ({
 
           {/* Produk Terlaris Section */}
           <section className="px-6 py-2">
-            <div className="bg-white rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden">
+            <div className="bg-white rounded-[2.5rem] p-6 shadow-xl shadow-slate-200/50 border border-slate-100 dark:border-slate-800 relative overflow-hidden">
               {/* Decorative Glow */}
               <div className="absolute -right-8 -top-8 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
               
@@ -18109,7 +18477,7 @@ const HomePage = ({
 
                 <button 
                   onClick={() => setActiveTab("belanja")}
-                  className="px-3.5 py-2 bg-slate-50 hover:bg-orange-50 text-[#F15A24] hover:text-[#D1491A] border border-slate-200/80 hover:border-orange-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 active:scale-95 transition-all shadow-sm group/btn shrink-0 cursor-pointer"
+                  className="px-3.5 py-2 bg-slate-50 hover:bg-orange-50 text-[#F15A24] hover:text-[#D1491A] border border-slate-200/80 dark:border-slate-700/80 hover:border-orange-200 dark:hover:border-orange-800 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 active:scale-95 transition-all shadow-sm group/btn shrink-0 cursor-pointer"
                 >
                   <span>{t("Lihat Semua", "See All")}</span>
                   <ChevronRight className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 transition-transform" />
@@ -18131,7 +18499,7 @@ const HomePage = ({
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: idx * 0.05 }}
-                      className="w-[165px] sm:w-[185px] shrink-0 snap-start bg-white border border-slate-100 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow group flex flex-col justify-between"
+                      className="w-[165px] sm:w-[185px] shrink-0 snap-start bg-white border border-slate-100 dark:border-slate-800 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow group flex flex-col justify-between"
                     >
                       <div>
                         {/* Image Container */}
@@ -18167,7 +18535,7 @@ const HomePage = ({
                           </span>
                           <div className="flex items-center gap-1">
                             <div className={`w-1.5 h-1.5 rounded-full ${item.Stok > 5 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                            <span className="text-[8px] font-bold text-slate-400">{item.Stok} {item.Satuan}</span>
+                            <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">{item.Stok} {item.Satuan}</span>
                           </div>
                         </div>
                       </div>
@@ -18195,13 +18563,13 @@ const HomePage = ({
 
           {/* Rekomendasi Investasi Section */}
           <section className="px-6 pb-6 pt-2">
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 relative z-10">
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 relative z-10">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex flex-col w-fit">
                   <h2 className="text-base font-black text-black uppercase tracking-[0.2em] leading-none">Investasi</h2>
                   <div className="flex justify-between w-full mt-1">
                     {"keuntungan 10%".split("").map((char, i) => (
-                      <span key={i} className="text-[6px] font-bold text-slate-400 uppercase leading-none">
+                      <span key={i} className="text-[6px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase leading-none">
                         {char === " " ? "\u00A0" : char}
                       </span>
                     ))}
@@ -18224,21 +18592,21 @@ const HomePage = ({
               <div className="flex overflow-x-auto gap-3.5 pb-4 snap-x -mx-6 px-6 scrollbar-hide items-stretch">
                 {/* Left side introduction text - placed inline inside scrollable container, no card wrapper */}
                 <div className="flex-shrink-0 w-44 flex flex-col justify-start items-start text-left space-y-3 snap-start py-4 pl-6">
-                  <span className="text-[10px] font-black text-[#6D28D9] uppercase tracking-[0.15em] bg-white border border-purple-100 px-3 py-1 rounded-md shadow-sm">
+                  <span className="text-[10px] font-black text-[#6D28D9] uppercase tracking-[0.15em] bg-white border border-purple-100 dark:border-purple-900/50 px-3 py-1 rounded-md shadow-sm">
                     PILIHAN TERBAIK
                   </span>
                   <div className="space-y-1.5">
-                    <h4 className="text-sm font-black text-slate-800 leading-tight uppercase tracking-tight">
+                    <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 leading-tight uppercase tracking-tight">
                       Kembangkan Dana Anda
                     </h4>
                     <div className="h-0.5 w-10 bg-[#6D28D9] rounded-full" />
                   </div>
-                  <p className="text-[9px] font-bold text-slate-500 leading-relaxed uppercase tracking-wider">
+                  <p className="text-[9px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 leading-relaxed uppercase tracking-wider">
                     Investasikan dana dengan imbal hasil optimal 10% setiap tahunnya.
                   </p>
 
                   {/* Animated Illustration */}
-                  <div className="relative w-full h-16 mt-2 flex items-center justify-center bg-purple-50/50 rounded-xl border border-purple-100/40 overflow-hidden">
+                  <div className="relative w-full h-16 mt-2 flex items-center justify-center bg-purple-50/50 rounded-xl border border-purple-100 dark:border-purple-900/50/40 overflow-hidden">
                     {/* Glowing/pulsing ambient light */}
                     <motion.div
                       animate={{
@@ -18431,17 +18799,17 @@ const HomePage = ({
           <div>
             <div className="mb-6 text-left">
               <h1 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Konfirmasi Pesanan</h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Detail Belanjaan Anda</p>
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Detail Belanjaan Anda</p>
             </div>
 
             {/* Cart Items Container */}
-            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-6 space-y-4">
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 mb-6 space-y-4">
               <div className="max-h-[45vh] overflow-y-auto pr-2 scrollbar-thin divide-y divide-slate-100">
                 {cart.map((item) => (
                   <div key={item.product.id} className="flex justify-between items-start gap-4 py-3 first:pt-0 last:pb-0">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-black text-[#005E6A] uppercase leading-tight mb-1 truncate">{item.product.Nama}</p>
-                      <p className="text-[10px] font-bold text-slate-400">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
                     </div>
                     <p className="text-xs font-black text-[#F15A24] whitespace-nowrap">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
                   </div>
@@ -18449,13 +18817,13 @@ const HomePage = ({
               </div>
 
               {/* Fee Breakdown */}
-              <div className="pt-4 border-t border-dashed border-slate-200 space-y-2">
+              <div className="pt-4 border-t border-dashed border-slate-200 dark:border-slate-700 space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Subtotal</span>
-                  <span className="text-xs font-black text-slate-600">Rp {totalCart.toLocaleString('id-ID')}</span>
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Subtotal</span>
+                  <span className="text-xs font-black text-slate-600 dark:text-slate-300 dark:text-slate-200">Rp {totalCart.toLocaleString('id-ID')}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ongkos Kirim</span>
+                  <span className="text-xs font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Ongkos Kirim</span>
                   {totalCart < 20000 ? (
                     <span className="text-xs font-black text-rose-500">Rp 2.000</span>
                   ) : (
@@ -18465,18 +18833,18 @@ const HomePage = ({
 
                 {/* Promo Banner Info inside breakdown */}
                 {totalCart < 20000 ? (
-                  <div className="bg-amber-50 text-amber-800 text-[10px] font-bold px-3 py-2.5 rounded-xl border border-amber-100 flex items-center gap-2 mt-1.5">
+                  <div className="bg-amber-50 text-amber-800 text-[10px] font-bold px-3 py-2.5 rounded-xl border border-amber-100 dark:border-amber-900/50 flex items-center gap-2 mt-1.5">
                     <span className="text-amber-500 text-sm">💡</span>
                     <span>Tambah belanja Rp {(20000 - totalCart).toLocaleString('id-ID')} lagi untuk mendapatkan <strong>Gratis Ongkir!</strong></span>
                   </div>
                 ) : (
-                  <div className="bg-green-50 text-green-800 text-[10px] font-bold px-3 py-2.5 rounded-xl border border-green-100 flex items-center gap-2 mt-1.5">
+                  <div className="bg-green-50 text-green-800 text-[10px] font-bold px-3 py-2.5 rounded-xl border border-green-100 dark:border-green-900/50 flex items-center gap-2 mt-1.5">
                     <span className="text-green-500 text-sm">🎉</span>
                     <span>Selamat! Anda mendapatkan promo <strong>Gratis Ongkir!</strong></span>
                   </div>
                 )}
 
-                <div className="flex justify-between items-center pt-3 border-t border-slate-100">
+                <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
                   <span className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Total Pembayaran</span>
                   <span className="text-lg font-black text-[#F15A24]">
                     Rp {(totalCart < 20000 ? totalCart + 2000 : totalCart).toLocaleString('id-ID')}
@@ -18558,7 +18926,7 @@ const HomePage = ({
                 </div>
 
                 <div className="p-8 space-y-6 overflow-y-auto flex-1">
-                  <p className="text-xs text-slate-500 leading-relaxed font-semibold text-left">
+                  <p className="text-xs text-slate-500 dark:text-slate-300 dark:text-slate-200 leading-relaxed font-semibold text-left">
                     {selectedOffer.desc}
                   </p>
 
@@ -18574,27 +18942,27 @@ const HomePage = ({
                           const val = e.target.value.replace(/[^\d]/g, '');
                           setCalcAmount(val);
                         }}
-                        className="w-full bg-purple-50/40 hover:bg-purple-50/60 focus:bg-white border-2 border-purple-100 focus:border-purple-500 focus:ring-0 rounded-2xl py-4 pl-12 pr-6 text-lg font-black text-purple-950 transition-all text-left shadow-inner"
+                        className="w-full bg-purple-50/40 hover:bg-purple-50/60 focus:bg-white border-2 border-purple-100 dark:border-purple-900/50 focus:border-purple-500 focus:ring-0 rounded-2xl py-4 pl-12 pr-6 text-lg font-black text-purple-950 transition-all text-left shadow-inner"
                         placeholder="0"
                       />
                     </div>
                     <div className="flex justify-between items-center px-1">
-                      <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Mulai Rp 100.000</span>
+                      <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Mulai Rp 100.000</span>
                       <span className="text-[8px] font-bold text-purple-600 uppercase tracking-wider">Suku Bunga 10% p.a.</span>
                     </div>
                   </div>
 
                   {/* Dynamic Profit Calculation Block (Gambaran Hasil Keuntungan) */}
-                  <div className="space-y-4 bg-purple-50/50 rounded-2xl p-5 border border-purple-100/50">
+                  <div className="space-y-4 bg-purple-50/50 rounded-2xl p-5 border border-purple-100 dark:border-purple-900/50/50">
                     <h5 className="text-[9px] font-black text-purple-800 uppercase tracking-widest text-left">Simulasi Hasil Keuntungan:</h5>
                     
                     <div className="space-y-2 text-left">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Modal Awal</span>
-                        <span className="text-xs font-black text-slate-700">Rp {formatCurrency(parsedAmount)}</span>
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Modal Awal</span>
+                        <span className="text-xs font-black text-slate-700 dark:text-slate-200">Rp {formatCurrency(parsedAmount)}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Keuntungan ({selectedOffer.periodRate})</span>
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Keuntungan ({selectedOffer.periodRate})</span>
                         <span className="text-xs font-black text-emerald-600 font-bold">+ Rp {formatCurrency(calculatedProfit)}</span>
                       </div>
                       
@@ -18698,7 +19066,7 @@ const SplashScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
               } 
             }
           }}
-          className="w-16 h-16 rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#005E6A]/10 border-2 border-slate-50 relative z-20 bg-white shrink-0"
+          className="w-16 h-16 rounded-[1.5rem] overflow-hidden shadow-2xl shadow-[#005E6A]/10 border-2 border-slate-50 dark:border-slate-800/50 relative z-20 bg-white shrink-0"
         >
           <img 
             src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
@@ -18788,7 +19156,7 @@ const LoadingPopup = () => (
         <RefreshCw className="w-5 h-5 text-orange-500 animate-spin" />
       </div>
       <h3 className="text-[7px] font-black text-orange-600 uppercase tracking-[0.2em] mb-0.5 text-center">Mohon Tunggu</h3>
-      <p className="text-[6px] font-bold text-slate-400 uppercase tracking-widest mb-3 text-center">Memuat data...</p>
+      <p className="text-[6px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-3 text-center">Memuat data...</p>
       
       <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden relative">
         <motion.div 
@@ -18809,9 +19177,9 @@ const InstallPrompt = ({ onInstall, onDismiss }: { onInstall: () => void, onDism
     exit={{ opacity: 0, y: 100 }}
     className="fixed bottom-6 left-6 right-6 z-[90] flex items-center justify-center"
   >
-    <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col gap-5">
+    <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col gap-5">
       <div className="flex items-center gap-4">
-        <div className="w-14 h-14 bg-slate-50 rounded-2xl overflow-hidden flex-shrink-0 border border-slate-100">
+        <div className="w-14 h-14 bg-slate-50 rounded-2xl overflow-hidden flex-shrink-0 border border-slate-100 dark:border-slate-800">
           <img 
             src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
             alt="Warung Tomi Icon" 
@@ -18821,14 +19189,14 @@ const InstallPrompt = ({ onInstall, onDismiss }: { onInstall: () => void, onDism
         </div>
         <div className="flex-1">
           <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-wider mb-0.5">Instal Warung Tomi</h3>
-          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Akses lebih cepat & mudah langsung dari layar utama Anda</p>
+          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-tight">Akses lebih cepat & mudah langsung dari layar utama Anda</p>
         </div>
       </div>
       
       <div className="flex items-center gap-3">
         <button 
           onClick={onDismiss}
-          className="flex-1 bg-slate-50 text-slate-400 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-transform border border-slate-100"
+          className="flex-1 bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-transform border border-slate-100 dark:border-slate-800"
         >
           Nanti
         </button>
@@ -18856,6 +19224,20 @@ export default function App() {
   const t = useCallback((idText: string, enText: string) => {
     return language === "en" ? enText : idText;
   }, [language]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const savedSize = localStorage.getItem("app_text_size") || "normal";
+    if (savedSize === "xsmall" || savedSize === "sangat_kecil") {
+      root.style.fontSize = "12px";
+    } else if (savedSize === "small" || savedSize === "kecil") {
+      root.style.fontSize = "14px";
+    } else if (savedSize === "large" || savedSize === "besar") {
+      root.style.fontSize = "18px";
+    } else {
+      root.style.fontSize = "16px";
+    }
+  }, []);
 
   const [activeTab, setActiveTab] = useState("beranda");
   const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
@@ -19622,6 +20004,7 @@ export default function App() {
     <LanguageContext.Provider value={{ language, setLanguage: handleLanguageChange, t }}>
       <BrowserRouter>
       <ScrollToTop />
+      <ThemeHandler />
       <AnimatePresence mode="wait">
         {showSplash ? (
           <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
@@ -19982,10 +20365,10 @@ export default function App() {
         } />
         <Route path="/admin/vouchers" element={
           <AdminLayout activeTab="dashboard">
-             <div className="p-8 py-20 text-center bg-white rounded-[2.5rem] border border-slate-100 shadow-xl m-6 max-w-6xl mx-auto">
+             <div className="p-8 py-20 text-center bg-white rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl m-6 max-w-6xl mx-auto">
               <Ticket className="w-16 h-16 text-purple-500 mx-auto mb-6" />
               <h3 className="text-xl font-black text-[#005E6A] uppercase tracking-wider mb-2">Manajemen Voucher</h3>
-              <p className="text-xs text-slate-400 font-bold uppercase tracking-[0.2em] mb-8">Fitur ini sedang dalam pengembangan</p>
+              <p className="text-xs text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase tracking-[0.2em] mb-8">Fitur ini sedang dalam pengembangan</p>
               <Link 
                 to="/admin"
                 className="inline-flex px-8 py-3 bg-[#005E6A] text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
@@ -20031,11 +20414,11 @@ export default function App() {
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <h3 className="text-lg font-black text-[#005E6A] uppercase tracking-tight">Keranjang Saya</h3>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{cart.length} Item Terpilih</p>
+                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{cart.length} Item Terpilih</p>
                 </div>
                 <button 
                   onClick={() => setShowCart(false)}
-                  className="p-2 bg-slate-50 rounded-full text-slate-400 cursor-pointer"
+                  className="p-2 bg-slate-50 rounded-full text-slate-400 dark:text-slate-300 dark:text-slate-200 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -20046,7 +20429,7 @@ export default function App() {
                   <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
                     <ShoppingCart className="w-8 h-8 text-slate-200" />
                   </div>
-                  <p className="text-xs font-bold text-slate-400">Keranjang Anda kosong</p>
+                  <p className="text-xs font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">Keranjang Anda kosong</p>
                 </div>
               ) : (
                 <>
@@ -20069,14 +20452,14 @@ export default function App() {
                         <div className="flex items-center gap-2">
                           <button 
                             onClick={() => updateQty(item.product.id, -1)}
-                            className="w-8 h-8 flex items-center justify-center text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                            className="w-8 h-8 flex items-center justify-center text-slate-400 dark:text-slate-300 dark:text-slate-200 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
                           <span className="text-[12px] font-black text-[#005E6A] w-6 text-center">{item.qty}</span>
                           <button 
                             onClick={() => updateQty(item.product.id, 1)}
-                            className="w-8 h-8 flex items-center justify-center text-slate-400 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                            className="w-8 h-8 flex items-center justify-center text-slate-400 dark:text-slate-300 dark:text-slate-200 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
@@ -20085,9 +20468,9 @@ export default function App() {
                     ))}
                   </div>
 
-                  <div className="border-t border-slate-100 pt-4">
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
                     <div className="flex justify-between items-center mb-3">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Subtotal (Belum Ongkir)</span>
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Subtotal (Belum Ongkir)</span>
                       <span className="text-xl font-black text-[#F15A24]">Rp {totalCart.toLocaleString('id-ID')}</span>
                     </div>
                     <button 
@@ -20119,31 +20502,31 @@ export default function App() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden px-6 py-6 z-[210] border border-slate-100"
+              className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden px-6 py-6 z-[210] border border-slate-100 dark:border-slate-800"
             >
               <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <LogOut className="w-8 h-8 text-rose-500" />
               </div>
               <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-widest mb-2 text-center">Konfirmasi Keluar</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6 leading-relaxed text-center">
+              <p className="text-[10px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase tracking-widest mb-6 leading-relaxed text-center">
                 Apakah Anda yakin ingin keluar dari akun {loggedInUser?.Nama}?
               </p>
               
               <div className="grid grid-cols-2 gap-3">
                 <button 
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 dark:text-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform cursor-pointer hover:bg-slate-200"
+                >
+                  Batal
+                </button>
+                <button 
                   onClick={() => {
                     handleLogout();
                     setShowLogoutConfirm(false);
                   }}
-                  className="w-full bg-rose-505 bg-rose-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-100 active:scale-95 transition-transform cursor-pointer"
+                  className="w-full bg-rose-500 text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-200/50 active:scale-95 transition-transform cursor-pointer hover:bg-rose-600"
                 >
                   Ya, Keluar
-                </button>
-                <button 
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="w-full bg-slate-50 text-slate-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-transform cursor-pointer"
-                >
-                  Batal
                 </button>
               </div>
             </motion.div>
