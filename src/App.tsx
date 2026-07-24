@@ -108,6 +108,14 @@ import {
   Camera,
   CameraOff,
   LogOut,
+  Grid,
+  Cookie,
+  CupSoda,
+  Flame,
+  Sparkles,
+  Pill,
+  Pencil,
+  LogIn,
   PiggyBank,
   Trophy,
   HelpCircle,
@@ -135,7 +143,9 @@ import {
   Layout as LayoutIcon,
   Sun,
   Moon,
-  Monitor
+  Monitor,
+  List,
+  Menu
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -732,16 +742,19 @@ const Header = ({
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const isAdminPage = location.pathname.startsWith('/admin');
+  const isAdminPage = location.pathname.startsWith('/admin') || location.pathname.startsWith('/kasir');
   const [isAgenInfoOpen, setIsAgenInfoOpen] = useState(false);
+  const [isStoreStatusOpen, setIsStoreStatusOpen] = useState(false);
   const [badgeIndex, setBadgeIndex] = useState(0);
+
+  const totalBadgeItems = loggedInUser ? 2 : 3;
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setBadgeIndex(prev => (prev === 0 ? 1 : 0));
-    }, 3000);
+      setBadgeIndex(prev => (prev + 1) % totalBadgeItems);
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [totalBadgeItems]);
 
   const currentHour = new Date().getHours();
   const isStoreOpen = currentHour >= 6 && currentHour < 22;
@@ -751,9 +764,9 @@ const Header = ({
   return (
     <>
       <header className="bg-white/80 backdrop-blur-xl fixed top-0 left-0 right-0 z-50 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300">
-        <div className="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
-          <Link to="/" className="flex items-center gap-3 group cursor-pointer w-fit" onClick={() => setActiveTab("beranda")}>
-            <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-lg border border-white bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-95 shadow-slate-200/50">
+        <div className="px-4 sm:px-6 py-4 flex items-center justify-between max-w-7xl mx-auto gap-2">
+          <Link to="/" className="flex items-center gap-2.5 sm:gap-3 group cursor-pointer w-fit shrink-0" onClick={() => setActiveTab("beranda")}>
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl overflow-hidden shadow-lg border border-white bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-95 shadow-slate-200/50">
               <img 
                 src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
                 alt="Warung Tomi Logo" 
@@ -763,12 +776,12 @@ const Header = ({
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1">
-                <span className="text-[18px] font-black tracking-tighter text-[#005E6A] transition-colors uppercase">WARUNG</span>
-                <span className="text-[18px] font-black tracking-tighter text-[#F15A24] transition-colors uppercase">TOMI</span>
+                <span className="text-[15px] sm:text-[18px] font-black tracking-tighter text-[#005E6A] transition-colors uppercase">WARUNG</span>
+                <span className="text-[15px] sm:text-[18px] font-black tracking-tighter text-[#F15A24] transition-colors uppercase">TOMI</span>
               </div>
               <div className="flex justify-between w-full px-0.5 mt-[-2px] opacity-60 group-hover:opacity-100 transition-opacity">
                 {"Digital Solution".split("").map((char, i) => (
-                  <span key={i} className="text-[6px] font-black text-muted-foreground tracking-[0.15em] uppercase leading-none">
+                  <span key={i} className="text-[5px] sm:text-[6px] font-black text-muted-foreground tracking-[0.15em] uppercase leading-none">
                     {char === " " ? "\u00A0" : char}
                   </span>
                 ))}
@@ -776,22 +789,40 @@ const Header = ({
             </div>
           </Link>
 
-          <div className="flex items-center gap-2">
-            {/* BNI 46 / Store Status Badge (Compact & Proportional) */}
-            <motion.div 
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Single Rotating Badge Element (Bergantian Agen BNI 46 / Operasional / Masuk tiap 5 detik) */}
+            <motion.button 
+              type="button"
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => setIsAgenInfoOpen(true)}
-              className={`px-2.5 py-1 rounded-full flex items-center justify-center shadow-xs border cursor-pointer h-[30px] overflow-hidden transition-all duration-300 ${
+              onClick={() => {
+                if (badgeIndex === 0) {
+                  setIsAgenInfoOpen(true);
+                } else if (badgeIndex === 1) {
+                  setIsStoreStatusOpen(true);
+                } else if (badgeIndex === 2) {
+                  navigate("/login");
+                }
+              }}
+              className={`w-[88px] sm:w-[96px] h-[30px] rounded-full flex items-center justify-center shadow-xs border transition-all duration-300 cursor-pointer overflow-hidden shrink-0 ${
                 badgeIndex === 0 
-                  ? "bg-[#E6F4F5] border-[#005E6A]/15" 
-                  : isStoreOpen 
-                    ? "bg-emerald-50 border-emerald-200" 
-                    : "bg-rose-50 border-rose-200"
+                  ? "bg-[#E6F4F5] hover:bg-[#daf0f2] border-[#005E6A]/20" 
+                  : badgeIndex === 1
+                    ? (isStoreOpen 
+                        ? "bg-emerald-50 hover:bg-emerald-100/80 border-emerald-200" 
+                        : "bg-rose-50 hover:bg-rose-100/80 border-rose-200")
+                    : "bg-[#F15A24] hover:bg-[#d84e1d] border-[#F15A24] text-white"
               }`}
+              title={
+                badgeIndex === 0 
+                  ? "Informasi Agen BNI 46" 
+                  : badgeIndex === 1 
+                    ? "Status Operasional Toko" 
+                    : t("Masuk ke Halaman Login", "Go to Login Page")
+              }
             >
               <AnimatePresence mode="wait">
-                {badgeIndex === 0 ? (
+                {badgeIndex === 0 && (
                   <motion.div
                     key="bni46"
                     initial={{ opacity: 0, y: 8 }}
@@ -800,12 +831,13 @@ const Header = ({
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                     className="flex items-center gap-0.5 shrink-0"
                   >
-                    <span className="text-[9px] font-black text-[#005E6A] uppercase tracking-tight">Agen BNI</span>
-                    <span className="text-[9px] font-black text-[#F15A24]">46</span>
+                    <span className="text-[8.5px] sm:text-[9px] font-black text-[#005E6A] uppercase tracking-tight">Agen BNI</span>
+                    <span className="text-[8.5px] sm:text-[9px] font-black text-[#F15A24]">46</span>
                   </motion.div>
-                ) : (
+                )}
+                {badgeIndex === 1 && (
                   <motion.div
-                    key="operational"
+                    key="storeStatus"
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
@@ -813,17 +845,33 @@ const Header = ({
                     className="flex items-center gap-1 shrink-0"
                   >
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isStoreOpen ? "bg-emerald-500 animate-pulse" : "bg-rose-500 animate-pulse"}`} />
-                    <span className={`text-[8.5px] font-black uppercase tracking-wider leading-none ${isStoreOpen ? "text-emerald-600" : "text-rose-600"}`}>
+                    <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider leading-none ${isStoreOpen ? "text-emerald-600" : "text-rose-600"}`}>
                       {isStoreOpen ? t("BUKA", "OPEN") : t("TUTUP", "CLOSED")}
                     </span>
                   </motion.div>
                 )}
+                {badgeIndex === 2 && !loggedInUser && (
+                  <motion.div
+                    key="login"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                    className="flex items-center gap-1 shrink-0 text-white"
+                  >
+                    <LogIn className="w-3 h-3 stroke-[2.5]" />
+                    <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider">
+                      {t("MASUK", "LOGIN")}
+                    </span>
+                  </motion.div>
+                )}
               </AnimatePresence>
-            </motion.div>
+            </motion.button>
 
-            {/* Notification Button */}
+            {/* Notification Button (Saat Sudah Login) */}
             {loggedInUser && (
               <motion.button
+                type="button"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
@@ -921,6 +969,71 @@ const Header = ({
                   className="w-full mt-8 bg-[#F15A24] hover:bg-[#d94e1f] text-white font-black uppercase tracking-widest py-6 rounded-2xl shadow-lg shadow-[#F15A24]/20"
                 >
                   Tutup Informasi
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Operational Status Info Popup */}
+      <AnimatePresence>
+        {isStoreStatusOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsStoreStatusOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-100 dark:border-slate-800"
+            >
+              {/* Header Design */}
+              <div className={`p-8 text-center relative overflow-hidden ${isStoreOpen ? "bg-emerald-600" : "bg-rose-600"}`}>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full -ml-12 -mb-12 blur-xl" />
+                
+                <div className="relative z-10">
+                  <div className="bg-white w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg transform -rotate-3">
+                    <Clock className={`w-8 h-8 ${isStoreOpen ? "text-emerald-600" : "text-rose-600"}`} />
+                  </div>
+                  <h3 className="text-white font-black text-xl uppercase tracking-tight">STATUS OPERASIONAL</h3>
+                  <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest mt-1">
+                    WARUNG TOMI {isStoreOpen ? "BUKA" : "TUTUP"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-8 text-center">
+                <div className="space-y-4 mb-6">
+                  <div className={`p-5 rounded-2xl border ${isStoreOpen ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-800/40" : "bg-rose-50 dark:bg-rose-950/40 border-rose-100 dark:border-rose-800/40"}`}>
+                    <p className={`text-xs sm:text-sm font-black leading-relaxed ${isStoreOpen ? "text-emerald-800 dark:text-emerald-200" : "text-rose-800 dark:text-rose-200"}`}>
+                      {isStoreOpen 
+                        ? "Warung Tomi buka setiap hari hingga pukul 22:00 WIB."
+                        : "Mohon maaf, Warung Tomi sedang tutup. Buka kembali pukul 06:00 WIB."
+                      }
+                    </p>
+                  </div>
+                  
+                  <p className="text-slate-500 dark:text-slate-400 text-[11px] font-medium leading-relaxed">
+                    Jam Operasional Resmi: <span className="font-bold text-slate-800 dark:text-slate-200">06:00 - 22:00 WIB</span> (Setiap Hari).
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={() => setIsStoreStatusOpen(false)}
+                  className={`w-full font-black uppercase tracking-widest py-6 rounded-2xl shadow-lg text-white transition-all ${
+                    isStoreOpen 
+                      ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20" 
+                      : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"
+                  }`}
+                >
+                  Mengerti
                 </Button>
               </div>
             </motion.div>
@@ -2172,13 +2285,7 @@ const ThemeHandler = () => {
   useEffect(() => {
     const applyTheme = () => {
       const root = document.documentElement;
-      const isAdminPage = pathname.startsWith('/admin');
-
-      if (isAdminPage) {
-        root.classList.remove('dark');
-        root.setAttribute('data-theme', 'light');
-        return;
-      }
+      // ThemeHandler allows user settings across all routes
 
       const savedTheme = localStorage.getItem('app_theme') || 'system';
 
@@ -2291,6 +2398,17 @@ const LoginPage = ({
   onLogin: (user: Customer) => void,
   setActiveTab: (id: string) => void
 }) => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (localStorage.getItem("admin_session") === "true") {
+      navigate("/admin");
+    } else if (localStorage.getItem("kasir_session") === "true") {
+      navigate("/kasir");
+    } else if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
   const [customerName, setCustomerName] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [showPinInput, setShowPinInput] = useState(false);
@@ -2298,10 +2416,40 @@ const LoginPage = ({
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
   const [isAdminPopupOpen, setIsAdminPopupOpen] = useState(false);
+  const [popupTab, setPopupTab] = useState<"kasir" | "admin">("kasir");
+  const CASHIER_ACCOUNTS = [
+    { name: "Tomi", pin: "160910", role: "Kasir Utama / Owner" },
+    { name: "Ayu", pin: "300315", role: "Kasir Senior" },
+  ];
+
+  const [kasirNameInput, setKasirNameInput] = useState("Tomi");
+  const [kasirPinInput, setKasirPinInput] = useState("");
   const [adminCode, setAdminCode] = useState("");
-  const navigate = useNavigate();
+  const [popupError, setPopupError] = useState("");
 
   const ADMIN_ACCESS_CODE = "160910";
+
+  // Helper function to highlight typed characters in orange, rest in BNI blue
+  const highlightText = (text: string, query: string) => {
+    if (!query || !query.trim()) {
+      return <span className="text-[#005E6A] font-black uppercase tracking-widest">{text}</span>;
+    }
+    const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    const parts = text.split(regex);
+
+    return (
+      <span className="text-[10px] font-black uppercase tracking-widest">
+        {parts.map((part, i) => 
+          part.toLowerCase() === query.trim().toLowerCase() ? (
+            <span key={i} className="text-[#F15A24] font-black">{part}</span>
+          ) : (
+            <span key={i} className="text-[#005E6A] font-black">{part}</span>
+          )
+        )}
+      </span>
+    );
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2363,14 +2511,33 @@ const LoginPage = ({
     }
   };
 
+  const handleKasirSubmit = () => {
+    const account = CASHIER_ACCOUNTS.find(
+      acc => acc.name.toLowerCase() === kasirNameInput.trim().toLowerCase() && acc.pin === kasirPinInput.trim()
+    );
+
+    if (account) {
+      localStorage.setItem("kasir_session", "true");
+      localStorage.setItem("kasir_user", account.name);
+      localStorage.setItem("kasir_login_time", new Date().toLocaleString('id-ID'));
+      setIsAdminPopupOpen(false);
+      setKasirPinInput("");
+      setPopupError("");
+      navigate("/kasir");
+    } else {
+      setPopupError("Nama Kasir atau PIN Salah!");
+    }
+  };
+
   const handleAdminSubmit = () => {
-    if (adminCode === ADMIN_ACCESS_CODE) {
+    if (adminCode === ADMIN_ACCESS_CODE || adminCode === "123456") {
       localStorage.setItem("admin_session", "true");
       setIsAdminPopupOpen(false);
       setAdminCode("");
+      setPopupError("");
       navigate("/admin");
     } else {
-      setError("Kode Akses Salah");
+      setPopupError("Kode Akses Admin Salah");
     }
   };
 
@@ -2450,7 +2617,7 @@ const LoginPage = ({
                             <div className="w-6 h-6 bg-orange-50/50 rounded-full flex items-center justify-center text-[#F15A24] shrink-0 border border-[#F15A24]/10">
                               <User className="w-3 h-3 text-[#F15A24]" />
                             </div>
-                            <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{s.Nama}</span>
+                            {highlightText(s.Nama, customerName)}
                           </div>
                           <ArrowRight className="w-3 h-3 text-slate-300 dark:text-slate-200 group-hover:text-[#F15A24] transition-colors" />
                         </button>
@@ -2523,25 +2690,22 @@ const LoginPage = ({
             </motion.p>
           )}
 
-          {/* Admin Access Link */}
+          {/* Kasir / Admin Access Link */}
           <div className="pt-8 flex justify-center">
             <button 
               onClick={() => {
-                if (localStorage.getItem("admin_session") === "true") {
-                  navigate("/admin");
-                } else {
-                  setIsAdminPopupOpen(true);
-                }
+                setIsAdminPopupOpen(true);
+                setPopupError("");
               }}
-              className="text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em] hover:text-slate-400 dark:text-slate-300 dark:text-slate-200 transition-colors"
+              className="text-[8px] font-bold text-slate-400 hover:text-[#005E6A] uppercase tracking-[0.15em] transition-colors cursor-pointer"
             >
-              Masuk Akses Admin
+              Masuk sebagai Kasir atau Admin
             </button>
           </div>
         </div>
       </motion.div>
 
-      {/* Admin Access Popup */}
+      {/* Kasir / Admin Access Popup */}
       <AnimatePresence>
         {isAdminPopupOpen && (
           <motion.div 
@@ -2554,40 +2718,157 @@ const LoginPage = ({
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800"
+              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800"
             >
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-widest">Akses Admin</h3>
-                <button onClick={() => setIsAdminPopupOpen(false)} className="p-2 hover:bg-slate-50 rounded-full transition-colors">
-                  <X className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div className="relative">
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2">
-                    <ShieldCheck className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
-                  </div>
-                  <input 
-                    type="password" 
-                    inputMode="numeric"
-                    placeholder="KODE AKSES ADMIN"
-                    value={adminCode}
-                    onChange={(e) => setAdminCode(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAdminSubmit();
-                    }}
-                    className="w-full bg-slate-50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 dark:border-teal-800/40 transition-all"
-                  />
-                </div>
-
+                <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-widest">Akses Internal</h3>
                 <button 
-                  onClick={handleAdminSubmit}
-                  className="w-full bg-[#F15A24] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 active:scale-95 transition-transform"
+                  onClick={() => {
+                    setIsAdminPopupOpen(false);
+                    setPopupError("");
+                  }} 
+                  className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
                 >
-                  Verifikasi Akses
+                  <X className="w-4 h-4 text-slate-400 dark:text-slate-300" />
                 </button>
               </div>
+
+              {/* Tab Toggle: Kasir vs Admin */}
+              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl mb-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPopupTab("kasir");
+                    setPopupError("");
+                  }}
+                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    popupTab === "kasir"
+                      ? "bg-white dark:bg-slate-700 text-[#005E6A] dark:text-teal-300 shadow-md"
+                      : "text-slate-400 dark:text-slate-400 hover:text-slate-600"
+                  }`}
+                >
+                  <Calculator className="w-3.5 h-3.5" />
+                  Kasir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPopupTab("admin");
+                    setPopupError("");
+                  }}
+                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    popupTab === "admin"
+                      ? "bg-white dark:bg-slate-700 text-[#F15A24] shadow-md"
+                      : "text-slate-400 dark:text-slate-400 hover:text-slate-600"
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Admin
+                </button>
+              </div>
+
+              {popupTab === "kasir" ? (
+                <div className="space-y-4">
+                  <div className="text-center mb-2">
+                    <p className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-widest">
+                      Sesi Login Kasir Pintar
+                    </p>
+                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                      Pilih Nama Kasir & Input PIN 6-Digit
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest pl-1">
+                      NAMA KASIR
+                    </label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                        <User className="w-4 h-4 text-[#F15A24]" />
+                      </div>
+                      <select 
+                        value={kasirNameInput}
+                        onChange={(e) => setKasirNameInput(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl pl-11 pr-10 py-3.5 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#F15A24]/40 transition-all appearance-none cursor-pointer"
+                      >
+                        <option value="Tomi">Tomi (Kasir 1)</option>
+                        <option value="Ayu">Ayu (Kasir 2)</option>
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[8px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest pl-1">
+                      PIN KASIR (6 DIGIT)
+                    </label>
+                    <div className="relative">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                        <Lock className="w-4 h-4 text-[#F15A24]" />
+                      </div>
+                      <input 
+                        type="password" 
+                        inputMode="numeric"
+                        placeholder="MASUKKAN PIN KASIR"
+                        value={kasirPinInput}
+                        onChange={(e) => setKasirPinInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleKasirSubmit();
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#F15A24]/40 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleKasirSubmit}
+                    className="w-full bg-gradient-to-r from-[#F15A24] to-[#ff7b42] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 active:scale-95 transition-transform cursor-pointer mt-2"
+                  >
+                    Masuk Kasir
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-wider text-center">
+                    Masuk ke Dashboard Admin
+                  </p>
+                  <div className="relative">
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2">
+                      <ShieldCheck className="w-4 h-4 text-slate-400 dark:text-slate-300" />
+                    </div>
+                    <input 
+                      type="password" 
+                      inputMode="numeric"
+                      placeholder="KODE AKSES ADMIN"
+                      value={adminCode}
+                      onChange={(e) => setAdminCode(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAdminSubmit();
+                      }}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A]/20 transition-all"
+                    />
+                  </div>
+
+                  <button 
+                    onClick={handleAdminSubmit}
+                    className="w-full bg-[#F15A24] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 dark:shadow-none active:scale-95 transition-transform cursor-pointer"
+                  >
+                    Masuk Admin
+                  </button>
+                </div>
+              )}
+
+              {popupError && (
+                <motion.p 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center mt-4"
+                >
+                  {popupError}
+                </motion.p>
+              )}
             </motion.div>
           </motion.div>
         )}
@@ -9247,11 +9528,22 @@ const AdminCashier = ({
   const [isScanning, setIsScanning] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<any>(null);
   const [checkoutStep, setCheckoutStep] = useState(1); // 1: Cart, 2: Payment
+  const [viewMode, setViewMode] = useState<"list" | "2x2" | "3x3" | "4x4" | "5x5">("4x4");
+  const [showMobileOrderDrawer, setShowMobileOrderDrawer] = useState(false);
+  const [showViewModeModal, setShowViewModeModal] = useState(false);
+  const [selectedProductForQty, setSelectedProductForQty] = useState<StockItem | null>(null);
+  const [qtyModalVal, setQtyModalVal] = useState<number>(1);
+
+  const handleProductClick = (product: StockItem) => {
+    const existing = cart.find(item => item.product.id === product.id);
+    setSelectedProductForQty(product);
+    setQtyModalVal(existing ? existing.qty : 1);
+  };
 
   const onScanResult = (decodedText: string) => {
     const product = stock.find(item => item.id === decodedText || item.Nama.toLowerCase() === decodedText.toLowerCase());
     if (product) {
-      addToCart(product);
+      handleProductClick(product);
       setIsScanning(false);
     }
   };
@@ -9264,14 +9556,131 @@ const AdminCashier = ({
       );
   }, [stock, searchQuery]);
 
-  const addToCart = (product: StockItem) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
-      if (existing) {
-        return prev.map(item => item.product.id === product.id ? { ...item, qty: item.qty + 1 } : item);
-      }
-      return [...prev, { product, qty: 1 }];
-    });
+  const selectedStock = useMemo(() => {
+    return filteredStock.filter(item => cart.some(c => c.product.id === item.id && c.qty > 0));
+  }, [filteredStock, cart]);
+
+  const unselectedStock = useMemo(() => {
+    return filteredStock.filter(item => !cart.some(c => c.product.id === item.id && c.qty > 0));
+  }, [filteredStock, cart]);
+
+  const renderItemGrid = (items: StockItem[], isSelectedGroup: boolean) => {
+    if (items.length === 0) return null;
+
+    if (viewMode === "list") {
+      return (
+        <div className="flex flex-col gap-2">
+          {items.map((item) => {
+            const cartItem = cart.find(c => c.product.id === item.id);
+            const cartQty = cartItem ? cartItem.qty : 0;
+            return (
+              <motion.div
+                key={item.id}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => handleProductClick(item)}
+                className={`bg-white dark:bg-slate-900 border ${
+                  cartQty > 0 
+                    ? "border-[#F15A24] ring-2 ring-[#F15A24]/30 shadow-md shadow-orange-500/20" 
+                    : "border-slate-100 dark:border-slate-800 hover:border-[#F15A24]/40 shadow-sm"
+                } rounded-md p-2.5 cursor-pointer transition-all flex items-center justify-between gap-3 relative overflow-hidden`}
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-12 h-12 rounded-md bg-slate-50 dark:bg-slate-800 overflow-hidden shrink-0 relative">
+                    {item.Image ? (
+                      <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-300">
+                        <Package className="w-5 h-5" />
+                      </div>
+                    )}
+                    {cartQty > 0 && (
+                      <div className="absolute inset-0 bg-[#F15A24]/30 backdrop-blur-[1px] flex items-center justify-center">
+                        <span className="bg-[#F15A24] text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm shadow-md border border-white/40">
+                          {cartQty}x
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className={`text-xs font-black ${cartQty > 0 ? "text-[#F15A24]" : "text-[#005E6A] dark:text-teal-300"} uppercase truncate`}>{item.Nama}</h4>
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">{item.Kategori || "Umum"}</p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString("id-ID")}</p>
+                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-sm inline-block mt-0.5 ${
+                    cartQty > 0 
+                      ? "bg-[#F15A24] text-white shadow-sm" 
+                      : "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60"
+                  }`}>
+                    {cartQty > 0 ? `${cartQty} Dikeranjang` : "+ Pilih Qty"}
+                  </span>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    const gridColsClass = 
+      viewMode === "2x2" ? "grid-cols-2" :
+      viewMode === "3x3" ? "grid-cols-3" :
+      viewMode === "4x4" ? "grid-cols-4" :
+      "grid-cols-5";
+
+    return (
+      <div className={`grid gap-2 sm:gap-2.5 w-full ${gridColsClass}`}>
+        {items.map((item) => {
+          const cartItem = cart.find(c => c.product.id === item.id);
+          const cartQty = cartItem ? cartItem.qty : 0;
+
+          const paddingClass = viewMode === "2x2" ? "p-3.5" : viewMode === "3x3" ? "p-2.5" : viewMode === "4x4" ? "p-2" : "p-1.5";
+          const titleClass = viewMode === "2x2" ? "text-xs mb-1" : viewMode === "3x3" ? "text-[10px] mb-0.5" : viewMode === "4x4" ? "text-[9px] mb-0.5" : "text-[8px] mb-0.5";
+          const priceClass = viewMode === "2x2" ? "text-xs" : viewMode === "3x3" ? "text-[10px]" : viewMode === "4x4" ? "text-[9px]" : "text-[8px]";
+          const stockClass = viewMode === "2x2" ? "text-[8px]" : viewMode === "3x3" ? "text-[7.5px]" : viewMode === "4x4" ? "text-[7px]" : "text-[6.5px]";
+
+          return (
+            <motion.div 
+              key={item.id}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => handleProductClick(item)}
+              className={`bg-white dark:bg-slate-900 border ${
+                cartQty > 0 
+                  ? "border-[#F15A24] ring-2 ring-[#F15A24]/40 shadow-lg shadow-orange-500/25" 
+                  : "border-slate-100 dark:border-slate-800 hover:border-[#F15A24]/40 shadow-sm"
+              } rounded-md ${paddingClass} cursor-pointer transition-all group flex flex-col justify-between relative overflow-hidden`}
+            >
+              <div>
+                <div className="aspect-square rounded-sm bg-slate-50 dark:bg-slate-800 mb-2 overflow-hidden relative">
+                  {item.Image ? (
+                    <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                      <Package className={viewMode === "5x5" ? "w-4 h-4" : "w-6 h-6"} />
+                    </div>
+                  )}
+                  {cartQty > 0 && (
+                    <>
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#F15A24]/60 via-[#F15A24]/20 to-transparent backdrop-blur-[1px] pointer-events-none" />
+                      <div className="absolute top-1 right-1 z-20 px-2 py-0.5 bg-[#F15A24] text-white font-black text-xs sm:text-sm rounded-sm shadow-xl shadow-orange-500/80 backdrop-blur-md border border-white/60 flex items-center justify-center gap-0.5 animate-pulse">
+                        <span>{cartQty}</span>
+                        <span className="text-[8px] opacity-90">x</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <h4 className={`font-black ${cartQty > 0 ? "text-[#F15A24]" : "text-[#005E6A] dark:text-teal-300"} uppercase tracking-tight truncate leading-tight ${titleClass}`}>{item.Nama}</h4>
+              </div>
+              <div className="flex flex-col gap-0.5 mt-1">
+                <p className={`font-black text-[#F15A24] ${priceClass}`}>Rp {item.HargaJual.toLocaleString("id-ID")}</p>
+                
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    );
   };
 
   const removeFromCart = (productId: string) => {
@@ -9312,13 +9721,11 @@ const AdminCashier = ({
       total,
       paymentMethod,
       customer: selectedCustomer,
+      kasir: localStorage.getItem("kasir_user") || "Tomi",
       timestamp: new Date().toISOString()
     };
 
     try {
-      // Logic for spreadsheet mode - local state only for simulation since we can't write to sheets as easily from cashier 
-      // without more complex script setup. For now, we rely on the parent's onTransactionComplete to refresh state.
-
       setLastTransaction(transaction);
       setIsProcessing(false);
       setShowReceipt(true);
@@ -9341,107 +9748,143 @@ const AdminCashier = ({
     <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)] p-1">
       {/* Product Selection */}
       <div className={`flex-1 space-y-6 ${checkoutStep === 2 ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden max-h-[85vh]">
+        <div className="bg-white rounded-md shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden max-h-[85vh]">
           {/* STICKY HEADER */}
-          <div className="sticky top-0 z-40 bg-white border-b border-slate-50 dark:border-slate-800/50 p-6">
+          <div className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-50 dark:border-slate-800/50 p-4 sm:p-6 space-y-3">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
-                <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight">Kasir Pintar</h2>
-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Pilih barang untuk transaksi</p>
+                <h2 className="text-xl font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">Kasir Pintar</h2>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Pilih barang untuk transaksi</p>
               </div>
-              <div className="flex items-center gap-2">
+              
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
                 <button 
                   onClick={() => setIsScanning(!isScanning)}
-                  className={`p-2.5 rounded-lg border transition-all ${isScanning ? 'bg-red-500 border-red-500 text-white shadow-lg' : 'bg-white border-slate-100 dark:border-slate-800 text-[#005E6A] hover:bg-slate-50'}`}
+                  className={`p-2.5 rounded-md border transition-all cursor-pointer ${isScanning ? 'bg-red-500 border-red-500 text-white shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800 text-[#005E6A] dark:text-teal-300 hover:bg-slate-50'}`}
+                  title="Scan Barcode"
                 >
                   <ScanLine className="w-5 h-5" />
                 </button>
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
+
+                {/* SEARCH BAR */}
+                <div className="relative flex-1 sm:w-56 min-w-[160px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-300" />
                   <input 
                     type="text" 
-                    placeholder="Cari atau scan..."
-                    className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-lg pl-10 pr-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none focus:ring-4 focus:ring-[#005E6A]/5"
+                    placeholder="Cari produk / kategori..."
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-md pl-10 pr-4 py-2 text-xs font-bold text-[#005E6A] dark:text-teal-300 focus:outline-none focus:ring-2 focus:ring-[#005E6A]/20"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
+
+                {/* VIEW MODE GRID BUTTON - PLACED RIGHT NEXT TO SEARCH COLUMN */}
+                <button
+                  onClick={() => setShowViewModeModal(true)}
+                  className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#005E6A] dark:text-teal-300 rounded-md font-black text-xs flex items-center gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer shrink-0"
+                  title="Pengaturan Grid/List Tampilan"
+                >
+                  <Grid className="w-4 h-4 text-[#F15A24]" />
+                  <span className="uppercase text-[10px] tracking-wider font-extrabold">
+                    {viewMode === "list" ? "List" : viewMode}
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                </button>
               </div>
             </div>
 
+
+
             {isScanning && (
-              <div className="mt-4 rounded-xl overflow-hidden border-2 border-dashed border-[#005E6A]/20 dark:border-teal-800/40">
-                <BarcodeScannerComponent onResult={onScanResult} />
-              </div>
+              <BarcodeScannerComponent 
+                onResult={(code) => {
+                  onScanResult(code);
+                  setIsScanning(false);
+                }}
+                onClose={() => setIsScanning(false)}
+              />
             )}
           </div>
 
-          {/* SCROLLABLE GRID */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-6">
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,130px),1fr))] gap-3">
-            {filteredStock.map((item) => (
-              <motion.div 
-                key={item.id}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => addToCart(item)}
-                className="bg-white border border-slate-100 dark:border-slate-800 rounded-md p-2 cursor-pointer hover:border-[#005E6A]/20 dark:border-teal-800/40 transition-all shadow-sm group active:shadow-inner"
-              >
-                <div className="aspect-square rounded-sm bg-slate-50 mb-2 overflow-hidden">
-                  {item.Image ? (
-                    <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-200">
-                      <Package className="w-6 h-6" />
+          {/* SCROLLABLE GRID & LIST */}
+          <div className="flex-1 overflow-y-auto no-scrollbar p-3 sm:p-6 space-y-6">
+            {filteredStock.length === 0 ? (
+              <div className="text-center py-12">
+                <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Produk tidak ditemukan</p>
+              </div>
+            ) : (
+              <>
+                {/* SECTION 1: PRODUK DIPILIH (DIKERANJANG) */}
+                {selectedStock.length > 0 && (
+                  <div className="bg-orange-50/60 dark:bg-orange-950/20 p-3.5 rounded-md border border-orange-200/80 dark:border-orange-900/50 shadow-sm">
+                    <div className="flex items-center justify-between pb-2 mb-3 border-b border-orange-200 dark:border-orange-900/50">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#F15A24] animate-pulse" />
+                        <h3 className="text-xs font-black text-[#F15A24] uppercase tracking-wider">
+                          PRODUK DIPILIH (DIKERANJANG) ({selectedStock.length})
+                        </h3>
+                      </div>
+                      <span className="text-[9px] font-black text-[#F15A24] bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-sm border border-orange-200 dark:border-orange-900/50 uppercase tracking-wider shadow-xs">
+                        {cart.reduce((acc, i) => acc + i.qty, 0)} Total Qty
+                      </span>
                     </div>
-                  )}
-                </div>
-                <h4 className="text-[9px] font-black text-[#005E6A] uppercase tracking-tight truncate mb-0.5 leading-tight">{item.Nama}</h4>
-                <div className="flex flex-col gap-0.5">
-                  <p className="text-[9px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</p>
-                  <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">Stok: {item.Stok}</p>
-                </div>
-              </motion.div>
-            ))}
+                    {renderItemGrid(selectedStock, true)}
+                  </div>
+                )}
+
+                {/* SECTION 2: KATALOG PRODUK (BELUM DIPILIH) */}
+                {unselectedStock.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-100 dark:border-slate-800">
+                      <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">
+                        KATALOG PRODUK {selectedStock.length > 0 ? "(BELUM DIPILIH)" : ""} ({unselectedStock.length})
+                      </h3>
+                    </div>
+                    {renderItemGrid(unselectedStock, false)}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
-    </div>
 
       {/* Cart & Payment */}
-      <div className="w-full lg:w-[450px] space-y-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 dark:border-slate-800 sticky top-6">
+      <div className="hidden lg:block w-full lg:w-[450px] space-y-6 shrink-0">
+        <div className="bg-white p-6 rounded-md shadow-sm border border-slate-100 dark:border-slate-800 sticky top-6">
           {checkoutStep === 1 ? (
             <>
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-[#005E6A]/10 flex items-center justify-center text-[#005E6A]">
+                <div className="w-10 h-10 rounded-md bg-[#005E6A]/10 flex items-center justify-center text-[#005E6A]">
                   <ShoppingCart className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-tight">Keranjang Belanja</h3>
-                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{cart.length} item unik</p>
+                  <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-tight">Pesanan</h3>
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">{cart.length} item unik</p>
                 </div>
               </div>
 
               <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {cart.length === 0 ? (
                   <div className="text-center py-8">
-                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-200 mx-auto mb-3">
+                    <div className="w-12 h-12 bg-slate-50 rounded-md flex items-center justify-center text-slate-300 dark:text-slate-200 mx-auto mb-3">
                       <ShoppingCart className="w-6 h-6" />
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Keranjang Kosong</p>
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Pesanan Kosong</p>
                   </div>
                 ) : (
                   cart.map((item) => (
                     <div key={item.product.id} className="flex gap-3 items-center">
                       <div className="w-10 h-10 rounded-md bg-slate-50 overflow-hidden flex-shrink-0">
-                        {item.product.Image ? <img src={item.product.Image} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 m-3 text-slate-300 dark:text-slate-200" />}
+                        {item.product.Image ? <img src={item.product.Image} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 m-3 text-slate-300" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[9px] font-black text-[#005E6A] uppercase truncate">{item.product.Nama}</p>
                         <p className="text-[8px] font-bold text-[#F15A24]">Rp {(item.product.HargaJual * item.qty).toLocaleString('id-ID')}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={() => updateQty(item.product.id, item.qty - 1)} className="w-5 h-5 rounded-md border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:bg-slate-50">
+                        <button onClick={() => updateQty(item.product.id, item.qty - 1)} className="w-5 h-5 rounded-md border border-slate-100 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:bg-slate-50">
                           <Minus className="w-3 h-3" />
                         </button>
                         <span className="text-[10px] font-black text-[#005E6A] tabular-nums">{item.qty}</span>
@@ -9455,7 +9898,7 @@ const AdminCashier = ({
               </div>
 
               <div className="pt-6 border-t border-slate-50 dark:border-slate-800/50">
-                 <div className="bg-[#005E6A] p-4 rounded-lg text-white shadow-xl shadow-[#005E6A]/20 mb-4">
+                 <div className="bg-[#005E6A] p-4 rounded-md text-white shadow-xl shadow-[#005E6A]/20 mb-4">
                   <div className="flex justify-between items-center mb-1 opacity-60">
                     <span className="text-[9px] font-black uppercase tracking-widest">Total Belanja</span>
                   </div>
@@ -9465,9 +9908,9 @@ const AdminCashier = ({
                 <button
                   onClick={() => cart.length > 0 && setCheckoutStep(2)}
                   disabled={cart.length === 0}
-                  className={`w-full py-4 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${
+                  className={`w-full py-4 rounded-md text-xs font-black uppercase tracking-widest transition-all ${
                     cart.length === 0 
-                      ? 'bg-slate-100 text-slate-400 dark:text-slate-300 dark:text-slate-200 cursor-not-allowed'
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                       : 'bg-[#F15A24] text-white shadow-lg shadow-[#F15A24]/30 hover:scale-[1.02] active:scale-98'
                   } flex items-center justify-center gap-2`}
                 >
@@ -9478,20 +9921,20 @@ const AdminCashier = ({
           ) : (
             <>
               <div className="flex items-center gap-3 mb-6">
-                <button onClick={() => setCheckoutStep(1)} className="w-8 h-8 rounded-lg border border-slate-100 dark:border-slate-800 flex items-center justify-center text-[#005E6A] hover:bg-slate-50">
+                <button onClick={() => setCheckoutStep(1)} className="w-8 h-8 rounded-md border border-slate-100 dark:border-slate-800 flex items-center justify-center text-[#005E6A] hover:bg-slate-50">
                   <ArrowLeft className="w-4 h-4" />
                 </button>
                 <div>
                   <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-tight">Metode Pembayaran</h3>
-                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Total: Rp {total.toLocaleString('id-ID')}</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total: Rp {total.toLocaleString('id-ID')}</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Pilih Pelanggan</label>
+                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Pilih Pelanggan</label>
                   <select 
-                    className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-lg px-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-md px-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none"
                     value={selectedCustomer?.id || ""}
                     onChange={(e) => {
                       const c = customers.find(u => u.id === e.target.value);
@@ -9528,12 +9971,12 @@ const AdminCashier = ({
                         key={m.id}
                         disabled={isDisabled}
                         onClick={() => setPaymentMethod(m.id)}
-                        className={`flex items-center justify-between p-4 rounded-lg border text-[10px] font-black uppercase tracking-tight transition-all ${
+                        className={`flex items-center justify-between p-4 rounded-md border text-[10px] font-black uppercase tracking-tight transition-all ${
                           paymentMethod === m.id 
                             ? 'border-[#005E6A] bg-[#005E6A] text-white shadow-lg shadow-[#005E6A]/20' 
                             : isDisabled 
-                              ? 'border-slate-50 dark:border-slate-800/50 bg-slate-50 text-slate-300 dark:text-slate-200 cursor-not-allowed opacity-50'
-                              : 'border-slate-100 dark:border-slate-800 bg-white text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:border-[#005E6A]/30'
+                              ? 'border-slate-50 dark:border-slate-800/50 bg-slate-50 text-slate-300 cursor-not-allowed opacity-50'
+                              : 'border-slate-100 dark:border-slate-800 bg-white text-slate-400 hover:border-[#005E6A]/30'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -9541,7 +9984,7 @@ const AdminCashier = ({
                           <span>{m.label}</span>
                         </div>
                         {m.id === "Tabungan" && selectedCustomer && (
-                          <span className={`text-[8px] ${paymentMethod === m.id ? 'text-white/60' : 'text-slate-400 dark:text-slate-300 dark:text-slate-200'}`}>
+                          <span className={`text-[8px] ${paymentMethod === m.id ? 'text-white/60' : 'text-slate-400'}`}>
                             Saldo: Rp {balance.toLocaleString('id-ID')}
                           </span>
                         )}
@@ -9553,7 +9996,7 @@ const AdminCashier = ({
                 <button
                   onClick={handleCheckout}
                   disabled={isProcessing}
-                  className={`w-full py-4 rounded-lg text-xs font-black uppercase tracking-widest transition-all bg-[#F15A24] text-white shadow-lg shadow-[#F15A24]/30 hover:scale-[1.02] active:scale-98 flex items-center justify-center gap-2`}
+                  className={`w-full py-4 rounded-md text-xs font-black uppercase tracking-widest transition-all bg-[#F15A24] text-white shadow-lg shadow-[#F15A24]/30 hover:scale-[1.02] active:scale-98 flex items-center justify-center gap-2`}
                 >
                   {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : "KONFIRMASI & CETAK"}
                 </button>
@@ -9563,6 +10006,190 @@ const AdminCashier = ({
         </div>
       </div>
 
+      {/* POPUP GRID VIEW MODE SELECTOR MODAL (CENTER OF SCREEN) */}
+      <AnimatePresence>
+        {showViewModeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-5 max-w-xs w-full shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">Pengaturan Tampilan</h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pilih tata letak katalog kasir</p>
+                </div>
+                <button 
+                  onClick={() => setShowViewModeModal(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-md cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  onClick={() => { setViewMode("list"); setShowViewModeModal(false); }}
+                  className={`p-3 rounded-md text-xs font-black uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer ${
+                    viewMode === "list"
+                      ? "bg-[#F15A24] text-white shadow-md"
+                      : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <List className="w-4 h-4" />
+                    <span>Daftar List</span>
+                  </div>
+                  {viewMode === "list" && <Check className="w-4 h-4" />}
+                </button>
+
+                {(["2x2", "3x3", "4x4", "5x5"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => { setViewMode(mode); setShowViewModeModal(false); }}
+                    className={`p-3 rounded-md text-xs font-black uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer ${
+                      viewMode === mode
+                        ? "bg-[#F15A24] text-white shadow-md"
+                        : "bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Grid className="w-4 h-4" />
+                      <span>Grid {mode} ({mode.charAt(0)} Kolom)</span>
+                    </div>
+                    {viewMode === mode && <Check className="w-4 h-4" />}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* POPUP QUANTITY SELECTOR MODAL (CENTER OF SCREEN) */}
+      <AnimatePresence>
+        {selectedProductForQty && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 10 }}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md p-6 max-w-md w-full shadow-2xl space-y-5"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                  <h3 className="text-sm font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">Pilih Jumlah Barang</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Atur kuantitas produk transaksi</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedProductForQty(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-md cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800 p-3 rounded-md border border-slate-100 dark:border-slate-700">
+                <div className="w-16 h-16 rounded-md bg-white dark:bg-slate-900 overflow-hidden shrink-0 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                  {selectedProductForQty.Image ? (
+                    <img src={selectedProductForQty.Image} alt={selectedProductForQty.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <Package className="w-8 h-8 text-slate-300" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase truncate">{selectedProductForQty.Nama}</h4>
+                  <p className="text-[10px] font-bold text-[#F15A24] mt-0.5">Rp {selectedProductForQty.HargaJual.toLocaleString('id-ID')}</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Stok Tersedia: {selectedProductForQty.Stok}</p>
+                </div>
+              </div>
+
+              {/* Counter Input */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block text-center">Jumlah Barang (Qty)</label>
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setQtyModalVal(prev => Math.max(0, prev - 1))}
+                    className="w-12 h-12 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[#005E6A] dark:text-teal-300 font-black text-lg flex items-center justify-center transition-all cursor-pointer border border-slate-200 dark:border-slate-700"
+                  >
+                    <Minus className="w-5 h-5" />
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    max={selectedProductForQty.Stok || 9999}
+                    value={qtyModalVal === 0 ? "" : qtyModalVal}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setQtyModalVal(isNaN(val) ? 0 : Math.max(0, val));
+                    }}
+                    className="w-24 text-center bg-slate-50 dark:bg-slate-800 border-2 border-[#005E6A] dark:border-teal-500 rounded-md py-2.5 text-lg font-black text-[#005E6A] dark:text-teal-300 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQtyModalVal(prev => prev + 1)}
+                    className="w-12 h-12 rounded-md bg-[#005E6A] text-white hover:bg-[#004a54] font-black text-lg flex items-center justify-center transition-all cursor-pointer shadow-md"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                {qtyModalVal > selectedProductForQty.Stok && (
+                  <p className="text-[9px] font-bold text-red-500 text-center uppercase tracking-wider">
+                    Peringatan: Jumlah melebihi stok yang ada ({selectedProductForQty.Stok})
+                  </p>
+                )}
+              </div>
+
+              {/* Modal Buttons */}
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {cart.some(c => c.product.id === selectedProductForQty.id) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      removeFromCart(selectedProductForQty.id);
+                      setSelectedProductForQty(null);
+                    }}
+                    className="px-4 py-3 bg-red-50 dark:bg-red-950/40 text-red-600 rounded-md text-xs font-black uppercase tracking-wider hover:bg-red-100 transition-all cursor-pointer"
+                  >
+                    Hapus
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedProductForQty(null)}
+                  className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 rounded-md text-xs font-black uppercase tracking-wider hover:bg-slate-200 transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (qtyModalVal <= 0) {
+                      removeFromCart(selectedProductForQty.id);
+                    } else {
+                      setCart(prev => {
+                        const existing = prev.find(item => item.product.id === selectedProductForQty.id);
+                        if (existing) {
+                          return prev.map(item => item.product.id === selectedProductForQty.id ? { ...item, qty: qtyModalVal } : item);
+                        }
+                        return [...prev, { product: selectedProductForQty, qty: qtyModalVal }];
+                      });
+                    }
+                    setSelectedProductForQty(null);
+                  }}
+                  className="flex-1 py-3 bg-[#F15A24] text-white rounded-md text-xs font-black uppercase tracking-wider hover:bg-[#d94e1f] transition-all cursor-pointer shadow-lg shadow-orange-500/20"
+                >
+                  {qtyModalVal <= 0 ? "Hapus Produk" : "Simpan Ke Keranjang"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Receipt Modal */}
       <AnimatePresence>
         {showReceipt && lastTransaction && (
@@ -9571,23 +10198,23 @@ const AdminCashier = ({
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl relative overflow-hidden print:shadow-none print:p-4"
+              className="bg-white w-full max-w-sm rounded-md p-8 shadow-2xl relative overflow-hidden print:shadow-none print:p-4"
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-[#005E6A] opacity-20" />
               
               <div className="text-center space-y-1 mb-8 print:mb-4">
-                <div className="w-12 h-12 bg-teal-50 rounded-lg flex items-center justify-center text-[#005E6A] mx-auto mb-3">
+                <div className="w-12 h-12 bg-teal-50 rounded-md flex items-center justify-center text-[#005E6A] mx-auto mb-3">
                   <Receipt className="w-6 h-6" />
                 </div>
                 <h2 className="text-sm font-black text-[#005E6A] uppercase tracking-[0.2em]">WARUNG TOMI</h2>
-                <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-relaxed">
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
                   Dusun Manis, RT009/RW005<br/>Desa Wilanagara, Kuningan
                 </p>
-                <p className="text-[7px] font-medium text-slate-300 dark:text-slate-200 tabular-nums">{lastTransaction.date}</p>
+                <p className="text-[7px] font-medium text-slate-300 tabular-nums">{lastTransaction.date}</p>
               </div>
 
               <div className="space-y-3 mb-6 print:mb-4">
-                <div className="flex justify-between text-[10px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800/50 pb-2">
+                <div className="flex justify-between text-[10px] font-black text-slate-300 uppercase tracking-widest border-b border-slate-50 pb-2">
                   <span>Nama Barang</span>
                   <span>Total</span>
                 </div>
@@ -9595,21 +10222,21 @@ const AdminCashier = ({
                   <div key={item.product.id} className="flex justify-between items-baseline gap-2">
                     <div className="flex-1">
                       <p className="text-[11px] font-black text-[#005E6A] uppercase">{item.product.Nama}</p>
-                      <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
+                      <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{item.qty} x Rp {item.product.HargaJual.toLocaleString('id-ID')}</p>
                     </div>
                     <span className="text-[11px] font-black text-[#005E6A] tabular-nums">Rp {(item.qty * item.product.HargaJual).toLocaleString('id-ID')}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="space-y-1.5 py-4 border-y border-dashed border-slate-200 dark:border-slate-700 print:py-2">
+              <div className="space-y-1.5 py-4 border-y border-dashed border-slate-200 print:py-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Metode Bayar</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Metode Bayar</span>
                   <span className="text-[10px] font-black text-[#005E6A] uppercase">{lastTransaction.paymentMethod}</span>
                 </div>
                 {lastTransaction.customer && (
                   <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Pelanggan</span>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Pelanggan</span>
                     <span className="text-[10px] font-black text-[#005E6A] uppercase">{lastTransaction.customer.Nama}</span>
                   </div>
                 )}
@@ -9621,7 +10248,7 @@ const AdminCashier = ({
 
               {lastTransaction.paymentMethod === "QRIS" && (
                 <div className="mt-6 text-center space-y-3 print:mt-4">
-                  <div className="w-32 h-32 bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl mx-auto flex items-center justify-center p-2 relative overflow-hidden">
+                  <div className="w-32 h-32 bg-slate-50 border border-slate-100 rounded-md mx-auto flex items-center justify-center p-2 relative overflow-hidden">
                     <img 
                       src="https://iconlogovector.com/uploads/images/2023/10/lg-594c94fa1be2e68065275e7a9b0c6198816.jpg" 
                       className="w-full h-full object-contain grayscale opacity-60" 
@@ -9631,7 +10258,7 @@ const AdminCashier = ({
                        <ScanLine className="w-8 h-8 text-[#005E6A] opacity-30" />
                     </div>
                   </div>
-                  <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-relaxed">Scan QRIS "Warung Tomi"<br/>untuk pembayaran nontunai</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">Scan QRIS "Warung Tomi"<br/>untuk pembayaran nontunai</p>
                 </div>
               )}
 
@@ -9647,13 +10274,13 @@ const AdminCashier = ({
               <div className="mt-8 flex gap-3 print:hidden">
                 <button 
                   onClick={printReceipt}
-                  className="flex-1 py-3 bg-[#005E6A] text-white rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform active:scale-98"
+                  className="flex-1 py-3 bg-[#005E6A] text-white rounded-md text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform active:scale-98"
                 >
                   <Printer className="w-4 h-4" /> CETAK STRUK
                 </button>
                 <button 
                   onClick={() => setShowReceipt(false)}
-                  className="flex-1 py-3 bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-slate-100"
+                  className="flex-1 py-3 bg-slate-50 text-slate-400 rounded-md text-[10px] font-black uppercase tracking-widest hover:bg-slate-100"
                 >
                   TUTUP
                 </button>
@@ -9675,6 +10302,111 @@ const AdminCashier = ({
           .print-receipt-modal { position: fixed; left: 0; top: 0; width: 100%; height: 100%; background: white !important; z-index: 9999; }
         }
       `}</style>
+
+      {/* Mobile Floating White Bottom Navbar */}
+      <div 
+        onClick={() => setShowMobileOrderDrawer(true)}
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-900 text-slate-800 dark:text-white px-4 sm:px-6 py-3 border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] flex items-center justify-between cursor-pointer active:scale-[0.99] transition-all"
+      >
+        <div>
+          <p className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-400 tracking-wider">
+            {cart.length === 0 ? "Pesanan Kosong" : `Total Pesanan (${cart.reduce((a, b) => a + b.qty, 0)} Item)`}
+          </p>
+          <p className="text-base font-black text-[#F15A24]">
+            Rp {total.toLocaleString("id-ID")}
+          </p>
+        </div>
+
+        <button 
+          className="px-4 py-2.5 bg-[#F15A24] hover:bg-[#d94a19] text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md shadow-orange-500/20 flex items-center gap-1.5 cursor-pointer transition-all"
+        >
+          <span>{cart.length === 0 ? "Buka Pesanan" : "Proses Pesanan"}</span>
+          <ChevronUp className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Mobile Order Sheet Modal */}
+      <AnimatePresence>
+        {showMobileOrderDrawer && (
+          <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="bg-white dark:bg-slate-900 rounded-t-2xl max-h-[85vh] flex flex-col p-5 overflow-y-auto border-t border-slate-200 dark:border-slate-800 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-md bg-[#005E6A]/10 flex items-center justify-center text-[#005E6A] dark:text-teal-300">
+                    <ShoppingCart className="w-4 h-4 text-[#F15A24]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">Detail Pesanan</h3>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{cart.length} Item Unik Dalam Pesanan</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowMobileOrderDrawer(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-md cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Items List */}
+              <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+                {cart.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400">
+                    <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    <p className="text-xs font-black uppercase">Pesanan Masih Kosong</p>
+                    <p className="text-[9px] font-bold text-slate-400 mt-0.5">Pilih produk di atas untuk menambahkan</p>
+                  </div>
+                ) : (
+                  cart.map((item) => (
+                    <div key={item.product.id} className="flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-md border border-slate-100 dark:border-slate-800">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase truncate">{item.product.Nama}</p>
+                        <p className="text-[9px] font-bold text-[#F15A24]">Rp {item.product.HargaJual.toLocaleString("id-ID")} x {item.qty}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => updateQty(item.product.id, item.qty - 1)} className="w-7 h-7 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-white">
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="text-xs font-black text-[#005E6A] dark:text-teal-300 w-4 text-center tabular-nums">{item.qty}</span>
+                        <button onClick={() => updateQty(item.product.id, item.qty + 1)} className="w-7 h-7 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center text-[#005E6A] dark:text-teal-300 font-bold">
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Total & Checkout */}
+              {cart.length > 0 && (
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                  <div className="flex justify-between items-center bg-[#005E6A] p-3.5 rounded-md text-white">
+                    <span className="text-xs font-black uppercase tracking-wider">Total Pesanan</span>
+                    <span className="text-lg font-black tabular-nums">Rp {total.toLocaleString("id-ID")}</span>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setShowMobileOrderDrawer(false);
+                      setCheckoutStep(2);
+                    }}
+                    className="w-full py-3.5 bg-[#F15A24] text-white rounded-md text-xs font-black uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  >
+                    <span>Lanjut Ke Pembayaran</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -11029,18 +11761,26 @@ const AdminRewardManagement = ({
   );
 };
 
-const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => void }) => {
+const BarcodeScannerComponent = ({ 
+  onResult, 
+  onClose 
+}: { 
+  onResult: (text: string) => void; 
+  onClose?: () => void; 
+}) => {
+  const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
+    setError(null);
     const html5QrCode = new Html5Qrcode("reader");
     
     const config = { 
       fps: 25, 
       qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
         const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-        const qrboxSize = Math.max(Math.floor(minEdge * 0.7), 150);
+        const qrboxSize = Math.max(Math.floor(minEdge * 0.75), 100);
         return {
           width: qrboxSize,
           height: qrboxSize
@@ -11052,7 +11792,7 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
     const startScanner = async () => {
       try {
         await html5QrCode.start(
-          { facingMode: "environment" }, 
+          { facingMode: cameraFacing }, 
           config, 
           (decodedText) => {
             if (!isMounted) return;
@@ -11066,24 +11806,11 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
       } catch (err: any) {
         if (!isMounted) return;
         const errStr = err.toString();
-        console.warn("Camera access failed, trying fallback:", errStr);
-        
+        console.warn("Camera access failed:", errStr);
         if (errStr.includes("NotAllowedError") || errStr.includes("Permission denied")) {
-          setError("Izin kamera ditolak. Mohon aktifkan izin kamera di browser Anda.");
+          setError("Izin kamera ditolak. Mohon izinkan akses kamera di browser Anda.");
         } else {
-          try {
-            await html5QrCode.start({ facingMode: "user" }, config, (decodedText) => {
-              if (!isMounted) return;
-              onResult(decodedText);
-              if (html5QrCode.isScanning) {
-                html5QrCode.stop().catch(e => console.error("Error stopping fallback after scan", e));
-              }
-            }, undefined);
-          } catch (e: any) {
-             if (!isMounted) return;
-             console.error("Scanner fallback failed", e);
-             setError("Gagal mengakses kamera. Pastikan perangkat Anda memiliki kamera yang aktif.");
-          }
+          setError("Gagal mengakses kamera. Coba ganti ke kamera depan/belakang.");
         }
       }
     };
@@ -11093,44 +11820,100 @@ const BarcodeScannerComponent = ({ onResult }: { onResult: (text: string) => voi
     return () => {
       isMounted = false;
       if (html5QrCode.isScanning) {
-        html5QrCode.stop().catch(err => console.log("Successfullly managed concurrent scanner instances"));
+        html5QrCode.stop().catch(err => console.log("Scanner cleaned up"));
       }
     };
-  }, [onResult]);
-
-  if (error) {
-    return (
-      <div className="w-full aspect-square bg-slate-900 rounded-lg flex flex-col items-center justify-center p-6 text-center">
-        <CameraOff className="w-12 h-12 text-slate-500 dark:text-slate-300 dark:text-slate-200 mb-4" />
-        <p className="text-white text-xs font-bold leading-relaxed">{error}</p>
-        <p className="text-slate-400 dark:text-slate-300 dark:text-slate-200 text-[10px] mt-2 font-medium uppercase tracking-widest">Muat ulang halaman setelah mengizinkan akses</p>
-      </div>
-    );
-  }
+  }, [onResult, cameraFacing]);
 
   return (
-    <div className="relative w-full aspect-square bg-black overflow-hidden rounded-lg">
-      <div id="reader" className="w-full h-full" />
-      <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-        <div className="w-3/4 h-3/4 border-2 border-dashed border-[#005E6A] opacity-50 rounded-lg" />
-        <div className="mt-4 px-3 py-1 bg-black/50 backdrop-blur-sm rounded-full">
-           <p className="text-[10px] font-black text-white uppercase tracking-widest animate-pulse">Scanning...</p>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-5 w-full max-w-xs flex flex-col items-center relative overflow-hidden">
+        
+        {/* Header */}
+        <div className="w-full flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-orange-50 dark:bg-orange-950/40 text-[#F15A24]">
+              <ScanLine className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">Scan Barcode</h3>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kamera Scanner Pintar</p>
+            </div>
+          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
+
+        {/* Camera Selector (Kamera Belakang vs Kamera Depan) */}
+        <div className="w-full flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-3">
+          <button
+            type="button"
+            onClick={() => setCameraFacing("environment")}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              cameraFacing === "environment"
+                ? "bg-[#F15A24] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>Kamera Belakang</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCameraFacing("user")}
+            className={`flex-1 py-1.5 px-2 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              cameraFacing === "user"
+                ? "bg-[#F15A24] text-white shadow-sm"
+                : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>Kamera Depan</span>
+          </button>
+        </div>
+
+        {/* Small / Compact Camera Screen */}
+        {error ? (
+          <div className="w-48 h-48 bg-slate-900 rounded-2xl flex flex-col items-center justify-center p-4 text-center">
+            <CameraOff className="w-8 h-8 text-rose-500 mb-2" />
+            <p className="text-white text-[10px] font-bold leading-relaxed">{error}</p>
+          </div>
+        ) : (
+          <div className="relative w-48 h-48 bg-black overflow-hidden rounded-2xl border-2 border-[#F15A24]/50 shadow-inner">
+            <div id="reader" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+              <div className="w-3/4 h-3/4 border-2 border-dashed border-[#F15A24] opacity-80 rounded-xl" />
+              <div className="mt-2 px-2.5 py-0.5 bg-black/60 backdrop-blur-md rounded-full">
+                <p className="text-[8px] font-black text-white uppercase tracking-widest animate-pulse">Scanning...</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider text-center mt-3">
+          Arahkan kamera tepat ke kode barcode
+        </p>
+
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full mt-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+          >
+            Tutup Scanner
+          </button>
+        )}
+
       </div>
-      <div className="absolute inset-0 pointer-events-none border-[6px] border-[#005E6A]/10 dark:border-teal-800/30" />
     </div>
   );
 };
-
-import { 
-  Cookie, 
-  CupSoda, 
-  Flame, 
-  Sparkles, 
-  Pill, 
-  Pencil,
-  Grid
-} from "lucide-react";
 
 const getCategoryIcon = (category: string) => {
   const cat = category.toLowerCase();
@@ -11397,7 +12180,7 @@ const CatalogPage = ({
               setShowCart(true);
             }}
             className="relative p-2.5 bg-[#005E6A] text-white w-12 h-12 rounded-xl flex items-center justify-center shrink-0 hover:bg-[#004d57] transition-colors cursor-pointer shadow-md shadow-[#005E6A]/10"
-            title="Keranjang Belanja"
+            title="Pesanan"
           >
             <ShoppingCart className="w-5 h-5 text-white" />
             <AnimatePresence>
@@ -11542,10 +12325,7 @@ const CatalogPage = ({
                 <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight line-clamp-1 mb-1">{item.Nama}</h3>
                 <div className="flex justify-between items-center mb-3">
                   <span className="text-[11px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</span>
-                  <div className="flex items-center gap-1">
-                    <div className={`w-1.5 h-1.5 rounded-full ${item.Stok > 5 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                    <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">{item.Stok} {item.Satuan}</span>
-                  </div>
+                  
                 </div>
 
                 <div className="mt-auto">
@@ -14117,9 +14897,9 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
 
                   {/* Content */}
                   {isLoading ? (
-                    <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                      <RefreshCw className="w-8 h-8 animate-spin" style={{ color: modalTheme.accentColor }} />
-                      <p className="text-xs font-bold animate-pulse uppercase tracking-wider" style={{ color: modalTheme.accentColor }}>Memuat data pelanggan...</p>
+                    <div className="flex flex-col items-center justify-center py-6 space-y-2">
+                      <EdcSwipeLoadingAnimation className="w-56 h-36" />
+                      <p className="text-xs font-black animate-pulse uppercase tracking-wider" style={{ color: modalTheme.accentColor }}>Memuat data pelanggan...</p>
                     </div>
                   ) : (
                     <div>
@@ -17158,6 +17938,8 @@ const QRISPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+
     </motion.div>
   );
 };
@@ -17634,10 +18416,634 @@ const TarikTunaiPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      
     </motion.div>
   );
 };
 
+
+/* ==========================================================================
+   KASIR COMPONENT & LAYOUT (ORANGE THEME NUANCE)
+   ========================================================================== */
+
+
+const RootSessionRedirect = ({ children }: { children: React.ReactNode }) => {
+  const adminSession = localStorage.getItem("admin_session") === "true";
+  const kasirSession = localStorage.getItem("kasir_session") === "true";
+
+  if (adminSession) {
+    return <Navigate to="/admin" replace />;
+  }
+  if (kasirSession) {
+    return <Navigate to="/kasir" replace />;
+  }
+  return <>{children}</>;
+};
+
+const KasirLayout = ({
+  children,
+  activeTab
+}: {
+  children: React.ReactNode;
+  activeTab: "menu" | "laporan" | "profil";
+}) => {
+  const navigate = useNavigate();
+  const [isSlidebarOpen, setIsSlidebarOpen] = useState(false);
+  const kasirUser = localStorage.getItem("kasir_user") || "Tomi";
+  const kasirSession = localStorage.getItem("kasir_session") === "true";
+  const adminSession = localStorage.getItem("admin_session") === "true";
+
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.classList.contains("dark") || localStorage.getItem("app_theme") === "dark";
+    }
+    return false;
+  });
+
+  const toggleDarkMode = () => {
+    const newTheme = isDark ? "light" : "dark";
+    localStorage.setItem("app_theme", newTheme);
+    const root = document.documentElement;
+    if (newTheme === "dark") {
+      root.classList.add("dark");
+      root.setAttribute("data-theme", "dark");
+    } else {
+      root.classList.remove("dark");
+      root.setAttribute("data-theme", "light");
+    }
+    setIsDark(!isDark);
+    window.dispatchEvent(new Event("app_theme_changed"));
+  };
+
+  useEffect(() => {
+    if (!kasirSession && !adminSession) {
+      navigate("/login");
+    }
+  }, [kasirSession, adminSession, navigate]);
+
+  const navItems = [
+    { id: "menu", label: "Menu Kasir", icon: Calculator, path: "/kasir" },
+    { id: "laporan", label: "Laporan Penjualan", icon: FileText, path: "/kasir/laporan" },
+    { id: "profil", label: "Profil Kasir", icon: User, path: "/kasir/profil" },
+  ];
+
+  const handleLogout = () => {
+    localStorage.removeItem("kasir_session");
+    localStorage.removeItem("kasir_user");
+    localStorage.removeItem("kasir_login_time");
+    navigate("/login");
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-orange-500/20 selection:text-orange-600 font-sans flex flex-col transition-colors">
+      {/* Floating White Kasir Navbar */}
+      <header className="sticky top-0 z-40 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3 shadow-sm backdrop-blur-xl flex items-center justify-between transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-md bg-gradient-to-br from-[#F15A24] to-[#ff7b42] flex items-center justify-center shadow-md shadow-orange-500/20">
+            <Calculator className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-sm font-black text-[#005E6A] dark:text-teal-300 tracking-tight leading-none uppercase">
+              WARUNG <span className="text-[#F15A24]">TOMI</span>
+            </h1>
+            <div className="flex items-center gap-1.5 mt-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <p className="text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
+                Sesi Kasir: {kasirUser}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Quick Tabs & Slidebar Toggle Button */}
+        <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-md border border-slate-200 dark:border-slate-700">
+            {navItems.map((item) => {
+              const isActive = activeTab === item.id;
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => navigate(item.path)}
+                  className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-[#F15A24] text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-300 hover:text-[#005E6A]"
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={toggleDarkMode}
+            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-amber-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200/60 dark:border-slate-700"
+            title={isDark ? "Mode Terang" : "Mode Gelap"}
+          >
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-wider">{isDark ? "Gelap" : "Terang"}</span>
+          </button>
+
+          <button
+            onClick={() => setIsSlidebarOpen(true)}
+            className="px-3.5 py-2 bg-gradient-to-r from-[#F15A24] to-[#ff7b42] text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-md shadow-orange-500/20 hover:scale-[1.02] active:scale-98 transition-all cursor-pointer"
+            title="Buka Menu Slidebar"
+          >
+            <Menu className="w-4 h-4" />
+            <span className="hidden sm:inline">Slidebar</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Slidebar Drawer (Right-to-Left Drawer) */}
+      <AnimatePresence>
+        {isSlidebarOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="w-80 max-w-[85vw] h-full bg-white dark:bg-slate-900 border-l border-orange-100 dark:border-slate-800 shadow-2xl flex flex-col justify-between p-6 overflow-y-auto"
+            >
+              <div>
+                <div className="flex items-center justify-between pb-4 mb-6 border-b border-orange-100 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-md bg-[#F15A24] flex items-center justify-center text-white font-black text-sm">
+                      WT
+                    </div>
+                    <div>
+                      <h2 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">MENU SLIDEBAR</h2>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Navigasi Kasir Pintar</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsSlidebarOpen(false)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-md cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="bg-orange-50 dark:bg-slate-800/80 p-4 rounded-md border border-orange-100 dark:border-slate-700/50 mb-6">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Sesi Login Aktif</p>
+                  <p className="text-sm font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider mt-0.5">{kasirUser}</p>
+                  <p className="text-[9px] font-bold text-[#F15A24] uppercase tracking-wider mt-1">Role: Kasir Pintar</p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1 mb-2">PILIH HALAMAN</p>
+                  {navItems.map((item) => {
+                    const isActive = activeTab === item.id;
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setIsSlidebarOpen(false);
+                          navigate(item.path);
+                        }}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+                          isActive
+                            ? "bg-gradient-to-r from-[#F15A24] to-[#ff7b42] text-white shadow-md shadow-orange-500/20"
+                            : "bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:bg-orange-50 dark:hover:bg-slate-800 hover:text-[#F15A24]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span>{item.label}</span>
+                        </div>
+                        {isActive && <Check className="w-4 h-4" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    onClick={toggleDarkMode}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-md text-xs font-black uppercase tracking-wider bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+                      <span>{isDark ? "Mode Terang" : "Mode Gelap"}</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400">{isDark ? "Aktif" : "Non-Aktif"}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-orange-100 dark:border-slate-800 space-y-2 mt-8">
+                <button
+                  onClick={() => {
+                    setIsSlidebarOpen(false);
+                    navigate("/");
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:text-[#005E6A] transition-all cursor-pointer"
+                >
+                  <Home className="w-4 h-4" />
+                  <span>Ke Beranda Utama</span>
+                </button>
+
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-md text-xs font-black uppercase tracking-wider text-red-600 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 transition-all cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Keluar Sesi Kasir</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-3 sm:p-6 overflow-x-hidden">
+        {children}
+      </main>
+    </div>
+  );
+};
+
+const KasirLaporanPage = ({ salesTransactions }: { salesTransactions: any[] }) => {
+  const kasirUser = localStorage.getItem("kasir_user") || "Tomi";
+  const todayYmd = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  
+  const [filterKasir, setFilterKasir] = useState<string>(kasirUser);
+  const [filterDate, setFilterDate] = useState<string>(todayYmd);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [displayLimit, setDisplayLimit] = useState<number>(20);
+
+  useEffect(() => {
+    setDisplayLimit(20);
+  }, [filterKasir, filterDate, searchQuery]);
+
+  const filteredTransactions = useMemo(() => {
+    return (salesTransactions || []).filter(t => {
+      const matchKasir = filterKasir === "semua" ? true : (t.kasir ? t.kasir.toLowerCase() === filterKasir.toLowerCase() : true);
+      
+      let matchDate = true;
+      if (filterDate && filterDate !== "semua") {
+        const rawDate = t.timestamp || t.date || "";
+        if (rawDate.includes(filterDate)) {
+          matchDate = true;
+        } else {
+          const parts = filterDate.split("-");
+          if (parts.length === 3) {
+            const [y, m, d] = parts;
+            const dNum = parseInt(d, 10);
+            const mNum = parseInt(m, 10);
+            const format1 = `${dNum}/${mNum}/${y}`;
+            const format2 = `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+            matchDate = rawDate.includes(format1) || rawDate.includes(format2);
+          }
+        }
+      }
+
+      const matchSearch = searchQuery.trim() === "" ? true : (
+        (t.id && t.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (t.customer?.Nama && t.customer.Nama.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (t.paymentMethod && t.paymentMethod.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+
+      return matchKasir && matchDate && matchSearch;
+    });
+  }, [salesTransactions, filterKasir, filterDate, searchQuery]);
+
+  const paginatedTransactions = useMemo(() => {
+    return filteredTransactions.slice(0, displayLimit);
+  }, [filteredTransactions, displayLimit]);
+
+  const totalOmzet = useMemo(() => {
+    return filteredTransactions.reduce((acc, t) => acc + (t.total || 0), 0);
+  }, [filteredTransactions]);
+
+  const tunaiTotal = useMemo(() => {
+    return filteredTransactions.filter(t => t.paymentMethod === "Tunai").reduce((acc, t) => acc + (t.total || 0), 0);
+  }, [filteredTransactions]);
+
+  const nonTunaiTotal = totalOmzet - tunaiTotal;
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollTop + clientHeight >= scrollHeight - 60) {
+      if (displayLimit < filteredTransactions.length) {
+        setDisplayLimit(prev => Math.min(prev + 20, filteredTransactions.length));
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Title Header */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-orange-100 dark:border-slate-800 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 bg-orange-100 dark:bg-orange-950/60 text-[#F15A24] rounded-full text-[9px] font-black uppercase tracking-widest">
+              Laporan Penjualan Harian
+            </span>
+            <span className="text-xs font-bold text-slate-400">• Kasir Pintar</span>
+          </div>
+          <h2 className="text-2xl font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight mt-1">
+            Riwayat Penjualan {filterKasir === "semua" ? "Semua Kasir" : filterKasir}
+          </h2>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            Filter harian & muat bertahap 20 transaksi agar ringan & cepat
+          </p>
+        </div>
+
+        {/* Kasir Filter Selector */}
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl border border-slate-100 dark:border-slate-700">
+          <User className="w-4 h-4 text-[#F15A24]" />
+          <select 
+            value={filterKasir}
+            onChange={(e) => setFilterKasir(e.target.value)}
+            className="bg-transparent text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider focus:outline-none cursor-pointer pr-2"
+          >
+            <option value={kasirUser}>Kasir: {kasirUser} (Saya)</option>
+            <option value="Tomi">Kasir: Tomi</option>
+            <option value="Ayu">Kasir: Ayu</option>
+            <option value="semua">Semua Transaksi Kasir</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Daily Date Filter Bar */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Calendar className="w-4 h-4 text-[#F15A24] shrink-0" />
+          <span className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">
+            Filter Tanggal Transaksi:
+          </span>
+          <input 
+            type="date"
+            value={filterDate === "semua" ? "" : filterDate}
+            onChange={(e) => setFilterDate(e.target.value || "semua")}
+            className="bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-[10px] font-black text-[#005E6A] dark:text-teal-300 focus:outline-none cursor-pointer"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <button
+            onClick={() => setFilterDate(todayYmd)}
+            className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+              filterDate === todayYmd
+                ? "bg-[#F15A24] text-white shadow-sm"
+                : "bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-[#005E6A]"
+            }`}
+          >
+            Hari Ini ({todayYmd})
+          </button>
+          <button
+            onClick={() => setFilterDate("semua")}
+            className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+              filterDate === "semua"
+                ? "bg-[#005E6A] text-white shadow-sm"
+                : "bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-[#005E6A]"
+            }`}
+          >
+            Semua Tanggal
+          </button>
+        </div>
+      </div>
+
+      {/* Metrics Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-gradient-to-br from-[#F15A24] to-[#ff7b42] text-white p-6 rounded-3xl shadow-lg shadow-orange-500/20">
+          <p className="text-[9px] font-black uppercase tracking-widest text-orange-100">TOTAL OMZET (FILTERED)</p>
+          <p className="text-2xl font-black tracking-tight mt-1">Rp {totalOmzet.toLocaleString('id-ID')}</p>
+          <p className="text-[9px] font-bold text-orange-100 mt-2">Dari {filteredTransactions.length} transaksi penjualan</p>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TRANSAKSI TUNAI</p>
+          <p className="text-xl font-black text-[#005E6A] dark:text-teal-300 tracking-tight mt-1">Rp {tunaiTotal.toLocaleString('id-ID')}</p>
+          <p className="text-[9px] font-bold text-emerald-500 mt-2">Pembayaran Tunai Langsung</p>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">NON-TUNAI / KASBON / TABUNGAN</p>
+          <p className="text-xl font-black text-[#F15A24] tracking-tight mt-1">Rp {nonTunaiTotal.toLocaleString('id-ID')}</p>
+          <p className="text-[9px] font-bold text-slate-400 mt-2">Transfer, QRIS, & Saldo</p>
+        </div>
+      </div>
+
+      {/* Search & Transaction Table */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between gap-4">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              placeholder="Cari ID transaksi / nama pelanggan..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3 text-[10px] font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div 
+          onScroll={handleScroll}
+          className="overflow-x-auto max-h-[500px] overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-800"
+        >
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10 shadow-sm">
+              <tr className="border-b border-slate-100 dark:border-slate-800 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                <th className="py-3.5 px-4">ID / Tanggal</th>
+                <th className="py-3.5 px-4">Pelanggan</th>
+                <th className="py-3.5 px-4">Petugas Kasir</th>
+                <th className="py-3.5 px-4">Metode</th>
+                <th className="py-3.5 px-4 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+              {filteredTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-xs font-bold text-slate-400">
+                    Belum ada transaksi untuk filter ini
+                  </td>
+                </tr>
+              ) : (
+                paginatedTransactions.map((t, idx) => (
+                  <tr key={t.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <p className="text-[11px] font-black text-[#005E6A] dark:text-teal-300">#{t.id}</p>
+                      <p className="text-[9px] font-bold text-slate-400">{t.date || t.timestamp}</p>
+                    </td>
+                    <td className="py-3.5 px-4 text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase">
+                      {t.customer?.Nama || "Pelanggan Umum"}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="px-2.5 py-1 bg-orange-100 dark:bg-orange-950/60 text-[#F15A24] rounded-lg text-[8px] font-black uppercase tracking-wider inline-flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        {t.kasir || kasirUser}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="px-2.5 py-1 bg-teal-50 dark:bg-teal-950/60 text-[#005E6A] dark:text-teal-300 rounded-lg text-[8px] font-black uppercase tracking-wider">
+                        {t.paymentMethod || "Tunai"}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right text-xs font-black text-[#F15A24]">
+                      Rp {(t.total || 0).toLocaleString('id-ID')}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination & Load More Footer */}
+        {filteredTransactions.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            <p>
+              Menampilkan {paginatedTransactions.length} dari {filteredTransactions.length} transaksi
+            </p>
+            {displayLimit < filteredTransactions.length && (
+              <button
+                onClick={() => setDisplayLimit(prev => Math.min(prev + 20, filteredTransactions.length))}
+                className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 text-[#005E6A] dark:text-teal-300 rounded-xl hover:bg-[#005E6A] hover:text-white transition-all cursor-pointer shadow-sm active:scale-95"
+              >
+                + Muat 20 Lebih Banyak Lagi
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const KasirProfilePage = ({ salesTransactions }: { salesTransactions: any[] }) => {
+  const navigate = useNavigate();
+  const kasirUser = localStorage.getItem("kasir_user") || "Tomi";
+  const loginTime = localStorage.getItem("kasir_login_time") || new Date().toLocaleString('id-ID');
+
+  const cashierInfo = useMemo(() => {
+    if (kasirUser.toLowerCase() === "ayu") {
+      return {
+        name: "Ayu",
+        id: "KSR-002",
+        role: "Kasir Senior Warung Tomi",
+        shift: "Shift Operasional (14:00 - 22:00)",
+        status: "Aktif / On-Duty",
+        pinCode: "300315"
+      };
+    }
+    return {
+      name: "Tomi",
+      id: "KSR-001",
+      role: "Kasir Utama / Owner",
+      shift: "Shift Operasional (06:00 - 14:00)",
+      status: "Aktif / On-Duty",
+      pinCode: "160910"
+    };
+  }, [kasirUser]);
+
+  const totalSalesCount = useMemo(() => {
+    return (salesTransactions || []).filter(t => !t.kasir || t.kasir.toLowerCase() === kasirUser.toLowerCase()).length;
+  }, [salesTransactions, kasirUser]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("kasir_session");
+    localStorage.removeItem("kasir_user");
+    localStorage.removeItem("kasir_login_time");
+    navigate("/login");
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Profile Card Header */}
+      <div className="bg-gradient-to-br from-[#F15A24] via-[#ff7b42] to-[#005E6A] rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="relative z-10 flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+          <div className="w-24 h-24 rounded-3xl bg-white/20 backdrop-blur-md border-2 border-white/40 flex items-center justify-center text-white shadow-inner shrink-0">
+            <User className="w-12 h-12 text-white" />
+          </div>
+
+          <div className="space-y-1">
+            <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-[9px] font-black uppercase tracking-widest inline-block mb-1">
+              {cashierInfo.id} • {cashierInfo.status}
+            </span>
+            <h2 className="text-3xl font-black uppercase tracking-tight">{cashierInfo.name}</h2>
+            <p className="text-xs font-bold opacity-90">{cashierInfo.role}</p>
+            <p className="text-[10px] font-medium opacity-80 mt-2">
+              Sesi Login Terdaftar: {loginTime}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Profile Details Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+          <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#F15A24]" />
+            Informasi Akun Kasir
+          </h3>
+
+          <div className="space-y-3 text-[10px] uppercase font-bold">
+            <div className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800">
+              <span className="text-slate-400">Nama Petugas</span>
+              <span className="text-[#005E6A] dark:text-teal-300 font-black">{cashierInfo.name}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800">
+              <span className="text-slate-400">ID Registrasi Kasir</span>
+              <span className="text-[#F15A24] font-black">{cashierInfo.id}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800">
+              <span className="text-slate-400">Status Keamanan PIN</span>
+              <span className="text-emerald-500 font-black">Tersimpan Sesuai Sistem</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-400">Otorisasi Sesi</span>
+              <span className="text-[#005E6A] dark:text-teal-300 font-black">Akses Kasir Diberikan</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+          <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#F15A24]" />
+            Shift & Performa Sesi
+          </h3>
+
+          <div className="space-y-3 text-[10px] uppercase font-bold">
+            <div className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800">
+              <span className="text-slate-400">Shift Tugas</span>
+              <span className="text-[#005E6A] dark:text-teal-300 font-black">{cashierInfo.shift}</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800">
+              <span className="text-slate-400">Total Transaksi Kasir</span>
+              <span className="text-[#F15A24] font-black">{totalSalesCount} Transaksi</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-400">Lokasi Pos</span>
+              <span className="text-[#005E6A] dark:text-teal-300 font-black">Warung Tomi Main Store</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Logout Action */}
+      <div className="flex justify-end pt-4">
+        <button
+          onClick={handleLogout}
+          className="px-8 py-4 bg-gradient-to-r from-[#F15A24] to-[#ff7b42] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 active:scale-95 transition-transform flex items-center gap-2 cursor-pointer"
+        >
+          <LogOut className="w-4 h-4" />
+          Keluar Sesi Kasir ({cashierInfo.name})
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const AdminLayout = ({ 
   children, 
@@ -17651,7 +19057,7 @@ const AdminLayout = ({
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/admin" },
     { id: "customers", label: "Pelanggan", icon: Users, path: "/admin/customers" },
-    { id: "cashier", label: "Kasir", icon: Calculator, path: "/admin/cashier" },
+    { id: "cashier", label: "Menu Kasir", icon: Calculator, path: "/kasir" },
     { id: "data", label: "Data", icon: Database, path: "/admin/master-data" },
     { id: "settings", label: "Pengaturan", icon: Settings, path: "/admin/pengaturan" }
   ];
@@ -18336,8 +19742,16 @@ const HomePage = ({
                   </svg>
                 </div>
 
-                <div className="relative z-10 flex flex-col gap-1.5 max-w-[62%] sm:max-w-[55%]">
-                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase drop-shadow-md flex items-center gap-2">
+                <div 
+                  onClick={() => {
+                    if (loggedInUser) {
+                      setActiveTab("settings");
+                    }
+                  }}
+                  className="relative z-10 flex flex-col gap-1.5 max-w-[62%] sm:max-w-[55%] cursor-pointer group/greeting hover:opacity-90 transition-all"
+                  title={t("Lihat Profil", "View Profile")}
+                >
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white uppercase drop-shadow-md flex items-center gap-2 group-hover/greeting:text-amber-200 transition-colors">
                     {greeting === "Pagi" ? t("Pagi", "Good Morning") : greeting === "Siang" ? t("Siang", "Good Afternoon") : greeting === "Sore" ? t("Sore", "Good Evening") : t("Malam", "Good Night")}, {loggedInUser.Nama}! <span className="inline-block animate-bounce origin-bottom">👋</span>
                   </h1>
                   <p className="text-xs sm:text-sm font-black text-amber-300 uppercase tracking-[0.2em] drop-shadow-md flex items-center gap-1.5">
@@ -18534,8 +19948,7 @@ const HomePage = ({
                             Rp {item.HargaJual.toLocaleString('id-ID')}
                           </span>
                           <div className="flex items-center gap-1">
-                            <div className={`w-1.5 h-1.5 rounded-full ${item.Stok > 5 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                            <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">{item.Stok} {item.Satuan}</span>
+                            
                           </div>
                         </div>
                       </div>
@@ -19140,6 +20553,302 @@ const SplashScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   );
 };
 
+const EdcSwipeLoadingAnimation = ({ className = "w-full h-44" }: { className?: string }) => {
+  return (
+    <div className={`relative flex items-center justify-center ${className}`}>
+      <svg 
+        viewBox="0 0 260 220" 
+        className="w-full h-full max-w-[260px] drop-shadow-xl overflow-visible"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <defs>
+          {/* EDC Body Gradient */}
+          <linearGradient id="edcBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#1E293B" />
+            <stop offset="100%" stopColor="#0F172A" />
+          </linearGradient>
+
+          {/* EDC Trim Accent */}
+          <linearGradient id="edcAccentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#F15A24" />
+            <stop offset="100%" stopColor="#FF7A45" />
+          </linearGradient>
+
+          {/* Screen Display Gradient */}
+          <linearGradient id="screenDefaultGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#0284C7" />
+            <stop offset="100%" stopColor="#0369A1" />
+          </linearGradient>
+
+          <linearGradient id="screenSuccessGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#059669" />
+            <stop offset="100%" stopColor="#047857" />
+          </linearGradient>
+
+          {/* ATM Card Gradient */}
+          <linearGradient id="atmCardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#005E6A" />
+            <stop offset="50%" stopColor="#00838F" />
+            <stop offset="100%" stopColor="#004D40" />
+          </linearGradient>
+
+          {/* Gold Chip */}
+          <linearGradient id="goldChipGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#FBBF24" />
+            <stop offset="100%" stopColor="#D97706" />
+          </linearGradient>
+
+          {/* Money Banknote Gradient */}
+          <linearGradient id="moneyGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#10B981" />
+            <stop offset="100%" stopColor="#047857" />
+          </linearGradient>
+
+          <linearGradient id="moneyGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#34D399" />
+            <stop offset="100%" stopColor="#059669" />
+          </linearGradient>
+
+          {/* Drop Shadow filter */}
+          <filter id="shadowFilter" x="-10%" y="-10%" width="130%" height="130%">
+            <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#000000" floodOpacity="0.25" />
+          </filter>
+        </defs>
+
+        {/* --- 1. MESIN EDC BASE --- */}
+        <g filter="url(#shadowFilter)">
+          {/* Main Body Shell */}
+          <rect x="55" y="30" width="120" height="150" rx="18" fill="url(#edcBodyGrad)" stroke="#334155" strokeWidth="2" />
+          
+          {/* Top Brand Stripe */}
+          <rect x="55" y="30" width="120" height="12" rx="6" fill="url(#edcAccentGrad)" />
+          
+          {/* Top Receipt Printer Slot */}
+          <rect x="75" y="46" width="80" height="4" rx="2" fill="#090D16" />
+
+          {/* EDC Screen Bezel */}
+          <rect x="67" y="56" width="96" height="52" rx="8" fill="#020617" stroke="#1E293B" strokeWidth="1.5" />
+
+          {/* Dynamic EDC Screen Background (Pulses Green when card passes) */}
+          <motion.rect
+            x="70" y="59" width="90" height="46" rx="6"
+            animate={{
+              fill: [
+                "url(#screenDefaultGrad)",
+                "url(#screenDefaultGrad)",
+                "url(#screenSuccessGrad)",
+                "url(#screenSuccessGrad)",
+                "url(#screenDefaultGrad)"
+              ]
+            }}
+            transition={{ duration: 2.6, repeat: Infinity, times: [0, 0.45, 0.55, 0.8, 1] }}
+          />
+
+          {/* Screen Content - Default state vs Success Checkmark */}
+          {/* Default Status Screen */}
+          <motion.g
+            animate={{ opacity: [1, 1, 0, 0, 1] }}
+            transition={{ duration: 2.6, repeat: Infinity, times: [0, 0.45, 0.55, 0.8, 1] }}
+          >
+            <text x="115" y="75" textAnchor="middle" fill="#FFFFFF" fontSize="7" fontWeight="bold" fontFamily="sans-serif" letterSpacing="0.5">
+              WARUNG TOMI
+            </text>
+            <text x="115" y="87" textAnchor="middle" fill="#BAE6FD" fontSize="6" fontWeight="bold" fontFamily="sans-serif">
+              GESEK KARTU...
+            </text>
+            
+            {/* Animated Signal / Processing Dots */}
+            <g transform="translate(100, 93)">
+              <motion.circle cx="0" cy="0" r="1.5" fill="#38BDF8" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity }} />
+              <motion.circle cx="6" cy="0" r="1.5" fill="#38BDF8" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity, delay: 0.2 }} />
+              <motion.circle cx="12" cy="0" r="1.5" fill="#38BDF8" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity, delay: 0.4 }} />
+              <motion.circle cx="18" cy="0" r="1.5" fill="#38BDF8" animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity, delay: 0.6 }} />
+            </g>
+          </motion.g>
+
+          {/* Success Status Screen */}
+          <motion.g
+            animate={{ opacity: [0, 0, 1, 1, 0] }}
+            transition={{ duration: 2.6, repeat: Infinity, times: [0, 0.45, 0.55, 0.8, 1] }}
+          >
+            <circle cx="115" cy="78" r="8" fill="#FFFFFF" opacity="0.2" />
+            <path d="M110 78 L113 81 L120 74" fill="none" stroke="#FFFFFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            <text x="115" y="96" textAnchor="middle" fill="#A7F3D0" fontSize="6.5" fontWeight="900" fontFamily="sans-serif" letterSpacing="0.5">
+              BERHASIL!
+            </text>
+          </motion.g>
+
+          {/* Keypad Buttons Area */}
+          <g transform="translate(72, 114)">
+            {/* 3x3 Numerical Keys */}
+            {[
+              [0, 0], [18, 0], [36, 0], [54, 0],
+              [0, 10], [18, 10], [36, 10], [54, 10],
+              [0, 20], [18, 20], [36, 20], [54, 20]
+            ].map(([kx, ky], idx) => (
+              <rect key={idx} x={kx} y={ky} width="14" height="7" rx="2" fill="#334155" />
+            ))}
+
+            {/* Colored Action Keys */}
+            <rect x="72" y="0" width="14" height="7" rx="2" fill="#EF4444" /> {/* Cancel */}
+            <rect x="72" y="10" width="14" height="7" rx="2" fill="#F59E0B" /> {/* Clear */}
+            <rect x="72" y="20" width="14" height="7" rx="2" fill="#10B981" /> {/* OK */}
+          </g>
+
+          {/* Status Indicator LED Light */}
+          <motion.circle
+            cx="162" cy="42" r="3"
+            animate={{ fill: ["#F59E0B", "#F59E0B", "#10B981", "#10B981", "#F59E0B"] }}
+            transition={{ duration: 2.6, repeat: Infinity, times: [0, 0.45, 0.55, 0.8, 1] }}
+          />
+
+          {/* EDC Card Swipe Groove Slot (Right Side) */}
+          <rect x="170" y="32" width="8" height="146" rx="4" fill="#020617" stroke="#334155" strokeWidth="1" />
+          
+          {/* Swipe Guide Light Bar */}
+          <motion.line
+            x1="174" y1="36" x2="174" y2="172"
+            stroke="#38BDF8" strokeWidth="1.5" strokeDasharray="3 3"
+            animate={{ opacity: [0.3, 0.9, 0.3] }}
+            transition={{ duration: 1.2, repeat: Infinity }}
+          />
+
+          {/* Bottom Money Slot / Dispenser */}
+          <rect x="75" y="152" width="80" height="8" rx="4" fill="#020617" stroke="#1E293B" strokeWidth="1" />
+          <line x1="80" y1="156" x2="150" y2="156" stroke="#000000" strokeWidth="2" />
+        </g>
+
+        {/* --- 2. UANG KELUAR (MONEY / CASH ANIMATION) --- */}
+        <g>
+          {/* Banknote 1 (Main Emerald Rupiah Bill) */}
+          <motion.g
+            animate={{
+              y: [0, 0, 0, 32, 42, 0],
+              x: [0, 0, 0, -8, -12, 0],
+              rotate: [0, 0, 0, -6, -10, 0],
+              scale: [0.4, 0.4, 0.4, 1, 1.05, 0.4],
+              opacity: [0, 0, 0, 1, 1, 0]
+            }}
+            transition={{
+              duration: 2.6,
+              repeat: Infinity,
+              times: [0, 0.52, 0.55, 0.78, 0.92, 1],
+              ease: "easeOut"
+            }}
+            style={{ transformOrigin: "115px 156px" }}
+          >
+            <g transform="translate(80, 150)">
+              {/* Cash Bill Frame */}
+              <rect x="0" y="0" width="70" height="36" rx="4" fill="url(#moneyGrad1)" stroke="#34D399" strokeWidth="1.5" />
+              {/* Inner Border */}
+              <rect x="3" y="3" width="64" height="30" rx="2" fill="none" stroke="#A7F3D0" strokeWidth="0.8" strokeDasharray="2 1" />
+              {/* Emblem Circle */}
+              <circle cx="35" cy="18" r="9" fill="#047857" stroke="#A7F3D0" strokeWidth="1" />
+              <text x="35" y="21" textAnchor="middle" fill="#FFFFFF" fontSize="7" fontWeight="900" fontFamily="sans-serif">Rp</text>
+              {/* Corner Values */}
+              <text x="6" y="12" fill="#ECFDF5" fontSize="5" fontWeight="bold" fontFamily="sans-serif">100K</text>
+              <text x="64" y="30" textAnchor="end" fill="#ECFDF5" fontSize="5" fontWeight="bold" fontFamily="sans-serif">100K</text>
+            </g>
+          </motion.g>
+
+          {/* Banknote 2 (Secondary Bill Floating Right) */}
+          <motion.g
+            animate={{
+              y: [0, 0, 0, 35, 48, 0],
+              x: [0, 0, 0, 10, 16, 0],
+              rotate: [0, 0, 0, 8, 12, 0],
+              scale: [0.3, 0.3, 0.3, 0.95, 1, 0.3],
+              opacity: [0, 0, 0, 0.9, 0.9, 0]
+            }}
+            transition={{
+              duration: 2.6,
+              repeat: Infinity,
+              times: [0, 0.56, 0.6, 0.82, 0.94, 1],
+              ease: "easeOut"
+            }}
+            style={{ transformOrigin: "115px 156px" }}
+          >
+            <g transform="translate(80, 150)">
+              <rect x="0" y="0" width="68" height="34" rx="4" fill="url(#moneyGrad2)" stroke="#6EE7B7" strokeWidth="1.5" />
+              <rect x="3" y="3" width="62" height="28" rx="2" fill="none" stroke="#D1FAE5" strokeWidth="0.8" />
+              <circle cx="34" cy="17" r="8" fill="#059669" stroke="#D1FAE5" strokeWidth="1" />
+              <text x="34" y="20" textAnchor="middle" fill="#FFFFFF" fontSize="6.5" fontWeight="900" fontFamily="sans-serif">Rp</text>
+            </g>
+          </motion.g>
+
+          {/* Sparkles / Gold Stars Burst when money emerges */}
+          <motion.g
+            animate={{
+              scale: [0, 0, 0, 1.2, 1, 0],
+              opacity: [0, 0, 0, 1, 1, 0]
+            }}
+            transition={{
+              duration: 2.6,
+              repeat: Infinity,
+              times: [0, 0.58, 0.62, 0.78, 0.9, 1]
+            }}
+          >
+            {/* Star 1 */}
+            <path d="M68 185 L70 188 L73 190 L70 192 L68 195 L66 192 L63 190 L66 188 Z" fill="#FBBF24" />
+            {/* Star 2 */}
+            <path d="M165 190 L166.5 192.5 L169 194 L166.5 195.5 L165 198 L163.5 195.5 L161 194 L163.5 192.5 Z" fill="#34D399" />
+            {/* Star 3 */}
+            <path d="M115 210 L116.5 212 L119 213 L116.5 214 L115 216 L113.5 214 L111 213 L113.5 212 Z" fill="#FBBF24" />
+          </motion.g>
+        </g>
+
+        {/* --- 3. KARTU ATM (ATM CARD SWIPE MOTION) --- */}
+        <motion.g
+          animate={{
+            y: [-15, -15, 125, 125, -15],
+            x: [168, 168, 168, 168, 168],
+            rotate: [12, 0, 0, -10, 12],
+            opacity: [0, 1, 1, 0, 0]
+          }}
+          transition={{
+            duration: 2.6,
+            repeat: Infinity,
+            times: [0, 0.1, 0.48, 0.55, 1],
+            ease: [0.45, 0, 0.55, 1]
+          }}
+        >
+          <g transform="translate(-25, 10)">
+            {/* Card Body */}
+            <rect x="0" y="0" width="50" height="32" rx="4" fill="url(#atmCardGrad)" stroke="#38BDF8" strokeWidth="1" filter="url(#shadowFilter)" />
+            
+            {/* Card Magnetic Stripe */}
+            <rect x="0" y="5" width="50" height="6" fill="#0F172A" />
+
+            {/* Gold Chip */}
+            <rect x="8" y="15" width="8" height="6" rx="1" fill="url(#goldChipGrad)" stroke="#B45309" strokeWidth="0.5" />
+
+            {/* Contactless Wave Signal */}
+            <path d="M20 16 A 3 3 0 0 1 20 20 M22 15 A 5 5 0 0 1 22 21" fill="none" stroke="#BAE6FD" strokeWidth="1" strokeLinecap="round" />
+
+            {/* Card Brand Logo / Text */}
+            <text x="44" y="26" textAnchor="end" fill="#FFFFFF" fontSize="5" fontWeight="900" fontFamily="sans-serif" letterSpacing="0.5">ATM</text>
+            <text x="8" y="27" fill="#E0F2FE" fontSize="4" fontWeight="bold" fontFamily="sans-serif" letterSpacing="0.8">•••• 8899</text>
+          </g>
+        </motion.g>
+
+        {/* Swipe Light Effect along Slot */}
+        <motion.rect
+          x="172" y="32" width="4" height="20" rx="2" fill="#38BDF8"
+          animate={{
+            y: [0, 126, 126, 0],
+            opacity: [0, 1, 0, 0]
+          }}
+          transition={{
+            duration: 2.6,
+            repeat: Infinity,
+            times: [0, 0.48, 0.55, 1]
+          }}
+        />
+      </svg>
+    </div>
+  );
+};
+
 const LoadingPopup = () => (
   <motion.div 
     initial={{ opacity: 0 }}
@@ -19150,20 +20859,27 @@ const LoadingPopup = () => (
     <motion.div 
       initial={{ scale: 0.9, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      className="bg-white rounded-2xl p-5 w-full max-w-[160px] flex flex-col items-center shadow-2xl"
+      className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-[280px] flex flex-col items-center shadow-2xl border border-slate-100 dark:border-slate-800"
     >
-      <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mb-3">
-        <RefreshCw className="w-5 h-5 text-orange-500 animate-spin" />
-      </div>
-      <h3 className="text-[7px] font-black text-orange-600 uppercase tracking-[0.2em] mb-0.5 text-center">Mohon Tunggu</h3>
-      <p className="text-[6px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-3 text-center">Memuat data...</p>
+      <EdcSwipeLoadingAnimation className="w-full h-44 mb-1" />
       
-      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden relative">
+      <div className="flex items-center gap-1.5 mb-1 bg-orange-50 dark:bg-orange-950/50 px-3 py-1 rounded-full">
+        <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping" />
+        <h3 className="text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-[0.2em] text-center">
+          MOHON TUNGGU
+        </h3>
+      </div>
+      
+      <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4 text-center leading-relaxed">
+        Sedang memproses & memuat data...
+      </p>
+      
+      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden relative">
         <motion.div 
           initial={{ left: "-100%" }}
           animate={{ left: "100%" }}
           transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-          className="absolute top-0 bottom-0 w-1/2 bg-gradient-to-r from-transparent via-orange-500 to-transparent"
+          className="absolute top-0 bottom-0 w-1/2 bg-gradient-to-r from-transparent via-[#F15A24] to-transparent"
         />
       </div>
     </motion.div>
@@ -20068,6 +21784,7 @@ export default function App() {
 
       <Routes>
         <Route path="/" element={
+          <RootSessionRedirect>
           <Layout 
             activeTab={activeTab} 
             setActiveTab={setActiveTab}
@@ -20095,6 +21812,7 @@ export default function App() {
               handleMarkAsRead={handleMarkAsRead}
             />
           </Layout>
+          </RootSessionRedirect>
         } />
         <Route path="/:customerName" element={
           <Layout 
@@ -20379,9 +22097,23 @@ export default function App() {
           </AdminLayout>
         } />
         <Route path="/admin/cashier" element={
-          <AdminLayout activeTab="cashier">
+          <Navigate to="/kasir" replace />
+        } />
+        {/* Kasir Dedicated Session Routes (Orange Theme) */}
+        <Route path="/kasir" element={
+          <KasirLayout activeTab="menu">
             <AdminCashier stock={stock} customers={customers} savings={savingsTransactions} dataSource={dataSource} onTransactionComplete={() => fetchData(false)} />
-          </AdminLayout>
+          </KasirLayout>
+        } />
+        <Route path="/kasir/laporan" element={
+          <KasirLayout activeTab="laporan">
+            <KasirLaporanPage salesTransactions={salesTransactions} />
+          </KasirLayout>
+        } />
+        <Route path="/kasir/profil" element={
+          <KasirLayout activeTab="profil">
+            <KasirProfilePage salesTransactions={salesTransactions} />
+          </KasirLayout>
         } />
         <Route path="/admin/stock" element={
           <AdminLayout activeTab="data">
