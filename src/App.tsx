@@ -107,6 +107,7 @@ import {
   ExternalLink,
   Camera,
   CameraOff,
+  Bluetooth,
   LogOut,
   Grid,
   Cookie,
@@ -7829,7 +7830,8 @@ const AdminDashboard = ({
 
         {/* Chart Card */}
         <div 
-          className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 transition-all group/card"
+          onClick={() => navigate("/admin/report")}
+          className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 transition-all group/card cursor-pointer hover:border-[#005E6A]/40"
         >
           <div className="flex flex-col gap-4 mb-6">
             <div className="flex items-center justify-between">
@@ -8280,10 +8282,10 @@ const AdminDashboard = ({
                   key={i} 
                   onClick={() => {
                     const routes: Record<string, string> = {
-                      "Tabungan": "/admin/master-data",
-                      "Investasi": "/admin/master-data",
-                      "Hutang": "/admin/master-data",
-                      "Tukar Poin": "/admin/master-data",
+                      "Tabungan": "/admin/savings",
+                      "Investasi": "/admin/investment",
+                      "Hutang": "/admin/debt",
+                      "Tukar Poin": "/admin/rewards",
                       "Lainnya": "/admin/management-lainnya"
                     };
                     const path = routes[p.name] || "/admin/stock";
@@ -8350,12 +8352,13 @@ const AdminManagementPage = ({
   showBadges = true,
   extraContent,
   rightHeaderContent,
-  actions
+  actions,
+  totalPeople
 }: { 
   listTitle?: React.ReactNode,
   title: string, 
   subtitle: string, 
-  totalLabel: string, 
+  totalLabel?: string, 
   totalValue: number, 
   items: { 
     name: string, 
@@ -8377,9 +8380,16 @@ const AdminManagementPage = ({
   showBadges?: boolean,
   extraContent?: React.ReactNode,
   rightHeaderContent?: React.ReactNode,
-  actions?: React.ReactNode
+  actions?: React.ReactNode,
+  totalPeople?: number
 }) => {
   const navigate = useNavigate();
+
+  const computedTotalPeople = totalPeople !== undefined 
+    ? totalPeople 
+    : (stats && stats.some(s => s.count > 0 && s.label !== "Belum Diambil" && s.label !== "Diproses")
+        ? stats.reduce((acc, s) => acc + (s.count || 0), 0)
+        : (items ? items.filter(i => !i.isHeader).length : 0));
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -8404,9 +8414,11 @@ const AdminManagementPage = ({
         <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 dark:border-slate-800">
           {stats ? (
             <div className="space-y-4">
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-4 mb-2 text-center">
-                <h3 className="text-xs sm:text-sm font-black text-[#005E6A] uppercase tracking-wider">{totalLabel}</h3>
-              </div>
+              {totalLabel ? (
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-4 mb-2 text-center">
+                  <h3 className="text-xs sm:text-sm font-black text-[#005E6A] uppercase tracking-wider">{totalLabel}</h3>
+                </div>
+              ) : null}
 
               {statsRight ? (
                 <div className="flex flex-col gap-8 pt-0">
@@ -8528,16 +8540,16 @@ const AdminManagementPage = ({
                   })()}
                 </div>
               ) : (
-                <div className="h-48 w-full relative flex items-center justify-center">
+                <div className="h-64 sm:h-72 w-full max-w-md mx-auto relative flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={stats}
                         cx="50%"
                         cy="50%"
-                        innerRadius={50}
-                        outerRadius={70}
-                        paddingAngle={5}
+                        innerRadius={75}
+                        outerRadius={105}
+                        paddingAngle={4}
                         dataKey="value"
                       >
                         {stats.map((entry, index) => (
@@ -8549,7 +8561,7 @@ const AdminManagementPage = ({
                           if (active && payload && payload.length) {
                             const data = payload[0].payload;
                             return (
-                              <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50 dark:border-slate-800/50">
+                              <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50 dark:border-slate-800/50 z-50">
                                 <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-300 dark:text-slate-200 mb-1">{data.label}</p>
                                 <p className="text-xs font-black text-[#005E6A]">Rp {data.value.toLocaleString('id-ID')}</p>
                                 <p className="text-[7px] font-bold text-slate-500 dark:text-slate-300 dark:text-slate-200">{data.count} Orang</p>
@@ -8561,6 +8573,20 @@ const AdminManagementPage = ({
                       />
                     </PieChart>
                   </ResponsiveContainer>
+                  {/* Center Text: Total Nominal & Total Orang */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-2 z-10">
+                    <span className="text-xs sm:text-sm font-black text-[#F15A24] uppercase tracking-wider mb-0.5">
+                      {computedTotalPeople} Orang
+                    </span>
+                    <span className="text-lg sm:text-2xl font-black text-[#005E6A] tracking-tight leading-tight">
+                      Rp {totalValue.toLocaleString('id-ID')}
+                    </span>
+                    {totalLabel ? (
+                      <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mt-1">
+                        {totalLabel}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               )}
 
@@ -8572,7 +8598,9 @@ const AdminManagementPage = ({
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center text-center p-4">
-              <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-2">{totalLabel}</p>
+              {totalLabel ? (
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-2">{totalLabel}</p>
+              ) : null}
               <h3 className={`text-2xl font-black ${colorClass}`}>Rp {totalValue.toLocaleString('id-ID')}</h3>
             </div>
           )}
@@ -9082,8 +9110,8 @@ const AdminSavingsManagement = ({
         listTitle="Daftar Tabungan"
         title="Manajemen Tabungan"
         subtitle="Total Tabungan Seluruh Pelanggan"
-        totalLabel="Total Tabungan"
         totalValue={total}
+        totalPeople={items.length}
         items={items}
         icon={Wallet}
         colorClass="text-[#F15A24]"
@@ -9208,20 +9236,63 @@ const AdminInvestmentManagement = ({ customers, investmentTransactions }: { cust
     navigate(`/investasi/${encodeURIComponent(name)}`);
   };
 
+  const recentGlobalInvestments = useMemo(() => {
+    return [...investmentTransactions]
+      .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())
+      .slice(0, 10);
+  }, [investmentTransactions]);
+
   return (
-    <AdminManagementPage 
-      title="Manajemen Investasi"
-      subtitle="Total Investasi Seluruh Pelanggan"
-      totalLabel="Total Investasi"
-      totalValue={total}
-      items={items}
-      icon={TrendingUp}
-      colorClass="text-[#F15A24]"
-      onItemClick={handleItemClick}
-      stats={stats}
-      showLegend={false}
-      showBadges={false}
-    />
+    <div className="space-y-6">
+      <AdminManagementPage 
+        title="Manajemen Investasi"
+        subtitle="Total Investasi Seluruh Pelanggan"
+        totalValue={total}
+        totalPeople={items.length}
+        items={items}
+        icon={TrendingUp}
+        colorClass="text-[#F15A24]"
+        onItemClick={handleItemClick}
+        stats={stats}
+        showLegend={false}
+        showBadges={false}
+      />
+
+      {/* Global Recent Activity for Investasi */}
+      <div className="px-6 pb-12 space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Aktivitas Terakhir</h3>
+          <History className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
+        </div>
+        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+          <div className="divide-y divide-slate-50">
+            {recentGlobalInvestments.length > 0 ? recentGlobalInvestments.map((t, i) => (
+              <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-50 text-purple-600">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama || "Pelanggan Umum"}</p>
+                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t.Tanggal}{t.Tenor ? ` • Tenor ${t.Tenor}` : ''}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-black text-purple-600">
+                    Rp {t.Nominal.toLocaleString('id-ID')}
+                  </p>
+                  <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
+                    {t.Status || 'Aktif'}{t.JatuhTempo ? ` | Tempo: ${t.JatuhTempo}` : ''}
+                  </p>
+                </div>
+              </div>
+            )) : (
+              <p className="p-12 text-center text-[10px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest">Belum ada aktivitas</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -9526,6 +9597,8 @@ const AdminCashier = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment");
+  const [showCameraChoiceModal, setShowCameraChoiceModal] = useState(false);
   const [lastTransaction, setLastTransaction] = useState<any>(null);
   const [checkoutStep, setCheckoutStep] = useState(1); // 1: Cart, 2: Payment
   const [viewMode, setViewMode] = useState<"list" | "2x2" | "3x3" | "4x4" | "5x5">("4x4");
@@ -9533,6 +9606,8 @@ const AdminCashier = ({
   const [showViewModeModal, setShowViewModeModal] = useState(false);
   const [selectedProductForQty, setSelectedProductForQty] = useState<StockItem | null>(null);
   const [qtyModalVal, setQtyModalVal] = useState<number>(1);
+  const [cashReceived, setCashReceived] = useState<number | "">("");
+  const [isBluetoothPrinting, setIsBluetoothPrinting] = useState(false);
 
   const handleProductClick = (product: StockItem) => {
     const existing = cart.find(item => item.product.id === product.id);
@@ -9629,8 +9704,19 @@ const AdminCashier = ({
       viewMode === "4x4" ? "grid-cols-4" :
       "grid-cols-5";
 
+    const itemWidthClass = isSelectedGroup ? (
+      viewMode === "2x2" ? "w-[calc(50%-0.25rem)] sm:w-[calc(50%-0.3125rem)] shrink-0" :
+      viewMode === "3x3" ? "w-[calc(33.333%-0.333rem)] sm:w-[calc(33.333%-0.416rem)] shrink-0" :
+      viewMode === "4x4" ? "w-[calc(25%-0.375rem)] sm:w-[calc(25%-0.468rem)] shrink-0" :
+      "w-[calc(20%-0.4rem)] sm:w-[calc(20%-0.5rem)] shrink-0"
+    ) : "";
+
+    const containerClass = isSelectedGroup
+      ? "flex flex-row overflow-x-auto gap-2 sm:gap-2.5 w-full pb-2 no-scrollbar scroll-smooth"
+      : `grid gap-2 sm:gap-2.5 w-full ${gridColsClass}`;
+
     return (
-      <div className={`grid gap-2 sm:gap-2.5 w-full ${gridColsClass}`}>
+      <div className={containerClass}>
         {items.map((item) => {
           const cartItem = cart.find(c => c.product.id === item.id);
           const cartQty = cartItem ? cartItem.qty : 0;
@@ -9638,14 +9724,13 @@ const AdminCashier = ({
           const paddingClass = viewMode === "2x2" ? "p-3.5" : viewMode === "3x3" ? "p-2.5" : viewMode === "4x4" ? "p-2" : "p-1.5";
           const titleClass = viewMode === "2x2" ? "text-xs mb-1" : viewMode === "3x3" ? "text-[10px] mb-0.5" : viewMode === "4x4" ? "text-[9px] mb-0.5" : "text-[8px] mb-0.5";
           const priceClass = viewMode === "2x2" ? "text-xs" : viewMode === "3x3" ? "text-[10px]" : viewMode === "4x4" ? "text-[9px]" : "text-[8px]";
-          const stockClass = viewMode === "2x2" ? "text-[8px]" : viewMode === "3x3" ? "text-[7.5px]" : viewMode === "4x4" ? "text-[7px]" : "text-[6.5px]";
 
           return (
             <motion.div 
               key={item.id}
               whileTap={{ scale: 0.96 }}
               onClick={() => handleProductClick(item)}
-              className={`bg-white dark:bg-slate-900 border ${
+              className={`${itemWidthClass} bg-white dark:bg-slate-900 border ${
                 cartQty > 0 
                   ? "border-[#F15A24] ring-2 ring-[#F15A24]/40 shadow-lg shadow-orange-500/25" 
                   : "border-slate-100 dark:border-slate-800 hover:border-[#F15A24]/40 shadow-sm"
@@ -9674,7 +9759,6 @@ const AdminCashier = ({
               </div>
               <div className="flex flex-col gap-0.5 mt-1">
                 <p className={`font-black text-[#F15A24] ${priceClass}`}>Rp {item.HargaJual.toLocaleString("id-ID")}</p>
-                
               </div>
             </motion.div>
           );
@@ -9714,12 +9798,17 @@ const AdminCashier = ({
 
     setIsProcessing(true);
     
+    const cashVal = paymentMethod === "Tunai" ? (typeof cashReceived === "number" ? cashReceived : Number(cashReceived) || total) : total;
+    const changeVal = paymentMethod === "Tunai" ? Math.max(0, cashVal - total) : 0;
+
     const transaction = {
       id: Math.random().toString(36).substr(2, 9).toUpperCase(),
       date: new Date().toLocaleString('id-ID'),
       items: cart,
       total,
       paymentMethod,
+      cashReceived: cashVal,
+      change: changeVal,
       customer: selectedCustomer,
       kasir: localStorage.getItem("kasir_user") || "Tomi",
       timestamp: new Date().toISOString()
@@ -9732,6 +9821,7 @@ const AdminCashier = ({
       onTransactionComplete(transaction);
       setCart([]);
       setSelectedCustomer(null);
+      setCashReceived("");
       setCheckoutStep(1);
     } catch (error) {
       console.error("Checkout error:", error);
@@ -9740,119 +9830,283 @@ const AdminCashier = ({
     }
   };
 
-  const printReceipt = () => {
+  const printReceiptSystem = () => {
     window.print();
   };
 
+  const getReceiptPlainText = () => {
+    if (!lastTransaction) return "";
+    const kasirName = lastTransaction.kasir || localStorage.getItem("kasir_user") || "Tomi";
+    let txt = "         WARUNG TOMI\n";
+    txt += "Dusun Manis, RT009/RW005\nDesa Wilanagara, Kuningan\n";
+    txt += "==============================\n";
+    txt += `No.   : ${lastTransaction.id}\n`;
+    txt += `Tgl   : ${lastTransaction.date}\n`;
+    txt += `Kasir : ${kasirName}\n`;
+    if (lastTransaction.customer) {
+      txt += `Plgn  : ${lastTransaction.customer.Nama}\n`;
+    }
+    txt += `Bayar : ${lastTransaction.paymentMethod}\n`;
+    txt += "------------------------------\n";
+    lastTransaction.items.forEach((item: any) => {
+      const name = item.product.Nama.substring(0, 30);
+      txt += `${name}\n`;
+      const qtyPrice = `${item.qty} x ${item.product.HargaJual.toLocaleString('id-ID')}`;
+      const totalItem = `Rp ${(item.qty * item.product.HargaJual).toLocaleString('id-ID')}`;
+      const padLen = Math.max(1, 30 - qtyPrice.length - totalItem.length);
+      txt += qtyPrice + " ".repeat(padLen) + totalItem + "\n";
+    });
+    txt += "------------------------------\n";
+    txt += `TOTAL : Rp ${lastTransaction.total.toLocaleString('id-ID')}\n`;
+    if (lastTransaction.paymentMethod === "Tunai" && lastTransaction.cashReceived) {
+      txt += `Tunai : Rp ${Number(lastTransaction.cashReceived).toLocaleString('id-ID')}\n`;
+      txt += `Kembali: Rp ${Number(lastTransaction.change || 0).toLocaleString('id-ID')}\n`;
+    }
+    txt += "==============================\n";
+    txt += "         TERIMA KASIH\n";
+    txt += "   BELANJA HEMAT SETIAP HARI\n";
+    return txt;
+  };
+
+  const printReceiptBluetooth = async () => {
+    if (!lastTransaction) return;
+
+    setIsBluetoothPrinting(true);
+
+    if (!('bluetooth' in navigator)) {
+      alert("Browser Anda belum mendukung Web Bluetooth. Dialihkan ke dialog cetak sistem (window.print)...");
+      window.print();
+      setIsBluetoothPrinting(false);
+      return;
+    }
+
+    try {
+      // 1. Minta izin koneksi ke Bluetooth Printer (ESC/POS Thermal Printer)
+      const device = await (navigator as any).bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [
+          '000018f0-0000-1000-8000-00805f9b34fb', // Standard Thermal Printer Service
+          '0000ffe0-0000-1000-8000-00805f9b34fb', // Serial BLE Service
+          '00001101-0000-1000-8000-00805f9b34fb', // Serial Port Profile
+          'e7810a71-73ae-499d-8c15-faa9aef0c3f2'  // Additional POS Printer UUID
+        ]
+      });
+
+      if (!device || !device.gatt) {
+        window.print();
+        setIsBluetoothPrinting(false);
+        return;
+      }
+
+      const server = await device.gatt.connect();
+
+      // Cari Service & Characteristic penulisan data (Write / WriteWithoutResponse)
+      let characteristic: any = null;
+      const services = await server.getPrimaryServices();
+      for (const service of services) {
+        const characteristics = await service.getCharacteristics();
+        for (const char of characteristics) {
+          if (char.properties.write || char.properties.writeWithoutResponse) {
+            characteristic = char;
+            break;
+          }
+        }
+        if (characteristic) break;
+      }
+
+      if (!characteristic) {
+        alert("Perangkat Bluetooth terhubung, tetapi karakteristik cetak thermal tidak ditemukan. Menggunakan cetak sistem.");
+        window.print();
+        setIsBluetoothPrinting(false);
+        return;
+      }
+
+      // Format Perintah ESC/POS untuk Thermal Paper (58mm / 80mm)
+      const encoder = new TextEncoder();
+      const ESC = "\x1B";
+      const GS = "\x1D";
+
+      let receiptText = ESC + "@"; // Reset printer
+      receiptText += getReceiptPlainText();
+      receiptText += "\n\n\n";
+      receiptText += GS + "V" + "\x42" + "\x00"; // Cut Paper
+
+      const data = encoder.encode(receiptText);
+      const chunkSize = 100;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+        if (characteristic.properties.writeWithoutResponse) {
+          await characteristic.writeValueWithoutResponse(chunk);
+        } else {
+          await characteristic.writeValue(chunk);
+        }
+      }
+
+      alert("Struk berhasil dikirim ke printer Bluetooth!");
+    } catch (err: any) {
+      console.error("Bluetooth printer error:", err);
+      const msg = String(err?.message || err);
+      if (
+        msg.includes("permissions policy") || 
+        msg.includes("disallowed") || 
+        err.name === "SecurityError" || 
+        err.name === "NotAllowedError"
+      ) {
+        const openNewTab = confirm(
+          "Izin akses Bluetooth dibatasi di dalam bingkai pratinjau (iframe).\n\n" +
+          "• Tekan 'OK' untuk MEMBUKA APLIKASI DI TAB BARU agar fitur Bluetooth Printer dapat terhubung penuh ke printer Anda.\n" +
+          "• Tekan 'Batal' untuk mencetak langsung menggunakan Dialog Cetak Sistem."
+        );
+        if (openNewTab) {
+          window.open(window.location.href, '_blank');
+        } else {
+          window.print();
+        }
+      } else if (err.name !== "NotFoundError" && err.name !== "AbortError") {
+        alert("Gagal koneksi Printer Bluetooth: " + msg + ".\nMengalihkan ke Cetak Sistem.");
+        window.print();
+      }
+    } finally {
+      setIsBluetoothPrinting(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)] p-1">
+    <div className="flex flex-col lg:flex-row gap-6 items-start min-h-[calc(100vh-120px)] p-1">
       {/* Product Selection */}
-      <div className={`flex-1 space-y-6 ${checkoutStep === 2 ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
-        <div className="bg-white rounded-md shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col overflow-hidden max-h-[85vh]">
-          {/* STICKY HEADER */}
-          <div className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-50 dark:border-slate-800/50 p-4 sm:p-6 space-y-3">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h2 className="text-xl font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">Kasir Pintar</h2>
-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">Pilih barang untuk transaksi</p>
-              </div>
-              
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                <button 
-                  onClick={() => setIsScanning(!isScanning)}
-                  className={`p-2.5 rounded-md border transition-all cursor-pointer ${isScanning ? 'bg-red-500 border-red-500 text-white shadow-lg' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800 text-[#005E6A] dark:text-teal-300 hover:bg-slate-50'}`}
-                  title="Scan Barcode"
-                >
-                  <ScanLine className="w-5 h-5" />
-                </button>
+      <div className={`flex-1 space-y-4 w-full ${checkoutStep === 2 ? 'opacity-50 pointer-events-none grayscale-[0.5]' : ''}`}>
+        {/* STICKY HEADER CONTROLS (BARIS ELEMEN CARI, SCAN, GRID VIEW) - BUNGKUS KARTU */}
+        <div className="sticky top-0 z-30 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-md p-3.5 shadow-sm space-y-3">
+          <div className="flex flex-wrap items-center gap-2 w-full justify-between">
+            {/* CAMERA & SCAN BAR AREA */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button 
+                onClick={() => setIsScanning(!isScanning)}
+                className={`p-2.5 rounded-md border transition-all cursor-pointer shrink-0 ${isScanning ? 'bg-red-500 border-red-500 text-white shadow-lg' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-[#005E6A] dark:text-teal-300 hover:bg-slate-100'}`}
+                title="Scan Barcode"
+              >
+                <ScanLine className="w-5 h-5" />
+              </button>
 
-                {/* SEARCH BAR */}
-                <div className="relative flex-1 sm:w-56 min-w-[160px]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-300" />
-                  <input 
-                    type="text" 
-                    placeholder="Cari produk / kategori..."
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-md pl-10 pr-4 py-2 text-xs font-bold text-[#005E6A] dark:text-teal-300 focus:outline-none focus:ring-2 focus:ring-[#005E6A]/20"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+              {/* Inline Small Camera Screen disamping kiri pencarian */}
+              {isScanning && (
+                <div className="flex items-center gap-1 shrink-0 animate-in fade-in zoom-in-95 duration-200">
+                  <BarcodeScannerComponent 
+                    facingMode={cameraFacing}
+                    onResult={(code) => {
+                      onScanResult(code);
+                    }}
+                    onClose={() => setIsScanning(false)}
                   />
+                  {/* Button to open Camera Choice Modal (Kamera Depan vs Kamera Belakang) */}
+                  <button
+                    type="button"
+                    onClick={() => setShowCameraChoiceModal(true)}
+                    className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[#005E6A] dark:text-teal-300 rounded-md border border-slate-200 dark:border-slate-700 text-[10px] font-bold transition-all cursor-pointer shrink-0"
+                    title="Pilihan Kamera Depan / Belakang"
+                  >
+                    <Camera className="w-4 h-4 text-[#F15A24]" />
+                  </button>
                 </div>
-
-                {/* VIEW MODE GRID BUTTON - PLACED RIGHT NEXT TO SEARCH COLUMN */}
-                <button
-                  onClick={() => setShowViewModeModal(true)}
-                  className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#005E6A] dark:text-teal-300 rounded-md font-black text-xs flex items-center gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer shrink-0"
-                  title="Pengaturan Grid/List Tampilan"
-                >
-                  <Grid className="w-4 h-4 text-[#F15A24]" />
-                  <span className="uppercase text-[10px] tracking-wider font-extrabold">
-                    {viewMode === "list" ? "List" : viewMode}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-                </button>
-              </div>
+              )}
             </div>
 
-
-
-            {isScanning && (
-              <BarcodeScannerComponent 
-                onResult={(code) => {
-                  onScanResult(code);
-                  setIsScanning(false);
-                }}
-                onClose={() => setIsScanning(false)}
+            {/* SEARCH BAR */}
+            <div className="relative flex-1 sm:w-56 min-w-[140px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-300" />
+              <input 
+                type="text" 
+                placeholder="Cari produk / kategori..."
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md pl-10 pr-4 py-2 text-xs font-bold text-[#005E6A] dark:text-teal-300 focus:outline-none focus:ring-2 focus:ring-[#005E6A]/20"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
-            )}
-          </div>
+            </div>
 
-          {/* SCROLLABLE GRID & LIST */}
-          <div className="flex-1 overflow-y-auto no-scrollbar p-3 sm:p-6 space-y-6">
-            {filteredStock.length === 0 ? (
-              <div className="text-center py-12">
-                <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Produk tidak ditemukan</p>
+            {/* VIEW MODE GRID BUTTON */}
+            <button
+              onClick={() => setShowViewModeModal(true)}
+              className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#005E6A] dark:text-teal-300 rounded-md font-black text-xs flex items-center gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer shrink-0"
+              title="Pengaturan Grid/List Tampilan"
+            >
+              <Grid className="w-4 h-4 text-[#F15A24]" />
+              <span className="uppercase text-[10px] tracking-wider font-extrabold">
+                {viewMode === "list" ? "List" : viewMode}
+              </span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+          </div>
+        </div>
+
+        {/* PRODUK DIPILIH (DIKERANJANG) - TANPA KARTU PEMBUNGKUS */}
+        {selectedStock.length > 0 && (
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between pb-1.5 border-b border-orange-200 dark:border-orange-900/50">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#F15A24] animate-pulse" />
+                <h3 className="text-xs font-black text-[#F15A24] uppercase tracking-wider">
+                  PRODUK DIPILIH (DIKERANJANG) ({selectedStock.length})
+                </h3>
               </div>
-            ) : (
-              <>
-                {/* SECTION 1: PRODUK DIPILIH (DIKERANJANG) */}
-                {selectedStock.length > 0 && (
-                  <div className="bg-orange-50/60 dark:bg-orange-950/20 p-3.5 rounded-md border border-orange-200/80 dark:border-orange-900/50 shadow-sm">
-                    <div className="flex items-center justify-between pb-2 mb-3 border-b border-orange-200 dark:border-orange-900/50">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#F15A24] animate-pulse" />
-                        <h3 className="text-xs font-black text-[#F15A24] uppercase tracking-wider">
-                          PRODUK DIPILIH (DIKERANJANG) ({selectedStock.length})
-                        </h3>
-                      </div>
-                      <span className="text-[9px] font-black text-[#F15A24] bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-sm border border-orange-200 dark:border-orange-900/50 uppercase tracking-wider shadow-xs">
-                        {cart.reduce((acc, i) => acc + i.qty, 0)} Total Qty
-                      </span>
-                    </div>
-                    {renderItemGrid(selectedStock, true)}
-                  </div>
-                )}
+              <span className="text-[9px] font-black text-[#F15A24] bg-orange-50 dark:bg-orange-950/40 px-2.5 py-0.5 rounded-sm border border-orange-200 dark:border-orange-900/50 uppercase tracking-wider">
+                {cart.reduce((acc, i) => acc + i.qty, 0)} Total Qty
+              </span>
+            </div>
 
-                {/* SECTION 2: KATALOG PRODUK (BELUM DIPILIH) */}
-                {unselectedStock.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-100 dark:border-slate-800">
-                      <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">
-                        KATALOG PRODUK {selectedStock.length > 0 ? "(BELUM DIPILIH)" : ""} ({unselectedStock.length})
-                      </h3>
-                    </div>
-                    {renderItemGrid(unselectedStock, false)}
-                  </div>
-                )}
-              </>
-            )}
+            {renderItemGrid(selectedStock, true)}
           </div>
+        )}
+
+        {/* KATALOG PRODUK (BELUM DIPILIH) */}
+        <div className="pt-1 space-y-3">
+          {filteredStock.length === 0 ? (
+            <div className="text-center py-12">
+              <Package className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Produk tidak ditemukan</p>
+            </div>
+          ) : (
+            unselectedStock.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-100 dark:border-slate-800">
+                  <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">
+                    KATALOG PRODUK {selectedStock.length > 0 ? "(BELUM DIPILIH)" : ""} ({unselectedStock.length})
+                  </h3>
+                </div>
+                {renderItemGrid(unselectedStock, false)}
+              </div>
+            )
+          )}
         </div>
       </div>
 
       {/* Cart & Payment */}
-      <div className="hidden lg:block w-full lg:w-[450px] space-y-6 shrink-0">
-        <div className="bg-white p-6 rounded-md shadow-sm border border-slate-100 dark:border-slate-800 sticky top-6">
+      <div className="hidden lg:block w-full lg:w-[420px] xl:w-[450px] space-y-6 shrink-0">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-md shadow-sm border border-slate-100 dark:border-slate-800 sticky top-0">
+          {/* PILIH PELANGGAN PALING ATAS DETAIL PESANAN */}
+          <div className="mb-5 p-2.5 rounded-md bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-800 flex items-center gap-2 w-full">
+            <User className="w-4 h-4 text-[#005E6A] dark:text-teal-300 shrink-0 ml-1" />
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-wider shrink-0">Pelanggan:</span>
+            <select 
+              className="flex-1 bg-transparent text-xs font-bold text-[#005E6A] dark:text-teal-300 focus:outline-none cursor-pointer pr-2"
+              value={selectedCustomer?.id || ""}
+              onChange={(e) => {
+                const c = customers.find(u => u.id === e.target.value);
+                setSelectedCustomer(c || null);
+              }}
+            >
+              <option value="" className="text-slate-900 dark:text-slate-100">Pelanggan Umum</option>
+              {customers && customers.map((c, idx) => {
+                const safeId = c.id || `cust-${idx}`;
+                const safeName = c.Nama || "Tanpa Nama";
+                return (
+                  <option key={safeId} value={safeId} className="text-slate-900 dark:text-slate-100">
+                    {safeName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
           {checkoutStep === 1 ? (
             <>
               <div className="flex items-center gap-3 mb-6">
@@ -9931,72 +10185,186 @@ const AdminCashier = ({
               </div>
 
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Pilih Pelanggan</label>
-                  <select 
-                    className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-md px-4 py-2.5 text-xs font-bold text-[#005E6A] focus:outline-none"
-                    value={selectedCustomer?.id || ""}
-                    onChange={(e) => {
-                      const c = customers.find(u => u.id === e.target.value);
-                      setSelectedCustomer(c || null);
-                    }}
-                  >
-                    <option value="">Umum (Tanpa Nama)</option>
-                    {customers && customers.map((c, idx) => {
-                      const safeId = c.id || `cust-${idx}`;
-                      const safeName = c.Nama || "Tanpa Nama";
-                      return (
-                        <option key={safeId} value={safeId}>
-                          {safeName}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
+                {/* 4 KARTU METODE PEMBAYARAN SKALA 2X2 */}
+                <div className="grid grid-cols-2 gap-2.5">
                   {[
-                    { id: "Tunai", icon: Wallet, label: "Tunai" },
-                    { id: "QRIS", icon: ScanLine, label: "QRIS" },
-                    { id: "Transfer", icon: CreditCard, label: "Transfer" },
-                    { id: "Kasbon", icon: AlertCircle, label: "Kasbon" },
-                    { id: "Tabungan", icon: PiggyBank, label: "Tabungan" }
+                    { id: "Tunai", icon: Wallet, label: "Tunai", desc: "Bayar Tunai / Cash" },
+                    { id: "Tabungan", icon: PiggyBank, label: "Tabungan", desc: "Potong Saldo" },
+                    { id: "QRIS", icon: ScanLine, label: "QRIS", desc: "Scan Barcode" },
+                    { id: "Kasbon", icon: AlertCircle, label: "Kasbon", desc: "Catat Piutang" }
                   ].map((m) => {
                     const balance = selectedCustomer ? parseCurrency(selectedCustomer.Tabungan) : 0;
                     const hasSavings = balance > 0;
-                    const isDisabled = m.id === "Tabungan" && !hasSavings;
-                    
+                    const isDisabled = m.id === "Tabungan" && (!selectedCustomer || !hasSavings);
+                    const isSelected = paymentMethod === m.id;
+
                     return (
                       <button
                         key={m.id}
+                        type="button"
                         disabled={isDisabled}
                         onClick={() => setPaymentMethod(m.id)}
-                        className={`flex items-center justify-between p-4 rounded-md border text-[10px] font-black uppercase tracking-tight transition-all ${
-                          paymentMethod === m.id 
-                            ? 'border-[#005E6A] bg-[#005E6A] text-white shadow-lg shadow-[#005E6A]/20' 
-                            : isDisabled 
-                              ? 'border-slate-50 dark:border-slate-800/50 bg-slate-50 text-slate-300 cursor-not-allowed opacity-50'
-                              : 'border-slate-100 dark:border-slate-800 bg-white text-slate-400 hover:border-[#005E6A]/30'
+                        className={`flex flex-col items-start justify-between p-3.5 rounded-lg border text-left transition-all relative overflow-hidden cursor-pointer ${
+                          isSelected
+                            ? 'border-[#005E6A] bg-[#005E6A]/10 text-[#005E6A] dark:text-teal-300 ring-2 ring-[#005E6A]/30 shadow-xs'
+                            : isDisabled
+                              ? 'border-slate-100 dark:border-slate-800/60 bg-slate-50 dark:bg-slate-800/30 text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-60'
+                              : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:border-[#005E6A]/50 hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <m.icon className="w-4 h-4 flex-shrink-0" />
-                          <span>{m.label}</span>
+                        <div className="flex items-center justify-between w-full mb-2">
+                          <div className={`p-2 rounded-md ${
+                            isSelected 
+                              ? 'bg-[#005E6A] text-white' 
+                              : isDisabled 
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600' 
+                                : 'bg-slate-100 dark:bg-slate-700 text-[#005E6A] dark:text-teal-300'
+                          }`}>
+                            <m.icon className="w-4 h-4" />
+                          </div>
+                          {isSelected && (
+                            <span className="w-2 h-2 rounded-full bg-[#005E6A] dark:bg-teal-400 animate-pulse" />
+                          )}
                         </div>
-                        {m.id === "Tabungan" && selectedCustomer && (
-                          <span className={`text-[8px] ${paymentMethod === m.id ? 'text-white/60' : 'text-slate-400'}`}>
-                            Saldo: Rp {balance.toLocaleString('id-ID')}
-                          </span>
-                        )}
+
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-tight">{m.label}</h4>
+                          {m.id === "Tabungan" ? (
+                            <p className={`text-[9px] font-bold tracking-tight mt-0.5 ${
+                              hasSavings ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
+                            }`}>
+                              {!selectedCustomer 
+                                ? "Pilih Pelanggan" 
+                                : hasSavings 
+                                  ? `Saldo: Rp ${balance.toLocaleString("id-ID")}` 
+                                  : "Saldo Kosong"}
+                            </p>
+                          ) : (
+                            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-400 tracking-tight mt-0.5">{m.desc}</p>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
                 </div>
 
+                {/* DETAIL METHOD TUNAI (INPUT NOMINAL & KEMBALIAN) */}
+                {paymentMethod === "Tunai" && (
+                  <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Wallet className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-300" />
+                        Nominal Pembayaran (Tunai)
+                      </label>
+                      <button 
+                        type="button" 
+                        onClick={() => setCashReceived(total)}
+                        className="text-[9px] font-black text-[#005E6A] dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded border border-teal-200 dark:border-teal-800 hover:bg-teal-100 transition-all cursor-pointer"
+                      >
+                        Uang Pas
+                      </button>
+                    </div>
+
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">Rp</span>
+                      <input 
+                        type="number"
+                        placeholder="0"
+                        value={cashReceived}
+                        onChange={(e) => setCashReceived(e.target.value === "" ? "" : Number(e.target.value))}
+                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md pl-9 pr-3 py-2 text-sm font-black text-[#005E6A] dark:text-teal-300 focus:outline-none focus:ring-2 focus:ring-[#005E6A]/30"
+                      />
+                    </div>
+
+                    {/* Quick Nominal Presets */}
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[10000, 20000, 50000, 100000].map((amt) => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => setCashReceived(amt)}
+                          className="py-1 px-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-[9px] font-black text-slate-600 dark:text-slate-300 hover:border-[#005E6A] hover:text-[#005E6A] transition-all cursor-pointer truncate"
+                        >
+                          {amt >= 1000 ? `${amt / 1000}rb` : amt}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Change calculation */}
+                    {cashReceived !== "" && (
+                      <div className={`p-2.5 rounded-md border flex items-center justify-between ${
+                        Number(cashReceived) >= total
+                          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-700 dark:text-amber-300'
+                      }`}>
+                        <span className="text-[10px] font-black uppercase tracking-wider">
+                          {Number(cashReceived) >= total ? "Kembalian:" : "Uang Kurang:"}
+                        </span>
+                        <span className="text-xs font-black tabular-nums">
+                          Rp {Math.abs(Number(cashReceived) - total).toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* DETAIL METHOD QRIS WARUNG TOMI */}
+                {paymentMethod === "QRIS" && (
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col items-center text-center space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 w-full justify-center">
+                      <span className="bg-[#F15A24] text-white text-[9px] font-black px-2 py-0.5 rounded tracking-widest">QRIS</span>
+                      <h4 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">WARUNG TOMI</h4>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border-2 border-slate-900 shadow-md flex flex-col items-center">
+                      <img 
+                        src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020101021226600016ID.CO.QRIS.WWW011893600911000000000002152004581153033605405100005802ID5911WARUNG%20TOMI6006JAKARTA6304A1B2" 
+                        alt="QRIS Warung Tomi" 
+                        className="w-36 h-36 object-contain rounded"
+                      />
+                      <div className="mt-2 text-[8px] font-black text-slate-800 uppercase tracking-widest border-t border-slate-200 pt-1 w-full text-center">
+                        NMK: WARUNG TOMI - POS
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                      Scan QRIS Warung Tomi di atas melalui E-Wallet / Mobile Banking Anda.
+                    </p>
+                  </div>
+                )}
+
+                {/* DETAIL METHOD KASBON */}
+                {paymentMethod === "Kasbon" && (
+                  <div className="p-3.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 space-y-1.5 animate-in fade-in zoom-in-95 duration-150">
+                    <p className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      Pencatatan Kasbon
+                    </p>
+                    <p className="text-[10px] font-bold opacity-90">
+                      {selectedCustomer 
+                        ? `Transaksi sebesar Rp ${total.toLocaleString('id-ID')} akan dicatat sebagai piutang atas nama ${selectedCustomer.Nama}.` 
+                        : "Harap pilih pelanggan terlebih dahulu pada bagian paling atas pesanan."}
+                    </p>
+                  </div>
+                )}
+
+                {/* DETAIL METHOD TABUNGAN */}
+                {paymentMethod === "Tabungan" && selectedCustomer && (
+                  <div className="p-3.5 rounded-lg bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/60 text-teal-800 dark:text-teal-200 space-y-1.5 animate-in fade-in zoom-in-95 duration-150">
+                    <p className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                      <PiggyBank className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-300" />
+                      Pembayaran Dari Tabungan
+                    </p>
+                    <p className="text-[10px] font-bold opacity-90">
+                      Saldo tabungan {selectedCustomer.Nama}: Rp {parseCurrency(selectedCustomer.Tabungan).toLocaleString('id-ID')}. Sisa saldo setelah transaksi: Rp {Math.max(0, parseCurrency(selectedCustomer.Tabungan) - total).toLocaleString('id-ID')}.
+                    </p>
+                  </div>
+                )}
+
                 <button
                   onClick={handleCheckout}
                   disabled={isProcessing}
-                  className={`w-full py-4 rounded-md text-xs font-black uppercase tracking-widest transition-all bg-[#F15A24] text-white shadow-lg shadow-[#F15A24]/30 hover:scale-[1.02] active:scale-98 flex items-center justify-center gap-2`}
+                  className={`w-full py-4 rounded-md text-xs font-black uppercase tracking-widest transition-all bg-[#F15A24] text-white shadow-lg shadow-[#F15A24]/30 hover:scale-[1.02] active:scale-98 flex items-center justify-center gap-2 cursor-pointer`}
                 >
                   {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : "KONFIRMASI & CETAK"}
                 </button>
@@ -10005,6 +10373,239 @@ const AdminCashier = ({
           )}
         </div>
       </div>
+
+      {/* MOBILE PAYMENT METHOD POPUP MODAL (POPUP LAYAR KECIL / MOBILE) */}
+      <AnimatePresence>
+        {checkoutStep === 2 && (
+          <div className="lg:hidden fixed inset-0 z-[100] flex flex-col justify-end bg-black/60 backdrop-blur-sm p-0">
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="bg-white dark:bg-slate-900 rounded-t-3xl max-h-[92vh] flex flex-col p-5 overflow-y-auto border-t border-slate-200 dark:border-slate-800 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 sticky top-0 bg-white dark:bg-slate-900 z-10 pt-1">
+                <div className="flex items-center gap-3">
+                  <button 
+                    type="button" 
+                    onClick={() => setCheckoutStep(1)} 
+                    className="w-8 h-8 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center text-[#005E6A] dark:text-teal-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                  <div>
+                    <h3 className="text-sm font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">Metode Pembayaran</h3>
+                    <p className="text-[10px] font-bold text-[#F15A24] uppercase tracking-wider">Total: Rp {total.toLocaleString('id-ID')}</p>
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setCheckoutStep(1)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-xl cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Pilih Pelanggan Modal Header */}
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-800 flex items-center gap-2 w-full">
+                <User className="w-4 h-4 text-[#005E6A] dark:text-teal-300 shrink-0 ml-1" />
+                <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-wider shrink-0">Pelanggan:</span>
+                <select 
+                  className="flex-1 bg-transparent text-xs font-bold text-[#005E6A] dark:text-teal-300 focus:outline-none cursor-pointer pr-2"
+                  value={selectedCustomer?.id || ""}
+                  onChange={(e) => {
+                    const c = customers.find(u => u.id === e.target.value);
+                    setSelectedCustomer(c || null);
+                  }}
+                >
+                  <option value="" className="text-slate-900 dark:text-slate-100">Pelanggan Umum</option>
+                  {customers && customers.map((c, idx) => {
+                    const safeId = c.id || `cust-${idx}`;
+                    const safeName = c.Nama || "Tanpa Nama";
+                    return (
+                      <option key={safeId} value={safeId} className="text-slate-900 dark:text-slate-100">
+                        {safeName}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* 4 Cards 2x2 Grid */}
+              <div className="grid grid-cols-2 gap-2.5">
+                {[
+                  { id: "Tunai", icon: Wallet, label: "Tunai", desc: "Bayar Tunai / Cash" },
+                  { id: "Tabungan", icon: PiggyBank, label: "Tabungan", desc: "Potong Saldo" },
+                  { id: "QRIS", icon: ScanLine, label: "QRIS", desc: "Scan Barcode" },
+                  { id: "Kasbon", icon: AlertCircle, label: "Kasbon", desc: "Catat Piutang" }
+                ].map((m) => {
+                  const balance = selectedCustomer ? parseCurrency(selectedCustomer.Tabungan) : 0;
+                  const hasSavings = balance > 0;
+                  const isDisabled = m.id === "Tabungan" && (!selectedCustomer || !hasSavings);
+                  const isSelected = paymentMethod === m.id;
+
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => setPaymentMethod(m.id)}
+                      className={`flex flex-col items-start justify-between p-3 rounded-xl border text-left transition-all relative overflow-hidden cursor-pointer ${
+                        isSelected
+                          ? 'border-[#005E6A] bg-[#005E6A]/10 text-[#005E6A] dark:text-teal-300 ring-2 ring-[#005E6A]/30 shadow-xs'
+                          : isDisabled
+                            ? 'border-slate-100 dark:border-slate-800/60 bg-slate-50 dark:bg-slate-800/30 text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-60'
+                            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:border-[#005E6A]/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-2">
+                        <div className={`p-2 rounded-lg ${
+                          isSelected ? 'bg-[#005E6A] text-white' : 'bg-slate-100 dark:bg-slate-700 text-[#005E6A] dark:text-teal-300'
+                        }`}>
+                          <m.icon className="w-4 h-4" />
+                        </div>
+                        {isSelected && (
+                          <span className="w-2 h-2 rounded-full bg-[#005E6A] dark:bg-teal-400 animate-pulse" />
+                        )}
+                      </div>
+
+                      <div>
+                        <h4 className="text-xs font-black uppercase tracking-tight">{m.label}</h4>
+                        {m.id === "Tabungan" ? (
+                          <p className={`text-[9px] font-bold tracking-tight mt-0.5 ${
+                            hasSavings ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
+                          }`}>
+                            {!selectedCustomer ? "Pilih Pelanggan" : hasSavings ? `Rp ${balance.toLocaleString("id-ID")}` : "Saldo Kosong"}
+                          </p>
+                        ) : (
+                          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-400 tracking-tight mt-0.5">{m.desc}</p>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Detail Payment Method */}
+              {paymentMethod === "Tunai" && (
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Wallet className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-300" />
+                      Nominal Pembayaran (Tunai)
+                    </label>
+                    <button 
+                      type="button" 
+                      onClick={() => setCashReceived(total)}
+                      className="text-[9px] font-black text-[#005E6A] dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 px-2 py-0.5 rounded border border-teal-200 dark:border-teal-800 cursor-pointer"
+                    >
+                      Uang Pas
+                    </button>
+                  </div>
+
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">Rp</span>
+                    <input 
+                      type="number"
+                      placeholder="0"
+                      value={cashReceived}
+                      onChange={(e) => setCashReceived(e.target.value === "" ? "" : Number(e.target.value))}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md pl-9 pr-3 py-2 text-sm font-black text-[#005E6A] dark:text-teal-300 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[10000, 20000, 50000, 100000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setCashReceived(amt)}
+                        className="py-1.5 px-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-[9px] font-black text-slate-600 dark:text-slate-300 cursor-pointer"
+                      >
+                        {amt >= 1000 ? `${amt / 1000}rb` : amt}
+                      </button>
+                    ))}
+                  </div>
+
+                  {cashReceived !== "" && (
+                    <div className={`p-2.5 rounded-md border flex items-center justify-between ${
+                      Number(cashReceived) >= total
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 text-emerald-700 dark:text-emerald-300'
+                        : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 text-amber-700 dark:text-amber-300'
+                    }`}>
+                      <span className="text-[10px] font-black uppercase tracking-wider">
+                        {Number(cashReceived) >= total ? "Kembalian:" : "Uang Kurang:"}
+                      </span>
+                      <span className="text-xs font-black tabular-nums">
+                        Rp {Math.abs(Number(cashReceived) - total).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {paymentMethod === "QRIS" && (
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 flex flex-col items-center text-center space-y-3">
+                  <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 w-full justify-center">
+                    <span className="bg-[#F15A24] text-white text-[9px] font-black px-2 py-0.5 rounded tracking-widest">QRIS</span>
+                    <h4 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">WARUNG TOMI</h4>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border-2 border-slate-900 shadow-md flex flex-col items-center">
+                    <img 
+                      src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020101021226600016ID.CO.QRIS.WWW011893600911000000000002152004581153033605405100005802ID5911WARUNG%20TOMI6006JAKARTA6304A1B2" 
+                      alt="QRIS Warung Tomi" 
+                      className="w-36 h-36 object-contain rounded"
+                    />
+                    <div className="mt-2 text-[8px] font-black text-slate-800 uppercase tracking-widest border-t border-slate-200 pt-1 w-full text-center">
+                      NMK: WARUNG TOMI - POS
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                    Scan QRIS Warung Tomi di atas melalui E-Wallet / Mobile Banking Anda.
+                  </p>
+                </div>
+              )}
+
+              {paymentMethod === "Kasbon" && (
+                <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 space-y-1.5">
+                  <p className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    Pencatatan Kasbon
+                  </p>
+                  <p className="text-[10px] font-bold opacity-90">
+                    {selectedCustomer 
+                      ? `Transaksi sebesar Rp ${total.toLocaleString('id-ID')} akan dicatat sebagai piutang atas nama ${selectedCustomer.Nama}.` 
+                      : "Harap pilih pelanggan terlebih dahulu pada bagian paling atas pesanan."}
+                  </p>
+                </div>
+              )}
+
+              {paymentMethod === "Tabungan" && selectedCustomer && (
+                <div className="p-3.5 rounded-xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/60 text-teal-800 dark:text-teal-200 space-y-1.5">
+                  <p className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                    <PiggyBank className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-300" />
+                    Pembayaran Dari Tabungan
+                  </p>
+                  <p className="text-[10px] font-bold opacity-90">
+                    Saldo tabungan {selectedCustomer.Nama}: Rp {parseCurrency(selectedCustomer.Tabungan).toLocaleString('id-ID')}. Sisa saldo setelah transaksi: Rp {Math.max(0, parseCurrency(selectedCustomer.Tabungan) - total).toLocaleString('id-ID')}.
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleCheckout}
+                disabled={isProcessing}
+                className="w-full py-4 rounded-xl text-xs font-black uppercase tracking-widest bg-[#F15A24] text-white shadow-lg shadow-[#F15A24]/30 flex items-center justify-center gap-2 cursor-pointer active:scale-98 transition-all"
+              >
+                {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : "KONFIRMASI & CETAK"}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* POPUP GRID VIEW MODE SELECTOR MODAL (CENTER OF SCREEN) */}
       <AnimatePresence>
@@ -10202,7 +10803,7 @@ const AdminCashier = ({
             >
               <div className="absolute top-0 left-0 w-full h-1 bg-[#005E6A] opacity-20" />
               
-              <div className="text-center space-y-1 mb-8 print:mb-4">
+              <div className="text-center space-y-1 mb-6 print:mb-4">
                 <div className="w-12 h-12 bg-teal-50 rounded-md flex items-center justify-center text-[#005E6A] mx-auto mb-3">
                   <Receipt className="w-6 h-6" />
                 </div>
@@ -10210,7 +10811,10 @@ const AdminCashier = ({
                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
                   Dusun Manis, RT009/RW005<br/>Desa Wilanagara, Kuningan
                 </p>
-                <p className="text-[7px] font-medium text-slate-300 tabular-nums">{lastTransaction.date}</p>
+                <div className="flex items-center justify-between text-[8px] font-bold text-slate-500 pt-2 border-t border-slate-100/80">
+                  <span>Tgl: {lastTransaction.date}</span>
+                  <span>Kasir: <strong className="text-[#005E6A] uppercase font-black">{lastTransaction.kasir || localStorage.getItem("kasir_user") || "Tomi"}</strong></span>
+                </div>
               </div>
 
               <div className="space-y-3 mb-6 print:mb-4">
@@ -10231,6 +10835,10 @@ const AdminCashier = ({
 
               <div className="space-y-1.5 py-4 border-y border-dashed border-slate-200 print:py-2">
                 <div className="flex justify-between items-center">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Nama Kasir</span>
+                  <span className="text-[10px] font-black text-[#005E6A] uppercase">{lastTransaction.kasir || localStorage.getItem("kasir_user") || "Tomi"}</span>
+                </div>
+                <div className="flex justify-between items-center">
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Metode Bayar</span>
                   <span className="text-[10px] font-black text-[#005E6A] uppercase">{lastTransaction.paymentMethod}</span>
                 </div>
@@ -10244,19 +10852,28 @@ const AdminCashier = ({
                   <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">TOTAL</span>
                   <span className="text-xl font-black text-[#F15A24] tabular-nums">Rp {lastTransaction.total.toLocaleString('id-ID')}</span>
                 </div>
+                {lastTransaction.paymentMethod === "Tunai" && lastTransaction.cashReceived !== undefined && (
+                  <>
+                    <div className="flex justify-between items-center pt-1 border-t border-slate-100">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Bayar Tunai</span>
+                      <span className="text-[10px] font-black text-slate-700 tabular-nums">Rp {Number(lastTransaction.cashReceived).toLocaleString('id-ID')}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kembalian</span>
+                      <span className="text-[10px] font-black text-emerald-600 tabular-nums">Rp {Number(lastTransaction.change || 0).toLocaleString('id-ID')}</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {lastTransaction.paymentMethod === "QRIS" && (
                 <div className="mt-6 text-center space-y-3 print:mt-4">
-                  <div className="w-32 h-32 bg-slate-50 border border-slate-100 rounded-md mx-auto flex items-center justify-center p-2 relative overflow-hidden">
+                  <div className="w-32 h-32 bg-white border-2 border-slate-900 rounded-md mx-auto flex items-center justify-center p-2 relative overflow-hidden shadow-xs">
                     <img 
-                      src="https://iconlogovector.com/uploads/images/2023/10/lg-594c94fa1be2e68065275e7a9b0c6198816.jpg" 
-                      className="w-full h-full object-contain grayscale opacity-60" 
-                      alt="QRIS Logo Placeholder"
+                      src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020101021226600016ID.CO.QRIS.WWW011893600911000000000002152004581153033605405100005802ID5911WARUNG%20TOMI6006JAKARTA6304A1B2" 
+                      className="w-full h-full object-contain" 
+                      alt="QRIS Warung Tomi"
                     />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                       <ScanLine className="w-8 h-8 text-[#005E6A] opacity-30" />
-                    </div>
                   </div>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">Scan QRIS "Warung Tomi"<br/>untuk pembayaran nontunai</p>
                 </div>
@@ -10271,24 +10888,46 @@ const AdminCashier = ({
                 </div>
               </div>
 
-              <div className="mt-8 flex gap-3 print:hidden">
+              {/* Action Buttons - Single CETAK STRUK button */}
+              <div className="mt-8 flex flex-col gap-2 print:hidden">
                 <button 
-                  onClick={printReceipt}
-                  className="flex-1 py-3 bg-[#005E6A] text-white rounded-md text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform active:scale-98"
+                  type="button"
+                  disabled={isBluetoothPrinting}
+                  onClick={() => {
+                    const isBt = localStorage.getItem("kasir_bt_printer_enabled") === "true";
+                    if (isBt) {
+                      printReceiptBluetooth();
+                    } else {
+                      printReceiptSystem();
+                    }
+                  }}
+                  className="w-full py-3.5 bg-[#005E6A] hover:bg-[#004a54] text-white rounded-md text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg disabled:opacity-50"
                 >
-                  <Printer className="w-4 h-4" /> CETAK STRUK
+                  {isBluetoothPrinting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>MENGIRIM KE PRINTER...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Printer className="w-4 h-4" />
+                      <span>CETAK STRUK</span>
+                    </>
+                  )}
                 </button>
+
                 <button 
+                  type="button"
                   onClick={() => setShowReceipt(false)}
-                  className="flex-1 py-3 bg-slate-50 text-slate-400 rounded-md text-[10px] font-black uppercase tracking-widest hover:bg-slate-100"
+                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer"
                 >
                   TUTUP
                 </button>
               </div>
 
               {/* Print Only Footer Mark */}
-              <div className="hidden print:block text-center mt-12 opacity-30">
-                <p className="text-[6px] italic">Ditransaksikan oleh: Admin Warung Tomi • {lastTransaction.id}</p>
+              <div className="hidden print:block text-center mt-12 opacity-50">
+                <p className="text-[7px] font-bold uppercase tracking-wider">Kasir: {lastTransaction.kasir || localStorage.getItem("kasir_user") || "Tomi"} • ID: {lastTransaction.id}</p>
               </div>
             </motion.div>
           </div>
@@ -10354,6 +10993,31 @@ const AdminCashier = ({
                 </button>
               </div>
 
+              {/* PILIH PELANGGAN */}
+              <div className="p-2.5 rounded-md bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-800 flex items-center gap-2 w-full">
+                <User className="w-4 h-4 text-[#005E6A] dark:text-teal-300 shrink-0 ml-1" />
+                <span className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-wider shrink-0">Pelanggan:</span>
+                <select 
+                  className="flex-1 bg-transparent text-xs font-bold text-[#005E6A] dark:text-teal-300 focus:outline-none cursor-pointer pr-2"
+                  value={selectedCustomer?.id || ""}
+                  onChange={(e) => {
+                    const c = customers.find(u => u.id === e.target.value);
+                    setSelectedCustomer(c || null);
+                  }}
+                >
+                  <option value="" className="text-slate-900 dark:text-slate-100">Pelanggan Umum</option>
+                  {customers && customers.map((c, idx) => {
+                    const safeId = c.id || `cust-${idx}`;
+                    const safeName = c.Nama || "Tanpa Nama";
+                    return (
+                      <option key={safeId} value={safeId} className="text-slate-900 dark:text-slate-100">
+                        {safeName}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
               {/* Items List */}
               <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
                 {cart.length === 0 ? (
@@ -10406,6 +11070,68 @@ const AdminCashier = ({
             </motion.div>
           </div>
         )}
+      {/* POPUP UNTUK PILIHAN GANDA KAMERA DEPAN / BELAKANG */}
+      {showCameraChoiceModal && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 w-full max-w-xs flex flex-col items-center relative">
+            <div className="w-full flex items-center justify-between pb-3 mb-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-orange-50 dark:bg-orange-950/40 text-[#F15A24]">
+                  <Camera className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">Pilih Kamera</h3>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kamera Scanner</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCameraChoiceModal(false)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300 mb-4 text-center">
+              Pilih kamera yang ingin digunakan untuk memindai barcode:
+            </p>
+
+            <div className="w-full space-y-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setCameraFacing("environment");
+                  setShowCameraChoiceModal(false);
+                }}
+                className={`w-full py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  cameraFacing === "environment"
+                    ? "bg-[#F15A24] text-white shadow-md shadow-orange-500/20"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                }`}
+              >
+                <Camera className="w-4 h-4" />
+                <span>Kamera Belakang</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCameraFacing("user");
+                  setShowCameraChoiceModal(false);
+                }}
+                className={`w-full py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  cameraFacing === "user"
+                    ? "bg-[#F15A24] text-white shadow-md shadow-orange-500/20"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                }`}
+              >
+                <Camera className="w-4 h-4" />
+                <span>Kamera Depan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </AnimatePresence>
     </div>
   );
@@ -11763,12 +12489,13 @@ const AdminRewardManagement = ({
 
 const BarcodeScannerComponent = ({ 
   onResult, 
-  onClose 
+  onClose,
+  facingMode = "environment"
 }: { 
   onResult: (text: string) => void; 
-  onClose?: () => void; 
+  onClose?: () => void;
+  facingMode?: "environment" | "user";
 }) => {
-  const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -11778,21 +12505,14 @@ const BarcodeScannerComponent = ({
     
     const config = { 
       fps: 25, 
-      qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-        const qrboxSize = Math.max(Math.floor(minEdge * 0.75), 100);
-        return {
-          width: qrboxSize,
-          height: qrboxSize
-        };
-      },
-      aspectRatio: 1.0
+      qrbox: { width: 70, height: 70 },
+      aspectRatio: 1.2
     };
 
     const startScanner = async () => {
       try {
         await html5QrCode.start(
-          { facingMode: cameraFacing }, 
+          { facingMode: facingMode }, 
           config, 
           (decodedText) => {
             if (!isMounted) return;
@@ -11808,9 +12528,9 @@ const BarcodeScannerComponent = ({
         const errStr = err.toString();
         console.warn("Camera access failed:", errStr);
         if (errStr.includes("NotAllowedError") || errStr.includes("Permission denied")) {
-          setError("Izin kamera ditolak. Mohon izinkan akses kamera di browser Anda.");
+          setError("Izin Kamera Ditolak");
         } else {
-          setError("Gagal mengakses kamera. Coba ganti ke kamera depan/belakang.");
+          setError("Gagal Kamera");
         }
       }
     };
@@ -11823,97 +12543,19 @@ const BarcodeScannerComponent = ({
         html5QrCode.stop().catch(err => console.log("Scanner cleaned up"));
       }
     };
-  }, [onResult, cameraFacing]);
+  }, [onResult, facingMode]);
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-5 w-full max-w-xs flex flex-col items-center relative overflow-hidden">
-        
-        {/* Header */}
-        <div className="w-full flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-orange-50 dark:bg-orange-950/40 text-[#F15A24]">
-              <ScanLine className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">Scan Barcode</h3>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Kamera Scanner Pintar</p>
-            </div>
-          </div>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+    <div className="relative w-16 h-10 bg-black rounded-lg overflow-hidden border-2 border-[#F15A24] shrink-0 flex items-center justify-center shadow-sm">
+      <div id="reader" className="w-full h-full object-cover" />
+      {error && (
+        <div className="absolute inset-0 bg-rose-600/90 text-white text-[7px] font-black p-0.5 text-center flex items-center justify-center leading-tight">
+          {error}
         </div>
-
-        {/* Camera Selector (Kamera Belakang vs Kamera Depan) */}
-        <div className="w-full flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl mb-3">
-          <button
-            type="button"
-            onClick={() => setCameraFacing("environment")}
-            className={`flex-1 py-1.5 px-2 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              cameraFacing === "environment"
-                ? "bg-[#F15A24] text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5" />
-            <span>Kamera Belakang</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setCameraFacing("user")}
-            className={`flex-1 py-1.5 px-2 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              cameraFacing === "user"
-                ? "bg-[#F15A24] text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5" />
-            <span>Kamera Depan</span>
-          </button>
-        </div>
-
-        {/* Small / Compact Camera Screen */}
-        {error ? (
-          <div className="w-48 h-48 bg-slate-900 rounded-2xl flex flex-col items-center justify-center p-4 text-center">
-            <CameraOff className="w-8 h-8 text-rose-500 mb-2" />
-            <p className="text-white text-[10px] font-bold leading-relaxed">{error}</p>
-          </div>
-        ) : (
-          <div className="relative w-48 h-48 bg-black overflow-hidden rounded-2xl border-2 border-[#F15A24]/50 shadow-inner">
-            <div id="reader" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
-              <div className="w-3/4 h-3/4 border-2 border-dashed border-[#F15A24] opacity-80 rounded-xl" />
-              <div className="mt-2 px-2.5 py-0.5 bg-black/60 backdrop-blur-md rounded-full">
-                <p className="text-[8px] font-black text-white uppercase tracking-widest animate-pulse">Scanning...</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider text-center mt-3">
-          Arahkan kamera tepat ke kode barcode
-        </p>
-
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full mt-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-black uppercase tracking-wider rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
-          >
-            Tutup Scanner
-          </button>
-        )}
-
-      </div>
+      )}
     </div>
   );
-};
+};;
 
 const getCategoryIcon = (category: string) => {
   const cat = category.toLowerCase();
@@ -13036,8 +13678,8 @@ const AdminDebtManagement = ({
         listTitle="Daftar Hutang"
         title="Manajemen Hutang"
         subtitle="Total Hutang Seluruh Pelanggan"
-        totalLabel="Total Hutang"
         totalValue={total}
+        totalPeople={allItems.length}
         items={filteredItems}
         icon={Receipt}
         colorClass="text-[#F15A24]"
@@ -18539,14 +19181,7 @@ const KasirLayout = ({
             })}
           </div>
 
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-amber-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer flex items-center gap-1.5 border border-slate-200/60 dark:border-slate-700"
-            title={isDark ? "Mode Terang" : "Mode Gelap"}
-          >
-            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
-            <span className="hidden sm:inline text-[10px] font-black uppercase tracking-wider">{isDark ? "Gelap" : "Terang"}</span>
-          </button>
+          
 
           <button
             onClick={() => setIsSlidebarOpen(true)}
@@ -18623,18 +19258,7 @@ const KasirLayout = ({
                   })}
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    onClick={toggleDarkMode}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-md text-xs font-black uppercase tracking-wider bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
-                      <span>{isDark ? "Mode Terang" : "Mode Gelap"}</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400">{isDark ? "Aktif" : "Non-Aktif"}</span>
-                  </button>
-                </div>
+                
               </div>
 
               <div className="pt-6 border-t border-orange-100 dark:border-slate-800 space-y-2 mt-8">
@@ -18926,6 +19550,16 @@ const KasirProfilePage = ({ salesTransactions }: { salesTransactions: any[] }) =
   const kasirUser = localStorage.getItem("kasir_user") || "Tomi";
   const loginTime = localStorage.getItem("kasir_login_time") || new Date().toLocaleString('id-ID');
 
+  const [btPrinterEnabled, setBtPrinterEnabled] = useState<boolean>(() => {
+    return localStorage.getItem("kasir_bt_printer_enabled") === "true";
+  });
+
+  const toggleBtPrinter = () => {
+    const nextVal = !btPrinterEnabled;
+    setBtPrinterEnabled(nextVal);
+    localStorage.setItem("kasir_bt_printer_enabled", nextVal ? "true" : "false");
+  };
+
   const cashierInfo = useMemo(() => {
     if (kasirUser.toLowerCase() === "ayu") {
       return {
@@ -19031,6 +19665,58 @@ const KasirProfilePage = ({ salesTransactions }: { salesTransactions: any[] }) =
         </div>
       </div>
 
+      {/* PENGATURAN PRINTER BLUETOOTH */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+        <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Bluetooth className="w-4 h-4 text-[#005E6A] dark:text-teal-300" />
+            Pengaturan Cetak Struk (Bluetooth)
+          </span>
+          <span className={`text-[9px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider ${
+            btPrinterEnabled ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+          }`}>
+            {btPrinterEnabled ? 'Bluetooth Aktif' : 'Cetak Sistem'}
+          </span>
+        </h3>
+
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 gap-3">
+            <div>
+              <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase">Gunakan Printer Thermal Bluetooth</p>
+              <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 mt-0.5">
+                {btPrinterEnabled 
+                  ? "Saat menekan 'CETAK STRUK', kasir akan otomatis menghubungkan & mengirim struk ke printer Bluetooth thermal."
+                  : "Saat menekan 'CETAK STRUK', sistem akan membuka dialog cetak standar bawaan browser."}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleBtPrinter}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shrink-0 ${
+                btPrinterEnabled
+                  ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/20"
+                  : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200"
+              }`}
+            >
+              {btPrinterEnabled ? "AKTIF" : "NONAKTIF"}
+            </button>
+          </div>
+
+          {btPrinterEnabled && (
+            <div className="p-3.5 bg-teal-50 dark:bg-teal-950/40 rounded-2xl border border-teal-200 dark:border-teal-800 text-[10px] font-bold text-teal-800 dark:text-teal-200 space-y-1">
+              <p className="font-black flex items-center gap-1.5 uppercase">
+                <Bluetooth className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-300" />
+                Petunjuk Koneksi Bluetooth
+              </p>
+              <p className="opacity-90 leading-relaxed">
+                Nyalakan Printer Bluetooth Anda. Ketika menekan tombol <strong>CETAK STRUK</strong> pada dialog transaksi selesai, browser akan menampilkan pilihan perangkat Bluetooth untuk dikoneksikan secara langsung.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Logout Action */}
       <div className="flex justify-end pt-4">
         <button
@@ -19057,9 +19743,11 @@ const AdminLayout = ({
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/admin" },
     { id: "customers", label: "Pelanggan", icon: Users, path: "/admin/customers" },
-    { id: "cashier", label: "Menu Kasir", icon: Calculator, path: "/kasir" },
-    { id: "data", label: "Data", icon: Database, path: "/admin/master-data" },
-    { id: "settings", label: "Pengaturan", icon: Settings, path: "/admin/pengaturan" }
+    { id: "savings", label: "Tabungan", icon: Wallet, path: "/admin/savings" },
+    { id: "investment", label: "Investasi", icon: TrendingUp, path: "/admin/investment" },
+    { id: "management-lainnya", label: "Lainnya", icon: Layers, path: "/admin/management-lainnya" },
+    { id: "debt", label: "Hutang", icon: Receipt, path: "/admin/debt" },
+    { id: "report", label: "Laporan", icon: FileText, path: "/admin/report" }
   ];
 
   return (
@@ -22001,7 +22689,7 @@ export default function App() {
         } />
 
         <Route path="/admin/report" element={
-          <AdminLayout activeTab="dashboard">
+          <AdminLayout activeTab="report">
             <AdminReportPage transactions={salesTransactions} />
           </AdminLayout>
         } />
@@ -22039,47 +22727,33 @@ export default function App() {
           </AdminLayout>
         } />
         <Route path="/admin/savings" element={
-          <AdminLayout activeTab="dashboard">
+          <AdminLayout activeTab="savings">
             <AdminSavingsManagement customers={customers} transactions={savingsTransactions} setTransactions={setSavingsTransactions} dataSource={dataSource} />
           </AdminLayout>
         } />
         <Route path="/admin/investment" element={
-          <AdminLayout activeTab="dashboard">
+          <AdminLayout activeTab="investment">
             <AdminInvestmentManagement customers={customers} investmentTransactions={investmentTransactions} />
           </AdminLayout>
         } />
         <Route path="/admin/debt" element={
-          <AdminLayout activeTab="dashboard">
+          <AdminLayout activeTab="debt">
             <AdminDebtManagement customers={customers} transactions={debtTransactions} setTransactions={setDebtTransactions} dataSource={dataSource} />
           </AdminLayout>
         } />
         <Route path="/admin/management-lainnya" element={
-          <AdminLayout activeTab="dashboard">
+          <AdminLayout activeTab="management-lainnya">
             <AdminOtherManagement salesTransactions={salesTransactions} />
           </AdminLayout>
         } />
         <Route path="/admin/master-data" element={
-          <AdminLayout activeTab="data">
-            <AdminMasterDataPage 
-              customers={customers}
-              savingsTransactions={savingsTransactions}
-              debtTransactions={debtTransactions}
-              salesTransactions={salesTransactions}
-              redeemedPoints={redeemedPoints}
-              stockItems={stock}
-              investmentTransactions={investmentTransactions}
-              fetchData={fetchData}
-              dataSource={dataSource}
-            />
-          </AdminLayout>
+          <Navigate to="/admin" replace />
         } />
         <Route path="/admin/others" element={
           <Navigate to="/admin/pengaturan" replace />
         } />
         <Route path="/admin/pengaturan" element={
-          <AdminLayout activeTab="settings">
-            <AdminSettingsPage />
-          </AdminLayout>
+          <Navigate to="/admin" replace />
         } />
         <Route path="/admin/vouchers" element={
           <AdminLayout activeTab="dashboard">
