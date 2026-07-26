@@ -17,41 +17,63 @@ export interface SupabaseCustomer {
   created_at?: string;
 }
 
+// System Default Fallback Credentials (Bisa diisi agar langsung aktif otomatis di semua HP/Perangkat tanpa perlu input manual)
+export const SYSTEM_DEFAULT_SUPABASE_URL = "https://qaxrqacqrwnqitfbqabi.supabase.co";
+export const SYSTEM_DEFAULT_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFheHJxYWNxcnducWl0ZmJxYWJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MTE4NDEsImV4cCI6MjEwMDQ4Nzg0MX0.cvBPlhXluhbGWEN0pYzEkdCTNPMJFA9g0PLriMbPXbg";
+
 /**
  * Service untuk migrasi & sinkronisasi data pelanggan ke Supabase
  */
 export const SupabaseCustomerService = {
+  getCredentials(): { url: string; key: string } {
+    let rawUrl = (
+      localStorage.getItem('VITE_SUPABASE_URL') || 
+      import.meta.env.VITE_SUPABASE_URL || 
+      SYSTEM_DEFAULT_SUPABASE_URL || 
+      ''
+    ).trim();
+
+    let key = (
+      localStorage.getItem('VITE_SUPABASE_ANON_KEY') || 
+      import.meta.env.VITE_SUPABASE_ANON_KEY || 
+      SYSTEM_DEFAULT_SUPABASE_ANON_KEY || 
+      ''
+    ).trim();
+
+    return { url: rawUrl, key };
+  },
+
   getClient(): SupabaseClient | null {
-    let rawUrl = (localStorage.getItem('VITE_SUPABASE_URL') || import.meta.env.VITE_SUPABASE_URL || '').trim();
-    let key = (localStorage.getItem('VITE_SUPABASE_ANON_KEY') || import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+    const { url: rawUrl, key } = this.getCredentials();
+    let cleanedUrl = rawUrl;
     
-    if (!rawUrl || !key) return null;
+    if (!cleanedUrl || !key) return null;
 
     // Clean quotes
-    rawUrl = rawUrl.replace(/^["']|["']$/g, '');
-    key = key.replace(/^["']|["']$/g, '');
+    cleanedUrl = cleanedUrl.replace(/^["']|["']$/g, '');
+    const cleanedKey = key.replace(/^["']|["']$/g, '');
 
     // Convert dashboard URL if accidentally pasted (e.g., https://supabase.com/dashboard/project/xyz)
-    if (rawUrl.includes('supabase.com/dashboard/project/')) {
-      const parts = rawUrl.split('project/');
+    if (cleanedUrl.includes('supabase.com/dashboard/project/')) {
+      const parts = cleanedUrl.split('project/');
       if (parts[1]) {
         const ref = parts[1].split('/')[0];
-        if (ref) rawUrl = `https://${ref}.supabase.co`;
+        if (ref) cleanedUrl = `https://${ref}.supabase.co`;
       }
     }
 
     // Clean trailing slashes or /rest/v1
-    rawUrl = rawUrl.replace(/\/+$/, '');
-    if (rawUrl.endsWith('/rest/v1')) {
-      rawUrl = rawUrl.replace(/\/rest\/v1$/, '');
+    cleanedUrl = cleanedUrl.replace(/\/+$/, '');
+    if (cleanedUrl.endsWith('/rest/v1')) {
+      cleanedUrl = cleanedUrl.replace(/\/rest\/v1$/, '');
     }
 
-    if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
-      rawUrl = 'https://' + rawUrl;
+    if (!cleanedUrl.startsWith('http://') && !cleanedUrl.startsWith('https://')) {
+      cleanedUrl = 'https://' + cleanedUrl;
     }
 
     try {
-      return createClient(rawUrl, key);
+      return createClient(cleanedUrl, cleanedKey);
     } catch (e) {
       console.error("Failed to create Supabase client:", e);
       return null;

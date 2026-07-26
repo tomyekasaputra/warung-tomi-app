@@ -85,8 +85,8 @@ export default function CustomerManagement({
 
   // Config Modal State
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [supabaseUrlInput, setSupabaseUrlInput] = useState(() => localStorage.getItem('VITE_SUPABASE_URL') || import.meta.env.VITE_SUPABASE_URL || '');
-  const [supabaseKeyInput, setSupabaseKeyInput] = useState(() => localStorage.getItem('VITE_SUPABASE_ANON_KEY') || import.meta.env.VITE_SUPABASE_ANON_KEY || '');
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState(() => SupabaseCustomerService.getCredentials().url);
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState(() => SupabaseCustomerService.getCredentials().key);
   const [copySqlStatus, setCopySqlStatus] = useState(false);
 
   const handleCopySql = () => {
