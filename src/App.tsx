@@ -39,6 +39,8 @@ import CustomerManagement from "./components/CustomerManagement";
 import { DetailBelanjaPage } from "./components/DetailBelanjaPage";
 import { DetailTabunganPage } from "./components/DetailTabunganPage";
 import { DetailHutangPage } from "./components/DetailHutangPage";
+import { AdminDatabasePage, JENIS_OPTIONS, MELALUI_OPTIONS, STATUS_OPTIONS, formatDateForInput, formatInputToDate } from "./components/AdminDatabasePage";
+import { SupabaseStockService, SupabaseCustomerService, SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseInvestmentService, SupabasePointsService, SUPABASE_CREATE_PRODUCTS_TABLE_SQL, SupabaseProduct, SupabaseSalesTransaction } from "./lib/supabase";
 import { 
   ShoppingBag, 
   Award,
@@ -67,6 +69,7 @@ import {
   Bell,
   Search,
   Plus,
+  Loader2,
   Minus,
   ArrowUpRight,
   ArrowDownLeft,
@@ -223,6 +226,148 @@ const formatCurrency = (val: number | string | undefined) => {
   return num.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
+export const get4DigitCustId = (idPelanggan?: string, name?: string, customersList?: any[]): string => {
+  if (idPelanggan) {
+    const digits = idPelanggan.replace(/\D/g, '');
+    if (digits.length >= 4) return digits.slice(-4);
+    if (digits.length > 0) return digits.padStart(4, '0');
+  }
+  if (name && customersList && customersList.length > 0) {
+    const idx = customersList.findIndex(c => (c.nama || c.Nama || '').toLowerCase().trim() === name.toLowerCase().trim());
+    if (idx >= 0) {
+      const found = customersList[idx];
+      const foundId = found.id_pelanggan || found.id;
+      if (foundId) {
+        const digits = String(foundId).replace(/\D/g, '');
+        if (digits.length >= 4) return digits.slice(-4);
+        if (digits.length > 0) return digits.padStart(4, '0');
+      }
+      return String(idx + 1).padStart(4, '0');
+    }
+  }
+  return "0000";
+};
+
+export const generateNextTabunganId = (
+  customer: { id_pelanggan?: string; id?: string; Nama?: string; nama?: string },
+  existingSavings: any[],
+  customersList?: any[]
+): string => {
+  const custDigits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama, customersList);
+  const custName = (customer.Nama || customer.nama || '').toLowerCase().trim();
+  const custIdLower = (customer.id_pelanggan || customer.id || '').toLowerCase().trim();
+
+  const matchingTx = (existingSavings || []).filter(t => {
+    const tName = (t.Nama || t.nama || t.nama_nasabah || '').toLowerCase().trim();
+    const tIdPel = (t.id_pelanggan || '').toLowerCase().trim();
+    const tIdTab = (t.id_tabungan || t.id || '').toUpperCase();
+
+    if (tName && custName && tName === custName) return true;
+    if (tIdPel && custIdLower && tIdPel === custIdLower) return true;
+    if (custDigits && custDigits !== "0000" && tIdTab.includes(`TAB-${custDigits}/`)) return true;
+    return false;
+  });
+
+  const seqNumbers: number[] = [];
+  matchingTx.forEach(t => {
+    const rawId = String(t.id_tabungan || t.id || '');
+    const parts = rawId.split('/');
+    if (parts.length > 1) {
+      const num = parseInt(parts[parts.length - 1], 10);
+      if (!isNaN(num) && num > 0 && num < 10000) {
+        seqNumbers.push(num);
+      }
+    }
+  });
+
+  let maxSeq = 0;
+  if (seqNumbers.length > 0) {
+    maxSeq = Math.max(...seqNumbers);
+  } else {
+    maxSeq = matchingTx.length;
+  }
+
+  const nextSeq = maxSeq + 1;
+  return `TAB-${custDigits}/${nextSeq}`;
+};
+
+export const generateNextHutangId = (
+  customer: { id_pelanggan?: string; id?: string; Nama?: string; nama?: string },
+  existingDebts: any[],
+  customersList?: any[]
+): string => {
+  const custDigits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama, customersList);
+  const custName = (customer.Nama || customer.nama || '').toLowerCase().trim();
+  const custIdLower = (customer.id_pelanggan || customer.id || '').toLowerCase().trim();
+
+  const matchingTx = (existingDebts || []).filter(t => {
+    const tName = (t.Nama || t.nama || t.nama_pelanggan || '').toLowerCase().trim();
+    const tIdPel = (t.id_pelanggan || '').toLowerCase().trim();
+    const tIdHut = (t.id_hutang || t.id || '').toUpperCase();
+
+    if (tName && custName && tName === custName) return true;
+    if (tIdPel && custIdLower && tIdPel === custIdLower) return true;
+    if (custDigits && custDigits !== "0000" && tIdHut.includes(`HUT-${custDigits}/`)) return true;
+    return false;
+  });
+
+  const seqNumbers: number[] = [];
+  matchingTx.forEach(t => {
+    const rawId = String(t.id_hutang || t.id || '');
+    const parts = rawId.split('/');
+    if (parts.length > 1) {
+      const num = parseInt(parts[parts.length - 1], 10);
+      if (!isNaN(num) && num > 0 && num < 10000) {
+        seqNumbers.push(num);
+      }
+    }
+  });
+
+  let maxSeq = 0;
+  if (seqNumbers.length > 0) {
+    maxSeq = Math.max(...seqNumbers);
+  } else {
+    maxSeq = matchingTx.length;
+  }
+
+  const nextSeq = maxSeq + 1;
+  return `HUT-${custDigits}/${nextSeq}`;
+};
+
+export const isCustomerSavingMatch = (t: any, customer: { id_pelanggan?: string; id?: string; Nama?: string; nama?: string } | null) => {
+  if (!customer || !t) return false;
+  const custName = (customer.Nama || customer.nama || '').toLowerCase().trim();
+  const custId = (customer.id_pelanggan || customer.id || '').toLowerCase().trim();
+  const cust4Digits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
+
+  const tName = (t.Nama || t.nama || t.nama_nasabah || '').toLowerCase().trim();
+  const tIdPel = (t.id_pelanggan || '').toLowerCase().trim();
+  const tIdTab = (t.id_tabungan || t.id || '').toUpperCase();
+
+  if (custName && tName && custName === tName) return true;
+  if (custId && tIdPel && (custId === tIdPel || custId.endsWith(tIdPel) || tIdPel.endsWith(custId))) return true;
+  if (cust4Digits && cust4Digits !== "0000" && tIdTab.includes(`TAB-${cust4Digits}/`)) return true;
+
+  return false;
+};
+
+export const isCustomerDebtMatch = (t: any, customer: { id_pelanggan?: string; id?: string; Nama?: string; nama?: string } | null) => {
+  if (!customer || !t) return false;
+  const custName = (customer.Nama || customer.nama || '').toLowerCase().trim();
+  const custId = (customer.id_pelanggan || customer.id || '').toLowerCase().trim();
+  const cust4Digits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
+
+  const tName = (t.Nama || t.nama || t.nama_pelanggan || '').toLowerCase().trim();
+  const tIdPel = (t.id_pelanggan || '').toLowerCase().trim();
+  const tIdHut = (t.id_hutang || t.id || '').toUpperCase();
+
+  if (custName && tName && custName === tName) return true;
+  if (custId && tIdPel && (custId === tIdPel || custId.endsWith(tIdPel) || tIdPel.endsWith(custId))) return true;
+  if (cust4Digits && cust4Digits !== "0000" && tIdHut.includes(`HUT-${cust4Digits}/`)) return true;
+
+  return false;
+};
+
 const DigitRoller = ({ targetDigit, delay = 0 }: { targetDigit: number; delay?: number; key?: any }) => {
   const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   return (
@@ -371,7 +516,7 @@ export interface Customer {
   PIN?: string;
   Saldo?: string;
   id?: string;
-  Tabungan?: string;
+  Tabungan?: number | string;
   Foto?: string;
   [key: string]: any;
 }
@@ -458,7 +603,8 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: 
     (jenisLower.includes('pulsa') && s.name.toLowerCase() === 'pulsa') ||
     (jenisLower.includes('data') && s.name.toLowerCase() === 'data') ||
     (jenisLower.includes('listrik') && s.name.toLowerCase() === 'listrik') ||
-    (jenisLower.includes('belanja') && s.name.toLowerCase() === 'belanja')
+    (jenisLower.includes('belanja') && s.name.toLowerCase() === 'belanja') ||
+    (jenisLower.includes('fisik') && s.name.toLowerCase() === 'belanja')
   );
   const statusLower = t.Status.toLowerCase();
   const displayName = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
@@ -748,6 +894,118 @@ const Header = ({
   const [isStoreStatusOpen, setIsStoreStatusOpen] = useState(false);
   const [badgeIndex, setBadgeIndex] = useState(0);
 
+  // Standalone Login Modals State
+  const [isKasirPopupOpen, setIsKasirPopupOpen] = useState(false);
+  const [isAdminPopupOpen, setIsAdminPopupOpen] = useState(false);
+  const [kasirNameInput, setKasirNameInput] = useState("Tomi");
+  const [kasirPinInput, setKasirPinInput] = useState("");
+  const [adminCodeInput, setAdminCodeInput] = useState("");
+  const [kasirError, setKasirError] = useState("");
+  const [adminError, setAdminError] = useState("");
+
+  const CASHIER_ACCOUNTS = [
+    { name: "Tomi", pin: "160910", role: "Kasir Utama / Owner" },
+    { name: "Ayu", pin: "300315", role: "Kasir Senior" },
+  ];
+
+  const ADMIN_ACCESS_CODE = "160910";
+
+  // Reusable 5-second long press hook helper
+  const useLongPress5s = (onLongPress: () => void) => {
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const animRef = useRef<number | null>(null);
+    const startTimeRef = useRef<number>(0);
+    const [pressing, setPressing] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [didTrigger, setDidTrigger] = useState(false);
+
+    const startPress = useCallback((e?: React.SyntheticEvent) => {
+      setDidTrigger(false);
+      setPressing(true);
+      setProgress(0);
+      startTimeRef.current = Date.now();
+
+      const update = () => {
+        const elapsed = Date.now() - startTimeRef.current;
+        const pct = Math.min(100, (elapsed / 5000) * 100);
+        setProgress(pct);
+        if (elapsed < 5000) {
+          animRef.current = requestAnimationFrame(update);
+        }
+      };
+      animRef.current = requestAnimationFrame(update);
+
+      timerRef.current = setTimeout(() => {
+        setDidTrigger(true);
+        onLongPress();
+        setPressing(false);
+        setProgress(0);
+        if (animRef.current) cancelAnimationFrame(animRef.current);
+      }, 5000);
+    }, [onLongPress]);
+
+    const cancelPress = useCallback(() => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (animRef.current) cancelAnimationFrame(animRef.current);
+      setPressing(false);
+      setProgress(0);
+    }, []);
+
+    return {
+      pressing,
+      progress,
+      didTrigger,
+      handlers: {
+        onMouseDown: startPress,
+        onMouseUp: cancelPress,
+        onMouseLeave: cancelPress,
+        onTouchStart: startPress,
+        onTouchEnd: cancelPress,
+        onTouchCancel: cancelPress,
+      }
+    };
+  };
+
+  const logoLongPress = useLongPress5s(() => {
+    setIsKasirPopupOpen(true);
+    setKasirError("");
+  });
+
+  const titleLongPress = useLongPress5s(() => {
+    setIsAdminPopupOpen(true);
+    setAdminError("");
+  });
+
+  const handleKasirSubmit = () => {
+    const account = CASHIER_ACCOUNTS.find(
+      acc => acc.name.toLowerCase() === kasirNameInput.trim().toLowerCase() && acc.pin === kasirPinInput.trim()
+    );
+
+    if (account) {
+      localStorage.setItem("kasir_session", "true");
+      localStorage.setItem("kasir_user", account.name);
+      localStorage.setItem("kasir_login_time", new Date().toLocaleString('id-ID'));
+      setIsKasirPopupOpen(false);
+      setKasirPinInput("");
+      setKasirError("");
+      navigate("/kasir");
+    } else {
+      setKasirError("Nama Kasir atau PIN Salah!");
+    }
+  };
+
+  const handleAdminSubmit = () => {
+    if (adminCodeInput.trim() === ADMIN_ACCESS_CODE || adminCodeInput.trim() === "123456") {
+      localStorage.setItem("admin_session", "true");
+      setIsAdminPopupOpen(false);
+      setAdminCodeInput("");
+      setAdminError("");
+      navigate("/admin");
+    } else {
+      setAdminError("Kode Akses Admin Salah!");
+    }
+  };
+
   const totalBadgeItems = loggedInUser ? 2 : 3;
 
   useEffect(() => {
@@ -765,17 +1023,56 @@ const Header = ({
   return (
     <>
       <header className="bg-white/80 backdrop-blur-xl fixed top-0 left-0 right-0 z-50 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300">
-        <div className="px-4 sm:px-6 py-4 flex items-center justify-between max-w-7xl mx-auto gap-2">
-          <Link to="/" className="flex items-center gap-2.5 sm:gap-3 group cursor-pointer w-fit shrink-0" onClick={() => setActiveTab("beranda")}>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl overflow-hidden shadow-lg border border-white bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-95 shadow-slate-200/50">
-              <img 
-                src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
-                alt="Warung Tomi Logo" 
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
+        <div className="px-4 sm:px-6 py-3 sm:py-3.5 flex items-center justify-between max-w-7xl mx-auto gap-2">
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            {/* Logo Container - Hold 5 seconds for Kasir Login */}
+            <div 
+              {...logoLongPress.handlers}
+              onClick={(e) => {
+                if (logoLongPress.didTrigger) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+                setActiveTab("beranda");
+                navigate("/");
+              }}
+              className="relative group cursor-pointer select-none"
+              title="Warung Tomi Logo (Tekan & tahan 5 detik untuk Login Kasir)"
+            >
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl overflow-hidden shadow-lg border border-white bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-95 shadow-slate-200/50 relative">
+                <img 
+                  src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
+                  alt="Warung Tomi Logo" 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                {logoLongPress.pressing && (
+                  <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white z-10 p-1">
+                    <span className="text-[7px] font-black leading-none mb-0.5">KASIR</span>
+                    <div className="w-full h-1 bg-white/30 rounded-full overflow-hidden">
+                      <div className="h-full bg-[#F15A24] transition-all" style={{ width: `${logoLongPress.progress}%` }} />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex flex-col">
+
+            {/* Header Title Container - Hold 5 seconds for Admin Login */}
+            <div 
+              {...titleLongPress.handlers}
+              onClick={(e) => {
+                if (titleLongPress.didTrigger) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  return;
+                }
+                setActiveTab("beranda");
+                navigate("/");
+              }}
+              className="flex flex-col group cursor-pointer select-none relative"
+              title="WARUNG TOMI (Tekan & tahan 5 detik untuk Login Admin)"
+            >
               <div className="flex items-center gap-1">
                 <span className="text-[15px] sm:text-[18px] font-black tracking-tighter text-[#005E6A] transition-colors uppercase">WARUNG</span>
                 <span className="text-[15px] sm:text-[18px] font-black tracking-tighter text-[#F15A24] transition-colors uppercase">TOMI</span>
@@ -787,8 +1084,16 @@ const Header = ({
                   </span>
                 ))}
               </div>
+
+              {titleLongPress.pressing && (
+                <div className="absolute -bottom-1.5 left-0 right-0 flex flex-col items-center">
+                  <div className="w-full h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#005E6A] transition-all" style={{ width: `${titleLongPress.progress}%` }} />
+                  </div>
+                </div>
+              )}
             </div>
-          </Link>
+          </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Single Rotating Badge Element (Bergantian Agen BNI 46 / Operasional / Masuk tiap 5 detik) */}
@@ -900,7 +1205,184 @@ const Header = ({
           </div>
         </div>
       </header>
-      <div className="h-20" />
+      {/* Dynamic Header Spacer div matching fixed header height to eliminate gap */}
+      <div className="h-[65px] sm:h-[73px]" />
+
+      {/* Standalone Kasir Login Popup */}
+      <AnimatePresence>
+        {isKasirPopupOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden"
+            >
+              <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center text-[#F15A24]">
+                    <Calculator className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-widest">LOGIN KASIR</h3>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Akses Kasir Pintar Warung Tomi</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsKasirPopupOpen(false);
+                    setKasirError("");
+                  }} 
+                  className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-slate-400 dark:text-slate-300" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest pl-1">
+                    NAMA KASIR
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                      <User className="w-4 h-4 text-[#F15A24]" />
+                    </div>
+                    <select 
+                      value={kasirNameInput}
+                      onChange={(e) => setKasirNameInput(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl pl-11 pr-10 py-3.5 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#F15A24]/40 transition-all appearance-none cursor-pointer"
+                    >
+                      <option value="Tomi">Tomi (Kasir Utama)</option>
+                      <option value="Ayu">Ayu (Kasir Senior)</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <ChevronDown className="w-4 h-4 text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest pl-1">
+                    PIN KASIR (6 DIGIT)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                      <Lock className="w-4 h-4 text-[#F15A24]" />
+                    </div>
+                    <input 
+                      type="password" 
+                      inputMode="numeric"
+                      placeholder="MASUKKAN PIN KASIR"
+                      value={kasirPinInput}
+                      onChange={(e) => setKasirPinInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleKasirSubmit();
+                      }}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#F15A24]/40 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {kasirError && (
+                  <p className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center pt-1">
+                    {kasirError}
+                  </p>
+                )}
+
+                <button 
+                  onClick={handleKasirSubmit}
+                  className="w-full bg-gradient-to-r from-[#F15A24] to-[#ff7b42] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 active:scale-95 transition-transform cursor-pointer mt-2"
+                >
+                  Masuk Kasir
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Standalone Admin Login Popup */}
+      <AnimatePresence>
+        {isAdminPopupOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800 relative overflow-hidden"
+            >
+              <div className="flex justify-between items-center mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/30 flex items-center justify-center text-[#005E6A]">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-widest">LOGIN ADMIN</h3>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Akses Dashboard Admin Warung Tomi</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsAdminPopupOpen(false);
+                    setAdminError("");
+                  }} 
+                  className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-slate-400 dark:text-slate-300" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[8px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest pl-1">
+                    KODE AKSES ADMIN
+                  </label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                      <ShieldCheck className="w-4 h-4 text-[#005E6A]" />
+                    </div>
+                    <input 
+                      type="password" 
+                      inputMode="numeric"
+                      placeholder="MASUKKAN KODE AKSES"
+                      value={adminCodeInput}
+                      onChange={(e) => setAdminCodeInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAdminSubmit();
+                      }}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A]/40 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {adminError && (
+                  <p className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center pt-1">
+                    {adminError}
+                  </p>
+                )}
+
+                <button 
+                  onClick={handleAdminSubmit}
+                  className="w-full bg-[#005E6A] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-500/20 active:scale-95 transition-transform cursor-pointer mt-2"
+                >
+                  Masuk Admin
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Agen BNI 46 Info Popup */}
       <AnimatePresence>
@@ -2410,25 +2892,13 @@ const LoginPage = ({
       navigate("/");
     }
   }, [user, navigate]);
+
   const [customerName, setCustomerName] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [showPinInput, setShowPinInput] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
-  const [isAdminPopupOpen, setIsAdminPopupOpen] = useState(false);
-  const [popupTab, setPopupTab] = useState<"kasir" | "admin">("kasir");
-  const CASHIER_ACCOUNTS = [
-    { name: "Tomi", pin: "160910", role: "Kasir Utama / Owner" },
-    { name: "Ayu", pin: "300315", role: "Kasir Senior" },
-  ];
-
-  const [kasirNameInput, setKasirNameInput] = useState("Tomi");
-  const [kasirPinInput, setKasirPinInput] = useState("");
-  const [adminCode, setAdminCode] = useState("");
-  const [popupError, setPopupError] = useState("");
-
-  const ADMIN_ACCESS_CODE = "160910";
 
   // Helper function to highlight typed characters in orange, rest in BNI blue
   const highlightText = (text: string, query: string) => {
@@ -2512,50 +2982,15 @@ const LoginPage = ({
     }
   };
 
-  const handleKasirSubmit = () => {
-    const account = CASHIER_ACCOUNTS.find(
-      acc => acc.name.toLowerCase() === kasirNameInput.trim().toLowerCase() && acc.pin === kasirPinInput.trim()
-    );
-
-    if (account) {
-      localStorage.setItem("kasir_session", "true");
-      localStorage.setItem("kasir_user", account.name);
-      localStorage.setItem("kasir_login_time", new Date().toLocaleString('id-ID'));
-      setIsAdminPopupOpen(false);
-      setKasirPinInput("");
-      setPopupError("");
-      navigate("/kasir");
-    } else {
-      setPopupError("Nama Kasir atau PIN Salah!");
-    }
-  };
-
-  const handleAdminSubmit = () => {
-    if (adminCode === ADMIN_ACCESS_CODE || adminCode === "123456") {
-      localStorage.setItem("admin_session", "true");
-      setIsAdminPopupOpen(false);
-      setAdminCode("");
-      setPopupError("");
-      navigate("/admin");
-    } else {
-      setPopupError("Kode Akses Admin Salah");
-    }
-  };
-
   return (
-    <div className="px-6 py-12 flex flex-col items-center justify-center min-h-[80vh]">
+    <div className="px-4 py-8 flex flex-col items-center justify-start min-h-[75vh] relative pb-28">
       <motion.div 
-        initial={{ opacity: 0, scale: 0.95, filter: "blur(10px)" }}
-        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-        className="w-full max-w-sm bg-white rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 p-8 flex flex-col items-center relative"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="w-full max-w-sm flex flex-col items-center relative"
       >
-        {/* Decorative Elements */}
-        <div className="absolute inset-0 overflow-hidden rounded-[2.5rem] pointer-events-none">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full -mr-16 -mt-16 blur-2xl opacity-50" />
-        </div>
-        
-        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-6 shadow-xl shadow-slate-200/50 border-4 border-slate-50 dark:border-slate-800/50 overflow-hidden relative z-10">
+        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mb-4 shadow-lg shadow-slate-200/50 border-4 border-white dark:border-slate-800 overflow-hidden relative z-10">
           <img 
             src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
             alt="Warung Tomi Logo" 
@@ -2563,19 +2998,19 @@ const LoginPage = ({
             referrerPolicy="no-referrer"
           />
         </div>
-        <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight mb-2 relative z-10">
+        <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tight mb-1 text-center">
           Portal <span className="text-[#F15A24]">Pelanggan</span>
         </h2>
-        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] mb-8 text-center relative z-10">
+        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-[0.2em] mb-8 text-center">
           Silakan masuk untuk mengakses fitur lengkap
         </p>
 
-        <div className="w-full space-y-4 relative z-10">
+        <div className="w-full space-y-4">
           {!showPinInput ? (
             <div className="space-y-4">
               <div className="relative">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2">
-                  <User className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
+                  <User className="w-4 h-4 text-slate-400 dark:text-slate-300" />
                 </div>
                 <input 
                   type="text" 
@@ -2585,7 +3020,7 @@ const LoginPage = ({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleLoginAttempt();
                   }}
-                  className="w-full bg-slate-50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 dark:border-teal-800/40 transition-all"
+                  className="w-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A] transition-all shadow-sm"
                 />
                 
                 <AnimatePresence>
@@ -2594,7 +3029,7 @@ const LoginPage = ({
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden z-50"
+                      className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50"
                     >
                       {suggestions.map((s, i) => (
                         <button
@@ -2612,7 +3047,7 @@ const LoginPage = ({
                               navigate("/");
                             }
                           }}
-                          className="w-full px-5 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-50 dark:border-slate-800/50 last:border-0 flex items-center justify-between group"
+                          className="w-full px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-50 dark:border-slate-700 last:border-0 flex items-center justify-between group cursor-pointer"
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-6 h-6 bg-orange-50/50 rounded-full flex items-center justify-center text-[#F15A24] shrink-0 border border-[#F15A24]/10">
@@ -2620,36 +3055,29 @@ const LoginPage = ({
                             </div>
                             {highlightText(s.Nama, customerName)}
                           </div>
-                          <ArrowRight className="w-3 h-3 text-slate-300 dark:text-slate-200 group-hover:text-[#F15A24] transition-colors" />
+                          <ArrowRight className="w-3 h-3 text-slate-300 dark:text-slate-400 group-hover:text-[#F15A24] transition-colors" />
                         </button>
                       ))}
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
-
-              <button 
-                onClick={handleLoginAttempt}
-                className="w-full bg-[#005E6A] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-teal-100 active:scale-95 transition-transform"
-              >
-                Lanjutkan
-              </button>
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between mb-4">
+              <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between mb-4 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-[#005E6A] rounded-full flex items-center justify-center text-white font-black text-[10px]">
                     {selectedCustomer?.Nama?.charAt(0)}
                   </div>
-                  <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">{selectedCustomer?.Nama}</span>
+                  <span className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-widest">{selectedCustomer?.Nama}</span>
                 </div>
                 <button 
                   onClick={() => {
                     setShowPinInput(false);
                     setPinInput("");
                   }}
-                  className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest"
+                  className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest hover:underline cursor-pointer"
                 >
                   Ganti
                 </button>
@@ -2657,7 +3085,7 @@ const LoginPage = ({
 
               <div className="relative">
                 <div className="absolute left-5 top-1/2 -translate-y-1/2">
-                  <Lock className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
+                  <Lock className="w-4 h-4 text-slate-400 dark:text-slate-300" />
                 </div>
                 <input 
                   type="password" 
@@ -2668,16 +3096,9 @@ const LoginPage = ({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handlePinSubmit();
                   }}
-                  className="w-full bg-slate-50 border-2 border-slate-100 dark:border-slate-800 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] focus:outline-none focus:border-[#005E6A]/20 dark:border-teal-800/40 transition-all"
+                  className="w-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#F15A24] transition-all shadow-sm"
                 />
               </div>
-
-              <button 
-                onClick={handlePinSubmit}
-                className="w-full bg-[#F15A24] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 active:scale-95 transition-transform"
-              >
-                Masuk Sekarang
-              </button>
             </div>
           )}
 
@@ -2685,195 +3106,26 @@ const LoginPage = ({
             <motion.p 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center"
+              className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center pt-2"
             >
               {error}
             </motion.p>
           )}
-
-          {/* Kasir / Admin Access Link */}
-          <div className="pt-8 flex justify-center">
-            <button 
-              onClick={() => {
-                setIsAdminPopupOpen(true);
-                setPopupError("");
-              }}
-              className="text-[8px] font-bold text-slate-400 hover:text-[#005E6A] uppercase tracking-[0.15em] transition-colors cursor-pointer"
-            >
-              Masuk sebagai Kasir atau Admin
-            </button>
-          </div>
         </div>
       </motion.div>
 
-      {/* Kasir / Admin Access Popup */}
-      <AnimatePresence>
-        {isAdminPopupOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+      {/* Fixed Bottom Navbar Button */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] flex justify-center">
+        <div className="w-full max-w-sm">
+          <button 
+            onClick={showPinInput ? handlePinSubmit : handleLoginAttempt}
+            className={`w-full ${showPinInput ? 'bg-[#F15A24] hover:bg-[#d84e1d]' : 'bg-[#005E6A] hover:bg-[#004852]'} text-white py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2`}
           >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800"
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xs font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-widest">Akses Internal</h3>
-                <button 
-                  onClick={() => {
-                    setIsAdminPopupOpen(false);
-                    setPopupError("");
-                  }} 
-                  className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
-                >
-                  <X className="w-4 h-4 text-slate-400 dark:text-slate-300" />
-                </button>
-              </div>
-
-              {/* Tab Toggle: Kasir vs Admin */}
-              <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl mb-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPopupTab("kasir");
-                    setPopupError("");
-                  }}
-                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    popupTab === "kasir"
-                      ? "bg-white dark:bg-slate-700 text-[#005E6A] dark:text-teal-300 shadow-md"
-                      : "text-slate-400 dark:text-slate-400 hover:text-slate-600"
-                  }`}
-                >
-                  <Calculator className="w-3.5 h-3.5" />
-                  Kasir
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPopupTab("admin");
-                    setPopupError("");
-                  }}
-                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                    popupTab === "admin"
-                      ? "bg-white dark:bg-slate-700 text-[#F15A24] shadow-md"
-                      : "text-slate-400 dark:text-slate-400 hover:text-slate-600"
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Admin
-                </button>
-              </div>
-
-              {popupTab === "kasir" ? (
-                <div className="space-y-4">
-                  <div className="text-center mb-2">
-                    <p className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-widest">
-                      Sesi Login Kasir Pintar
-                    </p>
-                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
-                      Pilih Nama Kasir & Input PIN 6-Digit
-                    </p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest pl-1">
-                      NAMA KASIR
-                    </label>
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                        <User className="w-4 h-4 text-[#F15A24]" />
-                      </div>
-                      <select 
-                        value={kasirNameInput}
-                        onChange={(e) => setKasirNameInput(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl pl-11 pr-10 py-3.5 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#F15A24]/40 transition-all appearance-none cursor-pointer"
-                      >
-                        <option value="Tomi">Tomi (Kasir 1)</option>
-                        <option value="Ayu">Ayu (Kasir 2)</option>
-                      </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest pl-1">
-                      PIN KASIR (6 DIGIT)
-                    </label>
-                    <div className="relative">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                        <Lock className="w-4 h-4 text-[#F15A24]" />
-                      </div>
-                      <input 
-                        type="password" 
-                        inputMode="numeric"
-                        placeholder="MASUKKAN PIN KASIR"
-                        value={kasirPinInput}
-                        onChange={(e) => setKasirPinInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleKasirSubmit();
-                        }}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl pl-11 pr-4 py-3.5 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#F15A24]/40 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <button 
-                    onClick={handleKasirSubmit}
-                    className="w-full bg-gradient-to-r from-[#F15A24] to-[#ff7b42] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-500/20 active:scale-95 transition-transform cursor-pointer mt-2"
-                  >
-                    Masuk Kasir
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-wider text-center">
-                    Masuk ke Dashboard Admin
-                  </p>
-                  <div className="relative">
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2">
-                      <ShieldCheck className="w-4 h-4 text-slate-400 dark:text-slate-300" />
-                    </div>
-                    <input 
-                      type="password" 
-                      inputMode="numeric"
-                      placeholder="KODE AKSES ADMIN"
-                      value={adminCode}
-                      onChange={(e) => setAdminCode(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleAdminSubmit();
-                      }}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl px-12 py-4 text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A]/20 transition-all"
-                    />
-                  </div>
-
-                  <button 
-                    onClick={handleAdminSubmit}
-                    className="w-full bg-[#F15A24] text-white py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-orange-100 dark:shadow-none active:scale-95 transition-transform cursor-pointer"
-                  >
-                    Masuk Admin
-                  </button>
-                </div>
-              )}
-
-              {popupError && (
-                <motion.p 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center mt-4"
-                >
-                  {popupError}
-                </motion.p>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <LogIn className="w-4 h-4 stroke-[2.5]" />
+            <span>{showPinInput ? "MASUK SEKARANG" : "MASUK"}</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -4375,14 +4627,19 @@ const SavingsPromotionPage = () => {
 const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer | null, transactions: SavingTransaction[], customers?: Customer[] }) => {
   const navigate = useNavigate();
   const { customerName } = useParams();
-  const displayUser = customerName && customers 
-    ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
+  const paramVal = customerName ? decodeURIComponent(customerName).toLowerCase() : "";
+  
+  const displayUser = paramVal && customers 
+    ? customers.find(c => 
+        (c.id_pelanggan && c.id_pelanggan.toLowerCase() === paramVal) ||
+        c.Nama.toLowerCase() === paramVal
+      ) || user
     : user;
   
-  const userTransactions = useMemo(() => 
-    transactions.filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase()),
-    [transactions, displayUser]
-  );
+  const userTransactions = useMemo(() => {
+    if (!displayUser) return [];
+    return transactions.filter(t => isCustomerSavingMatch(t, displayUser));
+  }, [transactions, displayUser]);
 
   const allMonths = useMemo(() => {
     if (userTransactions.length === 0) {
@@ -5095,8 +5352,9 @@ const DebtDetailPage = ({
     : user;
   
   const userTransactions = useMemo(() => {
+    if (!displayUser) return [];
     return transactions
-      .filter(t => t.Nama.toLowerCase() === displayUser?.Nama?.toLowerCase())
+      .filter(t => isCustomerDebtMatch(t, displayUser))
       .reverse();
   }, [transactions, displayUser]);
 
@@ -6947,16 +7205,355 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
   );
 };
 
-const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
+const AdminReportPage = ({ 
+  transactions,
+  customers = [],
+  setSalesTransactions,
+  savingsTransactions = [],
+  setSavingsTransactions,
+  debtTransactions = [],
+  setDebtTransactions,
+}: { 
+  transactions: SalesTransaction[];
+  customers?: Customer[];
+  setSalesTransactions?: React.Dispatch<React.SetStateAction<SalesTransaction[]>>;
+  savingsTransactions?: SavingTransaction[];
+  setSavingsTransactions?: React.Dispatch<React.SetStateAction<SavingTransaction[]>>;
+  debtTransactions?: DebtTransaction[];
+  setDebtTransactions?: React.Dispatch<React.SetStateAction<DebtTransaction[]>>;
+}) => {
   const navigate = useNavigate();
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSummary, setShowSummary] = useState(false);
-  const [activeMainTab, setActiveMainTab] = useState<'transaksi' | 'input' | 'koreksi'>('transaksi');
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
   const [listDirection, setListDirection] = useState<'left' | 'right'>('right');
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  // Add Sales Modal State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [addFormData, setAddFormData] = useState<Partial<SalesTransaction> & { hargaAdmin?: number }>({});
+  const [customerList, setCustomerList] = useState<Customer[]>(customers);
+  const [toastMsg, setToastMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (customers && customers.length > 0) {
+      setCustomerList(customers);
+    } else {
+      SupabaseCustomerService.getCustomers().then((res) => {
+        if (res.data && res.data.length > 0) {
+          setCustomerList(res.data);
+        }
+      });
+    }
+  }, [customers]);
+
+  const showToast = (text: string, type: "success" | "error" = "success") => {
+    setToastMsg({ type, text });
+    setTimeout(() => {
+      setToastMsg(null);
+    }, 3500);
+  };
+
+  const get4DigitCustId = (idPelanggan?: string): string => {
+    if (!idPelanggan || idPelanggan === "CUST-0000") return "0000";
+    const cleanDigits = idPelanggan.replace(/\D/g, "");
+    if (cleanDigits.length >= 4) {
+      return cleanDigits.slice(-4);
+    } else if (cleanDigits.length > 0) {
+      return cleanDigits.padStart(4, "0");
+    }
+    const cleanStr = idPelanggan.trim().toUpperCase();
+    return cleanStr.slice(-4).padStart(4, "0");
+  };
+
+  const calculateAutoTxId = (idPelanggan: string, nama: string, allTxs: SalesTransaction[]): string => {
+    const custDigits = get4DigitCustId(idPelanggan);
+
+    const custTxs = allTxs.filter((tx) => {
+      const txCustId = (tx.id_pelanggan || "").trim().toLowerCase();
+      const txName = (tx.Nama || "").trim().toLowerCase();
+      const targetCustId = (idPelanggan || "").trim().toLowerCase();
+      const targetName = (nama || "").trim().toLowerCase();
+
+      if (targetCustId && targetCustId !== "cust-0000") {
+        if (txCustId === targetCustId) return true;
+      }
+      if (targetName) {
+        if (txName === targetName) return true;
+      }
+      return false;
+    });
+
+    let maxSeq = custTxs.length;
+
+    custTxs.forEach((tx) => {
+      const txIdStr = tx.id_transaksi || tx.id || "";
+      const match = txIdStr.match(/\/(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxSeq) {
+          maxSeq = num;
+        }
+      }
+    });
+
+    const nextSeq = maxSeq + 1;
+    return `TRX-${custDigits}/${nextSeq}`;
+  };
+
+  const calculateWarungTomiFee = (amount: number) => {
+    if (amount <= 0) return 0;
+    if (amount <= 103000) return 3000;
+    if (amount <= 999999) return 5000;
+    if (amount <= 1999999) return 10000;
+    if (amount <= 2999999) return 15000;
+    if (amount <= 3999999) return 20000;
+    if (amount <= 4999999) return 25000;
+    return Math.round(amount * 0.005);
+  };
+
+  const handlePemasukanChange = (val: number) => {
+    const adminFee = calculateWarungTomiFee(val);
+    const calculatedModal = Math.max(0, val - adminFee);
+    const calculatedPoin = Math.max(0, Math.floor(val / 10000));
+    setAddFormData((prev) => ({
+      ...prev,
+      Pemasukan: val,
+      hargaAdmin: adminFee,
+      HargaModal: calculatedModal,
+      Poin: calculatedPoin
+    }));
+  };
+
+  const handleHargaModalChange = (modalVal: number) => {
+    const jual = addFormData.Pemasukan || 0;
+    const adminFee = Math.max(0, jual - modalVal);
+    setAddFormData((prev) => ({
+      ...prev,
+      HargaModal: modalVal,
+      hargaAdmin: adminFee
+    }));
+  };
+
+  const handleOpenAdd = () => {
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, "0");
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const yyyy = today.getFullYear();
+    const formattedToday = `${dd}/${mm}/${yyyy}`;
+    
+    const defaultCustId = "CUST-0000";
+    const defaultName = "Pelanggan Umum";
+    const autoId = calculateAutoTxId(defaultCustId, defaultName, transactions);
+
+    setAddFormData({
+      id_transaksi: autoId,
+      id_pelanggan: defaultCustId,
+      Tanggal: formattedToday,
+      Nama: defaultName,
+      Jenis: "TOPUP DANA",
+      Melalui: "DANA",
+      Metode: "TUNAI",
+      Pemasukan: 0,
+      hargaAdmin: 3000,
+      HargaModal: 0,
+      Sebagian: 0,
+      Poin: 0,
+      Status: "SELESAI"
+    });
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveAdd = async () => {
+    if (!addFormData.Nama || !addFormData.Nama.trim()) {
+      showToast("Nama Pelanggan wajib diisi.", "error");
+      return;
+    }
+    setIsAdding(true);
+
+    const newTx: SalesTransaction = {
+      id: addFormData.id_transaksi || `TRX-${Date.now()}`,
+      id_transaksi: addFormData.id_transaksi || `TRX-${Date.now()}`,
+      id_pelanggan: addFormData.id_pelanggan || "",
+      Tanggal: addFormData.Tanggal || formatInputToDate(new Date().toISOString().slice(0, 10)),
+      Nama: addFormData.Nama.trim(),
+      Jenis: addFormData.Jenis || "TOPUP DANA",
+      Melalui: addFormData.Melalui || "DANA",
+      Metode: addFormData.Metode || "TUNAI",
+      Pemasukan: Number(addFormData.Pemasukan) || 0,
+      HargaModal: Number(addFormData.HargaModal) || 0,
+      Sebagian: Number(addFormData.Sebagian) || 0,
+      Poin: Number(addFormData.Poin) || 0,
+      Status: addFormData.Status || "SELESAI"
+    };
+
+    try {
+      const metodeUpper = (newTx.Metode || "").toUpperCase().trim();
+
+      // Automatic deduction for TABUNGAN & debt addition for KASBON
+      if (metodeUpper === "TABUNGAN") {
+        const targetCust = customerList.find(
+          (c) =>
+            (c.id_pelanggan || c.id) === newTx.id_pelanggan ||
+            (c.nama || c.Nama) === newTx.Nama
+        );
+
+        const currentTab = parseCurrency(targetCust?.tabungan || targetCust?.Tabungan || 0);
+
+        if (currentTab < newTx.Pemasukan) {
+          showToast(
+            `Saldo tabungan ${newTx.Nama} tidak mencukupi (Saldo: Rp ${currentTab.toLocaleString("id-ID")})`,
+            "error"
+          );
+          setIsAdding(false);
+          return;
+        }
+
+        const newTab = Math.max(0, currentTab - newTx.Pemasukan);
+        const idTab = generateNextTabunganId(
+          { id_pelanggan: newTx.id_pelanggan, Nama: newTx.Nama },
+          savingsTransactions,
+          customerList
+        );
+
+        const newSavingTx: SavingTransaction = {
+          id: idTab,
+          id_tabungan: idTab,
+          id_pelanggan: newTx.id_pelanggan || "",
+          Tanggal: newTx.Tanggal,
+          Nama: newTx.Nama,
+          Tipe: "TARIK",
+          Nominal: newTx.Pemasukan,
+          SaldoAkhir: newTab,
+          Berita: `Bayar Belanja Virtual - ${newTx.id_transaksi}`
+        };
+
+        if (setSavingsTransactions) {
+          setSavingsTransactions((prev) => [newSavingTx, ...prev]);
+        }
+
+        if (SupabaseSavingsService.isConnected()) {
+          await SupabaseSavingsService.addSavingTransaction({
+            id_tabungan: idTab,
+            id_pelanggan: newTx.id_pelanggan || "",
+            tanggal: newTx.Tanggal,
+            nama: newTx.Nama,
+            tipe: "TARIK",
+            nominal: newTx.Pemasukan,
+            saldo_akhir: newTab,
+            berita: `Bayar Belanja Virtual - ${newTx.id_transaksi}`
+          });
+
+          await SupabaseCustomerService.upsertCustomer({
+            id_pelanggan: newTx.id_pelanggan || "CUST-0000",
+            nama: newTx.Nama,
+            tabungan: newTab,
+            hutang: parseCurrency(targetCust?.hutang || targetCust?.Hutang || 0)
+          });
+        }
+
+        setCustomerList((prev) =>
+          prev.map((c) =>
+            (c.id_pelanggan || c.id) === newTx.id_pelanggan || (c.nama || c.Nama) === newTx.Nama
+              ? { ...c, tabungan: newTab, Tabungan: newTab }
+              : c
+          )
+        );
+      } else if (metodeUpper === "KASBON") {
+        const targetCust = customerList.find(
+          (c) =>
+            (c.id_pelanggan || c.id) === newTx.id_pelanggan ||
+            (c.nama || c.Nama) === newTx.Nama
+        );
+
+        const currentDebt = parseCurrency(targetCust?.hutang || targetCust?.Hutang || 0);
+        const netDebtAmount = Math.max(0, newTx.Pemasukan - (newTx.Sebagian || 0));
+        const newDebt = currentDebt + netDebtAmount;
+
+        const idHut = generateNextHutangId(
+          { id_pelanggan: newTx.id_pelanggan, Nama: newTx.Nama },
+          debtTransactions,
+          customerList
+        );
+
+        const newDebtTx: DebtTransaction = {
+          id: idHut,
+          id_hutang: idHut,
+          id_pelanggan: newTx.id_pelanggan || "",
+          Tanggal: newTx.Tanggal,
+          Nama: newTx.Nama,
+          Tipe: "KASBON",
+          Jumlah: netDebtAmount,
+          Keterangan: `Kasbon Belanja Virtual - ${newTx.id_transaksi}`,
+          SaldoAkhir: newDebt
+        };
+
+        if (setDebtTransactions) {
+          setDebtTransactions((prev) => [newDebtTx, ...prev]);
+        }
+
+        if (SupabaseDebtService.isConnected()) {
+          await SupabaseDebtService.addDebtTransaction({
+            id_hutang: idHut,
+            id_pelanggan: newTx.id_pelanggan || "",
+            tanggal: newTx.Tanggal,
+            nama: newTx.Nama,
+            tipe: "KASBON",
+            jumlah: netDebtAmount,
+            keterangan: `Kasbon Belanja Virtual - ${newTx.id_transaksi}`,
+            saldo_akhir: newDebt
+          });
+
+          await SupabaseCustomerService.upsertCustomer({
+            id_pelanggan: newTx.id_pelanggan || "CUST-0000",
+            nama: newTx.Nama,
+            hutang: newDebt,
+            tabungan: parseCurrency(targetCust?.tabungan || targetCust?.Tabungan || 0)
+          });
+        }
+
+        setCustomerList((prev) =>
+          prev.map((c) =>
+            (c.id_pelanggan || c.id) === newTx.id_pelanggan || (c.nama || c.Nama) === newTx.Nama
+              ? { ...c, hutang: newDebt, Hutang: newDebt }
+              : c
+          )
+        );
+      }
+
+      if (setSalesTransactions) {
+        setSalesTransactions((prev) => [newTx, ...prev]);
+      }
+
+      if (SupabaseSalesService.isConnected()) {
+        const payload: SupabaseSalesTransaction = {
+          id_transaksi: newTx.id_transaksi || newTx.id,
+          id_pelanggan: newTx.id_pelanggan || "",
+          tanggal: newTx.Tanggal,
+          nama: newTx.Nama,
+          jenis: newTx.Jenis,
+          metode: newTx.Metode,
+          pemasukan: newTx.Pemasukan,
+          poin: newTx.Poin,
+          status: newTx.Status,
+          melalui: newTx.Melalui,
+          harga_modal: newTx.HargaModal,
+          sebagian: newTx.Sebagian
+        };
+        await SupabaseSalesService.upsertSale(payload);
+      }
+
+      showToast("Penjualan Virtual berhasil ditambahkan!");
+      setIsAddModalOpen(false);
+    } catch (err: any) {
+      console.error("Gagal menambah transaksi virtual:", err);
+      showToast("Gagal menyimpan data ke database.", "error");
+    } finally {
+      setIsAdding(false);
+    }
+  };
 
   const minSwipeDistance = 50;
 
@@ -7018,33 +7615,6 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
     },
     exit: (direction: 'left' | 'right') => ({
       x: direction === 'right' ? -80 : 80,
-      opacity: 0,
-      transition: { duration: 0.25, ease: 'easeIn' }
-    })
-  };
-
-  const handleTabChange = (newTab: 'transaksi' | 'input' | 'koreksi') => {
-    const indices = { transaksi: 0, input: 1, koreksi: 2 };
-    if (indices[newTab] > indices[activeMainTab]) {
-      setSlideDirection('right');
-    } else {
-      setSlideDirection('left');
-    }
-    setActiveMainTab(newTab);
-  };
-
-  const slideVariants = {
-    initial: (direction: 'left' | 'right') => ({
-      x: direction === 'right' ? 100 : -100,
-      opacity: 0
-    }),
-    animate: {
-      x: 0,
-      opacity: 1,
-      transition: { duration: 0.3, ease: 'easeOut' }
-    },
-    exit: (direction: 'left' | 'right') => ({
-      x: direction === 'right' ? -100 : 100,
       opacity: 0,
       transition: { duration: 0.25, ease: 'easeIn' }
     })
@@ -7121,7 +7691,6 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         
         <div className="relative z-10">
-          
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" />
@@ -7234,210 +7803,428 @@ const AdminReportPage = ({ transactions }: { transactions: SalesTransaction[] })
           </div>
         </div>
 
-        {/* Main Tab Selector */}
-        <div className="w-full bg-slate-100 p-1 rounded-2xl border border-slate-200/40 dark:border-slate-700/40 flex gap-1.5 shadow-sm">
+        {/* Action Button Input Data Penjualan */}
+        <div className="w-full">
           <button
-            onClick={() => handleTabChange('transaksi')}
-            className={`flex-1 relative py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
-              activeMainTab === 'transaksi'
-                ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/10'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-white/50'
-            }`}
+            type="button"
+            onClick={handleOpenAdd}
+            className="w-full py-3.5 px-5 rounded-2xl text-xs font-black uppercase tracking-widest text-white bg-[#005E6A] hover:bg-[#004e58] shadow-lg shadow-[#005E6A]/20 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.99]"
           >
-            <FileText className="w-4 h-4" />
-            <span>Transaksi</span>
-          </button>
-          
-          <button
-            onClick={() => handleTabChange('input')}
-            className={`flex-1 relative py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
-              activeMainTab === 'input'
-                ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/10'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-white/50'
-            }`}
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Input Data</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('koreksi')}
-            className={`flex-1 relative py-3 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300 flex items-center justify-center gap-2 ${
-              activeMainTab === 'koreksi'
-                ? 'text-white bg-[#005E6A] shadow-md shadow-[#005E6A]/10'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-white/50'
-            }`}
-          >
-            <ExternalLink className="w-4 h-4" />
-            <span>Koreksi</span>
+            <Plus className="w-4 h-4" />
+            <span>Tambah Data Penjualan</span>
           </button>
         </div>
 
-        <div className="w-full overflow-hidden relative">
-          <AnimatePresence mode="wait" custom={slideDirection}>
-            {activeMainTab === 'transaksi' && (
-              <motion.div
-                key="transaksi-tab"
-                custom={slideDirection}
-                variants={slideVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="space-y-6 w-full"
-              >
-                {/* Unified Filter Card */}
-                <div className="bg-white px-2 py-3.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2 min-h-[56px]">
-                  {/* Search Section */}
-                  <div className="flex-1 min-w-0 flex items-center gap-3 pl-3 pr-3 border-r border-slate-100 dark:border-slate-800">
-                    <Search className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200 shrink-0" />
-                    <input 
-                      type="text"
-                      placeholder="Cari transaksi..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="flex-1 w-full min-w-0 bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none placeholder:text-slate-300 dark:text-slate-200 placeholder:font-bold"
-                    />
-                    {searchQuery && (
-                      <button 
-                        onClick={() => setSearchQuery("")}
-                        className="p-1 px-2 hover:bg-slate-50 rounded-lg transition-colors group shrink-0"
-                      >
-                        <X className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 dark:text-slate-300 dark:text-slate-200" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Date Section with Chevron Navigation */}
-                  <div className="flex items-center gap-1.5 px-3 shrink-0 bg-slate-50 border border-slate-100/80 dark:border-slate-800/80 rounded-xl py-1">
-                    <button 
-                      onClick={() => changeDate(-1)}
-                      className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-lg transition-all active:scale-90"
-                      title="Sebelumnya"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 dark:text-slate-200 shrink-0" />
-                      <input 
-                        type="date" 
-                        value={filterDate}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val) {
-                            if (val > filterDate) {
-                              setListDirection('right');
-                            } else {
-                              setListDirection('left');
-                            }
-                            setFilterDate(val);
-                          }
-                        }}
-                        className="bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none appearance-none cursor-pointer p-0 w-24"
-                      />
-                    </div>
-                    <button 
-                      onClick={() => changeDate(1)}
-                      className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-lg transition-all active:scale-90"
-                      title="Berikutnya"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Transaction List Cards with Swipe Support */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between px-2">
-                    <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Transaksi</h3>
-                    <Badge className="bg-slate-100 text-slate-500 dark:text-slate-300 dark:text-slate-200 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 shrink-0">
-                      {filteredTransactions.length} Data
-                    </Badge>
-                  </div>
-
-                  <div 
-                    onTouchStart={onTouchStart}
-                    onTouchMove={onTouchMove}
-                    onTouchEnd={onTouchEnd}
-                    className="relative min-h-[160px] touch-pan-y"
-                  >
-                    <AnimatePresence mode="wait" custom={listDirection}>
-                      <motion.div
-                        key={filterDate}
-                        custom={listDirection}
-                        variants={listSlideVariants}
-                        initial="initial"
-                        animate="animate"
-                        exit="exit"
-                        className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4"
-                      >
-                        {filteredTransactions.length > 0 ? (
-                          filteredTransactions.map((t, i) => (
-                            <TransactionCard key={i} t={t} index={i} isAdmin={true} />
-                          ))
-                        ) : (
-                          <div className="col-span-full bg-white rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
-                            <div className="flex flex-col items-center gap-2 opacity-20">
-                              <FileText className="w-8 h-8" />
-                              <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi pada {formattedFilterDate}</p>
-                            </div>
-                          </div>
-                        )}
-                      </motion.div>
-                    </AnimatePresence>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {activeMainTab === 'input' && (
-              <motion.div
-                key="input-tab"
-                custom={slideDirection}
-                variants={slideVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="w-full"
-              >
-                <iframe 
-                  src="https://docs.google.com/forms/d/e/1FAIpQLSeif9lMa1cctzF1M9D7S1bf-uRCPK5RtblaqWW3w70h6hTShg/viewform?fbzx=1599839160045911533&pli=1&embedded=true"
-                  className="w-full h-[1800px] border-0"
-                  title="Google Form Input Data"
-                />
-              </motion.div>
-            )}
-
-            {activeMainTab === 'koreksi' && (
-              <motion.div
-                key="koreksi-tab"
-                custom={slideDirection}
-                variants={slideVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="w-full flex flex-col items-center justify-center py-16 px-6 max-w-lg mx-auto text-center"
-              >
-                <div className="w-16 h-16 bg-[#107C41]/10 rounded-2xl flex items-center justify-center text-[#107C41] mb-6">
-                  <FileSpreadsheet className="w-8 h-8" />
-                </div>
-                <h3 className="text-lg font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">Koreksi Data Terintegrasi</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-300 dark:text-slate-200 mt-2 mb-8 leading-relaxed max-w-sm">
-                  Koreksi data dilakukan langsung menggunakan aplikasi Google Sheets agar lebih cepat, responsif, dan mudah diedit secara real-time.
-                </p>
-                <a 
-                  href="https://docs.google.com/spreadsheets/d/1qHJxnD6OicjmNvyA7EhRpQ-omOO92pX9zvjGprdagbg/edit?usp=drivesdk"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-[#107C41] hover:bg-[#0c5c30] text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg hover:shadow-green-100 hover:-translate-y-0.5 duration-200"
+        <div className="space-y-6 w-full">
+          {/* Unified Filter Card */}
+          <div className="bg-white px-2 py-3.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2 min-h-[56px]">
+            {/* Search Section */}
+            <div className="flex-1 min-w-0 flex items-center gap-3 pl-3 pr-3 border-r border-slate-100 dark:border-slate-800">
+              <Search className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200 shrink-0" />
+              <input 
+                type="text"
+                placeholder="Cari transaksi..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 w-full min-w-0 bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none placeholder:text-slate-300 dark:text-slate-200 placeholder:font-bold"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery("")}
+                  className="p-1 px-2 hover:bg-slate-50 rounded-lg transition-colors group shrink-0"
                 >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>Buka Google Sheets</span>
-                </a>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  <X className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 dark:text-slate-300 dark:text-slate-200" />
+                </button>
+              )}
+            </div>
+
+            {/* Date Section with Chevron Navigation */}
+            <div className="flex items-center gap-1.5 px-3 shrink-0 bg-slate-50 border border-slate-100/80 dark:border-slate-800/80 rounded-xl py-1">
+              <button 
+                onClick={() => changeDate(-1)}
+                className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-lg transition-all active:scale-90"
+                title="Sebelumnya"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 dark:text-slate-200 shrink-0" />
+                <input 
+                  type="date" 
+                  value={filterDate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      if (val > filterDate) {
+                        setListDirection('right');
+                      } else {
+                        setListDirection('left');
+                      }
+                      setFilterDate(val);
+                    }
+                  }}
+                  className="bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none appearance-none cursor-pointer p-0 w-24"
+                />
+              </div>
+              <button 
+                onClick={() => changeDate(1)}
+                className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-lg transition-all active:scale-90"
+                title="Berikutnya"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Transaction List Cards with Swipe Support */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Transaksi</h3>
+              <Badge className="bg-slate-100 text-slate-500 dark:text-slate-300 dark:text-slate-200 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 shrink-0">
+                {filteredTransactions.length} Data
+              </Badge>
+            </div>
+
+            <div 
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
+              className="relative min-h-[160px] touch-pan-y"
+            >
+              <AnimatePresence mode="wait" custom={listDirection}>
+                <motion.div
+                  key={filterDate}
+                  custom={listDirection}
+                  variants={listSlideVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4"
+                >
+                  {filteredTransactions.length > 0 ? (
+                    filteredTransactions.map((t, i) => (
+                      <TransactionCard key={i} t={t} index={i} isAdmin={true} />
+                    ))
+                  ) : (
+                    <div className="col-span-full bg-white rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
+                      <div className="flex flex-col items-center gap-2 opacity-20">
+                        <FileText className="w-8 h-8" />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi pada {formattedFilterDate}</p>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Modal Tambah Data Penjualan Virtual */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-none shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden z-10 p-6 space-y-5"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-none bg-[#005E6A]/10 text-[#005E6A] dark:text-teal-300 flex items-center justify-center font-black">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
+                      Tambah Penjualan Virtual
+                    </h3>
+                    <p className="text-[10px] font-mono text-[#005E6A] dark:text-teal-400 font-bold">
+                      Otomatis: {addFormData.id_transaksi}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="p-2 rounded-none text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Add Form Body */}
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                {/* ID Transaksi (Auto) & Tanggal (Kalender Popup) */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      ID Transaksi (Otomatis)
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={addFormData.id_transaksi || ""}
+                      className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-mono font-bold text-slate-500 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Tanggal (Kalender)
+                    </label>
+                    <input
+                      type="date"
+                      value={formatDateForInput(addFormData.Tanggal || "")}
+                      onChange={(e) => setAddFormData({ ...addFormData, Tanggal: formatInputToDate(e.target.value) })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* ID Pelanggan & Nama Pelanggan (Dropdown) */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      ID Pelanggan (Otomatis)
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={addFormData.id_pelanggan || "CUST-0000"}
+                      className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-mono font-bold text-slate-600 dark:text-slate-300 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Nama Pelanggan *
+                    </label>
+                    <select
+                      value={addFormData.Nama || "Pelanggan Umum"}
+                      onChange={(e) => {
+                        const selectedName = e.target.value;
+                        let selectedId = "CUST-0000";
+                        if (selectedName !== "Pelanggan Umum") {
+                          const found = customerList.find(c => (c.nama || c.Nama) === selectedName);
+                          if (found) {
+                            selectedId = found.id_pelanggan || found.id || "CUST-0000";
+                          }
+                        }
+                        const newTxId = calculateAutoTxId(selectedId, selectedName, transactions);
+                        setAddFormData((prev) => ({
+                          ...prev,
+                          Nama: selectedName,
+                          id_pelanggan: selectedId,
+                          id_transaksi: newTxId
+                        }));
+                      }}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
+                    >
+                      <option value="Pelanggan Umum">Pelanggan Umum</option>
+                      {customerList
+                        .filter((c) => (c.nama || c.Nama) && (c.nama || c.Nama) !== "Pelanggan Umum")
+                        .map((c, idx) => {
+                          const cName = c.nama || c.Nama;
+                          const cId = c.id_pelanggan || c.id || `CUST-${String(idx + 1).padStart(4, "0")}`;
+                          return (
+                            <option key={`report_cust_opt_${cId}_${idx}`} value={cName}>
+                              {cName}
+                            </option>
+                          );
+                        })}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Jenis (Dropdown) & Melalui (Dropdown) */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Jenis Transaksi
+                    </label>
+                    <select
+                      value={addFormData.Jenis || "TOPUP DANA"}
+                      onChange={(e) => setAddFormData({ ...addFormData, Jenis: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
+                    >
+                      {JENIS_OPTIONS.map((opt) => (
+                        <option key={`report_add_jenis_${opt}`} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Melalui / Channel
+                    </label>
+                    <select
+                      value={addFormData.Melalui || "DANA"}
+                      onChange={(e) => setAddFormData({ ...addFormData, Melalui: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
+                    >
+                      {MELALUI_OPTIONS.map((opt) => (
+                        <option key={`report_add_melalui_${opt}`} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Metode Pembayaran & Status Transaksi */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Metode Pembayaran
+                    </label>
+                    <select
+                      value={addFormData.Metode || "TUNAI"}
+                      onChange={(e) => setAddFormData({ ...addFormData, Metode: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-semibold focus:outline-none focus:border-[#005E6A]"
+                    >
+                      <option value="TUNAI">TUNAI</option>
+                      <option value="QRIS">QRIS</option>
+                      <option value="KASBON">KASBON</option>
+                      <option value="TABUNGAN">TABUNGAN</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Status Transaksi
+                    </label>
+                    <select
+                      value={addFormData.Status || "SELESAI"}
+                      onChange={(e) => setAddFormData({ ...addFormData, Status: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold focus:outline-none focus:border-[#005E6A] text-slate-800 dark:text-white cursor-pointer"
+                    >
+                      {STATUS_OPTIONS.map((st) => (
+                        <option key={`report_add_st_${st}`} value={st}>
+                          {st}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Pemasukan & Harga Modal (Otomatis Dikurangi Admin Warung Tomi di Belakang Layar) */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Nominal Jual (Rp) *
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="100000"
+                      value={addFormData.Pemasukan || ""}
+                      onChange={(e) => handlePemasukanChange(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold focus:outline-none focus:border-[#005E6A]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Harga Modal (Otomatis)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="95000"
+                      value={addFormData.HargaModal || ""}
+                      onChange={(e) => handleHargaModalChange(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-teal-50/50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-none text-xs font-black text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A]"
+                    />
+                  </div>
+                </div>
+
+                {/* Sebagian & Poin */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Sebagian / DP (Rp)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={addFormData.Sebagian || ""}
+                      onChange={(e) => setAddFormData({ ...addFormData, Sebagian: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold focus:outline-none focus:border-[#005E6A]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
+                      Poin Reward (Otomatis)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="10"
+                      value={addFormData.Poin ?? 0}
+                      onChange={(e) => setAddFormData({ ...addFormData, Poin: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-amber-50/50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-none text-xs font-black text-amber-800 dark:text-amber-300 focus:outline-none focus:border-[#005E6A]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Action Buttons */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2.5 rounded-none border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAdd}
+                  disabled={isAdding}
+                  className="px-5 py-2.5 rounded-none bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center gap-2"
+                >
+                  {isAdding ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <span>Simpan Penjualan</span>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-[120] animate-bounce">
+          <div
+            className={`px-4 py-3 rounded-none shadow-2xl flex items-center gap-3 border text-xs font-black uppercase tracking-wider text-white ${
+              toastMsg.type === "success"
+                ? "bg-[#005E6A] border-teal-400"
+                : "bg-rose-600 border-rose-400"
+            }`}
+          >
+            {toastMsg.type === "success" ? (
+              <CheckCircle2 className="w-4 h-4 text-teal-300" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-200" />
+            )}
+            <span>{toastMsg.text}</span>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };
@@ -7521,26 +8308,25 @@ const AdminDashboard = ({
     }, 0);
   const totalHutang = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
   
-  // Calculate total Lainnya from customers + general transactions
-  const totalLainnyaFromCustomers = customers.reduce((acc, c) => acc + parseCurrency(c.Lainnya), 0);
-  const totalLainnyaFromGeneral = transactions
+  // Calculate total Lainnya dynamically from all pending withdrawals (BELUM DIAMBIL & DIPROSES)
+  const totalLainnya = transactions
     .filter(t => {
-      const name = (t.Nama || "").toLowerCase().trim();
-      const isGeneral = !name || name === "unknown" || name === "pelanggan umum";
-      const s = (t.Status || "").toLowerCase().trim();
-      return isGeneral && (s.includes('belum') || s.includes('ambil') || s.includes('proses'));
-    })
-    .reduce((acc, t) => {
       const s = (t.Status || "").toUpperCase().trim();
-      const melalui = (t.Melalui || "").toUpperCase().trim();
-      let base = (t.HargaModal || 0);
-      if (melalui === "EDC BNI" && s === "BELUM DIAMBIL") {
+      return s === "BELUM DIAMBIL" || s === "DIPROSES";
+    })
+    .reduce((acc, curr) => {
+      const s = (curr.Status || "").toUpperCase().trim();
+      if (s === "DIPROSES") {
+        const net = (parseCurrency(curr.Pemasukan) || parseCurrency(curr.HargaModal) || 0) - (parseCurrency(curr.Sebagian) || 0);
+        return acc + (net > 0 ? net : 0);
+      }
+      let base = parseCurrency(curr.HargaModal) || 0;
+      if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
         base -= 1500;
       }
-      return acc + (base - (t.Sebagian || 0));
+      const net = base - (parseCurrency(curr.Sebagian) || 0);
+      return acc + (net > 0 ? net : 0);
     }, 0);
-  
-  const totalLainnya = totalLainnyaFromCustomers + totalLainnyaFromGeneral;
 
   const totalAssets = totalTabungan + totalInvestasi + totalLainnya - totalHutang;
   const grossAssets = totalTabungan + totalInvestasi + totalLainnya;
@@ -8947,20 +9733,52 @@ const AdminSavingsManagement = ({
     }
   }, [navigate]);
 
-  const handleSaveTransaction = (customer: Customer, amount: number, note: string, type: 'SETOR' | 'TARIK') => {
+  const handleSaveTransaction = async (customer: Customer, amount: number, note: string, type: 'SETOR' | 'TARIK') => {
+    const currentTabungan = parseCurrency(customer.Tabungan);
+    const newSaldo = type === 'SETOR' ? currentTabungan + amount : currentTabungan - amount;
+    const todayStr = new Date().toLocaleDateString('id-ID');
+
+    const idTabungan = generateNextTabunganId(customer, transactions, customers);
+
     const newTransaction: SavingTransaction = {
-      Tanggal: new Date().toLocaleDateString('id-ID'),
+      id: idTabungan,
+      id_tabungan: idTabungan,
+      id_pelanggan: customer.id_pelanggan || '',
+      Tanggal: todayStr,
       Nama: customer.Nama,
       Tipe: type,
       Nominal: amount,
-      SaldoAkhir: type === 'SETOR' 
-        ? parseCurrency(customer.Tabungan) + amount 
-        : parseCurrency(customer.Tabungan) - amount,
-      Berita: note
+      SaldoAkhir: newSaldo,
+      Berita: note || '-'
     };
 
     setTransactions(prev => [newTransaction, ...prev]);
-    // Optional: show a success indicator
+
+    // Save to Supabase if connected
+    if (SupabaseSavingsService.isConnected()) {
+      try {
+        await SupabaseSavingsService.addSavingTransaction({
+          id_tabungan: idTabungan,
+          id_pelanggan: customer.id_pelanggan || '',
+          tanggal: todayStr,
+          nama: customer.Nama,
+          tipe: type,
+          nominal: amount,
+          saldo_akhir: newSaldo,
+          berita: note || '-'
+        });
+
+        if (SupabaseCustomerService.isConnected()) {
+          await SupabaseCustomerService.upsertCustomer({
+            id_pelanggan: customer.id_pelanggan || customer.Nama,
+            nama: customer.Nama,
+            tabungan: newSaldo
+          });
+        }
+      } catch (err) {
+        console.error("Gagal simpan tabungan ke Supabase:", err);
+      }
+    }
   };
 
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
@@ -9033,7 +9851,9 @@ const AdminSavingsManagement = ({
   }));
 
   const handleItemClick = (name: string) => {
-    navigate(`/tabungan/${encodeURIComponent(name)}`);
+    const cust = customers.find(c => c.Nama.toLowerCase() === name.toLowerCase());
+    const param = cust?.id_pelanggan || name;
+    navigate(`/tabungan/${encodeURIComponent(param)}`);
   };
 
   const extraContent = (
@@ -9393,7 +10213,7 @@ const AdminCustomerDetailPage = ({
   const userSavings = savingsTransactions.filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase());
   const currentSavings = userSavings.length > 0 ? userSavings[userSavings.length - 1].SaldoAkhir : parseCurrency(customer.Tabungan);
   
-  const userDebts = debtTransactions.filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase());
+  const userDebts = debtTransactions.filter(t => (customer.id_pelanggan && t.id_pelanggan === customer.id_pelanggan) || t.Nama.toLowerCase() === customer.Nama.toLowerCase());
   const currentDebt = parseCurrency(customer.Hutang);
   
   const userInvestments = investmentTransactions.filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase());
@@ -9801,8 +10621,19 @@ const AdminCashier = ({
     const cashVal = paymentMethod === "Tunai" ? (typeof cashReceived === "number" ? cashReceived : Number(cashReceived) || total) : total;
     const changeVal = paymentMethod === "Tunai" ? Math.max(0, cashVal - total) : 0;
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    const customerName = selectedCustomer ? selectedCustomer.Nama : "Pelanggan Umum";
+    const customerId = selectedCustomer ? (selectedCustomer.id_pelanggan || '') : 'CUST-0000';
+    const totalHargaModal = cart.reduce((acc, item) => acc + ((item.product.HargaModal || 0) * item.qty), 0);
+
+    const cust4Digits = selectedCustomer && selectedCustomer.id_pelanggan
+      ? selectedCustomer.id_pelanggan.replace(/\D/g, '').slice(-4) || '0000'
+      : '0000';
+    const seq = Math.floor(Date.now() / 1000).toString().slice(-4);
+    const idTx = `TRX-${cust4Digits}/${seq}`;
+
     const transaction = {
-      id: Math.random().toString(36).substr(2, 9).toUpperCase(),
+      id: idTx,
       date: new Date().toLocaleString('id-ID'),
       items: cart,
       total,
@@ -9815,6 +10646,93 @@ const AdminCashier = ({
     };
 
     try {
+      if (SupabaseSalesService.isConnected()) {
+        await SupabaseSalesService.addSalesTransaction({
+          id_transaksi: idTx,
+          id_pelanggan: customerId,
+          tanggal: todayStr,
+          nama: customerName,
+          jenis: "Produk Fisik",
+          metode: paymentMethod.toUpperCase(),
+          pemasukan: total,
+          poin: Math.floor(total / 10000),
+          status: paymentMethod === "Kasbon" ? "Kasbon Belum Lunas" : "Selesai",
+          melalui: "Kasir",
+          harga_modal: totalHargaModal,
+          sebagian: 0
+        });
+
+        if (paymentMethod === "Kasbon" && selectedCustomer) {
+          const idHutang = generateNextHutangId(selectedCustomer, debtTransactions, customers);
+          const currentDebt = parseCurrency(selectedCustomer.Hutang);
+          const newDebt = currentDebt + total;
+
+          const newDebtTx: DebtTransaction = {
+            id: idHutang,
+            id_hutang: idHutang,
+            id_pelanggan: selectedCustomer.id_pelanggan || '',
+            Tanggal: todayStr,
+            Nama: selectedCustomer.Nama,
+            Tipe: "TAMBAH",
+            Jumlah: total,
+            Keterangan: `Kasbon Belanja - ${idTx}`,
+            SaldoAkhir: newDebt
+          };
+          setDebtTransactions(prev => [newDebtTx, ...prev]);
+
+          await SupabaseDebtService.addDebtTransaction({
+            id_hutang: idHutang,
+            id_pelanggan: selectedCustomer.id_pelanggan || '',
+            tanggal: todayStr,
+            nama: selectedCustomer.Nama,
+            tipe: "TAMBAH",
+            jumlah: total,
+            keterangan: `Kasbon Belanja - ${idTx}`,
+            saldo_akhir: newDebt
+          });
+
+          await SupabaseCustomerService.upsertCustomer({
+            id_pelanggan: selectedCustomer.id_pelanggan || selectedCustomer.Nama,
+            nama: selectedCustomer.Nama,
+            hutang: newDebt
+          });
+        } else if (paymentMethod === "Tabungan" && selectedCustomer) {
+          const idTab = generateNextTabunganId(selectedCustomer, savingsTransactions, customers);
+          const currentTab = parseCurrency(selectedCustomer.Tabungan);
+          const newTab = Math.max(0, currentTab - total);
+
+          const newSavingTx: SavingTransaction = {
+            id: idTab,
+            id_tabungan: idTab,
+            id_pelanggan: selectedCustomer.id_pelanggan || '',
+            Tanggal: todayStr,
+            Nama: selectedCustomer.Nama,
+            Tipe: "TARIK",
+            Nominal: total,
+            SaldoAkhir: newTab,
+            Berita: `Bayar Belanja - ${idTx}`
+          };
+          setSavingsTransactions(prev => [newSavingTx, ...prev]);
+
+          await SupabaseSavingsService.addSavingTransaction({
+            id_tabungan: idTab,
+            id_pelanggan: selectedCustomer.id_pelanggan || '',
+            tanggal: todayStr,
+            nama: selectedCustomer.Nama,
+            tipe: "TARIK",
+            nominal: total,
+            saldo_akhir: newTab,
+            berita: `Bayar Belanja - ${idTx}`
+          });
+
+          await SupabaseCustomerService.upsertCustomer({
+            id_pelanggan: selectedCustomer.id_pelanggan || selectedCustomer.Nama,
+            nama: selectedCustomer.Nama,
+            tabungan: newTab
+          });
+        }
+      }
+
       setLastTransaction(transaction);
       setIsProcessing(false);
       setShowReceipt(true);
@@ -11163,12 +12081,6 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
   const lowStockItems = stock.filter(item => item.Stok <= item.MinStok);
   const totalValue = stock.reduce((acc, item) => acc + (item.Stok * item.HargaModal), 0);
 
-  const stats = [
-    { label: "Total Barang", value: stock.length, icon: Package, color: "text-blue-500", bgColor: "bg-blue-50" },
-    { label: "Stok Menipis", value: lowStockItems.length, icon: AlertTriangle, color: "text-orange-500", bgColor: "bg-orange-50" },
-    { label: "Aset Stok", value: `Rp ${totalValue.toLocaleString('id-ID')}`, icon: DollarSign, color: "text-green-500", bgColor: "bg-green-50" },
-  ];
-
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -11524,6 +12436,26 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
                         }
                       }
 
+                      // Save to Supabase as well
+                      if (SupabaseStockService.isConnected()) {
+                        try {
+                          await SupabaseStockService.upsertProduct({
+                            id_barang: id,
+                            nama: name,
+                            kategori: category,
+                            stok: parseInt(stockVal) || 0,
+                            satuan: unit,
+                            min_stok: 5,
+                            harga_modal: parseInt(cost) || 0,
+                            harga_jual: parseInt(price) || 0,
+                            gambar: imageUrl || '',
+                            update_terakhir: new Date().toLocaleDateString('id-ID')
+                          });
+                        } catch (supaErr) {
+                          console.error("Gagal simpan produk ke Supabase:", supaErr);
+                        }
+                      }
+
                       // Update local state too
                       const newItem: StockItem = {
                         id,
@@ -11548,7 +12480,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
                       (document.getElementById('new-product-stock') as HTMLInputElement).value = '';
                     } catch (error) {
                       console.error("Error saving product:", error);
-                      alert("Gagal menyimpan data ke Spreadsheet. Pastikan URL Script benar.");
+                      alert("Gagal menyimpan data.");
                     } finally {
                       setIsSaving(false);
                     }
@@ -11568,6 +12500,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
           </div>
         )}
       </AnimatePresence>
+
     </motion.div>
   );
 };
@@ -11957,6 +12890,19 @@ const AdminRewardManagement = ({
       setRedeemedPoints(prev => [newRedeem, ...prev]);
       setToastType("success");
       setToastMessage(`Berhasil menukarkan ${reward.name} untuk ${customer.Nama}!`);
+
+      if (SupabasePointsService.isConnected()) {
+        SupabasePointsService.addPointTransaction({
+          id_tukar: newRedeem.id_tukar,
+          id_pelanggan: newRedeem.id_pelanggan,
+          tanggal: newRedeem.Tanggal,
+          nama: newRedeem.Nama,
+          poin: newRedeem.Poin,
+          hadiah: newRedeem.Hadiah
+        }).catch(err => {
+          console.error("Gagal simpan tukar poin ke Supabase:", err);
+        });
+      }
     } else {
       setToastType("error");
       setToastMessage("Gagal memproses penukaran poin karena handler tidak tersedia.");
@@ -13495,19 +14441,51 @@ const AdminDebtManagement = ({
     }
   }, [navigate]);
 
-  const handleSaveTransaction = (customer: Customer, amount: number, note: string) => {
+  const handleSaveTransaction = async (customer: Customer, amount: number, note: string) => {
+    const todayStr = new Date().toLocaleDateString('id-ID');
+    const currentHutang = parseCurrency(customer.Hutang);
+    const newSaldo = modalType === 'TAMBAH' ? currentHutang + amount : currentHutang - amount;
+
+    const idHutang = generateNextHutangId(customer, transactions, customers);
+
     const newTx: DebtTransaction = {
-      Tanggal: new Date().toLocaleDateString('id-ID'),
+      id: idHutang,
+      id_hutang: idHutang,
+      id_pelanggan: customer.id_pelanggan || '',
+      Tanggal: todayStr,
       Nama: customer.Nama,
       Tipe: modalType,
       Jumlah: amount,
       Keterangan: note || "-",
-      SaldoAkhir: modalType === 'TAMBAH' 
-        ? parseCurrency(customer.Hutang) + amount 
-        : parseCurrency(customer.Hutang) - amount
+      SaldoAkhir: newSaldo
     };
     
     setTransactions([newTx, ...transactions]);
+
+    if (SupabaseDebtService.isConnected()) {
+      try {
+        await SupabaseDebtService.addDebtTransaction({
+          id_hutang: idHutang,
+          id_pelanggan: customer.id_pelanggan || '',
+          tanggal: todayStr,
+          nama: customer.Nama,
+          tipe: modalType,
+          jumlah: amount,
+          keterangan: note || "-",
+          saldo_akhir: newSaldo
+        });
+
+        if (SupabaseCustomerService.isConnected()) {
+          await SupabaseCustomerService.upsertCustomer({
+            id_pelanggan: customer.id_pelanggan || customer.Nama,
+            nama: customer.Nama,
+            hutang: newSaldo
+          });
+        }
+      } catch (err) {
+        console.error("Gagal simpan hutang ke Supabase:", err);
+      }
+    }
   };
 
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
@@ -18595,7 +19573,7 @@ const TarikTunaiPage = () => {
   
   const calculateFee = (amount: number) => {
     if (amount <= 0) return 0;
-    if (amount < 100000) return 3000;
+    if (amount <= 103000) return 3000;
     if (amount <= 999999) return 5000;
     if (amount <= 1999999) return 10000;
     if (amount <= 2999999) return 15000;
@@ -19495,9 +20473,9 @@ const KasirLaporanPage = ({ salesTransactions }: { salesTransactions: any[] }) =
                 </tr>
               ) : (
                 paginatedTransactions.map((t, idx) => (
-                  <tr key={t.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                  <tr key={`kasir_trx_${t.id || t.id_transaksi || idx}_${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="py-3.5 px-4">
-                      <p className="text-[11px] font-black text-[#005E6A] dark:text-teal-300">#{t.id}</p>
+                      <p className="text-[11px] font-black text-[#005E6A] dark:text-teal-300">#{t.id_transaksi || t.id}</p>
                       <p className="text-[9px] font-bold text-slate-400">{t.date || t.timestamp}</p>
                     </td>
                     <td className="py-3.5 px-4 text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase">
@@ -19739,34 +20717,62 @@ const AdminLayout = ({
   activeTab: string 
 }) => {
   const navigate = useNavigate();
+  const [isSlidebarOpen, setIsSlidebarOpen] = useState(false);
   
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/admin" },
     { id: "customers", label: "Pelanggan", icon: Users, path: "/admin/customers" },
+    { id: "stock", label: "Stok Barang", icon: Package, path: "/admin/stock" },
     { id: "savings", label: "Tabungan", icon: Wallet, path: "/admin/savings" },
     { id: "investment", label: "Investasi", icon: TrendingUp, path: "/admin/investment" },
-    { id: "management-lainnya", label: "Lainnya", icon: Layers, path: "/admin/management-lainnya" },
     { id: "debt", label: "Hutang", icon: Receipt, path: "/admin/debt" },
-    { id: "report", label: "Laporan", icon: FileText, path: "/admin/report" }
+    { id: "management-lainnya", label: "Lainnya", icon: Layers, path: "/admin/management-lainnya" },
+    { id: "report", label: "Laporan", icon: FileText, path: "/admin/report" },
+    { id: "database", label: "Database", icon: Database, path: "/admin/database" }
   ];
 
+  const currentItem = navItems.find(item => item.id === activeTab) || navItems[0];
+
   return (
-    <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans flex flex-row">
-      <nav className="sticky top-0 h-screen w-16 md:w-68 bg-white/95 backdrop-blur-xl border-r border-slate-100 dark:border-slate-800 z-50 flex flex-col items-center md:items-stretch px-2 md:px-4 py-8 md:py-10 shadow-xl md:shadow-none">
+    <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans flex flex-col md:flex-row">
+      {/* Mobile Top Header with Slidebar Button */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 px-4 py-3.5 flex items-center justify-between md:hidden shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-md shadow-[#005E6A]/20">
+            <LayoutGrid className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xs font-black text-[#005E6A] tracking-tight uppercase">WARUNG <span className="text-[#F15A24]">TOMI</span></h1>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">{currentItem.label}</p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setIsSlidebarOpen(!isSlidebarOpen)}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-[#005E6A] hover:text-white transition-all cursor-pointer text-xs font-bold"
+        >
+          {isSlidebarOpen ? <X className="w-4 h-4" /> : <MenuIcon className="w-4 h-4" />}
+          <span>Slidebar</span>
+        </button>
+      </header>
+
+      {/* Desktop Sidebar Navigation */}
+      <nav className="hidden md:flex sticky top-0 h-screen w-64 bg-white/95 backdrop-blur-xl border-r border-slate-100 dark:border-slate-800 z-50 flex-col px-4 py-8 shadow-xl md:shadow-none shrink-0">
         {/* Logo Section */}
-        <div className="flex flex-col gap-1 mb-10 px-1 md:px-2">
+        <div className="flex flex-col gap-1 mb-8 px-2">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 md:w-11 md:h-11 shrink-0 rounded-2xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-lg shadow-[#005E6A]/20 transform -rotate-3 transition-transform hover:rotate-0">
-              <LayoutGrid className="w-5 h-5 md:w-6 md:h-6 text-white" />
+            <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-lg shadow-[#005E6A]/20 transform -rotate-3 transition-transform hover:rotate-0">
+              <LayoutGrid className="w-6 h-6 text-white" />
             </div>
-            <div className="hidden md:block">
+            <div>
               <h1 className="text-[15px] font-black text-[#005E6A] tracking-tighter leading-none uppercase">WARUNG <span className="text-[#F15A24]">TOMI</span></h1>
               <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mt-1.5 opacity-80">Admin Center</p>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col items-center md:items-stretch gap-2 w-full">
+        {/* Navigation List */}
+        <div className="flex flex-col gap-1.5 w-full overflow-y-auto no-scrollbar">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
             const Icon = item.icon;
@@ -19775,29 +20781,23 @@ const AdminLayout = ({
               <button
                 key={item.id}
                 onClick={() => navigate(item.path)}
-                className={`relative flex items-center justify-center md:justify-start h-12 transition-all duration-300 rounded-xl md:rounded-2xl group overflow-hidden w-12 md:w-full ${
+                className={`relative flex items-center h-11 transition-all duration-300 rounded-xl group overflow-hidden w-full cursor-pointer ${
                   isActive 
-                    ? "md:bg-[#005E6A]/5" 
+                    ? "bg-[#005E6A]/5" 
                     : "hover:bg-slate-50"
                 }`}
               >
-                {/* Active Indicator */}
-                {isActive && (
-                  <div className="absolute inset-0 bg-[#F15A24]/10 rounded-xl md:hidden z-0" />
-                )}
-
-                {/* Sidebar Accent (Desktop) */}
                 {isActive && (
                   <motion.div
                     layoutId="adminSidebarAccent"
-                    className="absolute left-0 top-3 bottom-3 w-1.5 bg-[#F15A24] rounded-r-full hidden md:block"
+                    className="absolute left-0 top-2 bottom-2 w-1.5 bg-[#F15A24] rounded-r-full"
                     transition={{ type: "spring", bounce: 0, duration: 0.3 }}
                   />
                 )}
 
-                <div className="flex items-center gap-3.5 relative z-10 w-full justify-center md:justify-start md:pl-5">
+                <div className="flex items-center gap-3.5 relative z-10 w-full pl-4 pr-3">
                   <Icon 
-                    className={`w-5 h-5 shrink-0 transition-all duration-300 ${
+                    className={`w-4 h-4 shrink-0 transition-all duration-300 ${
                       isActive 
                         ? "text-[#F15A24]" 
                         : "text-slate-400 dark:text-slate-300 dark:text-slate-200 group-hover:text-[#F15A24]"
@@ -19805,32 +20805,29 @@ const AdminLayout = ({
                     strokeWidth={isActive ? 2.5 : 2}
                   />
                   
-                  <div className="hidden md:flex flex-col overflow-hidden text-left">
-                    <span 
-                      className={`text-[11px] font-black uppercase tracking-[0.1em] whitespace-nowrap transition-all duration-300 ${
-                        isActive 
-                          ? "text-[#005E6A]" 
-                          : "text-slate-400 dark:text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A]"
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                  </div>
+                  <span 
+                    className={`text-[11px] font-black uppercase tracking-[0.08em] whitespace-nowrap transition-all duration-300 ${
+                      isActive 
+                        ? "text-[#005E6A]" 
+                        : "text-slate-500 dark:text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A]"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
                 </div>
               </button>
             );
           })}
         </div>
 
-        {/* Bottom Sidebar Footer */}
-        <div className="flex flex-col items-center md:items-stretch gap-2 mt-auto pb-6 border-t border-slate-50 dark:border-slate-800/50 pt-8 w-full">
+        {/* Bottom Actions */}
+        <div className="flex flex-col gap-1.5 mt-auto pt-6 border-t border-slate-100 dark:border-slate-800/50 w-full">
           <button 
             onClick={() => navigate('/')}
-            className="flex items-center justify-center md:justify-start gap-4 p-3 md:px-5 md:py-3.5 w-12 md:w-full rounded-xl md:rounded-2xl text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:text-[#005E6A] hover:bg-slate-50 transition-all group"
-            title="Ke Beranda"
+            className="flex items-center gap-3.5 px-4 py-2.5 w-full rounded-xl text-slate-500 dark:text-slate-300 dark:text-slate-200 hover:text-[#005E6A] hover:bg-slate-50 transition-all group cursor-pointer"
           >
-            <Home className="w-5 h-5 shrink-0 transition-transform group-hover:-translate-x-1" />
-            <span className="text-[10px] font-black uppercase tracking-[0.15em] hidden md:block">Ke Beranda</span>
+            <Home className="w-4 h-4 shrink-0 transition-transform group-hover:-translate-x-1" />
+            <span className="text-[10px] font-black uppercase tracking-[0.12em]">Ke Beranda</span>
           </button>
           
           <button 
@@ -19838,14 +20835,110 @@ const AdminLayout = ({
               localStorage.removeItem("admin_session");
               navigate("/");
             }}
-            className="flex items-center justify-center md:justify-start gap-4 p-3 md:px-5 md:py-3.5 w-12 md:w-full rounded-xl md:rounded-2xl text-slate-400 dark:text-slate-300 dark:text-slate-200 hover:text-red-500 hover:bg-red-50 transition-all group"
-            title="Keluar Sesi"
+            className="flex items-center gap-3.5 px-4 py-2.5 w-full rounded-xl text-slate-500 dark:text-slate-300 dark:text-slate-200 hover:text-red-500 hover:bg-red-50 transition-all group cursor-pointer"
           >
-            <LogOut className="w-5 h-5 shrink-0 transition-transform group-hover:translate-x-1" />
-            <span className="text-[10px] font-black uppercase tracking-[0.15em] hidden md:block">Keluar Sesi</span>
+            <LogOut className="w-4 h-4 shrink-0 transition-transform group-hover:translate-x-1" />
+            <span className="text-[10px] font-black uppercase tracking-[0.12em]">Keluar Sesi</span>
           </button>
         </div>
       </nav>
+
+      {/* Mobile Slidebar Drawer */}
+      <AnimatePresence>
+        {isSlidebarOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSlidebarOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            {/* Slidebar Content Drawer */}
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="absolute left-0 top-0 bottom-0 w-4/5 max-w-xs bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 p-6 flex flex-col shadow-2xl z-10 overflow-y-auto"
+            >
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between pb-6 border-b border-slate-100 dark:border-slate-800 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-lg shadow-[#005E6A]/20">
+                    <LayoutGrid className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-sm font-black text-[#005E6A] tracking-tighter uppercase">WARUNG <span className="text-[#F15A24]">TOMI</span></h1>
+                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Admin Slidebar</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setIsSlidebarOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Drawer Nav Items */}
+              <div className="flex flex-col gap-2 flex-1">
+                {navItems.map((item) => {
+                  const isActive = activeTab === item.id;
+                  const Icon = item.icon;
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        navigate(item.path);
+                        setIsSlidebarOpen(false);
+                      }}
+                      className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all cursor-pointer ${
+                        isActive 
+                          ? "bg-[#005E6A] text-white shadow-lg shadow-[#005E6A]/20 font-black" 
+                          : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold"
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 ${isActive ? "text-white" : "text-slate-400"}`} />
+                      <span className="text-xs uppercase tracking-wider">{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Drawer Footer Actions */}
+              <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2 mt-6">
+                <button
+                  onClick={() => {
+                    navigate('/');
+                    setIsSlidebarOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  <Home className="w-4 h-4" />
+                  <span>Ke Beranda</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("admin_session");
+                    navigate("/");
+                    setIsSlidebarOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Keluar Sesi</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <main className="flex-1 w-full pb-12 overflow-x-hidden">
         {children}
@@ -21952,407 +23045,245 @@ export default function App() {
     }
 
     try {
-      const scriptUrl = localStorage.getItem('APPS_SCRIPT_URL') || import.meta.env.VITE_APPS_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbzFXIApyWFaY7tGXiq-k7yvRlFAUJB2QNzeSU01-sR2dVL1FrnaVNPlgf2FXxsqSi5L9g/exec';
-      
-      const allUrls = [
-        { id: "customers", name: "Pelanggan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vS89JF6HJLZL4wD5YRvaEqqY2nF_VvKmzfKHzrP19PYZnGFudVzpzD94WWC0ueb35rJFCEs7OtEX083/pub?gid=0&single=true&output=csv" },
-        { id: "savingTransactions", name: "Tabungan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRwjRmZLCREHIEg4LlJwM_AT7WDpG808cxzY5C5IvKIsK920oQbiSPSSegEvyTD330DvVH0kswepwIE/pub?gid=1607784622&single=true&output=csv" },
-        { id: "investmentTransactions", name: "Investasi", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQBQ5kUdqwv5bBsJcaiponYzqU_JxO0g7qQb6DQ1ujJ9bzTkY5GlI5XQQXL9BVr22gdmM7V7eEIDMH9/pub?gid=799157484&single=true&output=csv" },
-        { id: "debtTransactions", name: "Hutang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQstrKWGJQeYcF3s_GNBSzB4q-PhQ7R4s4Gc-xy5F428uRbVjdf8c4bboL7JfIX5j1a0n-_FJGvPk7Q/pub?gid=2112924939&single=true&output=csv" },
-        { id: "salesTransactions", name: "Penjualan", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRCGVNALfAsaaLVyQx0halDo9U3Gk_QFEEEY96Zai9cTD4nfW5dQR8IWYig1-Cks01F08PjVVv-KDsW/pub?gid=526494903&single=true&output=csv" },
-        { id: "redeemedPoints", name: "Poin", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkme-_goN5R1iYP1oL_He5XOk1jWsnOBiCftzxwKCCQ7q9HO0pyjNBrsjYTOlzrAo_AQcpYmq6owPl/pub?gid=1420871988&single=true&output=csv" },
-        { id: "stockItems", name: "Stok Barang", url: "https://docs.google.com/spreadsheets/d/e/2PACX-1vRe7VfqXToI8v15JzJmX2-9IQO0RQFmJPVlMuf3GYyYaa1grUAombFNk9Zt78ZTKJb1NWQFi5QdmPRm/pub?gid=0&single=true&output=csv" }
-      ];
-
-      const financeCollections = ["customers", "savingTransactions", "investmentTransactions", "debtTransactions", "salesTransactions", "redeemedPoints"];
-      const isFinanceRequest = !collectionName || financeCollections.includes(collectionName);
-      
-      const activeUrls = isFinanceRequest
-        ? allUrls.filter(u => u.id !== "stockItems")
-        : allUrls.filter(u => u.id === "stockItems");
-
-      const finalUrls = !collectionName ? allUrls : activeUrls;
-
-      const fetchWithRetry = async (label: string, url: string, signal: AbortSignal, retries = 2) => {
-        let lastError;
-        for (let i = 0; i <= retries; i++) {
-          try {
-            if (signal.aborted) throw new Error('Aborted');
-            
-            // IF it is customers AND we have a scriptUrl, use it instead of CSV
-            const targetUrl = (label === 'Pelanggan' && scriptUrl) ? scriptUrl : url;
-            const finalUrl = i > 0 ? targetUrl + (targetUrl.includes('?') ? '&' : '?') + `t=${Date.now()}` : targetUrl;
-            
-            const res = await fetch(finalUrl, { signal, cache: 'no-cache', mode: 'cors', credentials: 'omit' });
-            if (!res.ok) throw new Error(`Status ${res.status}`);
-            return await res.text();
-          } catch (e: any) {
-            lastError = e;
-            if (e.name === 'AbortError') throw e;
-            if (i < retries) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-          }
-        }
-        return "";
-      };
-
-      const csvResultsMap = new Map();
-      const fetchResults = await Promise.all(finalUrls.map(async u => {
-        const text = await fetchWithRetry(u.name, u.url, controller.signal);
-        return { id: u.id, text };
-      }));
-      
-      fetchResults.forEach(r => csvResultsMap.set(r.id, r.text));
-      
-      if (controller.signal.aborted) return;
-
-      const parseCsv = (csv: string): Promise<any[]> => new Promise(resolve => {
-        if (!csv) return resolve([]);
-        if (csv.trim().startsWith('[') || csv.trim().startsWith('{')) {
-          try {
-            const data = JSON.parse(csv);
-            return resolve(Array.isArray(data) ? data : [data]);
-          } catch (e) {
-            // fallback to csv if parse fails
-          }
-        }
-        Papa.parse(csv, { header: true, skipEmptyLines: true, complete: results => resolve(results.data), error: () => resolve([]) });
-      });
-
-      // Partial or full update based on collectionName
-      if (!collectionName || collectionName === "stockItems") {
-        const csv = csvResultsMap.get("stockItems");
-        if (csv) {
-          const sData = await parseCsv(csv);
-          // Map products directly in the exact sequence they appear in the spreadsheets CSV (from top to bottom)
-          const processedStock: StockItem[] = sData.map((s, idx) => {
-            const sIdKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('id barang'));
-            const sNamaKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('nama barang'));
-            const sHmKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga modal'));
-            const sHjKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('harga jual'));
-            const sStokKey = Object.keys(s).find(k => k.toLowerCase().trim().includes('stok'));
-            const autoId = `BRG-${String(idx + 1).padStart(4, '0')}`;
-            return {
-              id: sIdKey ? String(s[sIdKey]).trim() : autoId,
-              id_barang: sIdKey ? String(s[sIdKey]).trim() : autoId,
-              Nama: sNamaKey ? String(s[sNamaKey]).trim() : "Unknown",
-              Kategori: String(s[Object.keys(s).find(k => k.toLowerCase().includes('kategori')) || ''] || 'Lainnya'),
-              Stok: sStokKey ? parseInt(String(s[sStokKey]).replace(/\D/g, '')) || 0 : 0,
-              Satuan: String(s[Object.keys(s).find(k => k.toLowerCase().includes('satuan')) || ''] || 'Unit'),
-              MinStok: 5,
-              HargaModal: sHmKey ? parseCurrency(s[sHmKey]) : 0,
-              HargaJual: sHjKey ? parseCurrency(s[sHjKey]) : 0,
-              UpdateTerakhir: String(s[Object.keys(s).find(k => k.toLowerCase().includes('tanggal')) || ''] || '-'),
-              Image: String(s[Object.keys(s).find(k => k.toLowerCase().includes('gambar')) || ''] || undefined)
-            };
-          });
-          setStock(processedStock);
-        }
-      }
-
       const cleanDate = (dateStr: string) => {
         if (!dateStr || dateStr === '-') return '-';
         const rawDate = dateStr.split(/[ T]/)[0];
         const parts = rawDate.split(/[-/]/);
         if (parts.length === 3) {
-           // If YYYY-MM-DD
-           if (parts[0].length === 4) return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
-           // If DD/MM/YYYY or MM/DD/YYYY (assuming user uses DD/MM/YYYY)
-           return parts.map((p, i) => i === 2 ? p : p.padStart(2, '0')).join('/');
+            if (parts[0].length === 4) return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+            return parts.map((p, i) => i === 2 ? p : p.padStart(2, '0')).join('/');
         }
         return rawDate;
       };
 
-      // 1. Build Customer ID Mapping first if we have customer data
-      const customerIdMap = new Map<string, string>();
-      const cCsv = csvResultsMap.get("customers");
-      if (cCsv) {
-        // Process top to bottom as per user request "urut mulai dari atas ke bawah"
-        const cData = await parseCsv(cCsv);
-        const findKey = (row: any, targets: string[]) => 
-          Object.keys(row).find(k => targets.some(t => k.toLowerCase().trim().includes(t.toLowerCase())));
-        
-        const rawNames = cData
-          .map((c: any) => {
-            const key = findKey(c, ['nama']);
-            return key ? String(c[key]).trim() : "";
-          })
-          .filter(name => name && name.toLowerCase() !== "unknown" && name.toLowerCase() !== "pelanggan umum");
-
-        const seenNames = new Set<string>();
-        let customerCounter = 1;
-        rawNames.forEach(name => {
-          const lower = name.toLowerCase();
-          if (!seenNames.has(lower)) {
-            seenNames.add(lower);
-            customerIdMap.set(lower, String(customerCounter++).padStart(4, '0'));
+      // 1. Stock Items
+      if (!collectionName || collectionName === "stockItems") {
+        if (SupabaseStockService.isConnected()) {
+          try {
+            const { data: supaProducts } = await SupabaseStockService.getProducts();
+            if (supaProducts) {
+              const supaStock: StockItem[] = supaProducts.map(p => ({
+                id: p.id_barang,
+                id_barang: p.id_barang,
+                Nama: p.nama,
+                Kategori: p.kategori || 'Sembako',
+                Stok: Number(p.stok) || 0,
+                Satuan: p.satuan || 'pcs',
+                MinStok: Number(p.min_stok) || 5,
+                HargaModal: Number(p.harga_modal) || 0,
+                HargaJual: Number(p.harga_jual) || 0,
+                UpdateTerakhir: p.update_terakhir || '-',
+                Image: p.gambar && p.gambar.trim() !== '' ? p.gambar : undefined
+              }));
+              setStock(supaStock);
+            }
+          } catch (err) {
+            console.error("Gagal membaca stok Supabase:", err);
           }
-        });
-      }
-
-      const getCustIdPart = (name: string) => {
-        if (!name || name.toLowerCase() === "unknown" || name.toLowerCase() === "pelanggan umum") return "0000";
-        return customerIdMap.get(name.toLowerCase()) || "0000";
-      };
-
-      // Counter for each customer's transactions
-      const customerTxCounters: Record<string, { trx: number, tab: number, inv: number, htg: number, tp: number }> = {};
-      const getNextSeq = (name: string, type: keyof typeof customerTxCounters[string]) => {
-        const idPart = getCustIdPart(name);
-        if (!customerTxCounters[idPart]) {
-          customerTxCounters[idPart] = { trx: 0, tab: 0, inv: 0, htg: 0, tp: 0 };
         }
-        customerTxCounters[idPart][type]++;
-        return customerTxCounters[idPart][type];
-      };
-
-      // 2. Process Redeemed Points
-      const rCsv = csvResultsMap.get("redeemedPoints");
-      let processedRedeemedPoints: RedeemedPoint[] = [];
-
-      if (rCsv && isFinanceRequest) {
-        // Process top to bottom as per user request
-        const rDataRaw = await parseCsv(rCsv);
-        const processed = rDataRaw.map((r, idx) => {
-          const rawName = String(r[Object.keys(r).find(k => k.toLowerCase().includes('nama')) || ''] || 'Unknown');
-          const name = (rawName && rawName.toLowerCase() !== "unknown" && rawName !== "-") ? rawName : "Pelanggan Umum";
-          const idPart = getCustIdPart(name);
-          const seq = getNextSeq(name, 'tp');
-          
-          return {
-            id: `row_tp_${String(idx).padStart(6, '0')}`,
-            id_tukar: `TP-${idPart}/${seq}`,
-            id_pelanggan: `CUST-${idPart}`,
-            Tanggal: cleanDate(String(r[Object.keys(r).find(k => k.toLowerCase().includes('tanggal')) || ''] || '-')),
-            Nama: name,
-            Poin: parseCurrency(r[Object.keys(r).find(k => k.toLowerCase().includes('poin')) || '']),
-            Hadiah: String(r[Object.keys(r).find(k => k.toLowerCase().includes('hadiah')) || ''] || '-')
-          };
-        });
-        processedRedeemedPoints = processed;
-        setRedeemedPoints(processedRedeemedPoints);
       }
 
-      // Customers and related transactions usually need each other for total calculations
+      const financeCollections = ["customers", "savingTransactions", "investmentTransactions", "debtTransactions", "salesTransactions", "redeemedPoints"];
+      const isFinanceRequest = !collectionName || financeCollections.includes(collectionName);
+
       if (isFinanceRequest) {
-        const sCsv = csvResultsMap.get("savingTransactions");
-        const iCsv = csvResultsMap.get("investmentTransactions");
-        const hCsv = csvResultsMap.get("debtTransactions");
-        const salesCsv = csvResultsMap.get("salesTransactions");
+        // 2. Points
+        let processedRedeemedPoints: RedeemedPoint[] = [];
+        if (SupabasePointsService.isConnected()) {
+          try {
+            const { data: supaPoints } = await SupabasePointsService.getPoints();
+            if (supaPoints) {
+              processedRedeemedPoints = supaPoints.map((item) => ({
+                id: item.id_tukar || item.id,
+                id_tukar: item.id_tukar,
+                id_pelanggan: item.id_pelanggan || 'CUST-0000',
+                Tanggal: cleanDate(item.tanggal || ''),
+                Nama: item.nama,
+                Poin: Number(item.poin) || 0,
+                Hadiah: item.hadiah || '-'
+              }));
+              setRedeemedPoints(processedRedeemedPoints);
+            }
+          } catch (err) {
+            console.error("Gagal membaca tukar poin dari Supabase:", err);
+          }
+        }
 
-        if (cCsv) {
-          const cData = await parseCsv(cCsv);
-          // Process top to bottom for customers as per "urut mulai dari atas ke bawah"
-          const sData = (sCsv ? await parseCsv(sCsv) : []).reverse();
-          const iData = (iCsv ? await parseCsv(iCsv) : []).reverse();
-          const hData = (hCsv ? await parseCsv(hCsv) : []).reverse();
-          const salesData = (salesCsv ? await parseCsv(salesCsv) : []).reverse();
+        // 3. Customers
+        let cData: Customer[] = [];
+        if (SupabaseCustomerService.isConnected()) {
+          try {
+            const { data: supaCust } = await SupabaseCustomerService.getCustomers();
+            if (supaCust) {
+              cData = supaCust.map((c, index) => ({
+                id: c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, '0')}`,
+                id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
+                Nama: c.nama || 'Pelanggan',
+                PIN: c.pin || '',
+                Telepon: c.telepon || '',
+                Alamat: c.alamat || '',
+                Tabungan: Number(c.tabungan) || 0,
+                Investasi: Number(c.investasi) || 0,
+                Lainnya: Number(c.lainnya) || 0,
+                Hutang: Number(c.hutang) || 0,
+                Poin: Number(c.point) || 0,
+                Level: c.level || 'Bronze',
+                Foto: c.foto || ''
+              }));
+            }
+          } catch (err) {
+            console.error("Gagal membaca pelanggan dari Supabase:", err);
+          }
+        }
 
-          const findKey = (row: any, targets: string[]) => 
-            Object.keys(row).find(k => targets.some(t => k.toLowerCase().trim().includes(t.toLowerCase())));
+        // 4. Sales
+        let processedSales: SalesTransaction[] = [];
+        if (SupabaseSalesService.isConnected()) {
+          try {
+            const { data: supaSales } = await SupabaseSalesService.getSales();
+            if (supaSales) {
+              const salesData = supaSales.map(item => ({
+                id: item.id_transaksi || item.id,
+                id_transaksi: item.id_transaksi,
+                id_pelanggan: item.id_pelanggan || 'CUST-0000',
+                Tanggal: cleanDate(item.tanggal || ''),
+                Nama: item.nama || 'Pelanggan Umum',
+                Jenis: item.jenis || 'Belanja',
+                Melalui: item.melalui || '-',
+                Metode: item.metode || 'TUNAI',
+                Pemasukan: Number(item.pemasukan) || 0,
+                Poin: Number(item.poin) || 0,
+                Status: item.status || 'Selesai',
+                HargaModal: Number(item.harga_modal) || 0,
+                Sebagian: Number(item.sebagian) || 0,
+                created_at: item.created_at
+              }));
 
-          const allSavingsTransactions: SavingTransaction[] = [];
-          const allDebtTransactions: DebtTransaction[] = [];
-          const allInvestmentTransactions: InvestmentTransaction[] = [];
-
-          const tempCData = [...cData];
-
-          // 3. Process Sales Transactions (Oldest First for sequence/display reversal)
-          const salesChronological: SalesTransaction[] = salesData.map((s, idx) => {
-            const getSVal = (row: any, targets: string[]) => {
-              const key = findKey(row, targets);
-              return key ? String(row[key]).trim() : "";
-            };
-
-            const rawName = getSVal(s, ['nama']);
-            const name = (rawName && rawName.toLowerCase() !== "unknown" && rawName !== "-") ? rawName : "Pelanggan Umum";
-            const idPart = (name.toLowerCase() === "pelanggan umum") ? "0000" : getCustIdPart(name);
-            const seq = getNextSeq(name, 'trx');
-            const status = getSVal(s, ['status']) || "Selesai";
-            const metode = status.toUpperCase().includes("KASBON") ? "KASBON" : "TUNAI";
-
-            const pemasukan = parseCurrency(getSVal(s, ['harga jual', 'pemasukan', 'jumlah']));
-            return {
-              id: `row_trx_${String(idx).padStart(6, '0')}`,
-              id_transaksi: `TRX-${idPart}/${seq}`,
-              id_pelanggan: `CUST-${idPart}`,
-              Tanggal: cleanDate(getSVal(s, ['tanggal'])) || "-",
-              Nama: name,
-              Jenis: getSVal(s, ['jenis']) || "Belanja",
-              Melalui: getSVal(s, ['melalui']) || "-",
-              Metode: metode,
-              Pemasukan: pemasukan,
-              Poin: Math.floor(pemasukan / 10000),
-              HargaModal: parseCurrency(getSVal(s, ['modal'])),
-              Sebagian: parseCurrency(getSVal(s, ['sebagian'])),
-              Status: status
-            };
-          });
-          // Reverse for display (Newest First)
-          const processedSales = [...salesChronological].reverse();
-          setSalesTransactions(processedSales);
-
-          // 4. Process Customers and their sub-transactions
-          const validCustomers = tempCData.map((c: any, idx: number) => {
-            const getVal = (row: any, targets: string[]) => {
-              const key = findKey(row, targets);
-              return key ? String(row[key]).trim() : "";
-            };
-
-            const name = getVal(c, ['nama']);
-            if (!name) return null;
-            
-            const customerIdPart = getCustIdPart(name);
-
-            // Process Saving Transactions for this user (Now in Oldest-to-Newest due to sData.reverse())
-            const userSavings = sData.filter(s => {
-              const sNamaKey = findKey(s, ['nama']);
-              return sNamaKey && String(s[sNamaKey]).trim().toLowerCase() === name.toLowerCase();
-            });
-            
-            let savingBalance = 0;
-            const userSavingTransactions: SavingTransaction[] = [];
-            
-            userSavings.forEach(t => {
-              const tipeKey = findKey(t, ['tipe']);
-              const nominalKey = findKey(t, ['nominal', 'jumlah']);
-              const tanggalKey = findKey(t, ['tanggal']);
-              
-              if (tipeKey && nominalKey) {
-                const tipe = String(t[tipeKey]).trim().toUpperCase();
-                const nominal = parseCurrency(t[nominalKey]);
-                if (tipe === 'SETOR') savingBalance += nominal;
-                else if (tipe === 'TARIK') savingBalance -= nominal;
-                
-                const seq = getNextSeq(name, 'tab');
-                userSavingTransactions.push({
-                  id: `row_${String(allSavingsTransactions.length + userSavingTransactions.length).padStart(6, '0')}`,
-                  id_tabungan: `TAB-${customerIdPart}/${seq}`,
-                  id_pelanggan: `CUST-${customerIdPart}`,
-                  Tanggal: tanggalKey ? String(t[tanggalKey]).trim() : "-",
-                  Nama: name,
-                  Tipe: tipe,
-                  Nominal: nominal,
-                  SaldoAkhir: savingBalance,
-                  Berita: getVal(t, ['berita']) || '-'
-                });
-              }
-            });
-            allSavingsTransactions.push(...userSavingTransactions);
-
-            // Process Debt Transactions for this user (Now in Oldest-to-Newest)
-            const userDebt = hData.filter(h => {
-              const hNamaKey = findKey(h, ['nama']);
-              return hNamaKey && String(h[hNamaKey]).trim().toLowerCase() === name.toLowerCase();
-            });
-            
-            let debtBalance = 0;
-            const userDebtTransactions: DebtTransaction[] = [];
-            
-            userDebt.forEach(h => {
-              const tipeKey = findKey(h, ['tipe']);
-              const nominalKey = findKey(h, ['nominal', 'jumlah']);
-              const tanggalKey = findKey(h, ['tanggal']);
-              
-              if (tipeKey && nominalKey) {
-                const tipe = String(h[tipeKey]).trim().toUpperCase();
-                const nominal = parseCurrency(h[nominalKey]);
-                if (tipe === 'TAMBAH') debtBalance += nominal;
-                else if (tipe === 'BAYAR') debtBalance -= nominal;
-                
-                const seq = getNextSeq(name, 'htg');
-                userDebtTransactions.push({
-                  id: `row_${String(allDebtTransactions.length + userDebtTransactions.length).padStart(6, '0')}`,
-                  id_hutang: `HTG-${customerIdPart}/${seq}`,
-                  id_pelanggan: `CUST-${customerIdPart}`,
-                  Tanggal: tanggalKey ? String(h[tanggalKey]).trim() : "-",
-                  Nama: name,
-                  Tipe: tipe,
-                  Jumlah: nominal,
-                  Keterangan: getVal(h, ['keterangan']) || '-',
-                  SaldoAkhir: debtBalance
-                });
-              }
-            });
-            allDebtTransactions.push(...userDebtTransactions);
-
-            // Process Investment Transactions (Now in Oldest-to-Newest)
-            const userInvest = iData.filter(i => {
-              const iNamaKey = findKey(i, ['nama']);
-              return iNamaKey && String(i[iNamaKey]).trim().toLowerCase() === name.toLowerCase();
-            });
-            
-            const userInvestmentTransactions: InvestmentTransaction[] = userInvest.map((i, idx) => {
-              const nominal = parseCurrency(getVal(i, ['nominal', 'diterima']));
-              const seq = getNextSeq(name, 'inv');
-              return {
-                id: `row_${String(allInvestmentTransactions.length + idx).padStart(6, '0')}`,
-                id_investasi: `INV-${customerIdPart}/${seq}`,
-                id_pelanggan: `CUST-${customerIdPart}`,
-                Tanggal: getVal(i, ['tanggal']) || '-',
-                Nama: name,
-                Nominal: nominal,
-                Tenor: getVal(i, ['tenor']) || '-',
-                JatuhTempo: getVal(i, ['jatuh tempo']) || '-',
-                Status: getVal(i, ['status']) || 'Aktif'
-              };
-            });
-            allInvestmentTransactions.push(...userInvestmentTransactions);
-
-            let totalInvestValue = userInvestmentTransactions
-              .filter(t => t.Status.toLowerCase() !== "sukses dicairkan")
-              .reduce((acc, curr) => acc + curr.Nominal, 0);
-
-            // Sales for points and levels
-            const userSales = processedSales.filter(t => t.Nama.toLowerCase() === name.toLowerCase());
-            const userLainnya = userSales
-              .filter(t => {
-                const s = (t.Status || "").toLowerCase();
-                return s.includes('belum') || s.includes('proses');
-              })
-              .reduce((acc, t) => {
-                const s = (t.Status || "").toUpperCase().trim();
-                const melalui = (t.Melalui || "").toUpperCase().trim();
-                let base = t.HargaModal;
-                if (melalui === "EDC BNI" && s === "BELUM DIAMBIL") {
-                  base -= 1500;
+              salesData.sort((a, b) => {
+                if (a.created_at && b.created_at) {
+                  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
                 }
-                return acc + (base - t.Sebagian);
-              }, 0);
+                return parseDate(a.Tanggal).getTime() - parseDate(b.Tanggal).getTime();
+              });
 
+              processedSales = [...salesData].reverse();
+              setSalesTransactions(processedSales);
+            }
+          } catch (err) {
+            console.error("Gagal membaca penjualan dari Supabase:", err);
+          }
+        }
+
+        // 5. Savings
+        let allSavingsTransactions: SavingTransaction[] = [];
+        if (SupabaseSavingsService.isConnected()) {
+          try {
+            const { data: supaSavings } = await SupabaseSavingsService.getSavings();
+            if (supaSavings) {
+              allSavingsTransactions = supaSavings.map(item => ({
+                id: item.id_tabungan || item.id,
+                id_tabungan: item.id_tabungan,
+                id_pelanggan: item.id_pelanggan || 'CUST-0000',
+                Tanggal: cleanDate(item.tanggal || ''),
+                Nama: item.nama || 'Nasabah',
+                Tipe: String(item.tipe || 'SETOR').toUpperCase(),
+                Nominal: Number(item.nominal) || 0,
+                SaldoAkhir: Number(item.saldo_akhir) || 0,
+                Berita: item.berita || '-'
+              }));
+              setSavingsTransactions(allSavingsTransactions);
+            }
+          } catch (err) {
+            console.error("Gagal membaca tabungan dari Supabase:", err);
+          }
+        }
+
+        // 6. Investments
+        let allInvestmentTransactions: InvestmentTransaction[] = [];
+        if (SupabaseInvestmentService.isConnected()) {
+          try {
+            const { data: supaInvest } = await SupabaseInvestmentService.getInvestments();
+            if (supaInvest) {
+              allInvestmentTransactions = supaInvest.map(item => ({
+                id: item.id_investasi || item.id,
+                id_investasi: item.id_investasi,
+                id_pelanggan: item.id_pelanggan || 'CUST-0000',
+                Tanggal: cleanDate(item.tanggal || ''),
+                Nama: item.nama || 'Investor',
+                Nominal: Number(item.nominal) || 0,
+                Tenor: item.tenor || '-',
+                JatuhTempo: item.jatuh_tempo || '-',
+                Status: item.status || 'Aktif',
+                Nisbah: item.nisbah || '70:30',
+                Keterangan: item.keterangan || '-'
+              }));
+              setInvestmentTransactions(allInvestmentTransactions);
+            }
+          } catch (err) {
+            console.error("Gagal membaca investasi dari Supabase:", err);
+          }
+        }
+
+        // 7. Debt
+        let allDebtTransactions: DebtTransaction[] = [];
+        if (SupabaseDebtService.isConnected()) {
+          try {
+            const { data: supaDebt } = await SupabaseDebtService.getDebts();
+            if (supaDebt) {
+              allDebtTransactions = supaDebt.map(item => ({
+                id: item.id_hutang || item.id,
+                id_hutang: item.id_hutang,
+                id_pelanggan: item.id_pelanggan || 'CUST-0000',
+                Tanggal: cleanDate(item.tanggal || ''),
+                Nama: item.nama || 'Pelanggan',
+                Tipe: String(item.tipe || 'TAMBAH').toUpperCase(),
+                Jumlah: Number(item.jumlah) || 0,
+                Keterangan: item.keterangan || '-',
+                SaldoAkhir: Number(item.saldo_akhir) || 0
+              }));
+              setDebtTransactions(allDebtTransactions);
+            }
+          } catch (err) {
+            console.error("Gagal membaca hutang dari Supabase:", err);
+          }
+        }
+
+        // 8. Calculate points, level, balances for customers from transactions
+        if (cData && cData.length > 0) {
+          const updatedCustomers = cData.map(c => {
+            const name = c.Nama;
             const levelInfo = calculateCustomerLevel(processedSales, name);
             const activePoints = calculateActivePoints(name, processedSales, processedRedeemedPoints);
+            
+            // Recalculate saving balance for user
+            const userSavings = allSavingsTransactions.filter(s => s.Nama.toLowerCase() === name.toLowerCase());
+            const lastSaving = userSavings[userSavings.length - 1];
+            const savingBal = lastSaving ? lastSaving.SaldoAkhir : c.Tabungan;
+
+            // Recalculate debt balance for user
+            const userDebts = allDebtTransactions.filter(d => d.Nama.toLowerCase() === name.toLowerCase());
+            const lastDebt = userDebts[userDebts.length - 1];
+            const debtBal = lastDebt ? lastDebt.SaldoAkhir : c.Hutang;
+
+            // Recalculate investment total for user
+            const userInvests = allInvestmentTransactions.filter(i => i.Nama.toLowerCase() === name.toLowerCase() && i.Status.toLowerCase() !== "sukses dicairkan");
+            const investBal = userInvests.length > 0 ? userInvests.reduce((acc, curr) => acc + curr.Nominal, 0) : c.Investasi;
 
             return {
               ...c,
-              id: getVal(c, ['id']) || Math.random().toString(36).substr(2, 9),
-              id_pelanggan: (() => {
-                const sheetId = String(getVal(c, ['id_pelanggan', 'id pel', 'pelanggan id']) || '').trim();
-                if (sheetId && sheetId.toLowerCase() !== 'nan' && !sheetId.includes('NaN')) {
-                  return sheetId;
-                }
-                return `CUST-${customerIdPart}`;
-              })(),
-              Nama: name,
-              PIN: getVal(c, ['pin']) || "",
               Poin: activePoints,
               Level: levelInfo.name,
-              Tabungan: savingBalance,
-              Investasi: totalInvestValue,
-              Hutang: debtBalance,
-              Lainnya: userLainnya,
-              Foto: getVal(c, ['foto', 'gambar', 'image']) || ""
+              Tabungan: savingBal,
+              Hutang: debtBal,
+              Investasi: investBal
             };
-          }).filter(Boolean) as Customer[];
+          });
 
-          setCustomers(validCustomers);
-          setSavingsTransactions(allSavingsTransactions);
-          setDebtTransactions(allDebtTransactions);
-          setInvestmentTransactions(allInvestmentTransactions);
-          setSalesTransactions(processedSales);
+          setCustomers(updatedCustomers);
 
           setLoggedInUser(prev => {
             if (!prev) return null;
-            const updated = validCustomers.find(vc => vc.Nama.toLowerCase() === prev.Nama.toLowerCase());
+            const updated = updatedCustomers.find(vc => vc.Nama.toLowerCase() === prev.Nama.toLowerCase());
             return updated || prev;
           });
         }
@@ -22690,12 +23621,23 @@ export default function App() {
 
         <Route path="/admin/report" element={
           <AdminLayout activeTab="report">
-            <AdminReportPage transactions={salesTransactions} />
+            <AdminReportPage 
+              transactions={salesTransactions} 
+              customers={customers} 
+              setSalesTransactions={setSalesTransactions}
+              savingsTransactions={savingsTransactions}
+              setSavingsTransactions={setSavingsTransactions}
+              debtTransactions={debtTransactions}
+              setDebtTransactions={setDebtTransactions}
+            />
           </AdminLayout>
         } />
         <Route path="/admin/customers" element={
           <AdminLayout activeTab="customers">
             <CustomerManagement 
+              onSyncComplete={() => {
+                fetchData(false, "customers");
+              }}
               salesTransactions={salesTransactions}
               savingsTransactions={savingsTransactions}
               investmentTransactions={investmentTransactions}
@@ -22776,7 +23718,35 @@ export default function App() {
         {/* Kasir Dedicated Session Routes (Orange Theme) */}
         <Route path="/kasir" element={
           <KasirLayout activeTab="menu">
-            <AdminCashier stock={stock} customers={customers} savings={savingsTransactions} dataSource={dataSource} onTransactionComplete={() => fetchData(false)} />
+            <AdminCashier 
+              stock={stock} 
+              customers={customers} 
+              savings={savingsTransactions} 
+              dataSource={dataSource} 
+              onTransactionComplete={(newTx?: any) => {
+                if (newTx && newTx.id) {
+                  const now = new Date();
+                  const todayFormatted = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+                  const newSalesItem: SalesTransaction = {
+                    id: `${newTx.id}_${Date.now()}`,
+                    id_transaksi: newTx.id,
+                    id_pelanggan: newTx.customer?.id_pelanggan || 'CUST-0000',
+                    Tanggal: todayFormatted,
+                    Nama: newTx.customer?.Nama || 'Pelanggan Umum',
+                    Jenis: 'Produk Fisik',
+                    Melalui: 'Kasir',
+                    Metode: newTx.paymentMethod ? String(newTx.paymentMethod).toUpperCase() : 'TUNAI',
+                    Pemasukan: newTx.total || 0,
+                    Poin: Math.floor((newTx.total || 0) / 10000),
+                    HargaModal: newTx.items ? newTx.items.reduce((acc: number, it: any) => acc + ((it.product?.HargaModal || 0) * (it.qty || 1)), 0) : 0,
+                    Sebagian: 0,
+                    Status: newTx.paymentMethod === 'Kasbon' ? 'Kasbon Belum Lunas' : 'Selesai'
+                  };
+                  setSalesTransactions(prev => [newSalesItem, ...prev]);
+                }
+                fetchData(false);
+              }} 
+            />
           </KasirLayout>
         } />
         <Route path="/kasir/laporan" element={
@@ -22790,8 +23760,21 @@ export default function App() {
           </KasirLayout>
         } />
         <Route path="/admin/stock" element={
-          <AdminLayout activeTab="data">
+          <AdminLayout activeTab="stock">
             <AdminStockManagement stock={stock} setStock={setStock} />
+          </AdminLayout>
+        } />
+        <Route path="/admin/database" element={
+          <AdminLayout activeTab="database">
+            <AdminDatabasePage 
+              salesTransactions={salesTransactions}
+              setSalesTransactions={setSalesTransactions}
+              customers={customers}
+              savingsTransactions={savingsTransactions}
+              setSavingsTransactions={setSavingsTransactions}
+              debtTransactions={debtTransactions}
+              setDebtTransactions={setDebtTransactions}
+            />
           </AdminLayout>
         } />
       </Routes>
