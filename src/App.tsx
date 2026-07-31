@@ -1022,8 +1022,8 @@ const Header = ({
 
   return (
     <>
-      <header className="bg-white/80 backdrop-blur-xl fixed top-0 left-0 right-0 z-50 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300">
-        <div className="px-4 sm:px-6 py-3 sm:py-3.5 flex items-center justify-between max-w-7xl mx-auto gap-2">
+      <header className="bg-white/80 backdrop-blur-xl fixed top-0 left-0 right-0 z-50 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300 h-16 flex items-center">
+        <div className="px-4 sm:px-6 w-full flex items-center justify-between max-w-7xl mx-auto gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             {/* Logo Container - Hold 5 seconds for Kasir Login */}
             <div 
@@ -1206,7 +1206,7 @@ const Header = ({
         </div>
       </header>
       {/* Dynamic Header Spacer div matching fixed header height to eliminate gap */}
-      <div className="h-[65px] sm:h-[73px]" />
+      <div className="h-16" />
 
       {/* Standalone Kasir Login Popup */}
       <AnimatePresence>
@@ -2694,7 +2694,7 @@ const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setAc
   const navItems = allNavItems.filter(item => !item.protected || user);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 px-6 py-4 z-50 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 px-6 h-16 z-50 flex items-center justify-between shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
       {navItems.map((item) => {
         const isActive = activeTab === item.id;
         const Icon = item.icon;
@@ -3543,7 +3543,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
         className="px-6 py-4 pb-20 min-h-screen bg-white max-w-lg mx-auto relative"
       >
         {/* Sticky points card so it is static/motionless and doesn't scroll with page */}
-        <div className="sticky top-[80px] z-0 bg-white pb-6 pt-2">
+        <div className="sticky top-16 z-0 bg-white pb-6 pt-2">
           <div className="relative overflow-hidden bg-gradient-to-br from-[#005E6A] via-[#028090] to-[#E25C3E] rounded-[2rem] py-8 px-7 text-white shadow-xl shadow-[#005E6A]/20">
             {/* Subtle background glow decorative elements */}
             <div className="absolute -right-8 -top-8 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
@@ -3605,7 +3605,7 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
         {/* Rewards list container that scrolls UP and overlays the points card */}
         <div className="relative z-10 bg-slate-50 rounded-t-[2.5rem] pt-6 pb-24 -mx-6 px-6 min-h-[100vh] space-y-4 shadow-[0_-12px_30px_rgba(0,0,0,0.03)] mt-6">
           {/* Sticky dual tabs selector */}
-          <div className="sticky top-[80px] z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50 dark:border-slate-800/50 mb-4">
+          <div className="sticky top-16 z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50 dark:border-slate-800/50 mb-4">
             <div className="flex bg-slate-200/60 p-1 rounded-2xl relative">
               <button
                 onClick={() => setActiveTab('tukar')}
@@ -4814,7 +4814,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="sticky top-[88px] z-0 bg-gradient-to-br from-[#2ecc71] to-[#27ae60] rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden border-t border-white/20"
+              className="sticky top-16 z-0 bg-gradient-to-br from-[#2ecc71] to-[#27ae60] rounded-[2rem] p-8 text-white shadow-lg mb-8 relative overflow-hidden border-t border-white/20"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
               <div className="absolute -bottom-4 -right-4 opacity-10">
@@ -4864,7 +4864,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="sticky top-[88px] z-0 bg-white rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-sm mb-8"
+              className="sticky top-16 z-0 bg-white rounded-[2rem] p-6 border border-slate-100 dark:border-slate-800 shadow-sm mb-8"
             >
               <div className="flex items-center justify-between mb-6">
                 <div>
@@ -4933,7 +4933,7 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
 
           
           {activeTab === 'riwayat' && (
-            <div className="sticky top-[80px] z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50 dark:border-slate-800/50">
+            <div className="sticky top-16 z-20 bg-slate-50/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100/50 dark:border-slate-800/50">
               {/* Month Tabs */}
               <div ref={tabContainerRef} className="relative flex gap-2 overflow-x-auto no-scrollbar pb-1 snap-x">
                 {allMonths.map((m, i) => {
@@ -13864,7 +13864,7 @@ const CatalogPage = ({
         </div>
 
       {/* Sticky Horizontal Category Selector with custom Icons */}
-      <div className="sticky top-[152px] z-[40] bg-slate-50/95 backdrop-blur-md py-3 border-b border-slate-200/50 dark:border-slate-700/50 mb-4">
+      <div className="sticky top-16 z-[40] bg-slate-50/95 backdrop-blur-md py-3 border-b border-slate-200/50 dark:border-slate-700/50 mb-4">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {categories.map((cat) => {
             const isActive = selectedCategory === cat;
@@ -16815,7 +16815,7 @@ const NotificationPage = ({
   return (
     <div className="pt-4 pb-12 px-6 text-left min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Sticky Tabs Container */}
-      <div className="sticky top-[80px] z-40 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100 dark:border-slate-800 mb-6">
+      <div className="sticky top-16 z-40 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-3 -mx-6 px-6 border-b border-slate-100 dark:border-slate-800 mb-6">
         <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl border border-[#F15A24]/10 dark:border-slate-800 w-full">
           <button 
             onClick={() => setSubTab("notifikasi")}
@@ -16887,7 +16887,7 @@ const NotificationPage = ({
                 {groupedNotifications.map((group) => (
                   <div key={group.label} className="space-y-0">
                     {/* Sticky Date Divider Header */}
-                    <div className="sticky top-[146px] z-30 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-2.5 px-6 -mx-6 border-b border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div className="sticky top-[118px] z-30 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-2.5 px-6 -mx-6 border-b border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-300">
                         {group.label}
                       </span>
@@ -17557,7 +17557,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
         className="px-6 pt-3 pb-4"
       >
         {/* Top Stationary Section */}
-        <div className="sticky top-20 z-0 bg-slate-50 pt-2 pb-1">
+        <div className="sticky top-16 z-0 bg-slate-50 pt-2 pb-1">
           {/* Tabs */}
           <div className="flex gap-2 mb-6 bg-slate-100 p-1 rounded-2xl">
             <button 
@@ -17733,7 +17733,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
           {activeTab === "trend" ? (
             <div>
               {/* Sticky Month Tabs */}
-              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 dark:border-slate-800/50 mb-4 -mx-6">
+              <div className="sticky top-16 z-20 bg-slate-50 py-3 border-b border-slate-100/50 dark:border-slate-800/50 mb-4 -mx-6">
                 <div ref={tabContainerRef1} className="relative flex gap-2 overflow-x-auto no-scrollbar snap-x px-6">
                   {chartData.map((m, i) => {
                     const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
@@ -17871,7 +17871,7 @@ Terima kasih telah berbelanja di Warung Tomi!`;
           ) : (
             <div>
               {/* Sticky Month Tabs */}
-              <div className="sticky top-20 z-20 bg-slate-50 py-3 border-b border-slate-100/50 dark:border-slate-800/50 mb-4 -mx-6">
+              <div className="sticky top-16 z-20 bg-slate-50 py-3 border-b border-slate-100/50 dark:border-slate-800/50 mb-4 -mx-6">
                 <div ref={tabContainerRef2} className="relative flex gap-2 overflow-x-auto no-scrollbar snap-x px-6">
                   {chartData.map((m, i) => {
                     const isActive = selectedMonth.month === m.month && selectedMonth.year === m.year;
@@ -20118,7 +20118,7 @@ const KasirLayout = ({
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-orange-500/20 selection:text-orange-600 font-sans flex flex-col transition-colors">
       {/* Floating White Kasir Navbar */}
-      <header className="sticky top-0 z-40 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-3 shadow-sm backdrop-blur-xl flex items-center justify-between transition-colors">
+      <header className="sticky top-0 z-40 w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 h-16 shadow-sm backdrop-blur-xl flex items-center justify-between transition-colors">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-md bg-gradient-to-br from-[#F15A24] to-[#ff7b42] flex items-center justify-center shadow-md shadow-orange-500/20">
             <Calculator className="w-5 h-5 text-white" />
@@ -20736,7 +20736,7 @@ const AdminLayout = ({
   return (
     <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans flex flex-col md:flex-row">
       {/* Mobile Top Header with Slidebar Button */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 px-4 py-3.5 flex items-center justify-between md:hidden shadow-sm">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 px-4 h-16 flex items-center justify-between md:hidden shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-md shadow-[#005E6A]/20">
             <LayoutGrid className="w-4 h-4 text-white" />
@@ -23333,6 +23333,7 @@ export default function App() {
   const handleLogout = () => {
     setLoggedInUser(null);
     localStorage.removeItem("warung_tomi_user");
+    window.location.href = "/login";
   };
 
   return (

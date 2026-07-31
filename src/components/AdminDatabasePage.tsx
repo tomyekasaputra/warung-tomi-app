@@ -30,7 +30,9 @@ import {
   Eye,
   Info,
   Coins,
-  FileText
+  FileText,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import {
   SupabaseSalesService,
@@ -42,6 +44,9 @@ import {
   SupabaseDebtTransaction,
   SupabaseInvestmentService,
   SupabaseInvestmentTransaction,
+  SupabaseStockService,
+  SupabaseCustomer,
+  SupabaseProduct,
   cleanupTableDuplicates
 } from "../lib/supabase";
 import { generateNextTabunganId, generateNextHutangId, get4DigitCustId, SavingTransaction, DebtTransaction } from "../App";
@@ -170,8 +175,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [displayCount, setDisplayCount] = useState(20);
 
-  // Category Tab State: "penjualan" | "tabungan" | "hutang" | "investasi"
-  const [activeCategory, setActiveCategory] = useState<"penjualan" | "tabungan" | "hutang" | "investasi">("penjualan");
+  // Category Tab State: "penjualan" | "tabungan" | "hutang" | "investasi" | "pelanggan" | "stok"
+  type CategoryType = "penjualan" | "tabungan" | "hutang" | "investasi" | "pelanggan" | "stok";
+  const [activeCategory, setActiveCategory] = useState<CategoryType>("penjualan");
 
   // Detail Modal State for Penjualan
   const [detailTx, setDetailTx] = useState<SalesTransaction | null>(null);
@@ -206,6 +212,10 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const [deletingInvestment, setDeletingInvestment] = useState<SupabaseInvestmentTransaction | null>(null);
   const [detailInvestment, setDetailInvestment] = useState<SupabaseInvestmentTransaction | null>(null);
 
+  // --- STOK & BARANG STATE ---
+  const [productList, setProductList] = useState<SupabaseProduct[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+
   // Fetch Savings Data from Supabase
   const fetchSavings = async () => {
     setIsLoadingSavings(true);
@@ -236,10 +246,21 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     setIsLoadingInvestments(false);
   };
 
+  // Fetch Product Data from Supabase
+  const fetchProducts = async () => {
+    setIsLoadingProducts(true);
+    const res = await SupabaseStockService.getProducts();
+    if (res.data) {
+      setProductList(res.data);
+    }
+    setIsLoadingProducts(false);
+  };
+
   useEffect(() => {
     fetchSavings();
     fetchDebts();
     fetchInvestments();
+    fetchProducts();
   }, []);
 
   // Helper for parsing date strings (supports DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY)
@@ -616,6 +637,19 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  // Unique available dates in Sales Data for daily pagination
+  const availableSalesDates = useMemo(() => {
+    const dateSet = new Set<string>();
+    salesTransactions.forEach((t) => {
+      if (t.Tanggal && t.Tanggal !== "-") {
+        dateSet.add(t.Tanggal.trim());
+      }
+    });
+    const arr = Array.from(dateSet);
+    arr.sort((a, b) => parseTxDate(b) - parseTxDate(a));
+    return arr;
+  }, [salesTransactions]);
+
   // 1. Sort sales transactions by date (Newest First by default)
   const sortedTransactions = useMemo(() => {
     const list = [...salesTransactions];
@@ -646,19 +680,12 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         (t.Nama || "").toLowerCase().includes(q) ||
         (t.id_pelanggan || "").toLowerCase().includes(q) ||
         (t.Jenis || "").toLowerCase().includes(q) ||
+        (t.Melalui || "").toLowerCase().includes(q) ||
         (t.Metode || "").toLowerCase().includes(q) ||
         (t.Status || "").toLowerCase().includes(q) ||
-        (t.Tanggal || "").toLowerCase().includes(q);
-
-      const matchJenis =
-        filterJenis === "semua" ||
-        (filterJenis === "fisik" && (t.Jenis || "").toLowerCase().includes("fisik")) ||
-        (filterJenis === "virtual" && !(t.Jenis || "").toLowerCase().includes("fisik") && (t.Jenis || "").toLowerCase() !== "belanja") ||
-        (filterJenis === "belanja" && ((t.Jenis || "").toLowerCase().includes("belanja") || (t.Jenis || "").toLowerCase().includes("fisik")));
-
-      const matchMetode =
-        filterMetode === "semua" ||
-        (t.Metode || "").toUpperCase() === filterMetode.toUpperCase();
+        (t.Tanggal || "").toLowerCase().includes(q) ||
+        (t.Pemasukan !== undefined && t.Pemasukan !== null ? String(t.Pemasukan) : "").includes(q) ||
+        (t.HargaModal !== undefined && t.HargaModal !== null ? String(t.HargaModal) : "").includes(q);
 
       let matchTanggal = true;
       if (filterTanggal === "hari_ini") {
@@ -677,9 +704,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         matchTanggal = txTime >= customTime && txTime < customTime + 24 * 60 * 60 * 1000;
       }
 
-      return matchSearch && matchJenis && matchMetode && matchTanggal;
+      return matchSearch && matchTanggal;
     });
-  }, [sortedTransactions, searchQuery, filterJenis, filterMetode, filterTanggal]);
+  }, [sortedTransactions, searchQuery, filterTanggal]);
 
   // Reset pagination count on filter change
   useEffect(() => {
@@ -883,36 +910,125 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     }
   };
 
-  // Export to CSV helper
+  // Export to CSV helper - dynamically handles all active categories
   const handleExportCSV = () => {
-    if (filteredTransactions.length === 0) {
-      showToast("Tidak ada data untuk diexport.", "error");
-      return;
-    }
-    const headers = ["ID Transaksi", "Tanggal", "ID Pelanggan", "Nama", "Jenis", "Metode", "Pemasukan", "Harga Modal", "Poin", "Status", "Melalui"];
-    const rows = filteredTransactions.map((t) => [
-      t.id_transaksi || t.id,
-      t.Tanggal,
-      t.id_pelanggan || "-",
-      `"${t.Nama.replace(/"/g, '""')}"`,
-      `"${t.Jenis.replace(/"/g, '""')}"`,
-      t.Metode,
-      t.Pemasukan,
-      t.HargaModal || 0,
-      t.Poin || 0,
-      t.Status,
-      t.Melalui || "-"
-    ]);
+    let headers: string[] = [];
+    let rows: (string | number)[][] = [];
+    const filename = `database_${activeCategory}_${new Date().toISOString().slice(0, 10)}.csv`;
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    if (activeCategory === "penjualan") {
+      if (filteredTransactions.length === 0) {
+        showToast("Tidak ada data penjualan untuk diexport.", "error");
+        return;
+      }
+      headers = ["ID Transaksi", "Tanggal", "ID Pelanggan", "Nama", "Jenis", "Metode", "Pemasukan", "Harga Modal", "Poin", "Status", "Melalui"];
+      rows = filteredTransactions.map((t) => [
+        t.id_transaksi || t.id,
+        t.Tanggal,
+        t.id_pelanggan || "-",
+        `"${(t.Nama || "").replace(/"/g, '""')}"`,
+        `"${(t.Jenis || "").replace(/"/g, '""')}"`,
+        t.Metode || "-",
+        t.Pemasukan || 0,
+        t.HargaModal || 0,
+        t.Poin || 0,
+        t.Status || "-",
+        t.Melalui || "-"
+      ]);
+    } else if (activeCategory === "tabungan") {
+      if (filteredSavings.length === 0) {
+        showToast("Tidak ada data tabungan untuk diexport.", "error");
+        return;
+      }
+      headers = ["ID Tabungan", "ID Pelanggan", "Tanggal", "Nama Nasabah", "Tipe", "Nominal", "Saldo Akhir", "Berita"];
+      rows = filteredSavings.map((s) => [
+        s.id_tabungan || s.id || "-",
+        s.id_pelanggan || "-",
+        s.tanggal || "-",
+        `"${(s.nama_nasabah || s.nama || "").replace(/"/g, '""')}"`,
+        s.tipe || "-",
+        s.nominal || 0,
+        s.saldo_akhir || 0,
+        `"${(s.berita || s.keterangan || "").replace(/"/g, '""')}"`
+      ]);
+    } else if (activeCategory === "hutang") {
+      if (filteredDebts.length === 0) {
+        showToast("Tidak ada data hutang untuk diexport.", "error");
+        return;
+      }
+      headers = ["ID Hutang", "ID Pelanggan", "Tanggal", "Nama Pelanggan", "Tipe", "Jumlah", "Saldo Akhir", "Keterangan"];
+      rows = filteredDebts.map((d) => [
+        d.id_hutang || d.id || "-",
+        d.id_pelanggan || "-",
+        d.tanggal || "-",
+        `"${(d.nama_pelanggan || d.nama || "").replace(/"/g, '""')}"`,
+        d.tipe || "-",
+        d.jumlah || 0,
+        d.saldo_akhir || 0,
+        `"${(d.keterangan || "").replace(/"/g, '""')}"`
+      ]);
+    } else if (activeCategory === "investasi") {
+      if (filteredInvestments.length === 0) {
+        showToast("Tidak ada data investasi untuk diexport.", "error");
+        return;
+      }
+      headers = ["ID Investasi", "ID Pelanggan", "Tanggal", "Nama Investor", "Nominal", "Tenor", "Jatuh Tempo", "Status", "Nisbah", "Keterangan"];
+      rows = filteredInvestments.map((i) => [
+        i.id_investasi || i.id || "-",
+        i.id_pelanggan || "-",
+        i.tanggal || "-",
+        `"${(i.nama_investor || i.nama || "").replace(/"/g, '""')}"`,
+        i.nominal || 0,
+        i.tenor || (i.tenor_bulan ? `${i.tenor_bulan} Bln` : "-"),
+        i.jatuh_tempo || "-",
+        i.status || "-",
+        i.nisbah || (i.nisbah_persen ? `${i.nisbah_persen}%` : "-"),
+        `"${(i.keterangan || "").replace(/"/g, '""')}"`
+      ]);
+    } else if (activeCategory === "pelanggan") {
+      if (filteredCustomers.length === 0) {
+        showToast("Tidak ada data pelanggan untuk diexport.", "error");
+        return;
+      }
+      headers = ["ID Pelanggan", "Nama", "Telepon", "Alamat", "Tabungan", "Hutang", "Investasi", "Point", "Level"];
+      rows = filteredCustomers.map((c) => [
+        c.id_pelanggan || c.id || "-",
+        `"${(c.nama || "").replace(/"/g, '""')}"`,
+        c.telepon || "-",
+        `"${(c.alamat || "").replace(/"/g, '""')}"`,
+        c.tabungan || 0,
+        c.hutang || 0,
+        c.investasi || 0,
+        c.point || 0,
+        c.level || "Bronze"
+      ]);
+    } else if (activeCategory === "stok") {
+      if (filteredProducts.length === 0) {
+        showToast("Tidak ada data stok barang untuk diexport.", "error");
+        return;
+      }
+      headers = ["ID Barang", "Nama Barang", "Kategori", "Stok", "Satuan", "Harga Modal", "Harga Jual", "Update Terakhir"];
+      rows = filteredProducts.map((p) => [
+        p.id_barang || p.id || "-",
+        `"${(p.nama || "").replace(/"/g, '""')}"`,
+        p.kategori || "Lainnya",
+        p.stok || 0,
+        p.satuan || "pcs",
+        p.harga_modal || 0,
+        p.harga_jual || 0,
+        p.update_terakhir || "-"
+      ]);
+    }
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `penjualan_warung_tomi_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast("File CSV berhasil diunduh!");
+    showToast(`File CSV ${activeCategory.toUpperCase()} berhasil diunduh!`);
   };
 
   // --- TABUNGAN HANDLERS ---
@@ -1202,12 +1318,19 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   // Filtered lists for Tabungan, Hutang, Investasi
   const filteredSavings = useMemo(() => {
     let list = savingsList.filter((s) => {
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
       const nameStr = (s.nama_nasabah || s.nama || (s as any).Nama || "").toLowerCase();
+      const ketStr = (s.keterangan || "").toLowerCase();
+      const idStr = (s.id_nasabah || s.id || "").toLowerCase();
       return (
         nameStr.includes(q) ||
+        ketStr.includes(q) ||
+        idStr.includes(q) ||
         (s.tanggal || "").toLowerCase().includes(q) ||
-        (s.tipe || "").toLowerCase().includes(q)
+        (s.tipe || "").toLowerCase().includes(q) ||
+        (s.nominal !== undefined && s.nominal !== null ? String(s.nominal) : "").includes(q) ||
+        (s.saldo_akhir !== undefined && s.saldo_akhir !== null ? String(s.saldo_akhir) : "").includes(q)
       );
     });
     list.sort((a, b) => {
@@ -1220,12 +1343,19 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
   const filteredDebts = useMemo(() => {
     let list = debtList.filter((d) => {
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
       const nameStr = (d.nama_pelanggan || d.nama || (d as any).Nama || "").toLowerCase();
+      const ketStr = (d.keterangan || "").toLowerCase();
+      const idStr = (d.id_pelanggan || d.id || "").toLowerCase();
       return (
         nameStr.includes(q) ||
+        ketStr.includes(q) ||
+        idStr.includes(q) ||
         (d.tanggal || "").toLowerCase().includes(q) ||
-        (d.tipe || "").toLowerCase().includes(q)
+        (d.tipe || "").toLowerCase().includes(q) ||
+        (d.jumlah !== undefined && d.jumlah !== null ? String(d.jumlah) : "").includes(q) ||
+        (d.saldo_akhir !== undefined && d.saldo_akhir !== null ? String(d.saldo_akhir) : "").includes(q)
       );
     });
     list.sort((a, b) => {
@@ -1238,12 +1368,20 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
   const filteredInvestments = useMemo(() => {
     let list = investmentList.filter((i) => {
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
       const nameStr = (i.nama_investor || i.nama || (i as any).Nama || "").toLowerCase();
+      const ketStr = (i.keterangan || "").toLowerCase();
+      const tenorStr = (i.tenor || (i.tenor_bulan ? `${i.tenor_bulan} Bln` : "")).toLowerCase();
+      const nisbahStr = (i.nisbah || (i.nisbah_persen ? `${i.nisbah_persen}%` : "")).toLowerCase();
       return (
         nameStr.includes(q) ||
+        ketStr.includes(q) ||
+        tenorStr.includes(q) ||
+        nisbahStr.includes(q) ||
         (i.tanggal || "").toLowerCase().includes(q) ||
-        (i.status || "").toLowerCase().includes(q)
+        (i.status || "").toLowerCase().includes(q) ||
+        (i.nominal !== undefined && i.nominal !== null ? String(i.nominal) : "").includes(q)
       );
     });
     list.sort((a, b) => {
@@ -1253,6 +1391,47 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     });
     return list;
   }, [investmentList, searchQuery, sortOrder]);
+
+  const filteredCustomers = useMemo(() => {
+    let list = customerList.filter((c) => {
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
+      const nameStr = (c.nama || "").toLowerCase();
+      const idStr = (c.id_pelanggan || c.id || "").toLowerCase();
+      const telpStr = (c.telepon || "").toLowerCase();
+      const alamatStr = (c.alamat || "").toLowerCase();
+      const levelStr = (c.level || "").toLowerCase();
+      return (
+        nameStr.includes(q) ||
+        idStr.includes(q) ||
+        telpStr.includes(q) ||
+        alamatStr.includes(q) ||
+        levelStr.includes(q)
+      );
+    });
+    return list;
+  }, [customerList, searchQuery]);
+
+  const filteredProducts = useMemo(() => {
+    let list = productList.filter((p) => {
+      const q = searchQuery.toLowerCase().trim();
+      if (!q) return true;
+      const nameStr = (p.nama || "").toLowerCase();
+      const idStr = (p.id_barang || p.id || "").toLowerCase();
+      const katStr = (p.kategori || "").toLowerCase();
+      const satuanStr = (p.satuan || "").toLowerCase();
+      return (
+        nameStr.includes(q) ||
+        idStr.includes(q) ||
+        katStr.includes(q) ||
+        satuanStr.includes(q) ||
+        (p.stok !== undefined ? String(p.stok) : "").includes(q) ||
+        (p.harga_modal !== undefined ? String(p.harga_modal) : "").includes(q) ||
+        (p.harga_jual !== undefined ? String(p.harga_jual) : "").includes(q)
+      );
+    });
+    return list;
+  }, [productList, searchQuery]);
 
   // Paginated slices for progressive/light initial rendering across all categories
   const displayedSavings = useMemo(() => {
@@ -1266,6 +1445,14 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const displayedInvestments = useMemo(() => {
     return filteredInvestments.slice(0, displayCount);
   }, [filteredInvestments, displayCount]);
+
+  const displayedCustomers = useMemo(() => {
+    return filteredCustomers.slice(0, displayCount);
+  }, [filteredCustomers, displayCount]);
+
+  const displayedProducts = useMemo(() => {
+    return filteredProducts.slice(0, displayCount);
+  }, [filteredProducts, displayCount]);
 
   // Reset pagination count whenever category, search, or filters change
   useEffect(() => {
@@ -1297,7 +1484,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Header Banner */}
+      {/* Header Banner with Integrated Category Dropdown Title */}
       <div className="bg-gradient-to-r from-[#005E6A] via-[#00707e] to-[#004e58] rounded-none p-6 md:p-8 text-white shadow-xl shadow-[#005E6A]/10 relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 skew-x-12 pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -1306,58 +1493,332 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
               <Database className="w-3.5 h-3.5" />
               <span>Admin Database Management</span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
-              Database Penjualan
-            </h1>
+
+            {/* Title with Integrated Dropdown */}
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white">
+                Database
+              </h1>
+              <div className="relative inline-block">
+                <select
+                  value={activeCategory}
+                  onChange={(e) => setActiveCategory(e.target.value as CategoryType)}
+                  className="appearance-none bg-white/15 hover:bg-white/25 text-amber-300 font-black uppercase tracking-tight text-xl md:text-2xl pl-3 pr-9 py-1 border-2 border-amber-300/60 focus:outline-none focus:border-amber-300 cursor-pointer transition-all rounded-none shadow-md"
+                >
+                  <option value="penjualan" className="bg-slate-900 text-white">Penjualan ({salesTransactions.length})</option>
+                  <option value="tabungan" className="bg-slate-900 text-white">Tabungan ({savingsList.length})</option>
+                  <option value="investasi" className="bg-slate-900 text-white">Investasi ({investmentList.length})</option>
+                  <option value="hutang" className="bg-slate-900 text-white">Hutang ({debtList.length})</option>
+                  <option value="pelanggan" className="bg-slate-900 text-white">Pelanggan ({customerList.length})</option>
+                  <option value="stok" className="bg-slate-900 text-white">Stok Barang ({productList.length})</option>
+                </select>
+                <ChevronDown className="w-5 h-5 absolute right-2.5 top-1/2 -translate-y-1/2 text-amber-300 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Dynamic Category Description */}
             <p className="text-xs font-medium text-teal-100/80 max-w-xl">
-              Pusat kelola seluruh riwayat data transaksi penjualan warung. Cari, ubah, atau hapus transaksi secara terpusat dengan sinkronisasi otomatis ke database Supabase.
+              {activeCategory === "penjualan" && "Pusat kelola seluruh riwayat data transaksi penjualan warung. Cari, ubah, atau hapus transaksi secara terpusat dengan sinkronisasi otomatis ke Supabase."}
+              {activeCategory === "tabungan" && "Pusat kelola data simpanan dan penarikan tabungan nasabah warung secara terpusat."}
+              {activeCategory === "investasi" && "Pusat kelola dana investasi, tenor, dan nisbah bagi hasil investor warung."}
+              {activeCategory === "hutang" && "Pusat kelola pencatatan kasbon hutang dan riwayat pelunasan cicilan pelanggan."}
+              {activeCategory === "pelanggan" && "Pusat kelola seluruh database identitas, poin, level, dan saldo pelanggan warung."}
+              {activeCategory === "stok" && "Pusat kelola katalog produk, sisa stok barang, harga modal, dan harga jual warung."}
             </p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
             <button
               onClick={handleExportCSV}
-              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-none text-xs font-black uppercase tracking-wider flex items-center gap-2 border border-white/10 backdrop-blur-md cursor-pointer"
+              className="px-4 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-none text-xs font-black uppercase tracking-wider flex items-center gap-2 border border-white/20 backdrop-blur-md cursor-pointer text-white shadow-sm"
             >
-              <Download className="w-4 h-4" />
-              <span>Export CSV</span>
+              <Download className="w-4 h-4 text-teal-200" />
+              <span>Export CSV ({activeCategory.toUpperCase()})</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Category Dropdown Selector */}
-      <div className="flex items-center gap-3">
-        <label className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5 shrink-0">
-          <Database className="w-4 h-4 text-[#005E6A] dark:text-teal-300" />
-          <span>Kategori Database:</span>
-        </label>
-        <div className="relative inline-block w-full max-w-xs">
-          <select
-            value={activeCategory}
-            onChange={(e) => setActiveCategory(e.target.value as "penjualan" | "tabungan" | "investasi" | "hutang")}
-            className="w-full appearance-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 pl-4 pr-10 py-2.5 text-xs font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A] transition-all cursor-pointer shadow-sm rounded-none"
-          >
-            <option value="penjualan">Penjualan ({salesTransactions.length})</option>
-            <option value="tabungan">Tabungan ({savingsList.length})</option>
-            <option value="investasi">Investasi ({investmentList.length})</option>
-            <option value="hutang">Hutang ({debtList.length})</option>
-          </select>
-          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-            <ChevronDown className="w-4 h-4 text-[#005E6A] dark:text-teal-300" />
-          </div>
-        </div>
+      {/* Ringkasan Ringkas Per Kategori */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 shadow-2xs">
+        {activeCategory === "penjualan" && (
+          <>
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-200/80 dark:border-slate-700/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Total Transaksi</span>
+              <span className="text-base font-black text-slate-800 dark:text-white mt-1 block">
+                {filteredTransactions.length} <span className="text-xs font-semibold text-slate-500">Transaksi</span>
+              </span>
+            </div>
+            <div className="bg-teal-50/70 dark:bg-teal-950/40 p-3 border border-teal-200/80 dark:border-teal-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 block">Total Pemasukan</span>
+              <span className="text-base font-black text-[#005E6A] dark:text-teal-300 mt-1 block tabular-nums">
+                Rp {filteredTransactions.reduce((acc, curr) => acc + (curr.Pemasukan || 0), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+            <div className="bg-amber-50/70 dark:bg-amber-950/40 p-3 border border-amber-200/80 dark:border-amber-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 block">Total Modal</span>
+              <span className="text-base font-black text-amber-700 dark:text-amber-300 mt-1 block tabular-nums">
+                Rp {filteredTransactions.reduce((acc, curr) => acc + (curr.HargaModal || 0), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+            <div className="bg-emerald-50/70 dark:bg-emerald-950/40 p-3 border border-emerald-200/80 dark:border-emerald-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">Estimasi Keuntungan</span>
+              <span className="text-base font-black text-emerald-700 dark:text-emerald-300 mt-1 block tabular-nums">
+                Rp {(
+                  filteredTransactions.reduce((acc, curr) => acc + (curr.Pemasukan || 0), 0) -
+                  filteredTransactions.reduce((acc, curr) => acc + (curr.HargaModal || 0), 0)
+                ).toLocaleString("id-ID")}
+              </span>
+            </div>
+          </>
+        )}
+
+        {activeCategory === "tabungan" && (
+          <>
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-200/80 dark:border-slate-700/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Total Catatan</span>
+              <span className="text-base font-black text-slate-800 dark:text-white mt-1 block">
+                {filteredSavings.length} <span className="text-xs font-semibold text-slate-500">Record</span>
+              </span>
+            </div>
+            <div className="bg-emerald-50/70 dark:bg-emerald-950/40 p-3 border border-emerald-200/80 dark:border-emerald-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">Total Setoran</span>
+              <span className="text-base font-black text-emerald-700 dark:text-emerald-300 mt-1 block tabular-nums">
+                Rp {filteredSavings.filter(s => s.tipe === "SETOR").reduce((acc, s) => acc + (s.nominal || 0), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+            <div className="bg-amber-50/70 dark:bg-amber-950/40 p-3 border border-amber-200/80 dark:border-amber-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 block">Total Penarikan</span>
+              <span className="text-base font-black text-amber-700 dark:text-amber-300 mt-1 block tabular-nums">
+                Rp {filteredSavings.filter(s => s.tipe === "TARIK").reduce((acc, s) => acc + (s.nominal || 0), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+            <div className="bg-teal-50/70 dark:bg-teal-950/40 p-3 border border-teal-200/80 dark:border-teal-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 block">Total Saldo Netto</span>
+              <span className="text-base font-black text-[#005E6A] dark:text-teal-300 mt-1 block tabular-nums">
+                Rp {(
+                  filteredSavings.filter(s => s.tipe === "SETOR").reduce((acc, s) => acc + (s.nominal || 0), 0) -
+                  filteredSavings.filter(s => s.tipe === "TARIK").reduce((acc, s) => acc + (s.nominal || 0), 0)
+                ).toLocaleString("id-ID")}
+              </span>
+            </div>
+          </>
+        )}
+
+        {activeCategory === "hutang" && (
+          <>
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-200/80 dark:border-slate-700/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Total Catatan</span>
+              <span className="text-base font-black text-slate-800 dark:text-white mt-1 block">
+                {filteredDebts.length} <span className="text-xs font-semibold text-slate-500">Record</span>
+              </span>
+            </div>
+            <div className="bg-rose-50/70 dark:bg-rose-950/40 p-3 border border-rose-200/80 dark:border-rose-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-300 block">Total Kasbon Baru</span>
+              <span className="text-base font-black text-rose-700 dark:text-rose-300 mt-1 block tabular-nums">
+                Rp {filteredDebts.filter(d => d.tipe === "KASBON").reduce((acc, d) => acc + (d.jumlah || 0), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+            <div className="bg-emerald-50/70 dark:bg-emerald-950/40 p-3 border border-emerald-200/80 dark:border-emerald-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">Total Pelunasan</span>
+              <span className="text-base font-black text-emerald-700 dark:text-emerald-300 mt-1 block tabular-nums">
+                Rp {filteredDebts.filter(d => d.tipe !== "KASBON").reduce((acc, d) => acc + (d.jumlah || 0), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+            <div className="bg-amber-50/70 dark:bg-amber-950/40 p-3 border border-amber-200/80 dark:border-amber-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 block">Sisa Saldo Piutang</span>
+              <span className="text-base font-black text-amber-700 dark:text-amber-300 mt-1 block tabular-nums">
+                Rp {(
+                  filteredDebts.filter(d => d.tipe === "KASBON").reduce((acc, d) => acc + (d.jumlah || 0), 0) -
+                  filteredDebts.filter(d => d.tipe !== "KASBON").reduce((acc, d) => acc + (d.jumlah || 0), 0)
+                ).toLocaleString("id-ID")}
+              </span>
+            </div>
+          </>
+        )}
+
+        {activeCategory === "investasi" && (
+          <>
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-200/80 dark:border-slate-700/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Total Investor</span>
+              <span className="text-base font-black text-slate-800 dark:text-white mt-1 block">
+                {filteredInvestments.length} <span className="text-xs font-semibold text-slate-500">Record</span>
+              </span>
+            </div>
+            <div className="bg-[#005E6A]/10 p-3 border border-[#005E6A]/20">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 block">Total Modal Investasi</span>
+              <span className="text-base font-black text-[#005E6A] dark:text-teal-300 mt-1 block tabular-nums">
+                Rp {filteredInvestments.reduce((acc, i) => acc + (i.nominal || 0), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+            <div className="bg-indigo-50/70 dark:bg-indigo-950/40 p-3 border border-indigo-200/80 dark:border-indigo-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block">Investasi Berjalan</span>
+              <span className="text-base font-black text-indigo-700 dark:text-indigo-300 mt-1 block">
+                {filteredInvestments.filter(i => (i.status || "BERJALAN").toUpperCase() === "BERJALAN" || (i.status || "").toUpperCase() === "AKTIF").length} <span className="text-xs font-semibold">Aktif</span>
+              </span>
+            </div>
+            <div className="bg-emerald-50/70 dark:bg-emerald-950/40 p-3 border border-emerald-200/80 dark:border-emerald-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">Investasi Selesai</span>
+              <span className="text-base font-black text-emerald-700 dark:text-emerald-300 mt-1 block">
+                {filteredInvestments.filter(i => (i.status || "").toUpperCase() === "SELESAI").length} <span className="text-xs font-semibold">Selesai</span>
+              </span>
+            </div>
+          </>
+        )}
+
+        {activeCategory === "pelanggan" && (
+          <>
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-200/80 dark:border-slate-700/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Total Pelanggan</span>
+              <span className="text-base font-black text-slate-800 dark:text-white mt-1 block">
+                {filteredCustomers.length} <span className="text-xs font-semibold text-slate-500">Orang</span>
+              </span>
+            </div>
+            <div className="bg-teal-50/70 dark:bg-teal-950/40 p-3 border border-teal-200/80 dark:border-teal-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 block">Total Tabungan</span>
+              <span className="text-base font-black text-[#005E6A] dark:text-teal-300 mt-1 block tabular-nums">
+                Rp {filteredCustomers.reduce((acc, c) => acc + (c.tabungan || 0), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+            <div className="bg-rose-50/70 dark:bg-rose-950/40 p-3 border border-rose-200/80 dark:border-rose-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-300 block">Total Hutang</span>
+              <span className="text-base font-black text-rose-700 dark:text-rose-300 mt-1 block tabular-nums">
+                Rp {filteredCustomers.reduce((acc, c) => acc + (c.hutang || 0), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+            <div className="bg-amber-50/70 dark:bg-amber-950/40 p-3 border border-amber-200/80 dark:border-amber-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 block">Total Poin Terkumpul</span>
+              <span className="text-base font-black text-amber-700 dark:text-amber-300 mt-1 block tabular-nums">
+                {filteredCustomers.reduce((acc, c) => acc + (c.point || 0), 0).toLocaleString("id-ID")} Poin
+              </span>
+            </div>
+          </>
+        )}
+
+        {activeCategory === "stok" && (
+          <>
+            <div className="bg-slate-50 dark:bg-slate-800/60 p-3 border border-slate-200/80 dark:border-slate-700/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Total Produk</span>
+              <span className="text-base font-black text-slate-800 dark:text-white mt-1 block">
+                {filteredProducts.length} <span className="text-xs font-semibold text-slate-500">Item</span>
+              </span>
+            </div>
+            <div className="bg-teal-50/70 dark:bg-teal-950/40 p-3 border border-teal-200/80 dark:border-teal-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 block">Total Fisik Stok</span>
+              <span className="text-base font-black text-[#005E6A] dark:text-teal-300 mt-1 block tabular-nums">
+                {filteredProducts.reduce((acc, p) => acc + (p.stok || 0), 0).toLocaleString("id-ID")} Pcs
+              </span>
+            </div>
+            <div className="bg-amber-50/70 dark:bg-amber-950/40 p-3 border border-amber-200/80 dark:border-amber-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 block">Total Asset Modal</span>
+              <span className="text-base font-black text-amber-700 dark:text-amber-300 mt-1 block tabular-nums">
+                Rp {filteredProducts.reduce((acc, p) => acc + ((p.stok || 0) * (p.harga_modal || 0)), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+            <div className="bg-emerald-50/70 dark:bg-emerald-950/40 p-3 border border-emerald-200/80 dark:border-emerald-800/80">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">Total Omset Potensial</span>
+              <span className="text-base font-black text-emerald-700 dark:text-emerald-300 mt-1 block tabular-nums">
+                Rp {filteredProducts.reduce((acc, p) => acc + ((p.stok || 0) * (p.harga_jual || 0)), 0).toLocaleString("id-ID")}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Search & Filter Toolbar */}
-      <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-none border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          {/* Search Input (Shortened) */}
-          <div className="relative w-full sm:w-64 md:w-72 shrink-0">
+      {/* Daily Server Pagination Bar for Penjualan */}
+      {activeCategory === "penjualan" && (
+        <div className="bg-slate-50 dark:bg-slate-800/80 px-4 py-2 flex items-center justify-between gap-3 text-xs">
+          {/* Simple Navigation: Hari Sebelumnya | Active Date Selector | Hari Selanjutnya */}
+          <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar py-0.5">
+            <button
+              onClick={() => {
+                let curIdx = availableSalesDates.indexOf(filterTanggal);
+                if (curIdx === -1) {
+                  setFilterTanggal(availableSalesDates[0] || "hari_ini");
+                } else if (curIdx < availableSalesDates.length - 1) {
+                  setFilterTanggal(availableSalesDates[curIdx + 1]);
+                }
+              }}
+              disabled={
+                availableSalesDates.length === 0 ||
+                (filterTanggal !== "hari_ini" &&
+                  filterTanggal !== "semua" &&
+                  availableSalesDates.indexOf(filterTanggal) >= availableSalesDates.length - 1)
+              }
+              className="px-3 py-1 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5 transition-all shadow-2xs shrink-0"
+            >
+              <ChevronLeft className="w-4 h-4 text-[#005E6A] dark:text-teal-400" />
+              <span>Hari Sebelumnya</span>
+            </button>
+
+            {/* Active Date Selector / Display */}
+            <div className="relative shrink-0">
+              <select
+                value={filterTanggal}
+                onChange={(e) => setFilterTanggal(e.target.value)}
+                className="pl-7 pr-3 py-1 text-xs font-black uppercase text-[#005E6A] dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 border border-teal-200 dark:border-teal-800 rounded-none focus:outline-none cursor-pointer appearance-none"
+              >
+                <option value="hari_ini">Hari Ini</option>
+                <option value="semua">Semua Hari</option>
+                <option value="bulan_ini">Bulan Ini</option>
+                {availableSalesDates.map((d) => (
+                  <option key={`opt_date_${d}`} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+              <Calendar className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            <button
+              onClick={() => {
+                let curIdx = availableSalesDates.indexOf(filterTanggal);
+                if (curIdx > 0) {
+                  setFilterTanggal(availableSalesDates[curIdx - 1]);
+                } else {
+                  setFilterTanggal("hari_ini");
+                }
+              }}
+              disabled={
+                filterTanggal === "hari_ini" ||
+                availableSalesDates.length === 0 ||
+                (filterTanggal !== "semua" && availableSalesDates.indexOf(filterTanggal) <= 0)
+              }
+              className="px-3 py-1 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed flex items-center gap-1.5 transition-all shadow-2xs shrink-0"
+            >
+              <span>Hari Selanjutnya</span>
+              <ChevronRight className="w-4 h-4 text-[#005E6A] dark:text-teal-400" />
+            </button>
+          </div>
+
+          {/* Day Total Summary */}
+          <div className="hidden sm:flex items-center gap-2 text-xs font-black uppercase text-[#005E6A] dark:text-teal-300 shrink-0">
+            <span className="bg-teal-50 dark:bg-teal-950/80 px-2.5 py-1 border border-teal-200 dark:border-teal-800">
+              {filteredTransactions.length} Transaksi
+            </span>
+            <span className="bg-[#005E6A] text-white px-2.5 py-1">
+              Rp {filteredTransactions.reduce((acc, curr) => acc + (curr.Pemasukan || 0), 0).toLocaleString("id-ID")}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Search Toolbar & Add Buttons - Positioned Directly Above Table Columns */}
+      <div className="bg-white dark:bg-slate-900 p-4 md:p-5 rounded-none border border-t-0 border-slate-200 dark:border-slate-800 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Powerful Search Input */}
+          <div className="relative flex-1 min-w-[260px]">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Cari transaksi..."
+              placeholder={
+                activeCategory === "penjualan" ? "Cari nama, jenis, melalui, status, id transaksi..." :
+                activeCategory === "tabungan" ? "Cari nama nasabah, tipe, id, keterangan..." :
+                activeCategory === "hutang" ? "Cari nama pelanggan, tipe, id, keterangan..." :
+                activeCategory === "investasi" ? "Cari nama investor, tenor, status, nisbah..." :
+                activeCategory === "pelanggan" ? "Cari nama, id pelanggan, telepon, alamat, level..." :
+                "Cari nama barang, id barang, kategori, satuan, harga..."
+              }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-8 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-semibold focus:outline-none focus:border-[#005E6A] transition-colors"
@@ -1365,163 +1826,15 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             )}
           </div>
 
-          {/* Action & Filter Buttons Cluster */}
+          {/* Category Add Buttons */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Filter Icon Button */}
-            <div className="relative">
-              <button
-                onClick={() => setShowFilterPopover(!showFilterPopover)}
-                title="Filter Data"
-                className={`p-2.5 rounded-none border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  filterJenis !== "semua" || filterMetode !== "semua" || filterTanggal !== "semua"
-                    ? "bg-[#005E6A] text-white border-[#005E6A]"
-                    : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100"
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline uppercase text-[10px] font-black">Filter</span>
-                {(filterJenis !== "semua" || filterMetode !== "semua" || filterTanggal !== "semua") && (
-                  <span className="w-2 h-2 rounded-full bg-amber-400" />
-                )}
-              </button>
-
-              {/* Filter Modal Overlay & Dialog (Tepat Ditengah Layar) */}
-              <AnimatePresence>
-                {showFilterPopover && (
-                  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => setShowFilterPopover(false)}
-                      className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
-                    />
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                      className="relative w-full max-w-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-none shadow-2xl p-6 space-y-4 z-10"
-                    >
-                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                        <span className="text-xs font-black uppercase text-slate-800 dark:text-white tracking-wider flex items-center gap-1.5">
-                          <SlidersHorizontal className="w-4 h-4 text-[#005E6A] dark:text-teal-300" />
-                          Filter Transaksi
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setFilterJenis("semua");
-                              setFilterMetode("semua");
-                              setFilterTanggal("hari_ini");
-                            }}
-                            className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
-                          >
-                            Reset
-                          </button>
-                          <button
-                            onClick={() => setShowFilterPopover(false)}
-                            className="p-1 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Filter Jenis */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                          Jenis Transaksi
-                        </label>
-                        <select
-                          value={filterJenis}
-                          onChange={(e) => setFilterJenis(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-none text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#005E6A] cursor-pointer"
-                        >
-                          <option value="semua">Semua Jenis</option>
-                          <option value="fisik">Produk Fisik / Belanja</option>
-                          <option value="virtual">Transaksi Virtual</option>
-                        </select>
-                      </div>
-
-                      {/* Filter Metode */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                          Metode Pembayaran
-                        </label>
-                        <select
-                          value={filterMetode}
-                          onChange={(e) => setFilterMetode(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-none text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#005E6A] cursor-pointer"
-                        >
-                          <option value="semua">Semua Metode</option>
-                          <option value="TUNAI">TUNAI</option>
-                          <option value="QRIS">QRIS</option>
-                          <option value="KASBON">KASBON</option>
-                          <option value="TABUNGAN">TABUNGAN</option>
-                        </select>
-                      </div>
-
-                      {/* Filter Tanggal */}
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                          Rentang Tanggal
-                        </label>
-                        <select
-                          value={filterTanggal.includes("-") && filterTanggal.length === 10 ? "custom" : filterTanggal}
-                          onChange={(e) => {
-                            if (e.target.value !== "custom") {
-                              setFilterTanggal(e.target.value);
-                            }
-                          }}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-none text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#005E6A] cursor-pointer mb-2"
-                        >
-                          <option value="hari_ini">Hari Ini (Default)</option>
-                          <option value="bulan_ini">Bulan Ini</option>
-                          <option value="semua">Semua Tanggal</option>
-                          {filterTanggal.includes("-") && filterTanggal.length === 10 && (
-                            <option value="custom">Tanggal Khusus: {filterTanggal}</option>
-                          )}
-                        </select>
-                        <input
-                          type="date"
-                          value={filterTanggal.includes("-") && filterTanggal.length === 10 ? filterTanggal : ""}
-                          onChange={(e) => setFilterTanggal(e.target.value || "hari_ini")}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 rounded-none text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#005E6A] cursor-pointer"
-                        />
-                      </div>
-
-                      <button
-                        onClick={() => setShowFilterPopover(false)}
-                        className="w-full py-2.5 bg-[#005E6A] text-white text-xs font-black uppercase tracking-wider rounded-none cursor-pointer hover:bg-[#004e58] shadow-md transition-colors"
-                      >
-                        Terapkan Filter
-                      </button>
-                    </motion.div>
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Sort Order Toggle Icon */}
-            <button
-              onClick={() => setSortOrder(prev => prev === "desc" ? "asc" : "desc")}
-              title={sortOrder === "desc" ? "Urutan: Terbaru ke Lama" : "Urutan: Lama ke Terbaru"}
-              className="p-2.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition-all rounded-none text-xs font-bold flex items-center gap-1 cursor-pointer shrink-0"
-            >
-              <ArrowUpDown className="w-4 h-4 text-[#005E6A] dark:text-teal-300" />
-              <span className="hidden sm:inline uppercase text-[10px] font-black">
-                {sortOrder === "desc" ? "Terbaru" : "Terlama"}
-              </span>
-            </button>
-
-            {/* Category Add Buttons */}
             {activeCategory === "penjualan" && (
               <button
                 onClick={handleOpenAdd}
@@ -1569,19 +1882,22 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 backdrop-blur-md">
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
-                  Nama Pelanggan
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                  Nama
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
                   Jenis
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                  Melalui
+                </th>
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
                   Pemasukan
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center whitespace-nowrap">
                   Status
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center whitespace-nowrap">
                   Aksi
                 </th>
               </tr>
@@ -1589,114 +1905,98 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
               {filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold">
+                  <td colSpan={6} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold whitespace-nowrap">
                     <Database className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p>Tidak ada data transaksi yang sesuai dengan kriteria pencarian.</p>
                   </td>
                 </tr>
               ) : (
-                (() => {
-                  let lastDate = "";
-                  return displayedTransactions.map((t, idx) => {
-                    const txId = t.id_transaksi || t.id;
-                    const statusUpper = (t.Status || "").toUpperCase();
-                    const isSuccess = statusUpper === "SELESAI" || statusUpper === "SUKSES";
-                    const isProses = statusUpper === "DI PROSES" || statusUpper === "DIPROSES" || statusUpper === "PROSES";
-                    const isBelum = statusUpper === "BELUM DIAMBIL" || statusUpper === "BELUM";
+                displayedTransactions.map((t, idx) => {
+                  const txId = t.id_transaksi || t.id;
+                  const statusUpper = (t.Status || "").toUpperCase();
+                  const isSuccess = statusUpper === "SELESAI" || statusUpper === "SUKSES";
+                  const isProses = statusUpper === "DI PROSES" || statusUpper === "DIPROSES" || statusUpper === "PROSES";
+                  const isBelum = statusUpper === "BELUM DIAMBIL" || statusUpper === "BELUM";
 
-                    const currentDate = t.Tanggal || "Tanpa Tanggal";
-                    const isNewDateGroup = currentDate !== lastDate;
-                    if (isNewDateGroup) {
-                      lastDate = currentDate;
-                    }
+                  return (
+                    <tr
+                      key={`db_trx_row_${t.id || txId}_${idx}`}
+                      onClick={() => setDetailTx(t)}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                    >
+                      {/* 1. Nama */}
+                      <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                        <span>{t.Nama || "Pelanggan Umum"}</span>
+                      </td>
 
-                    return (
-                      <React.Fragment key={`db_trx_frag_${t.id || txId}_${idx}`}>
-                        {/* Sekat Pembatas Tanggal */}
-                        {isNewDateGroup && (
-                          <tr className="bg-slate-100/90 dark:bg-slate-800/90 border-y border-slate-200 dark:border-slate-700 font-bold sticky top-[41px] z-10 backdrop-blur-xs">
-                            <td colSpan={5} className="py-2 px-4 text-xs font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300">
-                              <div className="flex items-center gap-2">
-                                <Calendar className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-400" />
-                                <span>Tanggal: {currentDate}</span>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
+                      {/* 2. Jenis */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className={`inline-block px-2.5 py-1 rounded-none text-[10px] font-black uppercase tracking-wider ${
+                          (t.Jenis || "").toLowerCase().includes("fisik") || (t.Jenis || "").toLowerCase().includes("belanja")
+                            ? "bg-teal-50 text-[#005E6A] dark:bg-teal-300 border border-teal-200 dark:border-teal-800"
+                            : "bg-indigo-50 text-indigo-700 dark:bg-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                        }`}>
+                          {t.Jenis || "Belanja"}
+                        </span>
+                      </td>
 
-                        {/* Baris Transaksi (5 Kolom) */}
-                        <tr
-                          onClick={() => setDetailTx(t)}
-                          className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
-                        >
-                          {/* 1. Nama */}
-                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
-                            <span>{t.Nama || "Pelanggan Umum"}</span>
-                          </td>
+                      {/* 3. Melalui */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="inline-block px-2.5 py-1 rounded-none text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                          {t.Melalui || "-"}
+                        </span>
+                      </td>
 
-                          {/* 2. Jenis */}
-                          <td className="py-3 px-4">
-                            <span className={`inline-block px-2.5 py-1 rounded-none text-[10px] font-black uppercase tracking-wider ${
-                              (t.Jenis || "").toLowerCase().includes("fisik") || (t.Jenis || "").toLowerCase().includes("belanja")
-                                ? "bg-teal-50 text-[#005E6A] dark:bg-teal-300 border border-teal-200 dark:border-teal-800"
-                                : "bg-indigo-50 text-indigo-700 dark:bg-indigo-300 border border-indigo-200 dark:border-indigo-800"
-                            }`}>
-                              {t.Melalui && t.Melalui !== "-" ? `${t.Jenis || "Belanja"} melalui ${t.Melalui}` : (t.Jenis || "Belanja")}
-                            </span>
-                          </td>
+                      {/* 4. Pemasukan */}
+                      <td className="py-3 px-4 text-right font-black tabular-nums text-slate-900 dark:text-white whitespace-nowrap">
+                        Rp {(t.Pemasukan || 0).toLocaleString("id-ID")}
+                      </td>
 
-                          {/* 3. Pemasukan */}
-                          <td className="py-3 px-4 text-right font-black tabular-nums text-slate-900 dark:text-white whitespace-nowrap">
-                            Rp {(t.Pemasukan || 0).toLocaleString("id-ID")}
-                          </td>
+                      {/* 5. Status */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-none text-[9px] font-bold uppercase ${
+                          isSuccess
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                            : isProses
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                            : isBelum
+                            ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
+                            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                        }`}>
+                          {isSuccess && <Check className="w-3 h-3" />}
+                          {t.Status || "SELESAI"}
+                        </span>
+                      </td>
 
-                          {/* 4. Status */}
-                          <td className="py-3 px-4 text-center whitespace-nowrap">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-none text-[9px] font-bold uppercase ${
-                              isSuccess
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                                : isProses
-                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                                : isBelum
-                                ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
-                                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                            }`}>
-                              {isSuccess && <Check className="w-3 h-3" />}
-                              {t.Status || "SELESAI"}
-                            </span>
-                          </td>
-
-                          {/* 5. Aksi */}
-                          <td className="py-3 px-4 text-center whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setDetailTx(t); }}
-                                title="Lihat Detail Transaksi"
-                                className="p-1.5 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleOpenEdit(t); }}
-                                title="Edit Transaksi"
-                                className="p-1.5 rounded-none bg-teal-50 hover:bg-teal-100 text-[#005E6A] dark:bg-teal-950/60 dark:hover:bg-teal-900 dark:text-teal-300 transition-colors cursor-pointer"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleOpenDelete(t); }}
-                                title="Hapus Transaksi"
-                                className="p-1.5 rounded-none bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:hover:bg-rose-900 dark:text-rose-300 transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      </React.Fragment>
-                    );
-                  });
-                })()
+                      {/* 6. Aksi */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDetailTx(t); }}
+                            title="Lihat Detail Transaksi"
+                            className="p-1.5 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleOpenEdit(t); }}
+                            title="Edit Transaksi"
+                            className="p-1.5 rounded-none bg-teal-50 hover:bg-teal-100 text-[#005E6A] dark:bg-teal-950/60 dark:hover:bg-teal-900 dark:text-teal-300 transition-colors cursor-pointer"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleOpenDelete(t); }}
+                            title="Hapus Transaksi"
+                            className="p-1.5 rounded-none bg-rose-50 hover:bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:hover:bg-rose-900 dark:text-rose-300 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -1707,19 +2007,19 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 backdrop-blur-md">
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
                   Nama Nasabah
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
                   Tipe
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
                   Nominal
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
                   Saldo Akhir
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center whitespace-nowrap">
                   Aksi
                 </th>
               </tr>
@@ -1727,7 +2027,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
               {filteredSavings.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold">
+                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold whitespace-nowrap">
                     <Wallet className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p>Tidak ada data tabungan yang sesuai.</p>
                   </td>
@@ -1744,7 +2044,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                       <React.Fragment key={`sav_frag_${s.id}_${idx}`}>
                         {isNewDateGroup && (
                           <tr className="bg-slate-100/90 dark:bg-slate-800/90 border-y border-slate-200 dark:border-slate-700 font-bold sticky top-[41px] z-10 backdrop-blur-xs">
-                            <td colSpan={5} className="py-2 px-4 text-xs font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300">
+                            <td colSpan={5} className="py-2 px-4 text-xs font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <Calendar className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-400" />
                                 <span>Tanggal: {currentDate}</span>
@@ -1756,23 +2056,23 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                           onClick={() => setDetailSaving(s)}
                           className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                         >
-                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                             {s.nama_nasabah || s.nama || (s as any).Nama || "-"}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 whitespace-nowrap">
                             <span className={`inline-block px-2.5 py-1 rounded-none text-[10px] font-black uppercase ${
                               s.tipe === "SETOR" ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800" : "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800"
                             }`}>
                               {s.tipe || "SETOR"}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right font-black tabular-nums text-slate-900 dark:text-white">
+                          <td className="py-3 px-4 text-right font-black tabular-nums text-slate-900 dark:text-white whitespace-nowrap">
                             Rp {(s.nominal || 0).toLocaleString("id-ID")}
                           </td>
-                          <td className="py-3 px-4 text-right font-bold tabular-nums text-[#005E6A] dark:text-teal-300">
+                          <td className="py-3 px-4 text-right font-bold tabular-nums text-[#005E6A] dark:text-teal-300 whitespace-nowrap">
                             Rp {(s.saldo_akhir || 0).toLocaleString("id-ID")}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={(e) => { e.stopPropagation(); setDetailSaving(s); }}
@@ -1812,19 +2112,19 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 backdrop-blur-md">
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
-                  Nama Pelanggan
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                  Nama
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
                   Tipe
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
                   Jumlah
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
                   Saldo Akhir
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center whitespace-nowrap">
                   Aksi
                 </th>
               </tr>
@@ -1832,7 +2132,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
               {filteredDebts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold">
+                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold whitespace-nowrap">
                     <Coins className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p>Tidak ada data hutang / kasbon yang sesuai.</p>
                   </td>
@@ -1849,7 +2149,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                       <React.Fragment key={`debt_frag_${d.id}_${idx}`}>
                         {isNewDateGroup && (
                           <tr className="bg-slate-100/90 dark:bg-slate-800/90 border-y border-slate-200 dark:border-slate-700 font-bold sticky top-[41px] z-10 backdrop-blur-xs">
-                            <td colSpan={5} className="py-2 px-4 text-xs font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300">
+                            <td colSpan={5} className="py-2 px-4 text-xs font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <Calendar className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-400" />
                                 <span>Tanggal: {currentDate}</span>
@@ -1861,23 +2161,23 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                           onClick={() => setDetailDebt(d)}
                           className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                         >
-                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                             {d.nama_pelanggan || d.nama || (d as any).Nama || "-"}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 whitespace-nowrap">
                             <span className={`inline-block px-2.5 py-1 rounded-none text-[10px] font-black uppercase ${
                               d.tipe === "KASBON" ? "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800" : "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
                             }`}>
                               {d.tipe || "KASBON"}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right font-black tabular-nums text-slate-900 dark:text-white">
+                          <td className="py-3 px-4 text-right font-black tabular-nums text-slate-900 dark:text-white whitespace-nowrap">
                             Rp {(d.jumlah || 0).toLocaleString("id-ID")}
                           </td>
-                          <td className="py-3 px-4 text-right font-bold tabular-nums text-rose-600 dark:text-rose-400">
+                          <td className="py-3 px-4 text-right font-bold tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">
                             Rp {(d.saldo_akhir || 0).toLocaleString("id-ID")}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={(e) => { e.stopPropagation(); setDetailDebt(d); }}
@@ -1917,19 +2217,19 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 backdrop-blur-md">
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
                   Nama Investor
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
                   Tenor & Nisbah
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
                   Nominal
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center whitespace-nowrap">
                   Status
                 </th>
-                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center whitespace-nowrap">
                   Aksi
                 </th>
               </tr>
@@ -1937,7 +2237,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
               {filteredInvestments.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold">
+                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold whitespace-nowrap">
                     <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p>Tidak ada data investasi yang sesuai.</p>
                   </td>
@@ -1954,7 +2254,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                       <React.Fragment key={`inv_frag_${inv.id}_${idx}`}>
                         {isNewDateGroup && (
                           <tr className="bg-slate-100/90 dark:bg-slate-800/90 border-y border-slate-200 dark:border-slate-700 font-bold sticky top-[41px] z-10 backdrop-blur-xs">
-                            <td colSpan={5} className="py-2 px-4 text-xs font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300">
+                            <td colSpan={5} className="py-2 px-4 text-xs font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <Calendar className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-400" />
                                 <span>Tanggal: {currentDate}</span>
@@ -1966,24 +2266,24 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                           onClick={() => setDetailInvestment(inv)}
                           className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                         >
-                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                          <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
                             {inv.nama_investor || inv.nama || (inv as any).Nama || "-"}
                           </td>
-                          <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium">
+                          <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium whitespace-nowrap">
                             <span>{inv.tenor || (inv.tenor_bulan ? `${inv.tenor_bulan} Bln` : "-")}</span>
                             {inv.nisbah || inv.nisbah_persen ? <span className="text-teal-600 font-bold ml-2">({inv.nisbah || `${inv.nisbah_persen}%`})</span> : null}
                           </td>
-                          <td className="py-3 px-4 text-right font-black tabular-nums text-slate-900 dark:text-white">
+                          <td className="py-3 px-4 text-right font-black tabular-nums text-slate-900 dark:text-white whitespace-nowrap">
                             Rp {(inv.nominal || 0).toLocaleString("id-ID")}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
                             <span className={`inline-block px-2.5 py-0.5 rounded-none text-[9px] font-bold uppercase ${
                               inv.status === "BERJALAN" ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300" : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                             }`}>
                               {inv.status || "BERJALAN"}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={(e) => { e.stopPropagation(); setDetailInvestment(inv); }}
@@ -2017,6 +2317,135 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             </tbody>
           </table>
         )}
+
+        {/* 5. TABLE PELANGGAN */}
+        {activeCategory === "pelanggan" && (
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 backdrop-blur-md">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                  Nama
+                </th>
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                  Kontak & Alamat
+                </th>
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
+                  Saldo Tabungan
+                </th>
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
+                  Saldo Hutang
+                </th>
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center whitespace-nowrap">
+                  Poin & Level
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
+              {filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold whitespace-nowrap">
+                    <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    <p>Tidak ada data pelanggan yang sesuai dengan kriteria pencarian.</p>
+                  </td>
+                </tr>
+              ) : (
+                displayedCustomers.map((c, idx) => (
+                  <tr
+                    key={`cust_row_${c.id || c.id_pelanggan}_${idx}`}
+                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                      <div className="font-black text-slate-900 dark:text-white">{c.nama || "-"}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{c.id_pelanggan || c.id || "-"}</div>
+                    </td>
+                    <td className="py-3 px-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                      <div>{c.telepon || "-"}</div>
+                      <div className="text-[10px] text-slate-400 max-w-xs truncate">{c.alamat || "-"}</div>
+                    </td>
+                    <td className="py-3 px-4 text-right font-black tabular-nums text-teal-600 dark:text-teal-400 whitespace-nowrap">
+                      Rp {(c.tabungan || 0).toLocaleString("id-ID")}
+                    </td>
+                    <td className="py-3 px-4 text-right font-black tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                      Rp {(c.hutang || 0).toLocaleString("id-ID")}
+                    </td>
+                    <td className="py-3 px-4 text-center whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 font-bold text-[10px] uppercase">
+                        <span>{c.point || 0} Poin</span>
+                        <span className="text-slate-300">•</span>
+                        <span>{c.level || "BRONZE"}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
+
+        {/* 6. TABLE STOK BARANG */}
+        {activeCategory === "stok" && (
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 backdrop-blur-md">
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                  ID & Nama Produk
+                </th>
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                  Kategori
+                </th>
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-center whitespace-nowrap">
+                  Sisa Stok
+                </th>
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
+                  Harga Modal
+                </th>
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
+                  Harga Jual
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
+              {filteredProducts.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold whitespace-nowrap">
+                    <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                    <p>Tidak ada data stok produk yang sesuai dengan kriteria pencarian.</p>
+                  </td>
+                </tr>
+              ) : (
+                displayedProducts.map((p, idx) => (
+                  <tr
+                    key={`prod_row_${p.id || p.id_barang}_${idx}`}
+                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                  >
+                    <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                      <div className="font-black text-slate-900 dark:text-white">{p.nama || "-"}</div>
+                      <div className="text-[10px] text-slate-400 font-mono">{p.id_barang || p.id || "-"}</div>
+                    </td>
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <span className="inline-block px-2.5 py-1 text-[10px] font-bold uppercase bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                        {p.kategori || "Umum"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-center whitespace-nowrap">
+                      <span className={`inline-block px-2.5 py-1 text-[10px] font-black uppercase ${
+                        (p.stok || 0) <= 5 ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-teal-50 text-[#005E6A] border border-teal-200"
+                      }`}>
+                        {p.stok || 0} {p.satuan || "pcs"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right font-medium tabular-nums text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      Rp {(p.harga_modal || 0).toLocaleString("id-ID")}
+                    </td>
+                    <td className="py-3 px-4 text-right font-black tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                      Rp {(p.harga_jual || 0).toLocaleString("id-ID")}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Tombol Muat Lebih Banyak / Progressive Chunk Loading */}
@@ -2035,6 +2464,12 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         } else if (activeCategory === "investasi") {
           currentTotal = filteredInvestments.length;
           currentDisplayed = displayedInvestments.length;
+        } else if (activeCategory === "pelanggan") {
+          currentTotal = filteredCustomers.length;
+          currentDisplayed = displayedCustomers.length;
+        } else if (activeCategory === "stok") {
+          currentTotal = filteredProducts.length;
+          currentDisplayed = displayedProducts.length;
         }
 
         if (currentDisplayed < currentTotal) {

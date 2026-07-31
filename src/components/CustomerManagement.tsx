@@ -355,6 +355,26 @@ export default function CustomerManagement({
       .sort((a, b) => a.nama.localeCompare(b.nama));
   }, [customersWithStats, search, filterLevel]);
 
+  const [displayLimit, setDisplayLimit] = useState(12);
+
+  useEffect(() => {
+    setDisplayLimit(12);
+  }, [search, filterLevel]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 400) {
+        setDisplayLimit(prev => (prev < filteredCustomers.length ? prev + 12 : prev));
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [filteredCustomers.length]);
+
+  const displayedCustomers = useMemo(() => {
+    return filteredCustomers.slice(0, displayLimit);
+  }, [filteredCustomers, displayLimit]);
+
   const levelStats = useMemo(() => {
     const counts = customersWithStats.reduce((acc: any, c) => {
       const lvl = c.level || 'Bronze';
@@ -554,67 +574,84 @@ export default function CustomerManagement({
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tidak ada pelanggan ditemukan</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredCustomers.map((customer, i) => (
-                <motion.div 
-                  layout
-                  key={`cust-${customer.id_pelanggan}-${i}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  onClick={() => navigate(`/admin/customers/${encodeURIComponent(customer.nama)}`)}
-                  className="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden flex flex-col justify-between group cursor-pointer hover:border-[#005E6A]/20 transition-all active:scale-[0.98]"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div 
-                        className="w-12 h-12 rounded-2xl bg-slate-50 overflow-hidden border flex-shrink-0 flex items-center justify-center transition-all"
-                        style={{ borderColor: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color }}
-                      >
-                        {customer.foto ? (
-                          <img src={customer.foto} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <User 
-                            className="w-6 h-6 animate-pulse" 
-                            style={{ color: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color }}
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-black text-[#005E6A] uppercase leading-none mb-1 group-hover:text-teal-600 transition-colors">{customer.nama}</h4>
-                        <div className="flex items-center gap-2">
-                          <p className="text-[8px] font-black font-mono text-slate-400 uppercase tracking-[0.2em]">{customer.id_pelanggan}</p>
-                          <span 
-                            className="text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border"
-                            style={{ 
-                              backgroundColor: `${(LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color}1A`,
-                              color: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color,
-                              borderColor: `${(LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color}33`,
-                            }}
-                          >
-                            {customer.level || 'Bronze'}
-                          </span>
+            <div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {displayedCustomers.map((customer, i) => (
+                  <motion.div 
+                    layout
+                    key={`cust-${customer.id_pelanggan}-${i}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                    onClick={() => navigate(`/admin/customers/${encodeURIComponent(customer.nama)}`)}
+                    className="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden flex flex-col justify-between group cursor-pointer hover:border-[#005E6A]/20 transition-all active:scale-[0.98]"
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div 
+                          className="w-12 h-12 rounded-2xl bg-slate-50 overflow-hidden border flex-shrink-0 flex items-center justify-center transition-all"
+                          style={{ borderColor: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color }}
+                        >
+                          {customer.foto ? (
+                            <img src={customer.foto} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <User 
+                              className="w-6 h-6 animate-pulse" 
+                              style={{ color: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color }}
+                            />
+                          )}
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-[#005E6A] uppercase leading-none mb-1 group-hover:text-teal-600 transition-colors">{customer.nama}</h4>
+                          <div className="flex items-center gap-2">
+                            <p className="text-[8px] font-black font-mono text-slate-400 uppercase tracking-[0.2em]">{customer.id_pelanggan}</p>
+                            <span 
+                              className="text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border"
+                              style={{ 
+                                backgroundColor: `${(LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color}1A`,
+                                color: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color,
+                                borderColor: `${(LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color}33`,
+                              }}
+                            >
+                              {customer.level || 'Bronze'}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-1">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); openEditModal(customer as any); }}
-                        className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-teal-50 hover:text-[#005E6A] transition-all"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); confirmDelete(customer.id_pelanggan); }}
-                        className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-100 hover:text-red-600 transition-all"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); openEditModal(customer as any); }}
+                          className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-teal-50 hover:text-[#005E6A] transition-all"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); confirmDelete(customer.id_pelanggan); }}
+                          className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-100 hover:text-red-600 transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))}
+              </div>
+
+              {filteredCustomers.length > displayLimit && (
+                <div className="mt-8 text-center flex flex-col items-center gap-2 pb-6">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    Menampilkan {displayedCustomers.length} dari {filteredCustomers.length} Pelanggan
+                  </p>
+                  <button
+                    onClick={() => setDisplayLimit(prev => prev + 12)}
+                    className="px-6 py-3 bg-[#005E6A] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-teal-700 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Muat ({Math.min(12, filteredCustomers.length - displayLimit)}) Pelanggan Lagi
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
