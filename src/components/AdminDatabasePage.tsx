@@ -418,8 +418,8 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       id_pelanggan: defaultCustId,
       Tanggal: formattedToday,
       Nama: defaultName,
-      Jenis: "TOPUP DANA",
-      Melalui: "DANA",
+      Jenis: "TARIK TUNAI",
+      Melalui: "EDC BNI",
       Metode: "TUNAI",
       Pemasukan: 0,
       hargaAdmin: 3000,
@@ -444,8 +444,8 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       id_pelanggan: addFormData.id_pelanggan || "",
       Tanggal: addFormData.Tanggal || formatInputToDate(new Date().toISOString().slice(0, 10)),
       Nama: addFormData.Nama.trim(),
-      Jenis: addFormData.Jenis || "TOPUP DANA",
-      Melalui: addFormData.Melalui || "DANA",
+      Jenis: addFormData.Jenis || "TARIK TUNAI",
+      Melalui: addFormData.Melalui || "EDC BNI",
       Metode: addFormData.Metode || "TUNAI",
       Pemasukan: Number(addFormData.Pemasukan) || 0,
       HargaModal: Number(addFormData.HargaModal) || 0,
@@ -2873,7 +2873,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                       Jenis Transaksi
                     </label>
                     <select
-                      value={addFormData.Jenis || "TOPUP DANA"}
+                      value={addFormData.Jenis || "TARIK TUNAI"}
                       onChange={(e) => setAddFormData({ ...addFormData, Jenis: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
                     >

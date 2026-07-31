@@ -13745,16 +13745,16 @@ const CatalogPage = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 pt-[72px]">
-      {/* Fixed Search Section - positioned below the global header (top-[80px]) */}
-      <div className="fixed top-[80px] left-1/2 -translate-x-1/2 w-full max-w-lg z-[45] bg-slate-50/95 backdrop-blur-md py-3 px-6">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0 bg-white p-3 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2">
-            <Search className="w-5 h-5 text-slate-300 dark:text-slate-200 shrink-0" />
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 pt-16">
+      {/* Sticky Search Section - positioned directly below the global header (top-16 = 64px) */}
+      <div className="sticky top-16 z-[45] bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-3 px-6 border-b border-slate-200/50 dark:border-slate-800/50">
+        <div className="flex items-center gap-2 max-w-lg mx-auto">
+          <div className="flex-1 min-w-0 bg-white dark:bg-slate-800 p-3 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2">
+            <Search className="w-5 h-5 text-slate-300 dark:text-slate-400 shrink-0" />
             <input 
               type="text" 
               placeholder={t("Cari barang...", "Search items...")} 
-              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] placeholder:text-slate-300 dark:text-slate-200"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm font-bold text-[#005E6A] dark:text-teal-400 placeholder:text-slate-300 dark:placeholder:text-slate-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -13863,8 +13863,8 @@ const CatalogPage = ({
           </div>
         </div>
 
-      {/* Sticky Horizontal Category Selector with custom Icons */}
-      <div className="sticky top-16 z-[40] bg-slate-50/95 backdrop-blur-md py-3 border-b border-slate-200/50 dark:border-slate-700/50 mb-4">
+      {/* Sticky Horizontal Category Selector - Attached directly below Search Header (top-[136px]) */}
+      <div className="sticky top-[136px] z-[40] bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-md py-3 border-b border-slate-200/50 dark:border-slate-800/50 mb-4 shadow-xs">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {categories.map((cat) => {
             const isActive = selectedCategory === cat;
@@ -14224,17 +14224,19 @@ const DebtTransactionModal = ({
   title: string, 
   type: 'TAMBAH' | 'BAYAR',
   customers: Customer[],
-  onSave: (customer: Customer, amount: number, note: string) => void,
+  onSave: (customer: Customer, amount: number, note: string, paymentMethod?: "TUNAI" | "TABUNGAN") => void,
   dataSource?: string,
   initialCustomer?: Customer | null
 }) => {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Customer | null>(initialCustomer || null);
+  const [paymentMethod, setPaymentMethod] = useState<"TUNAI" | "TABUNGAN">("TUNAI");
   
   useEffect(() => {
     if (initialCustomer) {
       setSelected(initialCustomer);
     }
+    setPaymentMethod("TUNAI");
   }, [initialCustomer, isOpen]);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -14263,12 +14265,21 @@ const DebtTransactionModal = ({
       setIsSaving(true);
       try {
         const nominal = parseInt(amount.replace(/\./g, ''));
+        if (type === 'BAYAR' && paymentMethod === 'TABUNGAN') {
+          const currentSavings = parseCurrency(selected.Tabungan);
+          if (currentSavings < nominal) {
+            alert(`Saldo tabungan ${selected.Nama} tidak mencukupi (Saldo saat ini: Rp ${currentSavings.toLocaleString('id-ID')}).`);
+            setIsSaving(false);
+            return;
+          }
+        }
         
-        onSave(selected, nominal, note);
+        onSave(selected, nominal, note, paymentMethod);
         setSearch("");
         setSelected(null);
         setAmount("");
         setNote("");
+        setPaymentMethod("TUNAI");
         onClose();
       } catch (err) {
         console.error("Debt transaction save error:", err);
@@ -14368,6 +14379,54 @@ const DebtTransactionModal = ({
             )}
           </div>
 
+          {type === 'BAYAR' && (
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest px-1">
+                Metode Pembayaran
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("TUNAI")}
+                  className={`px-3 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 border transition-all cursor-pointer ${
+                    paymentMethod === "TUNAI"
+                      ? "bg-[#005E6A] text-white border-[#005E6A] shadow-md"
+                      : "bg-slate-50 text-slate-600 border-slate-200 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  <Wallet className="w-4 h-4" />
+                  <span>Tunai</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("TABUNGAN")}
+                  className={`px-3 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 border transition-all cursor-pointer ${
+                    paymentMethod === "TABUNGAN"
+                      ? "bg-teal-600 text-white border-teal-600 shadow-md"
+                      : "bg-slate-50 text-slate-600 border-slate-200 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  <Coins className="w-4 h-4" />
+                  <span>Tabungan</span>
+                </button>
+              </div>
+
+              {paymentMethod === "TABUNGAN" && selected && (
+                <div className={`p-3 rounded-2xl border text-xs font-semibold flex items-center justify-between ${
+                  parseCurrency(selected.Tabungan) > 0 
+                    ? "bg-teal-50 border-teal-200 text-teal-800 dark:bg-teal-950/60 dark:border-teal-800 dark:text-teal-300" 
+                    : "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/60 dark:border-amber-800 dark:text-amber-300"
+                }`}>
+                  <span>Saldo Tabungan:</span>
+                  <span className="font-black">
+                    Rp {parseCurrency(selected.Tabungan).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest px-1">Nominal</label>
             <div className="relative">
@@ -14441,12 +14500,27 @@ const AdminDebtManagement = ({
     }
   }, [navigate]);
 
-  const handleSaveTransaction = async (customer: Customer, amount: number, note: string) => {
+  const handleSaveTransaction = async (
+    customer: Customer, 
+    amount: number, 
+    note: string, 
+    paymentMethod: "TUNAI" | "TABUNGAN" = "TUNAI"
+  ) => {
     const todayStr = new Date().toLocaleDateString('id-ID');
     const currentHutang = parseCurrency(customer.Hutang);
     const newSaldo = modalType === 'TAMBAH' ? currentHutang + amount : currentHutang - amount;
 
     const idHutang = generateNextHutangId(customer, transactions, customers);
+
+    let newTabungan = parseCurrency(customer.Tabungan);
+    if (modalType === 'BAYAR' && paymentMethod === 'TABUNGAN') {
+      newTabungan = Math.max(0, newTabungan - amount);
+      customer.Tabungan = newTabungan;
+    }
+
+    const noteWithMethod = modalType === 'BAYAR' 
+      ? (note ? `${note} (Metode: ${paymentMethod})` : `Metode: ${paymentMethod}`)
+      : (note || "-");
 
     const newTx: DebtTransaction = {
       id: idHutang,
@@ -14456,7 +14530,7 @@ const AdminDebtManagement = ({
       Nama: customer.Nama,
       Tipe: modalType,
       Jumlah: amount,
-      Keterangan: note || "-",
+      Keterangan: noteWithMethod,
       SaldoAkhir: newSaldo
     };
     
@@ -14471,15 +14545,30 @@ const AdminDebtManagement = ({
           nama: customer.Nama,
           tipe: modalType,
           jumlah: amount,
-          keterangan: note || "-",
+          keterangan: noteWithMethod,
           saldo_akhir: newSaldo
         });
+
+        if (modalType === 'BAYAR' && paymentMethod === 'TABUNGAN' && SupabaseSavingsService.isConnected()) {
+          const idTab = `TAB-${Date.now()}`;
+          await SupabaseSavingsService.upsertSaving({
+            id_tabungan: idTab,
+            id_pelanggan: customer.id_pelanggan || '',
+            tanggal: todayStr,
+            nama: customer.Nama,
+            tipe: "TARIK",
+            nominal: amount,
+            saldo_akhir: newTabungan,
+            berita: `Potong Tabungan Bayar Hutang (${idHutang})`
+          });
+        }
 
         if (SupabaseCustomerService.isConnected()) {
           await SupabaseCustomerService.upsertCustomer({
             id_pelanggan: customer.id_pelanggan || customer.Nama,
             nama: customer.Nama,
-            hutang: newSaldo
+            hutang: newSaldo,
+            tabungan: newTabungan
           });
         }
       } catch (err) {
@@ -20723,10 +20812,6 @@ const AdminLayout = ({
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/admin" },
     { id: "customers", label: "Pelanggan", icon: Users, path: "/admin/customers" },
     { id: "stock", label: "Stok Barang", icon: Package, path: "/admin/stock" },
-    { id: "savings", label: "Tabungan", icon: Wallet, path: "/admin/savings" },
-    { id: "investment", label: "Investasi", icon: TrendingUp, path: "/admin/investment" },
-    { id: "debt", label: "Hutang", icon: Receipt, path: "/admin/debt" },
-    { id: "management-lainnya", label: "Lainnya", icon: Layers, path: "/admin/management-lainnya" },
     { id: "report", label: "Laporan", icon: FileText, path: "/admin/report" },
     { id: "database", label: "Database", icon: Database, path: "/admin/database" }
   ];
@@ -23056,13 +23141,13 @@ export default function App() {
         return rawDate;
       };
 
-      // 1. Stock Items
-      if (!collectionName || collectionName === "stockItems") {
-        if (SupabaseStockService.isConnected()) {
+      let supaStockData: StockItem[] = [];
+      const fetchStock = async () => {
+        if ((!collectionName || collectionName === "stockItems") && SupabaseStockService.isConnected()) {
           try {
             const { data: supaProducts } = await SupabaseStockService.getProducts();
             if (supaProducts) {
-              const supaStock: StockItem[] = supaProducts.map(p => ({
+              supaStockData = supaProducts.map(p => ({
                 id: p.id_barang,
                 id_barang: p.id_barang,
                 Nama: p.nama,
@@ -23075,21 +23160,17 @@ export default function App() {
                 UpdateTerakhir: p.update_terakhir || '-',
                 Image: p.gambar && p.gambar.trim() !== '' ? p.gambar : undefined
               }));
-              setStock(supaStock);
+              setStock(supaStockData);
             }
           } catch (err) {
             console.error("Gagal membaca stok Supabase:", err);
           }
         }
-      }
+      };
 
-      const financeCollections = ["customers", "savingTransactions", "investmentTransactions", "debtTransactions", "salesTransactions", "redeemedPoints"];
-      const isFinanceRequest = !collectionName || financeCollections.includes(collectionName);
-
-      if (isFinanceRequest) {
-        // 2. Points
-        let processedRedeemedPoints: RedeemedPoint[] = [];
-        if (SupabasePointsService.isConnected()) {
+      let processedRedeemedPoints: RedeemedPoint[] = [];
+      const fetchPoints = async () => {
+        if ((!collectionName || collectionName === "redeemedPoints" || collectionName === "customers") && SupabasePointsService.isConnected()) {
           try {
             const { data: supaPoints } = await SupabasePointsService.getPoints();
             if (supaPoints) {
@@ -23108,10 +23189,11 @@ export default function App() {
             console.error("Gagal membaca tukar poin dari Supabase:", err);
           }
         }
+      };
 
-        // 3. Customers
-        let cData: Customer[] = [];
-        if (SupabaseCustomerService.isConnected()) {
+      let cData: Customer[] = [];
+      const fetchCustomers = async () => {
+        if ((!collectionName || collectionName === "customers") && SupabaseCustomerService.isConnected()) {
           try {
             const { data: supaCust } = await SupabaseCustomerService.getCustomers();
             if (supaCust) {
@@ -23135,10 +23217,11 @@ export default function App() {
             console.error("Gagal membaca pelanggan dari Supabase:", err);
           }
         }
+      };
 
-        // 4. Sales
-        let processedSales: SalesTransaction[] = [];
-        if (SupabaseSalesService.isConnected()) {
+      let processedSales: SalesTransaction[] = [];
+      const fetchSales = async () => {
+        if ((!collectionName || collectionName === "salesTransactions" || collectionName === "customers") && SupabaseSalesService.isConnected()) {
           try {
             const { data: supaSales } = await SupabaseSalesService.getSales();
             if (supaSales) {
@@ -23173,10 +23256,11 @@ export default function App() {
             console.error("Gagal membaca penjualan dari Supabase:", err);
           }
         }
+      };
 
-        // 5. Savings
-        let allSavingsTransactions: SavingTransaction[] = [];
-        if (SupabaseSavingsService.isConnected()) {
+      let allSavingsTransactions: SavingTransaction[] = [];
+      const fetchSavings = async () => {
+        if ((!collectionName || collectionName === "savingTransactions" || collectionName === "customers") && SupabaseSavingsService.isConnected()) {
           try {
             const { data: supaSavings } = await SupabaseSavingsService.getSavings();
             if (supaSavings) {
@@ -23197,10 +23281,11 @@ export default function App() {
             console.error("Gagal membaca tabungan dari Supabase:", err);
           }
         }
+      };
 
-        // 6. Investments
-        let allInvestmentTransactions: InvestmentTransaction[] = [];
-        if (SupabaseInvestmentService.isConnected()) {
+      let allInvestmentTransactions: InvestmentTransaction[] = [];
+      const fetchInvestments = async () => {
+        if ((!collectionName || collectionName === "investmentTransactions" || collectionName === "customers") && SupabaseInvestmentService.isConnected()) {
           try {
             const { data: supaInvest } = await SupabaseInvestmentService.getInvestments();
             if (supaInvest) {
@@ -23223,10 +23308,11 @@ export default function App() {
             console.error("Gagal membaca investasi dari Supabase:", err);
           }
         }
+      };
 
-        // 7. Debt
-        let allDebtTransactions: DebtTransaction[] = [];
-        if (SupabaseDebtService.isConnected()) {
+      let allDebtTransactions: DebtTransaction[] = [];
+      const fetchDebts = async () => {
+        if ((!collectionName || collectionName === "debtTransactions" || collectionName === "customers") && SupabaseDebtService.isConnected()) {
           try {
             const { data: supaDebt } = await SupabaseDebtService.getDebts();
             if (supaDebt) {
@@ -23247,46 +23333,52 @@ export default function App() {
             console.error("Gagal membaca hutang dari Supabase:", err);
           }
         }
+      };
 
-        // 8. Calculate points, level, balances for customers from transactions
-        if (cData && cData.length > 0) {
-          const updatedCustomers = cData.map(c => {
-            const name = c.Nama;
-            const levelInfo = calculateCustomerLevel(processedSales, name);
-            const activePoints = calculateActivePoints(name, processedSales, processedRedeemedPoints);
-            
-            // Recalculate saving balance for user
-            const userSavings = allSavingsTransactions.filter(s => s.Nama.toLowerCase() === name.toLowerCase());
-            const lastSaving = userSavings[userSavings.length - 1];
-            const savingBal = lastSaving ? lastSaving.SaldoAkhir : c.Tabungan;
+      await Promise.all([
+        fetchStock(),
+        fetchPoints(),
+        fetchCustomers(),
+        fetchSales(),
+        fetchSavings(),
+        fetchInvestments(),
+        fetchDebts()
+      ]);
 
-            // Recalculate debt balance for user
-            const userDebts = allDebtTransactions.filter(d => d.Nama.toLowerCase() === name.toLowerCase());
-            const lastDebt = userDebts[userDebts.length - 1];
-            const debtBal = lastDebt ? lastDebt.SaldoAkhir : c.Hutang;
+      if (cData && cData.length > 0) {
+        const updatedCustomers = cData.map(c => {
+          const name = c.Nama;
+          const levelInfo = calculateCustomerLevel(processedSales, name);
+          const activePoints = calculateActivePoints(name, processedSales, processedRedeemedPoints);
+          
+          const userSavings = allSavingsTransactions.filter(s => s.Nama.toLowerCase() === name.toLowerCase());
+          const lastSaving = userSavings[userSavings.length - 1];
+          const savingBal = lastSaving ? lastSaving.SaldoAkhir : c.Tabungan;
 
-            // Recalculate investment total for user
-            const userInvests = allInvestmentTransactions.filter(i => i.Nama.toLowerCase() === name.toLowerCase() && i.Status.toLowerCase() !== "sukses dicairkan");
-            const investBal = userInvests.length > 0 ? userInvests.reduce((acc, curr) => acc + curr.Nominal, 0) : c.Investasi;
+          const userDebts = allDebtTransactions.filter(d => d.Nama.toLowerCase() === name.toLowerCase());
+          const lastDebt = userDebts[userDebts.length - 1];
+          const debtBal = lastDebt ? lastDebt.SaldoAkhir : c.Hutang;
 
-            return {
-              ...c,
-              Poin: activePoints,
-              Level: levelInfo.name,
-              Tabungan: savingBal,
-              Hutang: debtBal,
-              Investasi: investBal
-            };
-          });
+          const userInvests = allInvestmentTransactions.filter(i => i.Nama.toLowerCase() === name.toLowerCase() && i.Status.toLowerCase() !== "sukses dicairkan");
+          const investBal = userInvests.length > 0 ? userInvests.reduce((acc, curr) => acc + curr.Nominal, 0) : c.Investasi;
 
-          setCustomers(updatedCustomers);
+          return {
+            ...c,
+            Poin: activePoints,
+            Level: levelInfo.name,
+            Tabungan: savingBal,
+            Hutang: debtBal,
+            Investasi: investBal
+          };
+        });
 
-          setLoggedInUser(prev => {
-            if (!prev) return null;
-            const updated = updatedCustomers.find(vc => vc.Nama.toLowerCase() === prev.Nama.toLowerCase());
-            return updated || prev;
-          });
-        }
+        setCustomers(updatedCustomers);
+
+        setLoggedInUser(prev => {
+          if (!prev) return null;
+          const updated = updatedCustomers.find(vc => vc.Nama.toLowerCase() === prev.Nama.toLowerCase());
+          return updated || prev;
+        });
       }
 
       // The simplest way to handle on-demand is if collectionName is present, we just fetch that one and update it
