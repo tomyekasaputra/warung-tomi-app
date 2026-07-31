@@ -1270,7 +1270,20 @@ export const SupabaseSalesService = {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    // 1. If id_transaksi exists, try updating existing row first
+    // 1. If id (UUID) exists, update existing row by primary key id first
+    if (sale.id) {
+      const { data: updateData, error: updateErr } = await client
+        .from('sales_transactions')
+        .update(sale)
+        .eq('id', sale.id)
+        .select();
+
+      if (!updateErr && updateData && updateData.length > 0) {
+        return { data: updateData, error: null };
+      }
+    }
+
+    // 2. If id_transaksi exists, try updating existing row by id_transaksi
     if (sale.id_transaksi) {
       const { data: updateData, error: updateErr } = await client
         .from('sales_transactions')
@@ -1283,7 +1296,7 @@ export const SupabaseSalesService = {
       }
     }
 
-    // 2. If no existing row was updated, attempt upsert or insert
+    // 3. Fallback to upsert/insert
     let { data, error } = await client.from('sales_transactions').upsert(sale, { onConflict: 'id_transaksi' }).select();
     if (error && (error.message?.includes('ON CONFLICT') || error.code === '42P10')) {
       const { data: insData, error: insErr } = await client.from('sales_transactions').insert(sale).select();

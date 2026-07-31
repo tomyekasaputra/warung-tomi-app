@@ -19,6 +19,8 @@ import {
   ShoppingBag,
   CreditCard,
   User,
+  Users,
+  Package,
   DollarSign,
   Tag,
   Check,
@@ -264,9 +266,12 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   }, []);
 
   // Helper for parsing date strings (supports DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY)
-  const parseTxDate = (dateStr?: string): number => {
-    if (!dateStr || dateStr === "-") return 0;
-    const str = dateStr.trim();
+  const parseTxDate = (dateVal?: any): number => {
+    if (!dateVal || dateVal === "-") return 0;
+    if (typeof dateVal === "number") return dateVal;
+    if (dateVal instanceof Date) return dateVal.getTime();
+    let str = String(dateVal).trim();
+    if (!str) return 0;
     const parts = str.split(/[/-]/);
     if (parts.length === 3) {
       if (parts[0].length === 4) {
@@ -287,7 +292,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     const parsed = new Date(str).getTime();
     return isNaN(parsed) ? 0 : parsed;
   };
-  
+
   // Filter Popover State
   const [showFilterPopover, setShowFilterPopover] = useState(false);
 
@@ -295,15 +300,23 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const [customerList, setCustomerList] = useState<any[]>(customers || []);
 
   useEffect(() => {
-    if (customers && customers.length > 0) {
-      setCustomerList(customers);
-    } else {
-      SupabaseCustomerService.getCustomers().then((res) => {
-        if (res.data && res.data.length > 0) {
-          setCustomerList(res.data);
+    const loadCustomers = async () => {
+      if (SupabaseCustomerService.isConnected()) {
+        try {
+          const res = await SupabaseCustomerService.getCustomers();
+          if (res.data && res.data.length > 0) {
+            setCustomerList(res.data);
+            return;
+          }
+        } catch (e) {
+          console.error("Error loading customers from Supabase:", e);
         }
-      });
-    }
+      }
+      if (customers && customers.length > 0) {
+        setCustomerList(customers);
+      }
+    };
+    loadCustomers();
   }, [customers]);
 
   const parseCurrency = (val: any) => {
@@ -672,41 +685,63 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     const todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1;
 
     return sortedTransactions.filter((t) => {
-      const q = searchQuery.toLowerCase().trim();
+      if (!t) return false;
+      const q = (searchQuery || "").toLowerCase().trim();
+
+      const txId = String(t.id_transaksi || t.id || "").toLowerCase();
+      const txName = String(t.Nama || t.nama || "").toLowerCase();
+      const custId = String(t.id_pelanggan || "").toLowerCase();
+      const txJenis = String(t.Jenis || t.jenis || "").toLowerCase();
+      const txMelalui = String(t.Melalui || t.melalui || "").toLowerCase();
+      const txMetode = String(t.Metode || t.metode || "").toLowerCase();
+      const txStatus = String(t.Status || t.status || "").toLowerCase();
+      const txTanggal = String(t.Tanggal || t.tanggal || "").toLowerCase();
+      const txPemasukan = String(t.Pemasukan ?? t.pemasukan ?? "");
+      const txModal = String(t.HargaModal ?? t.harga_modal ?? "");
+
       const matchSearch =
         !q ||
-        (t.id_transaksi || "").toLowerCase().includes(q) ||
-        (t.id || "").toLowerCase().includes(q) ||
-        (t.Nama || "").toLowerCase().includes(q) ||
-        (t.id_pelanggan || "").toLowerCase().includes(q) ||
-        (t.Jenis || "").toLowerCase().includes(q) ||
-        (t.Melalui || "").toLowerCase().includes(q) ||
-        (t.Metode || "").toLowerCase().includes(q) ||
-        (t.Status || "").toLowerCase().includes(q) ||
-        (t.Tanggal || "").toLowerCase().includes(q) ||
-        (t.Pemasukan !== undefined && t.Pemasukan !== null ? String(t.Pemasukan) : "").includes(q) ||
-        (t.HargaModal !== undefined && t.HargaModal !== null ? String(t.HargaModal) : "").includes(q);
+        txId.includes(q) ||
+        txName.includes(q) ||
+        custId.includes(q) ||
+        txJenis.includes(q) ||
+        txMelalui.includes(q) ||
+        txMetode.includes(q) ||
+        txStatus.includes(q) ||
+        txTanggal.includes(q) ||
+        txPemasukan.includes(q) ||
+        txModal.includes(q);
+
+      let matchJenis = true;
+      if (filterJenis && filterJenis !== "semua") {
+        matchJenis = (t.Jenis || t.jenis || "").toUpperCase() === filterJenis.toUpperCase();
+      }
+
+      let matchMetode = true;
+      if (filterMetode && filterMetode !== "semua") {
+        matchMetode = (t.Metode || t.metode || "").toUpperCase() === filterMetode.toUpperCase();
+      }
 
       let matchTanggal = true;
       if (filterTanggal === "hari_ini") {
-        const txTime = parseTxDate(t.Tanggal);
+        const txTime = parseTxDate(t.Tanggal || t.tanggal);
         matchTanggal = txTime >= todayStart && txTime <= todayEnd;
       } else if (filterTanggal === "bulan_ini") {
-        const txTime = parseTxDate(t.Tanggal);
+        const txTime = parseTxDate(t.Tanggal || t.tanggal);
         if (txTime === 0) matchTanggal = false;
         else {
           const d = new Date(txTime);
           matchTanggal = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
         }
-      } else if (filterTanggal !== "semua" && filterTanggal.length > 0) {
+      } else if (filterTanggal !== "semua" && filterTanggal && filterTanggal.length > 0) {
         const customTime = parseTxDate(filterTanggal);
-        const txTime = parseTxDate(t.Tanggal);
+        const txTime = parseTxDate(t.Tanggal || t.tanggal);
         matchTanggal = txTime >= customTime && txTime < customTime + 24 * 60 * 60 * 1000;
       }
 
-      return matchSearch && matchTanggal;
+      return matchSearch && matchJenis && matchMetode && matchTanggal;
     });
-  }, [sortedTransactions, searchQuery, filterTanggal]);
+  }, [sortedTransactions, searchQuery, filterJenis, filterMetode, filterTanggal]);
 
   // Reset pagination count on filter change
   useEffect(() => {
@@ -783,6 +818,8 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     const updatedTx: SalesTransaction = {
       ...editingTx,
       ...editFormData,
+      id: editingTx.id,
+      id_transaksi: editFormData.id_transaksi || editingTx.id_transaksi || editingTx.id,
       Pemasukan: Number(editFormData.Pemasukan) || 0,
       HargaModal: Number(editFormData.HargaModal) || 0,
       Sebagian: Number(editFormData.Sebagian) || 0,
@@ -790,18 +827,18 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       Status: editFormData.Status || "SELESAI"
     };
 
+    const primaryId = editingTx.id;
     const oldTrxId = editingTx.id_transaksi || editingTx.id;
 
     try {
-      // 1. Update local state with deduplication (replace first match, purge duplicates)
+      // 1. Update local state with deduplication (replace matching row by id or oldTrxId)
       setSalesTransactions((prev) => {
         let replaced = false;
         const result: SalesTransaction[] = [];
         for (const item of prev) {
           const isMatch =
-            (oldTrxId && item.id_transaksi === oldTrxId) ||
-            (editingTx.id && item.id === editingTx.id) ||
-            (updatedTx.id_transaksi && item.id_transaksi === updatedTx.id_transaksi);
+            (primaryId && item.id && item.id === primaryId) ||
+            (oldTrxId && (item.id_transaksi === oldTrxId || item.id === oldTrxId));
 
           if (isMatch) {
             if (!replaced) {
@@ -819,9 +856,10 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         return result;
       });
 
-      // 2. Sync with Supabase if connected
+      // 2. Sync with Supabase if connected using UUID primary key 'id'
       if (SupabaseSalesService.isConnected()) {
         const payload: SupabaseSalesTransaction = {
+          id: updatedTx.id,
           id_transaksi: updatedTx.id_transaksi || updatedTx.id,
           id_pelanggan: updatedTx.id_pelanggan || "",
           tanggal: updatedTx.Tanggal,
@@ -1315,27 +1353,35 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     setDeletingInvestment(null);
   };
 
-  // Filtered lists for Tabungan, Hutang, Investasi
+  // Filtered lists for Tabungan, Hutang, Investasi, Pelanggan, Stok
   const filteredSavings = useMemo(() => {
     let list = savingsList.filter((s) => {
-      const q = searchQuery.toLowerCase().trim();
+      if (!s) return false;
+      const q = (searchQuery || "").toLowerCase().trim();
       if (!q) return true;
-      const nameStr = (s.nama_nasabah || s.nama || (s as any).Nama || "").toLowerCase();
-      const ketStr = (s.keterangan || "").toLowerCase();
-      const idStr = (s.id_nasabah || s.id || "").toLowerCase();
+      const nameStr = String(s.nama_nasabah || s.nama || (s as any).Nama || "").toLowerCase();
+      const ketStr = String(s.keterangan || s.berita || "").toLowerCase();
+      const idStr = String(s.id_nasabah || s.id_tabungan || s.id || "").toLowerCase();
+      const custIdStr = String(s.id_pelanggan || "").toLowerCase();
+      const tanggalStr = String(s.tanggal || s.Tanggal || "").toLowerCase();
+      const tipeStr = String(s.tipe || s.Tipe || "").toLowerCase();
+      const nominalStr = String(s.nominal ?? s.Nominal ?? "");
+      const saldoStr = String(s.saldo_akhir ?? s.SaldoAkhir ?? "");
+
       return (
         nameStr.includes(q) ||
         ketStr.includes(q) ||
         idStr.includes(q) ||
-        (s.tanggal || "").toLowerCase().includes(q) ||
-        (s.tipe || "").toLowerCase().includes(q) ||
-        (s.nominal !== undefined && s.nominal !== null ? String(s.nominal) : "").includes(q) ||
-        (s.saldo_akhir !== undefined && s.saldo_akhir !== null ? String(s.saldo_akhir) : "").includes(q)
+        custIdStr.includes(q) ||
+        tanggalStr.includes(q) ||
+        tipeStr.includes(q) ||
+        nominalStr.includes(q) ||
+        saldoStr.includes(q)
       );
     });
     list.sort((a, b) => {
-      const dateA = parseTxDate(a.tanggal);
-      const dateB = parseTxDate(b.tanggal);
+      const dateA = parseTxDate(a.tanggal || a.Tanggal);
+      const dateB = parseTxDate(b.tanggal || b.Tanggal);
       return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
     });
     return list;
@@ -1343,24 +1389,30 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
   const filteredDebts = useMemo(() => {
     let list = debtList.filter((d) => {
-      const q = searchQuery.toLowerCase().trim();
+      if (!d) return false;
+      const q = (searchQuery || "").toLowerCase().trim();
       if (!q) return true;
-      const nameStr = (d.nama_pelanggan || d.nama || (d as any).Nama || "").toLowerCase();
-      const ketStr = (d.keterangan || "").toLowerCase();
-      const idStr = (d.id_pelanggan || d.id || "").toLowerCase();
+      const nameStr = String(d.nama_pelanggan || d.nama || (d as any).Nama || "").toLowerCase();
+      const ketStr = String(d.keterangan || d.berita || "").toLowerCase();
+      const idStr = String(d.id_pelanggan || d.id_hutang || d.id || "").toLowerCase();
+      const tanggalStr = String(d.tanggal || d.Tanggal || "").toLowerCase();
+      const tipeStr = String(d.tipe || d.Tipe || "").toLowerCase();
+      const jumlahStr = String(d.jumlah ?? d.Jumlah ?? d.nominal ?? "");
+      const saldoStr = String(d.saldo_akhir ?? d.SaldoAkhir ?? "");
+
       return (
         nameStr.includes(q) ||
         ketStr.includes(q) ||
         idStr.includes(q) ||
-        (d.tanggal || "").toLowerCase().includes(q) ||
-        (d.tipe || "").toLowerCase().includes(q) ||
-        (d.jumlah !== undefined && d.jumlah !== null ? String(d.jumlah) : "").includes(q) ||
-        (d.saldo_akhir !== undefined && d.saldo_akhir !== null ? String(d.saldo_akhir) : "").includes(q)
+        tanggalStr.includes(q) ||
+        tipeStr.includes(q) ||
+        jumlahStr.includes(q) ||
+        saldoStr.includes(q)
       );
     });
     list.sort((a, b) => {
-      const dateA = parseTxDate(a.tanggal);
-      const dateB = parseTxDate(b.tanggal);
+      const dateA = parseTxDate(a.tanggal || a.Tanggal);
+      const dateB = parseTxDate(b.tanggal || b.Tanggal);
       return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
     });
     return list;
@@ -1368,25 +1420,32 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
   const filteredInvestments = useMemo(() => {
     let list = investmentList.filter((i) => {
-      const q = searchQuery.toLowerCase().trim();
+      if (!i) return false;
+      const q = (searchQuery || "").toLowerCase().trim();
       if (!q) return true;
-      const nameStr = (i.nama_investor || i.nama || (i as any).Nama || "").toLowerCase();
-      const ketStr = (i.keterangan || "").toLowerCase();
-      const tenorStr = (i.tenor || (i.tenor_bulan ? `${i.tenor_bulan} Bln` : "")).toLowerCase();
-      const nisbahStr = (i.nisbah || (i.nisbah_persen ? `${i.nisbah_persen}%` : "")).toLowerCase();
+      const nameStr = String(i.nama_investor || i.nama || (i as any).Nama || "").toLowerCase();
+      const ketStr = String(i.keterangan || "").toLowerCase();
+      const tenorStr = String(i.tenor || (i.tenor_bulan ? `${i.tenor_bulan} Bln` : "")).toLowerCase();
+      const nisbahStr = String(i.nisbah || (i.nisbah_persen ? `${i.nisbah_persen}%` : "")).toLowerCase();
+      const tanggalStr = String(i.tanggal || i.Tanggal || "").toLowerCase();
+      const statusStr = String(i.status || i.Status || "").toLowerCase();
+      const nominalStr = String(i.nominal ?? i.Nominal ?? "");
+      const idStr = String(i.id_investasi || i.id || "").toLowerCase();
+
       return (
         nameStr.includes(q) ||
         ketStr.includes(q) ||
         tenorStr.includes(q) ||
         nisbahStr.includes(q) ||
-        (i.tanggal || "").toLowerCase().includes(q) ||
-        (i.status || "").toLowerCase().includes(q) ||
-        (i.nominal !== undefined && i.nominal !== null ? String(i.nominal) : "").includes(q)
+        tanggalStr.includes(q) ||
+        statusStr.includes(q) ||
+        nominalStr.includes(q) ||
+        idStr.includes(q)
       );
     });
     list.sort((a, b) => {
-      const dateA = parseTxDate(a.tanggal);
-      const dateB = parseTxDate(b.tanggal);
+      const dateA = parseTxDate(a.tanggal || a.Tanggal);
+      const dateB = parseTxDate(b.tanggal || b.Tanggal);
       return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
     });
     return list;
@@ -1394,19 +1453,27 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
   const filteredCustomers = useMemo(() => {
     let list = customerList.filter((c) => {
-      const q = searchQuery.toLowerCase().trim();
+      if (!c) return false;
+      const q = (searchQuery || "").toLowerCase().trim();
       if (!q) return true;
-      const nameStr = (c.nama || "").toLowerCase();
-      const idStr = (c.id_pelanggan || c.id || "").toLowerCase();
-      const telpStr = (c.telepon || "").toLowerCase();
-      const alamatStr = (c.alamat || "").toLowerCase();
-      const levelStr = (c.level || "").toLowerCase();
+      const nameStr = String(c.nama || c.Nama || "").toLowerCase();
+      const idStr = String(c.id_pelanggan || c.id || "").toLowerCase();
+      const telpStr = String(c.telepon || c.Telepon || c.HP || c.hp || c.NoHP || c.no_hp || "").toLowerCase();
+      const alamatStr = String(c.alamat || c.Alamat || "").toLowerCase();
+      const levelStr = String(c.level || c.Level || "").toLowerCase();
+      const tabunganStr = String(c.tabungan ?? c.Tabungan ?? "");
+      const hutangStr = String(c.hutang ?? c.Hutang ?? "");
+      const poinStr = String(c.point ?? c.poin ?? c.Poin ?? "");
+
       return (
         nameStr.includes(q) ||
         idStr.includes(q) ||
         telpStr.includes(q) ||
         alamatStr.includes(q) ||
-        levelStr.includes(q)
+        levelStr.includes(q) ||
+        tabunganStr.includes(q) ||
+        hutangStr.includes(q) ||
+        poinStr.includes(q)
       );
     });
     return list;
@@ -1414,20 +1481,25 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
   const filteredProducts = useMemo(() => {
     let list = productList.filter((p) => {
-      const q = searchQuery.toLowerCase().trim();
+      if (!p) return false;
+      const q = (searchQuery || "").toLowerCase().trim();
       if (!q) return true;
-      const nameStr = (p.nama || "").toLowerCase();
-      const idStr = (p.id_barang || p.id || "").toLowerCase();
-      const katStr = (p.kategori || "").toLowerCase();
-      const satuanStr = (p.satuan || "").toLowerCase();
+      const nameStr = String(p.nama || p.Nama || "").toLowerCase();
+      const idStr = String(p.id_barang || p.id || "").toLowerCase();
+      const katStr = String(p.kategori || p.Kategori || "").toLowerCase();
+      const satuanStr = String(p.satuan || p.Satuan || "").toLowerCase();
+      const stokStr = String(p.stok ?? p.Stok ?? "");
+      const modalStr = String(p.harga_modal ?? p.HargaModal ?? "");
+      const jualStr = String(p.harga_jual ?? p.HargaJual ?? "");
+
       return (
         nameStr.includes(q) ||
         idStr.includes(q) ||
         katStr.includes(q) ||
         satuanStr.includes(q) ||
-        (p.stok !== undefined ? String(p.stok) : "").includes(q) ||
-        (p.harga_modal !== undefined ? String(p.harga_modal) : "").includes(q) ||
-        (p.harga_jual !== undefined ? String(p.harga_jual) : "").includes(q)
+        stokStr.includes(q) ||
+        modalStr.includes(q) ||
+        jualStr.includes(q)
       );
     });
     return list;
@@ -1677,19 +1749,19 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             <div className="bg-teal-50/70 dark:bg-teal-950/40 p-3 border border-teal-200/80 dark:border-teal-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 block">Total Tabungan</span>
               <span className="text-base font-black text-[#005E6A] dark:text-teal-300 mt-1 block tabular-nums">
-                Rp {filteredCustomers.reduce((acc, c) => acc + (c.tabungan || 0), 0).toLocaleString("id-ID")}
+                Rp {filteredCustomers.reduce((acc, c) => acc + (c.tabungan ?? c.Tabungan ?? 0), 0).toLocaleString("id-ID")}
               </span>
             </div>
             <div className="bg-rose-50/70 dark:bg-rose-950/40 p-3 border border-rose-200/80 dark:border-rose-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-300 block">Total Hutang</span>
               <span className="text-base font-black text-rose-700 dark:text-rose-300 mt-1 block tabular-nums">
-                Rp {filteredCustomers.reduce((acc, c) => acc + (c.hutang || 0), 0).toLocaleString("id-ID")}
+                Rp {filteredCustomers.reduce((acc, c) => acc + (c.hutang ?? c.Hutang ?? 0), 0).toLocaleString("id-ID")}
               </span>
             </div>
             <div className="bg-amber-50/70 dark:bg-amber-950/40 p-3 border border-amber-200/80 dark:border-amber-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 block">Total Poin Terkumpul</span>
               <span className="text-base font-black text-amber-700 dark:text-amber-300 mt-1 block tabular-nums">
-                {filteredCustomers.reduce((acc, c) => acc + (c.point || 0), 0).toLocaleString("id-ID")} Poin
+                {filteredCustomers.reduce((acc, c) => acc + (c.point ?? c.poin ?? c.Poin ?? 0), 0).toLocaleString("id-ID")} Poin
               </span>
             </div>
           </>
@@ -1706,19 +1778,19 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             <div className="bg-teal-50/70 dark:bg-teal-950/40 p-3 border border-teal-200/80 dark:border-teal-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 block">Total Fisik Stok</span>
               <span className="text-base font-black text-[#005E6A] dark:text-teal-300 mt-1 block tabular-nums">
-                {filteredProducts.reduce((acc, p) => acc + (p.stok || 0), 0).toLocaleString("id-ID")} Pcs
+                {filteredProducts.reduce((acc, p) => acc + (p.stok ?? p.Stok ?? 0), 0).toLocaleString("id-ID")} Pcs
               </span>
             </div>
             <div className="bg-amber-50/70 dark:bg-amber-950/40 p-3 border border-amber-200/80 dark:border-amber-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 block">Total Asset Modal</span>
               <span className="text-base font-black text-amber-700 dark:text-amber-300 mt-1 block tabular-nums">
-                Rp {filteredProducts.reduce((acc, p) => acc + ((p.stok || 0) * (p.harga_modal || 0)), 0).toLocaleString("id-ID")}
+                Rp {filteredProducts.reduce((acc, p) => acc + ((p.stok ?? p.Stok ?? 0) * (p.harga_modal ?? p.HargaModal ?? 0)), 0).toLocaleString("id-ID")}
               </span>
             </div>
             <div className="bg-emerald-50/70 dark:bg-emerald-950/40 p-3 border border-emerald-200/80 dark:border-emerald-800/80">
               <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300 block">Total Omset Potensial</span>
               <span className="text-base font-black text-emerald-700 dark:text-emerald-300 mt-1 block tabular-nums">
-                Rp {filteredProducts.reduce((acc, p) => acc + ((p.stok || 0) * (p.harga_jual || 0)), 0).toLocaleString("id-ID")}
+                Rp {filteredProducts.reduce((acc, p) => acc + ((p.stok ?? p.Stok ?? 0) * (p.harga_jual ?? p.HargaJual ?? 0)), 0).toLocaleString("id-ID")}
               </span>
             </div>
           </>
@@ -2349,34 +2421,45 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                   </td>
                 </tr>
               ) : (
-                displayedCustomers.map((c, idx) => (
-                  <tr
-                    key={`cust_row_${c.id || c.id_pelanggan}_${idx}`}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
-                  >
-                    <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                      <div className="font-black text-slate-900 dark:text-white">{c.nama || "-"}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">{c.id_pelanggan || c.id || "-"}</div>
-                    </td>
-                    <td className="py-3 px-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                      <div>{c.telepon || "-"}</div>
-                      <div className="text-[10px] text-slate-400 max-w-xs truncate">{c.alamat || "-"}</div>
-                    </td>
-                    <td className="py-3 px-4 text-right font-black tabular-nums text-teal-600 dark:text-teal-400 whitespace-nowrap">
-                      Rp {(c.tabungan || 0).toLocaleString("id-ID")}
-                    </td>
-                    <td className="py-3 px-4 text-right font-black tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">
-                      Rp {(c.hutang || 0).toLocaleString("id-ID")}
-                    </td>
-                    <td className="py-3 px-4 text-center whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 font-bold text-[10px] uppercase">
-                        <span>{c.point || 0} Poin</span>
-                        <span className="text-slate-300">•</span>
-                        <span>{c.level || "BRONZE"}</span>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                displayedCustomers.map((c, idx) => {
+                  const custName = c.nama || c.Nama || "Pelanggan";
+                  const custId = c.id_pelanggan || c.id || "-";
+                  const phone = c.telepon || c.Telepon || c.hp || c.HP || c.no_hp || c.NoHP || "-";
+                  const address = c.alamat || c.Alamat || "-";
+                  const savings = Number(c.tabungan ?? c.Tabungan ?? 0);
+                  const debt = Number(c.hutang ?? c.Hutang ?? 0);
+                  const points = Number(c.point ?? c.poin ?? c.Poin ?? 0);
+                  const level = c.level || c.Level || "BRONZE";
+
+                  return (
+                    <tr
+                      key={`cust_row_${custId}_${idx}`}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                    >
+                      <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                        <div className="font-black text-slate-900 dark:text-white">{custName}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{custId}</div>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                        <div>{phone}</div>
+                        <div className="text-[10px] text-slate-400 max-w-xs truncate">{address}</div>
+                      </td>
+                      <td className="py-3 px-4 text-right font-black tabular-nums text-teal-600 dark:text-teal-400 whitespace-nowrap">
+                        Rp {savings.toLocaleString("id-ID")}
+                      </td>
+                      <td className="py-3 px-4 text-right font-black tabular-nums text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                        Rp {debt.toLocaleString("id-ID")}
+                      </td>
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 font-bold text-[10px] uppercase">
+                          <span>{points} Poin</span>
+                          <span className="text-slate-300">•</span>
+                          <span>{level}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -2413,35 +2496,45 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                   </td>
                 </tr>
               ) : (
-                displayedProducts.map((p, idx) => (
-                  <tr
-                    key={`prod_row_${p.id || p.id_barang}_${idx}`}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
-                  >
-                    <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                      <div className="font-black text-slate-900 dark:text-white">{p.nama || "-"}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">{p.id_barang || p.id || "-"}</div>
-                    </td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className="inline-block px-2.5 py-1 text-[10px] font-bold uppercase bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                        {p.kategori || "Umum"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center whitespace-nowrap">
-                      <span className={`inline-block px-2.5 py-1 text-[10px] font-black uppercase ${
-                        (p.stok || 0) <= 5 ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-teal-50 text-[#005E6A] border border-teal-200"
-                      }`}>
-                        {p.stok || 0} {p.satuan || "pcs"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right font-medium tabular-nums text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                      Rp {(p.harga_modal || 0).toLocaleString("id-ID")}
-                    </td>
-                    <td className="py-3 px-4 text-right font-black tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                      Rp {(p.harga_jual || 0).toLocaleString("id-ID")}
-                    </td>
-                  </tr>
-                ))
+                displayedProducts.map((p, idx) => {
+                  const prodName = p.nama || p.Nama || "-";
+                  const prodId = p.id_barang || p.id || "-";
+                  const prodCategory = p.kategori || p.Kategori || "Umum";
+                  const prodStok = Number(p.stok ?? p.Stok ?? 0);
+                  const prodSatuan = p.satuan || p.Satuan || "pcs";
+                  const prodModal = Number(p.harga_modal ?? p.HargaModal ?? 0);
+                  const prodJual = Number(p.harga_jual ?? p.HargaJual ?? 0);
+
+                  return (
+                    <tr
+                      key={`prod_row_${prodId}_${idx}`}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                    >
+                      <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                        <div className="font-black text-slate-900 dark:text-white">{prodName}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{prodId}</div>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="inline-block px-2.5 py-1 text-[10px] font-bold uppercase bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                          {prodCategory}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <span className={`inline-block px-2.5 py-1 text-[10px] font-black uppercase ${
+                          prodStok <= 5 ? "bg-rose-50 text-rose-700 border border-rose-200" : "bg-teal-50 text-[#005E6A] border border-teal-200"
+                        }`}>
+                          {prodStok} {prodSatuan}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-right font-medium tabular-nums text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                        Rp {prodModal.toLocaleString("id-ID")}
+                      </td>
+                      <td className="py-3 px-4 text-right font-black tabular-nums text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                        Rp {prodJual.toLocaleString("id-ID")}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -2561,12 +2654,13 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
-                      ID Pelanggan
+                      ID Pelanggan (Otomatis)
                     </label>
                     <input
                       type="text"
                       value={editFormData.id_pelanggan || ""}
                       onChange={(e) => setEditFormData({ ...editFormData, id_pelanggan: e.target.value })}
+                      placeholder="e.g. CUST-0001"
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-semibold focus:outline-none focus:border-[#005E6A]"
                     />
                   </div>
@@ -2575,12 +2669,37 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                     <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
                       Nama Pelanggan
                     </label>
-                    <input
-                      type="text"
-                      value={editFormData.Nama || ""}
-                      onChange={(e) => setEditFormData({ ...editFormData, Nama: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-semibold focus:outline-none focus:border-[#005E6A]"
-                    />
+                    <select
+                      value={editFormData.Nama || "Pelanggan Umum"}
+                      onChange={(e) => {
+                        const selectedName = e.target.value;
+                        const selectedCust = customers.find(c => (c.Nama || c.nama || "") === selectedName);
+                        const newIdPelanggan = selectedCust ? (selectedCust.id_pelanggan || selectedCust.id || "") : "";
+                        const newTxId = calculateAutoTxId(newIdPelanggan, selectedName, salesTransactions);
+                        setEditFormData(prev => ({
+                          ...prev,
+                          Nama: selectedName,
+                          id_pelanggan: newIdPelanggan,
+                          id_transaksi: newTxId,
+                          id_penjualan: newTxId
+                        }));
+                      }}
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
+                    >
+                      <option value="Pelanggan Umum">Pelanggan Umum</option>
+                      {customers.map((c, idx) => {
+                        const custName = c.Nama || c.nama || `Pelanggan ${idx + 1}`;
+                        const custId = c.id_pelanggan || c.id || "";
+                        return (
+                          <option key={custId || `cust_opt_${idx}`} value={custName}>
+                            {custName}
+                          </option>
+                        );
+                      })}
+                      {editFormData.Nama && !customers.some(c => (c.Nama || c.nama || "") === editFormData.Nama) && editFormData.Nama !== "Pelanggan Umum" && (
+                        <option value={editFormData.Nama}>{editFormData.Nama}</option>
+                      )}
+                    </select>
                   </div>
                 </div>
 

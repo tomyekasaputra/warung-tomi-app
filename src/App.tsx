@@ -10716,22 +10716,9 @@ const AdminCashier = ({
         });
 
         if (paymentMethod === "Kasbon" && selectedCustomer) {
-          const idHutang = generateNextHutangId(selectedCustomer, debtTransactions, customers);
+          const idHutang = generateNextHutangId(selectedCustomer, [], customers);
           const currentDebt = parseCurrency(selectedCustomer.Hutang);
           const newDebt = currentDebt + total;
-
-          const newDebtTx: DebtTransaction = {
-            id: idHutang,
-            id_hutang: idHutang,
-            id_pelanggan: selectedCustomer.id_pelanggan || '',
-            Tanggal: todayStr,
-            Nama: selectedCustomer.Nama,
-            Tipe: "TAMBAH",
-            Jumlah: total,
-            Keterangan: `Kasbon Belanja - ${idTx}`,
-            SaldoAkhir: newDebt
-          };
-          setDebtTransactions(prev => [newDebtTx, ...prev]);
 
           await SupabaseDebtService.addDebtTransaction({
             id_hutang: idHutang,
@@ -10750,22 +10737,9 @@ const AdminCashier = ({
             hutang: newDebt
           });
         } else if (paymentMethod === "Tabungan" && selectedCustomer) {
-          const idTab = generateNextTabunganId(selectedCustomer, savingsTransactions, customers);
+          const idTab = generateNextTabunganId(selectedCustomer, savings || [], customers);
           const currentTab = parseCurrency(selectedCustomer.Tabungan);
           const newTab = Math.max(0, currentTab - total);
-
-          const newSavingTx: SavingTransaction = {
-            id: idTab,
-            id_tabungan: idTab,
-            id_pelanggan: selectedCustomer.id_pelanggan || '',
-            Tanggal: todayStr,
-            Nama: selectedCustomer.Nama,
-            Tipe: "TARIK",
-            Nominal: total,
-            SaldoAkhir: newTab,
-            Berita: `Bayar Belanja - ${idTx}`
-          };
-          setSavingsTransactions(prev => [newSavingTx, ...prev]);
 
           await SupabaseSavingsService.addSavingTransaction({
             id_tabungan: idTab,
@@ -15603,7 +15577,7 @@ const AdminMasterDataPage = ({
                       <Database className="w-4 h-4 opacity-70" />
                       <p className="text-[10px] font-black uppercase tracking-widest opacity-70">Detail Entry Migrasi</p>
                     </div>
-                    <h2 className="text-xl sm:text-2xl font-black tracking-tight">{selectedMigrationItem.id_migrasi}</h2>
+                    <h2 className="text-xl sm:text-2xl font-black tracking-tight">{isEditingPopup ? (popupEditValues.id_penjualan || popupEditValues.id_transaksi || popupEditValues.id_migrasi) : selectedMigrationItem.id_migrasi}</h2>
                   </div>
                   <button 
                     onClick={() => {
@@ -15623,12 +15597,45 @@ const AdminMasterDataPage = ({
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">Nama Pelanggan</p>
                     <div className="bg-slate-50 p-4 rounded-2xl text-sm font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
-                      {customers.find(c => c.id_pelanggan === (isEditingPopup ? popupEditValues.id_pelanggan : selectedMigrationItem.id_pelanggan))?.Nama || "Pelanggan Tidak Dikenal"}
+                      {isEditingPopup ? (
+                        <select
+                          value={popupEditValues.Nama || customers.find(c => c.id_pelanggan === popupEditValues.id_pelanggan)?.Nama || "Pelanggan Umum"}
+                          onChange={(e) => {
+                            const selectedName = e.target.value;
+                            const selectedCust = customers.find(c => (c.Nama || c.nama || "") === selectedName);
+                            const newIdPelanggan = selectedCust ? (selectedCust.id_pelanggan || selectedCust.id || "") : "";
+                            const cleanDigits = newIdPelanggan ? newIdPelanggan.replace(/\D/g, "").slice(-4).padStart(4, "0") : "0000";
+                            const newTxId = `TRX-${cleanDigits}/1`;
+                            setPopupEditValues(prev => ({
+                              ...prev,
+                              Nama: selectedName,
+                              id_pelanggan: newIdPelanggan,
+                              id_transaksi: newTxId,
+                              id_penjualan: newTxId,
+                              id_migrasi: newTxId
+                            }));
+                          }}
+                          className="w-full bg-transparent border-none outline-none font-bold text-slate-700 dark:text-slate-200 cursor-pointer"
+                        >
+                          <option value="Pelanggan Umum">Pelanggan Umum</option>
+                          {customers.map((c, idx) => {
+                            const cName = c.Nama || c.nama || `Pelanggan ${idx + 1}`;
+                            const cId = c.id_pelanggan || c.id || "";
+                            return (
+                              <option key={cId || `pop_c_${idx}`} value={cName}>
+                                {cName}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      ) : (
+                        customers.find(c => c.id_pelanggan === selectedMigrationItem.id_pelanggan)?.Nama || selectedMigrationItem.Nama || "Pelanggan Tidak Dikenal"
+                      )}
                     </div>
                   </div>
                   
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">ID Pelanggan</p>
+                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest ml-1">ID Pelanggan (Otomatis)</p>
                     <div className="bg-slate-50 p-4 rounded-2xl text-sm font-mono font-bold text-slate-700 dark:text-slate-200 min-h-[52px] flex items-center">
                       {isEditingPopup ? (
                         <input 
@@ -18582,6 +18589,441 @@ const compressImage = async (
   });
 };
 
+/* ==========================================================================
+   PROFILE SETTINGS PAGE (Pengaturan Profil)
+   ========================================================================== */
+const ProfileSettingsPage = ({
+  user,
+  onLogin,
+  setCustomers,
+  onUpdatePhoto,
+  setToastNotice
+}: {
+  user: Customer | null;
+  onLogin: (user: Customer) => void;
+  setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
+  onUpdatePhoto: (nama: string, base64: string, file?: File | null) => Promise<void> | void;
+  setToastNotice?: (msg: string | null) => void;
+}) => {
+  const navigate = useNavigate();
+  const { language, t } = useLanguage();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [nameInput, setNameInput] = useState<string>(user?.Nama || user?.nama || "");
+  const [phoneInput, setPhoneInput] = useState<string>(
+    user?.Telepon || user?.telepon || user?.HP || user?.hp || user?.NoHP || user?.no_hp || ""
+  );
+  const [addressInput, setAddressInput] = useState<string>(user?.Alamat || user?.alamat || "");
+
+  const [currentPhoto, setCurrentPhoto] = useState<string>(user?.Foto || user?.foto || "");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
+
+  const [oldPinInput, setOldPinInput] = useState<string>("");
+  const [newPinInput, setNewPinInput] = useState<string>("");
+  const [confirmPinInput, setConfirmPinInput] = useState<string>("");
+  const [showOldPin, setShowOldPin] = useState<boolean>(false);
+  const [showNewPin, setShowNewPin] = useState<boolean>(false);
+  const [showConfirmPin, setShowConfirmPin] = useState<boolean>(false);
+
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (user) {
+      setNameInput(user.Nama || user.nama || "");
+      setPhoneInput(user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp || "");
+      setAddressInput(user.Alamat || user.alamat || "");
+      setCurrentPhoto(user.Foto || user.foto || "");
+    }
+  }, [user]);
+
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      alert(language === "en" ? "Image size max 15MB" : "Ukuran foto terlalu besar. Maksimal 15MB.");
+      return;
+    }
+
+    try {
+      setIsUploadingPhoto(true);
+      const { compressedFile, base64 } = await compressImage(file, 800, 800, 0.75);
+      setCurrentPhoto(base64);
+      await onUpdatePhoto(user.Nama, base64, compressedFile);
+      setIsUploadingPhoto(false);
+    } catch (err) {
+      console.error("Gagal unggah foto:", err);
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleSaveProfile = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!user) return;
+
+    setSaveError(null);
+    setIsSaving(true);
+
+    const existingPin = String(user.PIN || user.pin || "").trim();
+    let finalPin = existingPin;
+
+    if (newPinInput.trim() || oldPinInput.trim() || confirmPinInput.trim()) {
+      if (existingPin && oldPinInput.trim() !== existingPin) {
+        setSaveError(language === "en" ? "Old PIN is incorrect." : "PIN lama yang Anda masukkan salah.");
+        setIsSaving(false);
+        return;
+      }
+
+      if (!newPinInput.trim()) {
+        setSaveError(language === "en" ? "New PIN cannot be empty." : "PIN baru tidak boleh kosong.");
+        setIsSaving(false);
+        return;
+      }
+
+      if (newPinInput.trim().length < 4) {
+        setSaveError(language === "en" ? "New PIN must be at least 4 digits." : "PIN baru minimal 4 angka/karakter.");
+        setIsSaving(false);
+        return;
+      }
+
+      if (newPinInput.trim() !== confirmPinInput.trim()) {
+        setSaveError(language === "en" ? "New PIN and Confirmation PIN do not match." : "PIN baru dan Konfirmasi PIN tidak cocok.");
+        setIsSaving(false);
+        return;
+      }
+
+      finalPin = newPinInput.trim();
+    }
+
+    const newName = nameInput.trim() || user.Nama;
+    const newPhone = phoneInput.trim();
+    const newAddress = addressInput.trim();
+    const customerId = user.id_pelanggan || user.id || user.Nama;
+
+    try {
+      if (SupabaseCustomerService.isConnected()) {
+        await SupabaseCustomerService.upsertCustomer({
+          id_pelanggan: customerId,
+          nama: newName,
+          pin: finalPin,
+          telepon: newPhone,
+          alamat: newAddress,
+          foto: currentPhoto || user.Foto || user.foto || "",
+          tabungan: parseCurrency(user.Tabungan),
+          investasi: parseCurrency(user.Investasi),
+          lainnya: parseCurrency(user.Lainnya),
+          hutang: parseCurrency(user.Hutang),
+          point: user.Poin || user.point || 0,
+          level: user.Level || user.level || "BRONZE"
+        });
+
+        const client = SupabaseCustomerService.getClient();
+        if (client) {
+          await client.from('customers').update({
+            nama: newName,
+            pin: finalPin,
+            telepon: newPhone,
+            alamat: newAddress,
+            foto: currentPhoto || user.Foto || user.foto || ""
+          }).eq('id_pelanggan', customerId);
+        }
+      }
+
+      const updatedUser: Customer = {
+        ...user,
+        Nama: newName,
+        nama: newName,
+        PIN: finalPin,
+        pin: finalPin,
+        Telepon: newPhone,
+        telepon: newPhone,
+        HP: newPhone,
+        NoHP: newPhone,
+        Alamat: newAddress,
+        alamat: newAddress,
+        Foto: currentPhoto || user.Foto || user.foto || "",
+        foto: currentPhoto || user.Foto || user.foto || ""
+      };
+
+      onLogin(updatedUser);
+
+      setCustomers(prev =>
+        prev.map(c =>
+          (c.id_pelanggan && c.id_pelanggan === customerId) || c.Nama === user.Nama
+            ? updatedUser
+            : c
+        )
+      );
+
+      localStorage.setItem("warung_tomi_user", JSON.stringify(updatedUser));
+
+      setIsSaving(false);
+      setSaveSuccess(true);
+      if (setToastNotice) {
+        setToastNotice(language === "en" ? "Profile updated successfully!" : "Profil & PIN berhasil diperbarui!");
+      }
+
+      setTimeout(() => {
+        navigate(-1);
+      }, 1000);
+    } catch (err: any) {
+      console.error("Gagal simpan profil:", err);
+      setSaveError(language === "en" ? "Failed to save profile changes." : "Gagal menyimpan perubahan profil.");
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl mx-auto px-4 py-6">
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handlePhotoSelect}
+        accept="image/*"
+        className="hidden"
+      />
+
+      <div className="flex items-center justify-between mb-6">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/80 shadow-md flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-[#005E6A] transition-all cursor-pointer"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h1 className="text-base font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">
+          {language === "en" ? "Profile Settings" : "Pengaturan Profil"}
+        </h1>
+        <div className="w-10" />
+      </div>
+
+      <AnimatePresence>
+        {saveError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-3"
+          >
+            <Info className="w-5 h-5 shrink-0" />
+            <span>{saveError}</span>
+          </motion.div>
+        )}
+        {saveSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-6 p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-900/60 text-teal-600 dark:text-teal-400 text-xs font-bold flex items-center gap-3"
+          >
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <span>{language === "en" ? "Profile successfully updated!" : "Profil dan database berhasil diperbarui!"}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <form onSubmit={handleSaveProfile} className="space-y-6">
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none p-6 text-center">
+          <div className="relative w-28 h-28 mx-auto mb-4 group">
+            <div className="w-full h-full rounded-full overflow-hidden ring-4 ring-teal-500/20 dark:ring-teal-400/20 shadow-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+              {currentPhoto ? (
+                <img
+                  src={currentPhoto}
+                  alt={user?.Nama}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-12 h-12 text-slate-400" />
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingPhoto}
+              className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-[#005E6A] text-white flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900 hover:bg-teal-700 transition-all cursor-pointer"
+            >
+              {isUploadingPhoto ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Camera className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploadingPhoto}
+            className="text-xs font-black text-[#005E6A] dark:text-teal-400 hover:underline uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>{language === "en" ? "Change Profile Photo" : "Ganti Foto Profil"}</span>
+          </button>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none p-6 space-y-4">
+          <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+            <User className="w-4 h-4 text-teal-500" />
+            <span>{language === "en" ? "Personal Information" : "Informasi Pribadi"}</span>
+          </h3>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+              {language === "en" ? "Full Name" : "Nama Lengkap"}
+            </label>
+            <div className="relative">
+              <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                placeholder="Masukkan nama anda"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+              {language === "en" ? "Phone Number" : "Nomor Ponsel / WA"}
+            </label>
+            <div className="relative">
+              <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="tel"
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
+                placeholder="Contoh: 081234567890"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+              {language === "en" ? "Address" : "Alamat Tempat Tinggal"}
+            </label>
+            <div className="relative">
+              <MapPin className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+              <textarea
+                value={addressInput}
+                onChange={(e) => setAddressInput(e.target.value)}
+                rows={3}
+                placeholder="Contoh: Jl. Merdeka No. 12, RT 01/02, Kota Baru"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] resize-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none p-6 space-y-4">
+          <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
+            <KeyRound className="w-4 h-4 text-teal-500" />
+            <span>{language === "en" ? "Security PIN Settings" : "Keamanan PIN Login"}</span>
+          </h3>
+
+          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-400 leading-relaxed mb-3">
+            {language === "en"
+              ? "Leave PIN fields empty if you don't want to change your PIN."
+              : "Kosongkan kolom PIN jika tidak ingin mengubah PIN keamanan Anda."}
+          </p>
+
+          {Boolean(user?.PIN || user?.pin) && (
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                {language === "en" ? "Old PIN" : "PIN Lama"}
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type={showOldPin ? "text" : "password"}
+                  value={oldPinInput}
+                  onChange={(e) => setOldPinInput(e.target.value)}
+                  placeholder="Masukkan PIN lama Anda"
+                  className="w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOldPin(!showOldPin)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showOldPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+              {language === "en" ? "New PIN" : "PIN Baru"}
+            </label>
+            <div className="relative">
+              <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type={showNewPin ? "text" : "password"}
+                value={newPinInput}
+                onChange={(e) => setNewPinInput(e.target.value)}
+                placeholder="Minimal 4 digit angka/karakter"
+                className="w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPin(!showNewPin)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showNewPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+              {language === "en" ? "Confirm New PIN" : "Konfirmasi PIN Baru"}
+            </label>
+            <div className="relative">
+              <CheckCircle2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type={showConfirmPin ? "text" : "password"}
+                value={confirmPinInput}
+                onChange={(e) => setConfirmPinInput(e.target.value)}
+                placeholder="Ulangi PIN baru Anda"
+                className="w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPin(!showConfirmPin)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showConfirmPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isSaving}
+          className="w-full py-4 bg-[#005E6A] hover:bg-teal-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>{language === "en" ? "Saving..." : "Menyimpan Perubahan..."}</span>
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4" />
+              <span>{language === "en" ? "Save Profile Changes" : "Simpan Perubahan Profil"}</span>
+            </>
+          )}
+        </button>
+      </form>
+    </div>
+  );
+};
+
 const ProfilPage = ({ 
   user, 
   transactions, 
@@ -18662,6 +19104,7 @@ const ProfilPage = ({
   });
   const [toastNotice, setToastNotice] = useState<string | null>(null);
   const [settingModal, setSettingModal] = useState<"language" | "theme" | "textSize" | null>(null);
+  const [isCompletionExpanded, setIsCompletionExpanded] = useState<boolean>(false);
 
   // PIN change states
   const [showPinModal, setShowPinModal] = useState<boolean>(false);
@@ -19216,17 +19659,30 @@ const ProfilPage = ({
       {user && (() => {
         const hasPin = Boolean(user.PIN || user.pin);
         const hasPhoto = Boolean(user.Foto || user.foto);
-        const totalItems = 2;
-        const completedCount = (hasPin ? 1 : 0) + (hasPhoto ? 1 : 0);
+        const hasPhone = Boolean(user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp);
+        const hasAddress = Boolean(user.Alamat || user.alamat);
+
+        const totalItems = 4;
+        const completedCount = (hasPin ? 1 : 0) + (hasPhoto ? 1 : 0) + (hasPhone ? 1 : 0) + (hasAddress ? 1 : 0);
         const completionPercentage = Math.round((completedCount / totalItems) * 100);
 
         return (
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 p-6">
-            <div className="flex items-center justify-between mb-3">
+            <div 
+              onClick={() => setIsCompletionExpanded(prev => !prev)}
+              className="flex items-center justify-between cursor-pointer select-none group"
+            >
               <div>
-                <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em]">
-                  {language === "en" ? "Account Completion" : "Kelengkapan Akun"}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em]">
+                    {language === "en" ? "Account Completion" : "Kelengkapan Akun"}
+                  </h3>
+                  {isCompletionExpanded ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-[#005E6A] transition-colors" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-[#005E6A] transition-colors" />
+                  )}
+                </div>
                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider mt-0.5">
                   {completedCount} dari {totalItems} Selesai ({completionPercentage}%)
                 </p>
@@ -19240,8 +19696,11 @@ const ProfilPage = ({
               </span>
             </div>
 
-            {/* Progress Bar */}
-            <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-4">
+            {/* Progress Bar (Always visible) */}
+            <div 
+              onClick={() => setIsCompletionExpanded(prev => !prev)}
+              className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mt-3 cursor-pointer"
+            >
               <motion.div 
                 initial={{ width: 0 }}
                 animate={{ width: `${completionPercentage}%` }}
@@ -19250,94 +19709,170 @@ const ProfilPage = ({
               />
             </div>
 
-            {/* Checklist items */}
-            <div className="space-y-2.5">
-              {/* Item 1: PIN Keamanan */}
-              <div 
-                onClick={() => {
-                  if (!hasPin) {
-                    setOldPinInput("");
-                    setNewPinInput("");
-                    setConfirmPinInput("");
-                    setPinError(null);
-                    setShowPinModal(true);
-                  }
-                }}
-                className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
-                  hasPin 
-                    ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800" 
-                    : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    hasPin 
-                      ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
-                      : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
-                  }`}>
-                    <KeyRound className="w-4 h-4" />
+            {/* Checklist items (Expandable) */}
+            <AnimatePresence>
+              {isCompletionExpanded && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                  animate={{ opacity: 1, height: "auto", marginTop: 16 }}
+                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="space-y-2.5 overflow-hidden"
+                >
+                  {/* Item 1: PIN Keamanan */}
+                  <div 
+                    onClick={() => navigate("/pengaturan-profil")}
+                    className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
+                      hasPin 
+                        ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 hover:bg-slate-100/60" 
+                        : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        hasPin 
+                          ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
+                          : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                      }`}>
+                        <KeyRound className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                          1. PIN Keamanan
+                        </p>
+                        <p className={`text-[9px] font-bold uppercase tracking-wider ${
+                          hasPin ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
+                        }`}>
+                          {hasPin ? "PIN sudah diatur" : "Belum ada PIN (Atur di Pengaturan Profil)"}
+                        </p>
+                      </div>
+                    </div>
+                    {hasPin ? (
+                      <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                      1. PIN Keamanan
-                    </p>
-                    <p className={`text-[9px] font-bold uppercase tracking-wider ${
-                      hasPin ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
-                    }`}>
-                      {hasPin ? "PIN sudah diatur" : "Belum ada PIN (Atur Sekarang)"}
-                    </p>
-                  </div>
-                </div>
-                {hasPin ? (
-                  <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
-                ) : (
-                  <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                  </div>
-                )}
-              </div>
 
-              {/* Item 2: Foto Profil */}
-              <div 
-                onClick={() => {
-                  if (!hasPhoto) {
-                    fileInputRef.current?.click();
-                  }
-                }}
-                className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
-                  hasPhoto 
-                    ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800" 
-                    : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    hasPhoto 
-                      ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
-                      : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
-                  }`}>
-                    <Camera className="w-4 h-4" />
+                  {/* Item 2: Foto Profil */}
+                  <div 
+                    onClick={() => navigate("/pengaturan-profil")}
+                    className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
+                      hasPhoto 
+                        ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 hover:bg-slate-100/60" 
+                        : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        hasPhoto 
+                          ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
+                          : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                      }`}>
+                        <Camera className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                          2. Foto Profil
+                        </p>
+                        <p className={`text-[9px] font-bold uppercase tracking-wider ${
+                          hasPhoto ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
+                        }`}>
+                          {hasPhoto ? "Foto profil sudah terpasang" : "Belum ada foto (Unggah Foto)"}
+                        </p>
+                      </div>
+                    </div>
+                    {hasPhoto ? (
+                      <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                      2. Foto Profil
-                    </p>
-                    <p className={`text-[9px] font-bold uppercase tracking-wider ${
-                      hasPhoto ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
-                    }`}>
-                      {hasPhoto ? "Foto profil sudah terpasang" : "Belum ada foto (Unggah Foto)"}
-                    </p>
+
+                  {/* Item 3: Nomor Ponsel */}
+                  <div 
+                    onClick={() => navigate("/pengaturan-profil")}
+                    className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
+                      hasPhone 
+                        ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 hover:bg-slate-100/60" 
+                        : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        hasPhone 
+                          ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
+                          : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                      }`}>
+                        <Phone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                          3. Nomor Ponsel
+                        </p>
+                        <p className={`text-[9px] font-bold uppercase tracking-wider ${
+                          hasPhone ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
+                        }`}>
+                          {hasPhone 
+                            ? (user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp) 
+                            : "Belum ada nomor ponsel (Lengkapi Sekarang)"}
+                        </p>
+                      </div>
+                    </div>
+                    {hasPhone ? (
+                      <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                      </div>
+                    )}
                   </div>
-                </div>
-                {hasPhoto ? (
-                  <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
-                ) : (
-                  <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+
+                  {/* Item 4: Alamat */}
+                  <div 
+                    onClick={() => navigate("/pengaturan-profil")}
+                    className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
+                      hasAddress 
+                        ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 hover:bg-slate-100/60" 
+                        : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        hasAddress 
+                          ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
+                          : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                      }`}>
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                          4. Alamat
+                        </p>
+                        <p className={`text-[9px] font-bold uppercase tracking-wider ${
+                          hasAddress ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
+                        }`}>
+                          {hasAddress 
+                            ? (user.Alamat || user.alamat) 
+                            : "Belum ada alamat (Lengkapi Sekarang)"}
+                        </p>
+                      </div>
+                    </div>
+                    {hasAddress ? (
+                      <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         );
       })()}
@@ -19364,36 +19899,27 @@ const ProfilPage = ({
         </h3>
         <div className="space-y-1">
           
-          {/* Ganti PIN (Posisi Pertama) */}
+          {/* Pengaturan Profil (Posisi Pertama) */}
           {user && (
             <>
               <button 
-                onClick={() => {
-                  setOldPinInput("");
-                  setNewPinInput("");
-                  setConfirmPinInput("");
-                  setPinError(null);
-                  setShowPinModal(true);
-                }}
+                onClick={() => navigate("/pengaturan-profil")}
                 className="w-full py-3 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all rounded-2xl px-2 -mx-2 text-left group cursor-pointer"
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-500 shrink-0">
-                    <KeyRound className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                    <User className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                   </div>
                   <div>
                     <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">
-                      {language === "en" ? "Change PIN" : "Ganti PIN Keamanan"}
+                      {language === "en" ? "Profile Settings" : "Pengaturan Profil"}
                     </p>
                     <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
-                      {language === "en" ? "Update login PIN" : "Ubah PIN login"}
+                      {language === "en" ? "Edit photo, name, phone, address & PIN" : "Ubah foto, nama, ponsel, alamat & PIN"}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-[#F15A24] dark:text-orange-400 uppercase tracking-wider">
-                    ••••••
-                  </span>
                   <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A] dark:group-hover:text-teal-400 transition-colors" />
                 </div>
               </button>
@@ -24368,6 +24894,38 @@ export default function App() {
         } />
         <Route path="/tukar-poin/:customerName" element={
           <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} customers={customers} />
+        } />
+        <Route path="/pengaturan-profil" element={
+          <Layout 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab}
+            user={loggedInUser}
+          >
+            <ProtectedPage user={loggedInUser} title="Pengaturan Profil" customers={customers} onLogin={handleLogin} setActiveTab={setActiveTab}>
+              <ProfileSettingsPage
+                user={loggedInUser}
+                onLogin={handleLogin}
+                setCustomers={setCustomers}
+                onUpdatePhoto={handleUpdatePhoto}
+              />
+            </ProtectedPage>
+          </Layout>
+        } />
+        <Route path="/pengaturan-profil/:customerName" element={
+          <Layout 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab}
+            user={loggedInUser}
+          >
+            <ProtectedPage user={loggedInUser} title="Pengaturan Profil" customers={customers} onLogin={handleLogin} setActiveTab={setActiveTab}>
+              <ProfileSettingsPage
+                user={loggedInUser}
+                onLogin={handleLogin}
+                setCustomers={setCustomers}
+                onUpdatePhoto={handleUpdatePhoto}
+              />
+            </ProtectedPage>
+          </Layout>
         } />
         <Route path="/detail-belanja/:transactionId" element={
           <DetailBelanjaPage user={loggedInUser} transactions={salesTransactions} />
