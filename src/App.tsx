@@ -78,6 +78,9 @@ import {
   LayoutGrid,
   Save,
   Settings,
+  KeyRound,
+  Eye,
+  EyeOff,
   QrCode,
   Send,
   Globe,
@@ -2982,6 +2985,17 @@ const LoginPage = ({
     }
   };
 
+  const savedPhotos: Record<string, string> = (() => {
+    try {
+      const saved = localStorage.getItem("warung_tomi_photos");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const selectedPhoto = selectedCustomer ? (savedPhotos[selectedCustomer.Nama] || selectedCustomer.Foto || selectedCustomer.foto) : null;
+
   return (
     <div className="px-4 py-8 flex flex-col items-center justify-start min-h-[75vh] relative pb-28">
       <motion.div 
@@ -3031,33 +3045,54 @@ const LoginPage = ({
                       exit={{ opacity: 0, y: -10 }}
                       className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50"
                     >
-                      {suggestions.map((s, i) => (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            if (s.PIN && s.PIN.trim() !== "") {
-                              setCustomerName(s.Nama);
-                              setSelectedCustomer(s);
-                              setShowPinInput(true);
-                              setSuggestions([]);
-                            } else if (onLogin && setActiveTab) {
-                              onLogin(s);
-                              setCustomerName("");
-                              setActiveTab("beranda");
-                              navigate("/");
-                            }
-                          }}
-                          className="w-full px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-50 dark:border-slate-700 last:border-0 flex items-center justify-between group cursor-pointer"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-6 h-6 bg-orange-50/50 rounded-full flex items-center justify-center text-[#F15A24] shrink-0 border border-[#F15A24]/10">
-                              <User className="w-3 h-3 text-[#F15A24]" />
+                      {suggestions.map((s, i) => {
+                        const photo = savedPhotos[s.Nama] || s.Foto || s.foto;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              if (s.PIN && s.PIN.trim() !== "") {
+                                setCustomerName(s.Nama);
+                                setSelectedCustomer(s);
+                                setShowPinInput(true);
+                                setSuggestions([]);
+                              } else if (onLogin && setActiveTab) {
+                                onLogin(s);
+                                setCustomerName("");
+                                setActiveTab("beranda");
+                                navigate("/");
+                              }
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors border-b border-slate-50 dark:border-slate-700/50 last:border-0 flex items-center justify-between group cursor-pointer"
+                          >
+                            <div className="flex items-center gap-3.5">
+                              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 border-2 border-amber-200 dark:border-amber-800/60 overflow-hidden shadow-sm">
+                                {photo ? (
+                                  <img 
+                                    src={photo} 
+                                    alt={s.Nama} 
+                                    className="w-full h-full object-cover" 
+                                    referrerPolicy="no-referrer"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-950 dark:to-slate-800 flex items-center justify-center text-[#F15A24]">
+                                    <User className="w-5 h-5 text-[#F15A24]" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col">
+                                {highlightText(s.Nama, customerName)}
+                                {s.PIN && s.PIN.trim() !== "" && (
+                                  <span className="text-[8px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                                    <Lock className="w-2.5 h-2.5" /> PIN Keamanan
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            {highlightText(s.Nama, customerName)}
-                          </div>
-                          <ArrowRight className="w-3 h-3 text-slate-300 dark:text-slate-400 group-hover:text-[#F15A24] transition-colors" />
-                        </button>
-                      ))}
+                            <ArrowRight className="w-4 h-4 text-slate-300 dark:text-slate-400 group-hover:text-[#F15A24] transition-colors" />
+                          </button>
+                        );
+                      })}
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -3066,18 +3101,36 @@ const LoginPage = ({
           ) : (
             <div className="space-y-4">
               <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between mb-4 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-[#005E6A] rounded-full flex items-center justify-center text-white font-black text-[10px]">
-                    {selectedCustomer?.Nama?.charAt(0)}
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 border-2 border-[#005E6A]/30 overflow-hidden shadow-sm">
+                    {selectedPhoto ? (
+                      <img 
+                        src={selectedPhoto} 
+                        alt={selectedCustomer?.Nama} 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-[#005E6A] flex items-center justify-center text-white font-black text-xs">
+                        {selectedCustomer?.Nama?.charAt(0)}
+                      </div>
+                    )}
                   </div>
-                  <span className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-widest">{selectedCustomer?.Nama}</span>
+                  <div>
+                    <span className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-widest block">
+                      {selectedCustomer?.Nama}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider block mt-0.5">
+                      Pelanggan Terdaftar
+                    </span>
+                  </div>
                 </div>
                 <button 
                   onClick={() => {
                     setShowPinInput(false);
                     setPinInput("");
                   }}
-                  className="text-[8px] font-black text-[#F15A24] uppercase tracking-widest hover:underline cursor-pointer"
+                  className="text-[9px] font-black text-[#F15A24] uppercase tracking-widest hover:underline px-2.5 py-1 rounded-lg bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-900/50 cursor-pointer"
                 >
                   Ganti
                 </button>
@@ -9159,7 +9212,7 @@ const AdminManagementPage = ({
   }[],
   icon: any,
   colorClass: string,
-  onItemClick?: (name: string) => void,
+  onItemClick?: (name: string, item?: any) => void,
   stats?: { label: string, value: number, count: number, color: string }[],
   statsRight?: { label: string, value: number, count: number, color: string }[],
   showLegend?: boolean,
@@ -9424,7 +9477,7 @@ const AdminManagementPage = ({
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    onClick={() => onItemClick && onItemClick(item.name)}
+                    onClick={() => onItemClick && onItemClick(item.name, item)}
                     className={`bg-white px-4 py-4 rounded-[1.8rem] shadow-sm border border-slate-100 dark:border-slate-800 flex justify-between items-center relative overflow-hidden h-full ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
                   >
                     <div className="flex items-center gap-3">
@@ -12505,9 +12558,23 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
   );
 };
 
-const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesTransaction[] }) => {
+const AdminOtherManagement = ({ 
+  salesTransactions, 
+  setSalesTransactions, 
+  fetchData 
+}: { 
+  salesTransactions: SalesTransaction[];
+  setSalesTransactions?: React.Dispatch<React.SetStateAction<SalesTransaction[]>>;
+  fetchData?: (showLoading?: boolean, collectionName?: string) => void;
+}) => {
   const navigate = useNavigate();
-  
+
+  const [selectedTransaction, setSelectedTransaction] = useState<SalesTransaction | null>(null);
+  const [editStatus, setEditStatus] = useState<string>("BELUM DIAMBIL");
+  const [editSebagian, setEditSebagian] = useState<string>("0");
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
     if (!isAdmin) {
@@ -12580,65 +12647,6 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
     return { belum: totalBelum, proses: totalProses };
   }, [pendingWithdrawals]);
 
-  const groupedProses = useMemo(() => {
-    const summary: Record<string, { total: number, count: number }> = {};
-    const COLORS = [
-      "#FF00ED", "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", 
-      "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
-    ];
-
-    pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "DIPROSES").forEach((t) => {
-      const name = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
-      if (!summary[name]) {
-        summary[name] = { total: 0, count: 0 };
-      }
-      const netAmount = ((parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0));
-      summary[name].total += netAmount;
-      summary[name].count += 1;
-    });
-
-    return Object.entries(summary).map(([name, data], idx) => ({
-      name,
-      total: data.total,
-      count: data.count,
-      color: COLORS[idx % COLORS.length]
-    })).sort((a, b) => b.total - a.total);
-  }, [pendingWithdrawals]);
-
-  const groupedBelum = useMemo(() => {
-    const summary: Record<string, { total: number, count: number }> = {};
-    const COLORS = [
-      "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", "#FF00ED",
-      "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
-    ];
-
-    pendingWithdrawals.filter(t => (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL").forEach((t) => {
-      const name = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
-      if (!summary[name]) {
-        summary[name] = { total: 0, count: 0 };
-      }
-      const netAmount = (() => {
-        const modal = parseCurrency(t.HargaModal) || 0;
-        const sebagian = parseCurrency(t.Sebagian) || 0;
-        const melalui = (t.Melalui || "").toUpperCase().trim();
-        let base = modal;
-        if (melalui === "EDC BNI" && (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL") {
-          base -= 1500;
-        }
-        return base - sebagian;
-      })();
-      summary[name].total += netAmount;
-      summary[name].count += 1;
-    });
-
-    return Object.entries(summary).map(([name, data], idx) => ({
-      name,
-      total: data.total,
-      count: data.count,
-      color: COLORS[idx % COLORS.length]
-    })).sort((a, b) => b.total - a.total);
-  }, [pendingWithdrawals]);
-
   const items = useMemo(() => {
     // Sort transactions by date descending (newest first)
     const sortedTxs = [...pendingWithdrawals].sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
@@ -12679,6 +12687,7 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
       const customerColor = customerGroup ? customerGroup.color : "#3b82f6";
       
       list.push({
+        rawTransaction: t,
         name: displayName,
         value: netAmount,
         color: customerColor,
@@ -12706,26 +12715,230 @@ const AdminOtherManagement = ({ salesTransactions }: { salesTransactions: SalesT
     color: item.color || "#ccc"
   }));
 
-  const handleItemClick = (name: string) => {
-    navigate(`/lainnya/${encodeURIComponent(name)}`);
+  const handleItemClick = (name: string, item?: any) => {
+    if (item && item.rawTransaction) {
+      setSelectedTransaction(item.rawTransaction);
+      setEditStatus((item.rawTransaction.Status || "BELUM DIAMBIL").toUpperCase().trim());
+      setEditSebagian(String(item.rawTransaction.Sebagian || 0));
+    } else {
+      navigate(`/lainnya/${encodeURIComponent(name)}`);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!selectedTransaction) return;
+    setIsSaving(true);
+
+    const numericSebagian = Number(editSebagian) || 0;
+    const updatedTx: SalesTransaction = {
+      ...selectedTransaction,
+      Status: editStatus,
+      Sebagian: numericSebagian
+    };
+
+    // 1. Update Supabase if connected
+    if (SupabaseSalesService.isConnected()) {
+      try {
+        const payload: SupabaseSalesTransaction = {
+          id_transaksi: updatedTx.id_transaksi || updatedTx.id,
+          id_pelanggan: updatedTx.id_pelanggan || "",
+          tanggal: updatedTx.Tanggal,
+          nama: updatedTx.Nama,
+          jenis: updatedTx.Jenis,
+          metode: updatedTx.Metode,
+          pemasukan: updatedTx.Pemasukan,
+          poin: updatedTx.Poin,
+          status: editStatus,
+          melalui: updatedTx.Melalui,
+          harga_modal: updatedTx.HargaModal,
+          sebagian: numericSebagian
+        };
+        await SupabaseSalesService.upsertSale(payload);
+      } catch (err) {
+        console.error("Gagal update status transaksi ke Supabase:", err);
+      }
+    }
+
+    // 2. Update local state
+    if (setSalesTransactions) {
+      setSalesTransactions(prev => prev.map(t => {
+        const matchId = (t.id_transaksi || t.id) === (selectedTransaction.id_transaksi || selectedTransaction.id);
+        if (matchId) {
+          return {
+            ...t,
+            Status: editStatus,
+            Sebagian: numericSebagian
+          };
+        }
+        return t;
+      }));
+    }
+
+    if (fetchData) {
+      fetchData(false, "salesTransactions");
+    }
+
+    setIsSaving(false);
+    setSelectedTransaction(null);
+
+    // Show success animation modal
+    setShowSuccessModal(true);
+    setTimeout(() => {
+      setShowSuccessModal(false);
+    }, 2000);
   };
 
   return (
-    <AdminManagementPage 
-      title="Management Lainnya"
-      subtitle="Data Transaksi Belum Diambil & Diproses"
-      totalLabel="Total Dana Mengendap"
-      totalValue={totalPending}
-      items={items}
-      icon={Timer}
-      colorClass="text-[#F15A24]"
-      onItemClick={handleItemClick}
-      stats={stats}
-      statsRight={statsRight}
-      showLegend={true}
-      showBadges={false}
-      listTitle="Antrean Transaksi"
-    />
+    <>
+      <AdminManagementPage 
+        title="Management Lainnya"
+        subtitle="Data Transaksi Belum Diambil & Diproses"
+        totalLabel="Total Dana Mengendap"
+        totalValue={totalPending}
+        items={items}
+        icon={Timer}
+        colorClass="text-[#F15A24]"
+        onItemClick={handleItemClick}
+        stats={stats}
+        statsRight={statsRight}
+        showLegend={true}
+        showBadges={false}
+        listTitle="Antrean Transaksi"
+      />
+
+      {/* Transaction Detail & Edit Modal */}
+      <AnimatePresence>
+        {selectedTransaction && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-800 relative space-y-5"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-full border border-teal-200 dark:border-teal-800">
+                    Detail Transaksi
+                  </span>
+                  <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 mt-1">
+                    {selectedTransaction.id_transaksi || selectedTransaction.id}
+                  </h3>
+                </div>
+                <button 
+                  onClick={() => setSelectedTransaction(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Detail Info Card */}
+              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl space-y-2.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Pelanggan</span>
+                  <span className="font-black text-slate-800 dark:text-slate-100">{selectedTransaction.Nama || 'Pelanggan Umum'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Tanggal</span>
+                  <span className="font-black text-slate-800 dark:text-slate-100">{selectedTransaction.Tanggal}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Jenis / Melalui</span>
+                  <span className="font-black text-slate-800 dark:text-slate-100">{selectedTransaction.Jenis || 'Lainnya'} ({selectedTransaction.Melalui || '-'})</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Total Nominal (Modal)</span>
+                  <span className="font-black text-[#005E6A] dark:text-teal-400">
+                    Rp {(parseCurrency(selectedTransaction.HargaModal || selectedTransaction.Pemasukan || 0)).toLocaleString('id-ID')}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
+                  <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Sebagian (Saat Ini)</span>
+                  <span className="font-black text-amber-600 dark:text-amber-400">
+                    Rp {(parseCurrency(selectedTransaction.Sebagian || 0)).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Dropdown Status */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                  Status Transaksi
+                </label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-black text-slate-800 dark:text-slate-100 outline-none focus:border-[#005E6A] dark:focus:border-teal-400 transition-colors cursor-pointer"
+                >
+                  <option value="BELUM DIAMBIL">BELUM DIAMBIL</option>
+                  <option value="DIPROSES">DIPROSES</option>
+                  <option value="SELESAI">SELESAI</option>
+                </select>
+              </div>
+
+              {/* Input Diambil Sebagian */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                  Diambil Sebagian (Rp)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
+                    Rp
+                  </span>
+                  <input 
+                    type="number"
+                    value={editSebagian}
+                    onChange={(e) => setEditSebagian(e.target.value)}
+                    placeholder="0"
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-black text-slate-800 dark:text-slate-100 outline-none focus:border-[#005E6A] dark:focus:border-teal-400 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Button Simpan */}
+              <div className="pt-2">
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="w-full bg-[#005E6A] hover:bg-[#004d57] active:scale-[0.99] text-white font-black text-xs uppercase tracking-wider py-3 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <span>Simpan</span>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Animation Modal */}
+      <AnimatePresence>
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center text-center space-y-3 max-w-xs border border-teal-500/30"
+            >
+              <div className="w-16 h-16 bg-teal-500/20 text-teal-600 dark:text-teal-400 rounded-full flex items-center justify-center animate-bounce">
+                <CheckCircle2 className="w-10 h-10" />
+              </div>
+              <h3 className="text-base font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-wide">Data Berhasil Disimpan</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Status dan nominal sebagian telah diperbarui di Supabase.</p>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
@@ -18308,6 +18521,67 @@ Terima kasih telah berbelanja di Warung Tomi!`;
   );
 };
 
+const compressImage = async (
+  file: File, 
+  maxWidth = 800, 
+  maxHeight = 800, 
+  quality = 0.75
+): Promise<{ compressedFile: File; base64: string }> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas context not available"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const base64 = canvas.toDataURL("image/jpeg", quality);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+              });
+              resolve({ compressedFile, base64 });
+            } else {
+              resolve({ compressedFile: file, base64 });
+            }
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};
+
 const ProfilPage = ({ 
   user, 
   transactions, 
@@ -18327,11 +18601,12 @@ const ProfilPage = ({
   customers: Customer[], 
   onLogin: (user: Customer) => void, 
   setActiveTab: (id: string) => void, 
-  onUpdatePhoto: (nama: string, base64: string) => void 
+  onUpdatePhoto: (nama: string, base64: string, file?: File | null) => Promise<void> | void 
 }) => {
   const navigate = useNavigate();
   const [showQR, setShowQR] = useState(false);
   const [showLevelBenefits, setShowLevelBenefits] = useState(false);
+  const [uploadStep, setUploadStep] = useState<"compressing" | "uploading" | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const assetScrollRef = useRef<HTMLDivElement>(null);
 
@@ -18387,6 +18662,92 @@ const ProfilPage = ({
   });
   const [toastNotice, setToastNotice] = useState<string | null>(null);
   const [settingModal, setSettingModal] = useState<"language" | "theme" | "textSize" | null>(null);
+
+  // PIN change states
+  const [showPinModal, setShowPinModal] = useState<boolean>(false);
+  const [oldPinInput, setOldPinInput] = useState<string>("");
+  const [newPinInput, setNewPinInput] = useState<string>("");
+  const [confirmPinInput, setConfirmPinInput] = useState<string>("");
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [isSavingPin, setIsSavingPin] = useState<boolean>(false);
+  const [showPinSuccess, setShowPinSuccess] = useState<boolean>(false);
+  const [showPinPassword, setShowPinPassword] = useState<boolean>(false);
+
+  const handleSavePin = async () => {
+    if (!user) return;
+    setPinError(null);
+
+    const existingPin = String(user.PIN || user.pin || "").trim();
+    if (existingPin) {
+      if (oldPinInput.trim() !== existingPin) {
+        setPinError(language === "en" ? "Old PIN is incorrect." : "PIN lama yang Anda masukkan salah.");
+        return;
+      }
+    }
+
+    const newPin = newPinInput.trim();
+    if (!newPin) {
+      setPinError(language === "en" ? "Please enter new PIN." : "PIN baru tidak boleh kosong.");
+      return;
+    }
+
+    if (newPin.length < 4) {
+      setPinError(language === "en" ? "New PIN must be at least 4 digits." : "PIN baru minimal 4 angka/karakter.");
+      return;
+    }
+
+    if (newPin !== confirmPinInput.trim()) {
+      setPinError(language === "en" ? "New PIN and Confirmation PIN do not match." : "PIN baru dan Konfirmasi PIN tidak cocok.");
+      return;
+    }
+
+    setIsSavingPin(true);
+    try {
+      const customerId = user.id_pelanggan || user.id || user.Nama;
+      
+      // Update to Supabase if connected
+      if (SupabaseCustomerService.isConnected()) {
+        await SupabaseCustomerService.upsertCustomer({
+          id_pelanggan: customerId,
+          nama: user.Nama,
+          pin: newPin
+        });
+        const client = SupabaseCustomerService.getClient();
+        if (client) {
+          await client.from('customers').update({ pin: newPin }).eq('nama', user.Nama);
+          if (customerId) {
+            await client.from('customers').update({ pin: newPin }).eq('id_pelanggan', customerId);
+          }
+        }
+      }
+
+      // Update local session & storage
+      const updatedUser = {
+        ...user,
+        PIN: newPin,
+        pin: newPin
+      };
+      if (onLogin) {
+        onLogin(updatedUser);
+      }
+      localStorage.setItem("warung_tomi_user", JSON.stringify(updatedUser));
+
+      setIsSavingPin(false);
+      setShowPinModal(false);
+      setOldPinInput("");
+      setNewPinInput("");
+      setConfirmPinInput("");
+
+      setShowPinSuccess(true);
+      setTimeout(() => {
+        setShowPinSuccess(false);
+      }, 2500);
+    } catch (err) {
+      console.error("Gagal update PIN:", err);
+      setPinError(language === "en" ? "Failed to update PIN to Supabase." : "Gagal menyimpan PIN baru ke Supabase.");
+      setIsSavingPin(false);
+    }
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -18453,23 +18814,45 @@ const ProfilPage = ({
       navigate("/login");
       return;
     }
+    if (uploadStep !== null) return;
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && user) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert("Ukuran foto terlalu besar. Maksimal 2MB.");
+      if (file.size > 15 * 1024 * 1024) {
+        alert(language === "en" ? "Image size too large. Maximum 15MB." : "Ukuran foto terlalu besar. Maksimal 15MB.");
         return;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        onUpdatePhoto(user.Nama, base64);
-      };
-      reader.readAsDataURL(file);
+      try {
+        setUploadStep("compressing");
+        // Animasi kompresi singkat untuk memberikan umpan balik visual
+        await new Promise((r) => setTimeout(r, 500));
+        
+        const { compressedFile, base64 } = await compressImage(file, 800, 800, 0.75);
+
+        setUploadStep("uploading");
+        await onUpdatePhoto(user.Nama, base64, compressedFile);
+
+        setToastNotice(
+          language === "en"
+            ? "Profile photo compressed & saved to Supabase!"
+            : "Foto profil berhasil dikompresi & tersimpan di Supabase!"
+        );
+      } catch (err) {
+        console.error("Gagal mengompresi/mengunggah foto profil:", err);
+        setToastNotice(
+          language === "en"
+            ? "Failed to upload profile photo."
+            : "Gagal mengompresi/mengunggah foto profil ke Supabase."
+        );
+      } finally {
+        setUploadStep(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        setTimeout(() => setToastNotice(null), 3500);
+      }
     }
   };
 
@@ -18547,11 +18930,23 @@ const ProfilPage = ({
                     <User className="w-10 h-10 text-white drop-shadow-md" />
                   </div>
                 )}
-                {user && (
+                {uploadStep ? (
+                  <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center text-white backdrop-blur-[2px] p-1 text-center">
+                    <div className="relative flex items-center justify-center mb-1">
+                      <div className="w-5 h-5 border-2 border-teal-300 border-t-transparent rounded-full animate-spin" />
+                      {uploadStep === "compressing" && (
+                        <span className="absolute w-2 h-2 bg-amber-400 rounded-full animate-ping" />
+                      )}
+                    </div>
+                    <span className="text-[7px] font-black uppercase tracking-wider text-teal-300">
+                      {uploadStep === "compressing" ? "Kompresi..." : "Mengunggah..."}
+                    </span>
+                  </div>
+                ) : user ? (
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                     <Camera className="w-6 h-6 text-white" />
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -18817,6 +19212,136 @@ const ProfilPage = ({
         </div>
       )}
 
+      {/* 3.5 KELOMPOK KELENGKAPAN AKUN */}
+      {user && (() => {
+        const hasPin = Boolean(user.PIN || user.pin);
+        const hasPhoto = Boolean(user.Foto || user.foto);
+        const totalItems = 2;
+        const completedCount = (hasPin ? 1 : 0) + (hasPhoto ? 1 : 0);
+        const completionPercentage = Math.round((completedCount / totalItems) * 100);
+
+        return (
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em]">
+                  {language === "en" ? "Account Completion" : "Kelengkapan Akun"}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider mt-0.5">
+                  {completedCount} dari {totalItems} Selesai ({completionPercentage}%)
+                </p>
+              </div>
+              <span className={`text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider ${
+                completionPercentage === 100 
+                  ? "bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800" 
+                  : "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
+              }`}>
+                {completionPercentage === 100 ? "Lengkap" : "Belum Lengkap"}
+              </span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mb-4">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${completionPercentage}%` }}
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="h-full bg-gradient-to-r from-[#005E6A] to-teal-400 rounded-full"
+              />
+            </div>
+
+            {/* Checklist items */}
+            <div className="space-y-2.5">
+              {/* Item 1: PIN Keamanan */}
+              <div 
+                onClick={() => {
+                  if (!hasPin) {
+                    setOldPinInput("");
+                    setNewPinInput("");
+                    setConfirmPinInput("");
+                    setPinError(null);
+                    setShowPinModal(true);
+                  }
+                }}
+                className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
+                  hasPin 
+                    ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800" 
+                    : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    hasPin 
+                      ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
+                      : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                  }`}>
+                    <KeyRound className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                      1. PIN Keamanan
+                    </p>
+                    <p className={`text-[9px] font-bold uppercase tracking-wider ${
+                      hasPin ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
+                    }`}>
+                      {hasPin ? "PIN sudah diatur" : "Belum ada PIN (Atur Sekarang)"}
+                    </p>
+                  </div>
+                </div>
+                {hasPin ? (
+                  <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                  </div>
+                )}
+              </div>
+
+              {/* Item 2: Foto Profil */}
+              <div 
+                onClick={() => {
+                  if (!hasPhoto) {
+                    fileInputRef.current?.click();
+                  }
+                }}
+                className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
+                  hasPhoto 
+                    ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800" 
+                    : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    hasPhoto 
+                      ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
+                      : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
+                  }`}>
+                    <Camera className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
+                      2. Foto Profil
+                    </p>
+                    <p className={`text-[9px] font-bold uppercase tracking-wider ${
+                      hasPhoto ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
+                    }`}>
+                      {hasPhoto ? "Foto profil sudah terpasang" : "Belum ada foto (Unggah Foto)"}
+                    </p>
+                  </div>
+                </div>
+                {hasPhoto ? (
+                  <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Toast Notification Banner for Settings Changes */}
       <AnimatePresence>
         {toastNotice && (
@@ -18839,6 +19364,43 @@ const ProfilPage = ({
         </h3>
         <div className="space-y-1">
           
+          {/* Ganti PIN (Posisi Pertama) */}
+          {user && (
+            <>
+              <button 
+                onClick={() => {
+                  setOldPinInput("");
+                  setNewPinInput("");
+                  setConfirmPinInput("");
+                  setPinError(null);
+                  setShowPinModal(true);
+                }}
+                className="w-full py-3 flex items-center justify-between hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-all rounded-2xl px-2 -mx-2 text-left group cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-500 shrink-0">
+                    <KeyRound className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-tight">
+                      {language === "en" ? "Change PIN" : "Ganti PIN Keamanan"}
+                    </p>
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
+                      {language === "en" ? "Update login PIN" : "Ubah PIN login"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-[#F15A24] dark:text-orange-400 uppercase tracking-wider">
+                    ••••••
+                  </span>
+                  <ChevronRight className="w-5 h-5 text-slate-300 dark:text-slate-200 group-hover:text-[#005E6A] dark:group-hover:text-teal-400 transition-colors" />
+                </div>
+              </button>
+              <div className="border-t border-slate-100 dark:border-slate-800/80 ml-13" />
+            </>
+          )}
+
           {/* Bahasa */}
           <button 
             onClick={() => setSettingModal("language")}
@@ -19183,6 +19745,171 @@ const ProfilPage = ({
                 </div>
               )}
 
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* POPUP MODAL GANTI PIN */}
+      <AnimatePresence>
+        {showPinModal && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800 relative space-y-4"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0">
+                    <KeyRound className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+                      Ganti PIN
+                    </h3>
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                      Ubah PIN Keamanan Pelanggan
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowPinModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Error Message */}
+              {pinError && (
+                <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800/80 p-3 rounded-2xl flex items-center gap-2.5 text-red-600 dark:text-red-400 text-xs font-bold">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{pinError}</span>
+                </div>
+              )}
+
+              {/* Form Inputs */}
+              <div className="space-y-3.5">
+                {/* Old PIN Input (if user has existing PIN) */}
+                {Boolean(user?.PIN || user?.pin) && (
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                      PIN Lama
+                    </label>
+                    <div className="relative">
+                      <input 
+                        type={showPinPassword ? "text" : "password"}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={oldPinInput}
+                        onChange={(e) => setOldPinInput(e.target.value.replace(/\D/g, ''))}
+                        placeholder="Masukkan PIN lama Anda"
+                        maxLength={10}
+                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-[#005E6A] dark:focus:border-teal-400 transition-colors"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowPinPassword(!showPinPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      >
+                        {showPinPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* New PIN Input */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                    PIN Baru
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type={showPinPassword ? "text" : "password"}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={newPinInput}
+                      onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Masukkan PIN baru (angka)"
+                      maxLength={10}
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-[#005E6A] dark:focus:border-teal-400 transition-colors"
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowPinPassword(!showPinPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showPinPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm New PIN Input */}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                    Konfirmasi PIN Baru
+                  </label>
+                  <input 
+                    type={showPinPassword ? "text" : "password"}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={confirmPinInput}
+                    onChange={(e) => setConfirmPinInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Ulangi PIN baru Anda"
+                    maxLength={10}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:border-[#005E6A] dark:focus:border-teal-400 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPinModal(false)}
+                  className="w-1/3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-wider py-3 px-3 rounded-xl transition-all cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSavePin}
+                  disabled={isSavingPin}
+                  className="flex-1 bg-[#005E6A] hover:bg-[#004d57] active:scale-[0.99] text-white font-black text-xs uppercase tracking-wider py-3 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingPin ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <span>Simpan PIN</span>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SUCCESS ANIMATION MODAL PIN */}
+      <AnimatePresence>
+        {showPinSuccess && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-2xl flex flex-col items-center justify-center text-center space-y-3 max-w-xs border border-teal-500/30"
+            >
+              <div className="w-16 h-16 bg-teal-500/20 text-teal-600 dark:text-teal-400 rounded-full flex items-center justify-center animate-bounce">
+                <CheckCircle2 className="w-10 h-10" />
+              </div>
+              <h3 className="text-base font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-wide">PIN Berhasil Diubah!</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">PIN keamanan Anda telah diperbarui dan tersimpan langsung ke Supabase.</p>
             </motion.div>
           </div>
         )}
@@ -23403,17 +24130,34 @@ export default function App() {
     };
   }, [dataSource, isAuthReady]);
 
-  const handleUpdatePhoto = (nama: string, base64: string) => {
-    const newPhotos = { ...userPhotos, [nama]: base64 };
+  const handleUpdatePhoto = async (nama: string, base64: string, file?: File | null) => {
+    const customerId = loggedInUser?.id_pelanggan || loggedInUser?.id || "";
+
+    let finalPhotoUrl = base64;
+
+    if (SupabaseCustomerService.isConnected()) {
+      try {
+        const res = await SupabaseCustomerService.uploadCustomerPhoto(customerId, nama, file || null, base64);
+        if (res.photoUrl) {
+          finalPhotoUrl = res.photoUrl;
+        }
+      } catch (err) {
+        console.error("Gagal sinkronisasi foto ke Supabase:", err);
+      }
+    }
+
+    const newPhotos = { ...userPhotos, [nama]: finalPhotoUrl };
     setUserPhotos(newPhotos);
     localStorage.setItem("warung_tomi_photos", JSON.stringify(newPhotos));
     
-    // Update loggedInUser if it's the current user
+    // Update loggedInUser jika pengguna yang sedang login
     if (loggedInUser && loggedInUser.Nama === nama) {
-      const updatedUser = { ...loggedInUser, Foto: base64 };
+      const updatedUser = { ...loggedInUser, Foto: finalPhotoUrl, foto: finalPhotoUrl };
       setLoggedInUser(updatedUser);
       localStorage.setItem("warung_tomi_user", JSON.stringify(updatedUser));
     }
+
+    setCustomers(prev => prev.map(c => c.Nama === nama ? { ...c, Foto: finalPhotoUrl, foto: finalPhotoUrl } : c));
   };
 
   const handleLogin = (user: Customer) => {
@@ -23778,7 +24522,11 @@ export default function App() {
         } />
         <Route path="/admin/management-lainnya" element={
           <AdminLayout activeTab="management-lainnya">
-            <AdminOtherManagement salesTransactions={salesTransactions} />
+            <AdminOtherManagement 
+              salesTransactions={salesTransactions} 
+              setSalesTransactions={setSalesTransactions} 
+              fetchData={fetchData} 
+            />
           </AdminLayout>
         } />
         <Route path="/admin/master-data" element={

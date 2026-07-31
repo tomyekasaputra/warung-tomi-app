@@ -492,6 +492,76 @@ export const SupabaseCustomerService = {
     return { data, error };
   },
 
+  async uploadCustomerPhoto(
+    customerId: string,
+    nama: string,
+    file: File | null,
+    base64Data: string
+  ): Promise<{ photoUrl: string; storageSuccess: boolean; dbSuccess: boolean; error?: string }> {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { photoUrl: base64Data, storageSuccess: false, dbSuccess: false, error: "Supabase belum terhubung" };
+    }
+
+    let photoUrl = base64Data;
+    let storageSuccess = false;
+    let dbSuccess = false;
+
+    // 1. Coba upload ke Supabase Storage (bucket 'customer-photos') jika ada file
+    if (file) {
+      try {
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const cleanId = (customerId || nama).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const fileName = `profile_${cleanId}_${Date.now()}.${fileExt}`;
+        const filePath = `avatars/${fileName}`;
+
+        const { data: storageData, error: storageErr } = await client.storage
+          .from('customer-photos')
+          .upload(filePath, file, { upsert: true, contentType: file.type });
+
+        if (!storageErr && storageData) {
+          const { data: publicUrlData } = client.storage
+            .from('customer-photos')
+            .getPublicUrl(filePath);
+
+          if (publicUrlData?.publicUrl) {
+            photoUrl = publicUrlData.publicUrl;
+            storageSuccess = true;
+          }
+        } else {
+          console.warn("Storage upload warn/fallback (bucket 'customer-photos' mungkin belum dibuat):", storageErr?.message);
+        }
+      } catch (err) {
+        console.warn("Exception saat upload storage Supabase, menyimpan URL/data langsung ke tabel DB:", err);
+      }
+    }
+
+    // 2. Update kolom foto pada tabel customers di database Supabase
+    try {
+      if (customerId) {
+        const { error: err1 } = await client
+          .from('customers')
+          .update({ foto: photoUrl })
+          .eq('id_pelanggan', customerId);
+
+        if (!err1) dbSuccess = true;
+      }
+
+      if (!dbSuccess && nama) {
+        const { error: err2 } = await client
+          .from('customers')
+          .update({ foto: photoUrl })
+          .eq('nama', nama);
+
+        if (!err2) dbSuccess = true;
+      }
+    } catch (dbErr: any) {
+      console.error("Gagal update foto di tabel customers Supabase:", dbErr);
+    }
+
+    return { photoUrl, storageSuccess, dbSuccess };
+  },
+
   async bulkMigrateCustomers(
     customersList: any[],
     onProgress?: (processed: number, total: number, currentName: string, statusType: 'success' | 'skipped' | 'error', message?: string) => void
