@@ -52,6 +52,7 @@ import {
   cleanupTableDuplicates
 } from "../lib/supabase";
 import { generateNextTabunganId, generateNextHutangId, get4DigitCustId, SavingTransaction, DebtTransaction } from "../App";
+import { DatabaseSuccessModal, SuccessModalData } from "./DatabaseSuccessModal";
 
 export const JENIS_OPTIONS = [
   "TARIK TUNAI",
@@ -155,6 +156,7 @@ interface AdminDatabasePageProps {
   salesTransactions: SalesTransaction[];
   setSalesTransactions: React.Dispatch<React.SetStateAction<SalesTransaction[]>>;
   customers?: any[];
+  setCustomers?: React.Dispatch<React.SetStateAction<any[]>>;
   savingsTransactions?: SavingTransaction[];
   setSavingsTransactions?: React.Dispatch<React.SetStateAction<SavingTransaction[]>>;
   debtTransactions?: DebtTransaction[];
@@ -165,6 +167,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   salesTransactions,
   setSalesTransactions,
   customers = [],
+  setCustomers,
   savingsTransactions = [],
   setSavingsTransactions,
   debtTransactions = [],
@@ -468,6 +471,11 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     };
 
     try {
+      startProcessing(
+        "MENYIMPAN PENJUALAN VIRTUAL KE SUPABASE...",
+        "Sedang memproses dan menyimpan data transaksi langsung ke Supabase Database..."
+      );
+
       const metodeUpper = (newTx.Metode || "").toUpperCase().trim();
 
       // Automatic deduction for TABUNGAN & debt addition for KASBON
@@ -623,10 +631,16 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         await SupabaseSalesService.upsertSale(payload);
       }
 
-      showToast("Penjualan Virtual berhasil ditambahkan!");
       setIsAddModalOpen(false);
+      finishProcessingSuccess(
+        "PENJUALAN VIRTUAL BERHASIL DISIMPAN",
+        `Transaksi ${newTx.id_transaksi} atas nama ${newTx.Nama} telah sukses tersimpan di Supabase Database!`,
+        `Jenis: ${newTx.Jenis} | Total: Rp ${newTx.Pemasukan.toLocaleString('id-ID')}`
+      );
     } catch (err: any) {
       console.error("Gagal menambah transaksi virtual:", err);
+      setIsProcessingModal(false);
+      setIsSuccessModalOpen(false);
       showToast("Gagal menyimpan data ke database.", "error");
     } finally {
       setIsAdding(false);
@@ -642,12 +656,36 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const [deletingTx, setDeletingTx] = useState<SalesTransaction | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Notification Toast
+  // Notification Toast & Success Animation Modal
   const [toastMsg, setToastMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [successModalData, setSuccessModalData] = useState<SuccessModalData | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isProcessingModal, setIsProcessingModal] = useState(false);
+  const [processingTitle, setProcessingTitle] = useState("");
+  const [processingMsg, setProcessingMsg] = useState("");
 
   const showToast = (text: string, type: "success" | "error" = "success") => {
     setToastMsg({ type, text });
     setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  const startProcessing = (title: string, message?: string) => {
+    setProcessingTitle(title);
+    setProcessingMsg(message || "Sedang memproses & menyimpan data langsung ke Supabase Database...");
+    setIsProcessingModal(true);
+    setIsSuccessModalOpen(true);
+  };
+
+  const finishProcessingSuccess = (title: string, message: string, details?: string) => {
+    setIsProcessingModal(false);
+    setSuccessModalData({ title, message, details, isDatabaseSynced: true });
+    setIsSuccessModalOpen(true);
+  };
+
+  const showSuccessAnimation = (title: string, message: string, details?: string, isDatabaseSynced = true) => {
+    setIsProcessingModal(false);
+    setSuccessModalData({ title, message, details, isDatabaseSynced });
+    setIsSuccessModalOpen(true);
   };
 
   // Unique available dates in Sales Data for daily pagination
@@ -814,6 +852,10 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const handleSaveEdit = async () => {
     if (!editingTx) return;
     setIsSaving(true);
+    startProcessing(
+      "MEMPERBARUI PENJUALAN DI SUPABASE...",
+      "Sedang menyinkronkan data perubahan transaksi ke Supabase Database..."
+    );
 
     const updatedTx: SalesTransaction = {
       ...editingTx,
@@ -878,10 +920,16 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         await cleanupTableDuplicates('sales_transactions', 'id_transaksi');
       }
 
-      showToast("Data transaksi berhasil diperbarui!");
       setEditingTx(null);
+      finishProcessingSuccess(
+        "EDIT TRANSAKSI BERHASIL",
+        `Data transaksi ${updatedTx.id_transaksi} atas nama ${updatedTx.Nama} berhasil diperbarui di Supabase Database!`,
+        `Jenis: ${updatedTx.Jenis} | Total: Rp ${updatedTx.Pemasukan.toLocaleString('id-ID')}`
+      );
     } catch (err: any) {
       console.error("Gagal update transaksi:", err);
+      setIsProcessingModal(false);
+      setIsSuccessModalOpen(false);
       showToast("Gagal memperbarui data transaksi.", "error");
     } finally {
       setIsSaving(false);
@@ -1091,6 +1139,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     const newSaving: SupabaseSavingTransaction = {
       id: addSavingForm.id || `SAV-${Date.now()}`,
       id_tabungan: addSavingForm.id_tabungan || addSavingForm.id || `TBG-${Date.now()}`,
+      id_pelanggan: addSavingForm.id_pelanggan || "",
       tanggal: addSavingForm.tanggal || new Date().toISOString().slice(0, 10),
       nama: nameVal,
       nama_nasabah: nameVal,
@@ -1100,12 +1149,57 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       keterangan: addSavingForm.keterangan || ""
     };
 
-    setSavingsList((prev) => [newSaving, ...prev]);
-    if (SupabaseSavingsService.isConnected()) {
-      await SupabaseSavingsService.upsertSaving(newSaving);
-    }
-    showToast("Data tabungan berhasil ditambahkan!");
     setIsAddSavingOpen(false);
+    startProcessing(
+      "MENYIMPAN TRANSAKSI TABUNGAN KE SUPABASE...",
+      `Sedang mengirim data ${newSaving.tipe === "TARIK" ? "tarik" : "setor"} tabungan ke Supabase Database...`
+    );
+
+    setSavingsList((prev) => [newSaving, ...prev]);
+    if (setSavingsTransactions) {
+      setSavingsTransactions((prev: any) => [
+        {
+          id: newSaving.id_tabungan || newSaving.id,
+          id_tabungan: newSaving.id_tabungan,
+          id_pelanggan: newSaving.id_pelanggan || '',
+          Tanggal: newSaving.tanggal,
+          Nama: newSaving.nama_nasabah || newSaving.nama,
+          Tipe: newSaving.tipe,
+          Nominal: newSaving.nominal,
+          SaldoAkhir: newSaving.saldo_akhir,
+          Berita: newSaving.keterangan || '-'
+        },
+        ...prev
+      ]);
+    }
+
+    if (setCustomers) {
+      setCustomers((prev: any[]) => prev.map((c: any) => 
+        (c.id_pelanggan && c.id_pelanggan === newSaving.id_pelanggan) || c.Nama === newSaving.nama_nasabah || c.Nama === newSaving.nama
+          ? { ...c, Tabungan: newSaving.saldo_akhir, tabungan: newSaving.saldo_akhir }
+          : c
+      ));
+    }
+
+    let isDbSynced = false;
+    if (SupabaseSavingsService.isConnected()) {
+      const res = await SupabaseSavingsService.upsertSaving(newSaving);
+      if (!res.error) isDbSynced = true;
+
+      if (SupabaseCustomerService.isConnected()) {
+        await SupabaseCustomerService.upsertCustomer({
+          id_pelanggan: newSaving.id_pelanggan || newSaving.nama_nasabah,
+          nama: newSaving.nama_nasabah,
+          tabungan: newSaving.saldo_akhir
+        });
+      }
+    }
+
+    finishProcessingSuccess(
+      `${newSaving.tipe === "TARIK" ? "TARIK" : "SETOR"} TABUNGAN BERHASIL`,
+      `Transaksi tabungan sebesar Rp ${newSaving.nominal.toLocaleString('id-ID')} telah sukses tersimpan di Supabase Database!`,
+      `Nasabah: ${newSaving.nama_nasabah} | Saldo Akhir: Rp ${newSaving.saldo_akhir.toLocaleString('id-ID')}`
+    );
   };
 
   const handleOpenEditSaving = (s: SupabaseSavingTransaction) => {
@@ -1124,23 +1218,60 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       nominal: Number(editSavingForm.nominal) || 0,
       saldo_akhir: Number(editSavingForm.saldo_akhir) || 0
     };
+
+    setEditingSaving(null);
+    startProcessing(
+      "MEMPERBARUI TABUNGAN DI SUPABASE...",
+      "Sedang menyinkronkan data perbaikan tabungan ke Supabase Database..."
+    );
+
     setSavingsList((prev) => prev.map((item) => (item.id === updated.id || item.id_tabungan === updated.id_tabungan ? updated : item)));
+    if (setSavingsTransactions) {
+      setSavingsTransactions((prev: any) => prev.map((s: any) => 
+        s.id === updated.id || s.id_tabungan === updated.id_tabungan || s.id === updated.id_tabungan
+          ? {
+              ...s,
+              Nama: updated.nama_nasabah || updated.nama,
+              Tipe: updated.tipe,
+              Nominal: updated.nominal,
+              SaldoAkhir: updated.saldo_akhir,
+              Berita: updated.keterangan || updated.berita || '-'
+            }
+          : s
+      ));
+    }
+
+    if (setCustomers) {
+      setCustomers((prev: any[]) => prev.map((c: any) => 
+        (c.id_pelanggan && c.id_pelanggan === updated.id_pelanggan) || c.Nama === updated.nama_nasabah || c.Nama === updated.nama
+          ? { ...c, Tabungan: updated.saldo_akhir, tabungan: updated.saldo_akhir }
+          : c
+      ));
+    }
+
+    let isDbSynced = false;
     if (SupabaseSavingsService.isConnected()) {
       try {
         const { error } = await SupabaseSavingsService.upsertSaving(updated);
-        if (error) {
-          console.error("Gagal edit tabungan di Supabase:", error);
-          showToast("Gagal sync ke Supabase: " + error.message, "error");
-        } else {
-          showToast("Data tabungan berhasil disimpan ke Supabase!");
+        if (!error) isDbSynced = true;
+
+        if (SupabaseCustomerService.isConnected()) {
+          await SupabaseCustomerService.upsertCustomer({
+            id_pelanggan: updated.id_pelanggan || updated.nama_nasabah,
+            nama: updated.nama_nasabah,
+            tabungan: updated.saldo_akhir
+          });
         }
       } catch (err: any) {
         console.error("Error saving tabungan to Supabase:", err);
       }
-    } else {
-      showToast("Data tabungan berhasil diperbarui secara lokal!");
     }
-    setEditingSaving(null);
+
+    finishProcessingSuccess(
+      "EDIT TABUNGAN BERHASIL",
+      `Data tabungan ${updated.nama_nasabah} telah sukses diperbarui di Supabase Database!`,
+      `Nominal: Rp ${updated.nominal.toLocaleString('id-ID')} | Tipe: ${updated.tipe}`
+    );
   };
 
   const handleOpenDeleteSaving = (s: SupabaseSavingTransaction) => {
@@ -1152,6 +1283,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     const targetIdTabungan = deletingSaving.id_tabungan || deletingSaving.id;
     const targetAltId = deletingSaving.id;
     setSavingsList((prev) => prev.filter((item) => item.id !== deletingSaving.id && item.id_tabungan !== deletingSaving.id_tabungan));
+    if (setSavingsTransactions) {
+      setSavingsTransactions((prev: any) => prev.filter((s: any) => s.id !== deletingSaving.id && s.id_tabungan !== deletingSaving.id_tabungan));
+    }
     if (SupabaseSavingsService.isConnected()) {
       try {
         const { error } = await SupabaseSavingsService.deleteSaving(targetIdTabungan, targetAltId);
@@ -1192,6 +1326,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     const newDebt: SupabaseDebtTransaction = {
       id: addDebtForm.id || `DEBT-${Date.now()}`,
       id_hutang: addDebtForm.id_hutang || addDebtForm.id || `HTG-${Date.now()}`,
+      id_pelanggan: addDebtForm.id_pelanggan || "",
       tanggal: addDebtForm.tanggal || new Date().toISOString().slice(0, 10),
       nama: nameVal,
       nama_pelanggan: nameVal,
@@ -1201,12 +1336,57 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       keterangan: addDebtForm.keterangan || ""
     };
 
-    setDebtList((prev) => [newDebt, ...prev]);
-    if (SupabaseDebtService.isConnected()) {
-      await SupabaseDebtService.upsertDebt(newDebt);
-    }
-    showToast("Data hutang berhasil ditambahkan!");
     setIsAddDebtOpen(false);
+    startProcessing(
+      "MENYIMPAN HUTANG KE SUPABASE...",
+      `Sedang mengirim data ${newDebt.tipe === "BAYAR" ? "pembayaran hutang" : "kasbon"} ke Supabase Database...`
+    );
+
+    setDebtList((prev) => [newDebt, ...prev]);
+    if (setDebtTransactions) {
+      setDebtTransactions((prev: any) => [
+        {
+          id: newDebt.id_hutang || newDebt.id,
+          id_hutang: newDebt.id_hutang,
+          id_pelanggan: newDebt.id_pelanggan || '',
+          Tanggal: newDebt.tanggal,
+          Nama: newDebt.nama_pelanggan || newDebt.nama,
+          Tipe: newDebt.tipe,
+          Jumlah: newDebt.jumlah,
+          Keterangan: newDebt.keterangan || '-',
+          SaldoAkhir: newDebt.saldo_akhir
+        },
+        ...prev
+      ]);
+    }
+
+    if (setCustomers) {
+      setCustomers((prev: any[]) => prev.map((c: any) => 
+        (c.id_pelanggan && c.id_pelanggan === newDebt.id_pelanggan) || c.Nama === newDebt.nama_pelanggan || c.Nama === newDebt.nama
+          ? { ...c, Hutang: newDebt.saldo_akhir, hutang: newDebt.saldo_akhir }
+          : c
+      ));
+    }
+
+    let isDbSynced = false;
+    if (SupabaseDebtService.isConnected()) {
+      const res = await SupabaseDebtService.upsertDebt(newDebt);
+      if (!res.error) isDbSynced = true;
+
+      if (SupabaseCustomerService.isConnected()) {
+        await SupabaseCustomerService.upsertCustomer({
+          id_pelanggan: newDebt.id_pelanggan || newDebt.nama_pelanggan,
+          nama: newDebt.nama_pelanggan,
+          hutang: newDebt.saldo_akhir
+        });
+      }
+    }
+
+    finishProcessingSuccess(
+      `${newDebt.tipe === "BAYAR" ? "PEMBAYARAN HUTANG" : "KASBON"} BERHASIL`,
+      `Transaksi ${newDebt.tipe === "BAYAR" ? "pembayaran hutang" : "kasbon"} sebesar Rp ${newDebt.jumlah.toLocaleString('id-ID')} telah sukses tersimpan di Supabase Database!`,
+      `Pelanggan: ${newDebt.nama_pelanggan} | Saldo Akhir: Rp ${newDebt.saldo_akhir.toLocaleString('id-ID')}`
+    );
   };
 
   const handleOpenEditDebt = (d: SupabaseDebtTransaction) => {
@@ -1225,23 +1405,60 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       jumlah: Number(editDebtForm.jumlah) || 0,
       saldo_akhir: Number(editDebtForm.saldo_akhir) || 0
     };
+
+    setEditingDebt(null);
+    startProcessing(
+      "MEMPERBARUI HUTANG DI SUPABASE...",
+      "Sedang menyinkronkan data perubahan hutang ke Supabase Database..."
+    );
+
     setDebtList((prev) => prev.map((item) => (item.id === updated.id || item.id_hutang === updated.id_hutang ? updated : item)));
+    if (setDebtTransactions) {
+      setDebtTransactions((prev: any) => prev.map((d: any) => 
+        d.id === updated.id || d.id_hutang === updated.id_hutang || d.id === updated.id_hutang
+          ? {
+              ...d,
+              Nama: updated.nama_pelanggan || updated.nama,
+              Tipe: updated.tipe,
+              Jumlah: updated.jumlah,
+              SaldoAkhir: updated.saldo_akhir,
+              Keterangan: updated.keterangan || '-'
+            }
+          : d
+      ));
+    }
+
+    if (setCustomers) {
+      setCustomers((prev: any[]) => prev.map((c: any) => 
+        (c.id_pelanggan && c.id_pelanggan === updated.id_pelanggan) || c.Nama === updated.nama_pelanggan || c.Nama === updated.nama
+          ? { ...c, Hutang: updated.saldo_akhir, hutang: updated.saldo_akhir }
+          : c
+      ));
+    }
+
+    let isDbSynced = false;
     if (SupabaseDebtService.isConnected()) {
       try {
         const { error } = await SupabaseDebtService.upsertDebt(updated);
-        if (error) {
-          console.error("Gagal edit hutang di Supabase:", error);
-          showToast("Gagal sync ke Supabase: " + error.message, "error");
-        } else {
-          showToast("Data hutang berhasil disimpan ke Supabase!");
+        if (!error) isDbSynced = true;
+
+        if (SupabaseCustomerService.isConnected()) {
+          await SupabaseCustomerService.upsertCustomer({
+            id_pelanggan: updated.id_pelanggan || updated.nama_pelanggan,
+            nama: updated.nama_pelanggan,
+            hutang: updated.saldo_akhir
+          });
         }
       } catch (err: any) {
         console.error("Error saving debt to Supabase:", err);
       }
-    } else {
-      showToast("Data hutang berhasil diperbarui secara lokal!");
     }
-    setEditingDebt(null);
+
+    finishProcessingSuccess(
+      "EDIT HUTANG BERHASIL",
+      `Data hutang/pembayaran ${updated.nama_pelanggan} telah sukses diperbarui di Supabase Database!`,
+      `Jumlah: Rp ${updated.jumlah.toLocaleString('id-ID')} | Tipe: ${updated.tipe}`
+    );
   };
 
   const handleOpenDeleteDebt = (d: SupabaseDebtTransaction) => {
@@ -1533,6 +1750,19 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
   return (
     <div className="space-y-6 pb-20">
+      {/* Animated Database Success Modal */}
+      <DatabaseSuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => {
+          setIsSuccessModalOpen(false);
+          setIsProcessingModal(false);
+        }}
+        data={successModalData}
+        isProcessing={isProcessingModal}
+        processingTitle={processingTitle}
+        processingMessage={processingMsg}
+      />
+
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMsg && (

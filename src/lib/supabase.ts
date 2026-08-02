@@ -432,6 +432,14 @@ export async function cleanupTableDuplicates(tableName: string, uniqueColumn: st
 }
 
 /**
+ * Helper to validate UUID string format
+ */
+export const isValidUUID = (id?: string | null): boolean => {
+  if (!id || typeof id !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim());
+};
+
+/**
  * Service Pelanggan Supabase
  */
 export const SupabaseCustomerService = {
@@ -473,14 +481,60 @@ export const SupabaseCustomerService = {
     return { data: allData, error: null };
   },
 
-  async upsertCustomer(customer: SupabaseCustomer): Promise<{ data: any; error: any }> {
+  async upsertCustomer(customer: SupabaseCustomer | any): Promise<{ data: any; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi") };
-    let { data, error } = await client.from('customers').upsert(customer, { onConflict: 'id_pelanggan' }).select();
-    if (error && (error.message?.includes('ON CONFLICT') || error.code === '42P10')) {
-      const { data: insData, error: insErr } = await client.from('customers').insert(customer).select();
-      data = insData;
-      error = insErr;
+
+    const cleanPayload: any = {};
+    const idPel = customer.id_pelanggan || customer.id || customer.ID || `CUST-${Date.now()}`;
+    cleanPayload.id_pelanggan = String(idPel).trim();
+    cleanPayload.nama = String(customer.nama || customer.Nama || customer.nama_pelanggan || 'Pelanggan').trim();
+
+    if (customer.pin !== undefined || customer.PIN !== undefined) cleanPayload.pin = String(customer.pin ?? customer.PIN ?? '');
+    if (customer.telepon !== undefined || customer.Telepon !== undefined) cleanPayload.telepon = String(customer.telepon ?? customer.Telepon ?? '');
+    if (customer.alamat !== undefined || customer.Alamat !== undefined) cleanPayload.alamat = String(customer.alamat ?? customer.Alamat ?? '');
+    if (customer.tabungan !== undefined || customer.Tabungan !== undefined) cleanPayload.tabungan = Number(customer.tabungan ?? customer.Tabungan) || 0;
+    if (customer.investasi !== undefined || customer.Investasi !== undefined) cleanPayload.investasi = Number(customer.investasi ?? customer.Investasi) || 0;
+    if (customer.lainnya !== undefined || customer.Lainnya !== undefined) cleanPayload.lainnya = Number(customer.lainnya ?? customer.Lainnya) || 0;
+    if (customer.hutang !== undefined || customer.Hutang !== undefined) cleanPayload.hutang = Number(customer.hutang ?? customer.Hutang) || 0;
+    if (customer.point !== undefined || customer.Poin !== undefined || customer.poin !== undefined) cleanPayload.point = Number(customer.point ?? customer.Poin ?? customer.poin) || 0;
+    if (customer.level !== undefined || customer.Level !== undefined) cleanPayload.level = String(customer.level ?? customer.Level ?? 'Bronze');
+    if (customer.foto !== undefined || customer.Foto !== undefined) cleanPayload.foto = String(customer.foto ?? customer.Foto ?? '');
+
+    if (isValidUUID(customer.id)) {
+      cleanPayload.id = customer.id;
+    }
+
+    if (cleanPayload.id) {
+      const { data: updateData, error: updateErr } = await client
+        .from('customers')
+        .update(cleanPayload)
+        .eq('id', cleanPayload.id)
+        .select();
+
+      if (!updateErr && updateData && updateData.length > 0) {
+        return { data: updateData, error: null };
+      }
+    }
+
+    if (cleanPayload.id_pelanggan) {
+      const { data: updateData, error: updateErr } = await client
+        .from('customers')
+        .update(cleanPayload)
+        .eq('id_pelanggan', cleanPayload.id_pelanggan)
+        .select();
+
+      if (!updateErr && updateData && updateData.length > 0) {
+        return { data: updateData, error: null };
+      }
+    }
+
+    let { data, error } = await client.from('customers').upsert(cleanPayload, { onConflict: 'id_pelanggan' }).select();
+    if (error) {
+      const insertPayload = { ...cleanPayload };
+      delete insertPayload.id;
+      const { data: insData, error: insErr } = await client.from('customers').insert(insertPayload).select();
+      if (!insErr && insData) return { data: insData, error: null };
     }
     return { data, error };
   },
@@ -664,14 +718,57 @@ export const SupabaseStockService = {
     return { data: allData, error: null };
   },
 
-  async upsertProduct(product: SupabaseProduct): Promise<{ data: any; error: any }> {
+  async upsertProduct(product: SupabaseProduct | any): Promise<{ data: any; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
-    let { data, error } = await client.from('products').upsert(product, { onConflict: 'id_barang' }).select();
-    if (error && (error.message?.includes('ON CONFLICT') || error.code === '42P10')) {
-      const { data: insData, error: insErr } = await client.from('products').insert(product).select();
-      data = insData;
-      error = insErr;
+
+    const cleanPayload: any = {
+      id_barang: String(product.id_barang || product.id || product.ID || `BRG-${Date.now()}`).trim(),
+      nama: String(product.nama || product.Nama || 'Barang').trim(),
+      kategori: String(product.kategori || product.Kategori || 'Sembako').trim(),
+      stok: Number(product.stok !== undefined ? product.stok : (product.Stok || 0)),
+      satuan: String(product.satuan || product.Satuan || 'pcs').trim(),
+      min_stok: Number(product.min_stok !== undefined ? product.min_stok : (product.MinStok || 5)),
+      harga_modal: Number(product.harga_modal !== undefined ? product.harga_modal : (product.HargaModal || 0)),
+      harga_jual: Number(product.harga_jual !== undefined ? product.harga_jual : (product.HargaJual || 0)),
+      gambar: String(product.gambar || product.Gambar || product.Image || '').trim(),
+      update_terakhir: String(product.update_terakhir || product.UpdateTerakhir || new Date().toLocaleString('id-ID')).trim()
+    };
+
+    if (isValidUUID(product.id)) {
+      cleanPayload.id = product.id;
+    }
+
+    if (cleanPayload.id) {
+      const { data: updateData, error: updateErr } = await client
+        .from('products')
+        .update(cleanPayload)
+        .eq('id', cleanPayload.id)
+        .select();
+
+      if (!updateErr && updateData && updateData.length > 0) {
+        return { data: updateData, error: null };
+      }
+    }
+
+    if (cleanPayload.id_barang) {
+      const { data: updateData, error: updateErr } = await client
+        .from('products')
+        .update(cleanPayload)
+        .eq('id_barang', cleanPayload.id_barang)
+        .select();
+
+      if (!updateErr && updateData && updateData.length > 0) {
+        return { data: updateData, error: null };
+      }
+    }
+
+    let { data, error } = await client.from('products').upsert(cleanPayload, { onConflict: 'id_barang' }).select();
+    if (error) {
+      const insertPayload = { ...cleanPayload };
+      delete insertPayload.id;
+      const { data: insData, error: insErr } = await client.from('products').insert(insertPayload).select();
+      if (!insErr && insData) return { data: insData, error: null };
     }
     return { data, error };
   },
@@ -795,48 +892,54 @@ export const SupabaseSavingsService = {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const payload: any = {
-      id_tabungan: saving.id_tabungan || saving.id || `TBG-${Date.now()}`,
-      id_pelanggan: saving.id_pelanggan || '',
-      tanggal: saving.tanggal || saving.Tanggal || new Date().toISOString().slice(0, 10),
-      nama: saving.nama || saving.Nama || 'Nasabah',
-      nama_nasabah: saving.nama_nasabah || saving.nama || saving.Nama || 'Nasabah',
-      tipe: saving.tipe || saving.Tipe || 'Setor',
+    const cleanPayload: any = {
+      id_tabungan: String(saving.id_tabungan || saving.id || `TBG-${Date.now()}`).trim(),
+      id_pelanggan: String(saving.id_pelanggan || saving.idPelanggan || '').trim(),
+      tanggal: String(saving.tanggal || saving.Tanggal || new Date().toISOString().slice(0, 10)).trim(),
+      nama: String(saving.nama || saving.Nama || saving.nama_nasabah || 'Nasabah').trim(),
+      tipe: String(saving.tipe || saving.Tipe || 'SETOR').toUpperCase().trim(),
       nominal: Number(saving.nominal !== undefined ? saving.nominal : (saving.Nominal || 0)),
       saldo_akhir: Number(saving.saldo_akhir !== undefined ? saving.saldo_akhir : (saving.SaldoAkhir || 0)),
-      berita: saving.berita || saving.Berita || '',
-      keterangan: saving.keterangan || saving.Keterangan || ''
+      berita: String(saving.berita || saving.Berita || saving.keterangan || saving.Keterangan || '').trim(),
+      sebagian: Number(saving.sebagian !== undefined ? saving.sebagian : (saving.Sebagian || 0))
     };
 
-    if (saving.sebagian !== undefined || saving.Sebagian !== undefined) {
-      payload.sebagian = Number(saving.sebagian !== undefined ? saving.sebagian : saving.Sebagian);
+    if (isValidUUID(saving.id)) {
+      cleanPayload.id = saving.id;
     }
 
-    if (saving.id || saving.id_tabungan) {
-      let query = client.from('savings_transactions').update(payload);
-      if (saving.id && saving.id_tabungan) {
-        query = query.or(`id.eq.${saving.id},id_tabungan.eq.${saving.id_tabungan}`);
-      } else if (saving.id) {
-        query = query.eq('id', saving.id);
-      } else {
-        query = query.eq('id_tabungan', saving.id_tabungan);
-      }
+    if (cleanPayload.id) {
+      const { data: updateData, error: updateErr } = await client
+        .from('savings_transactions')
+        .update(cleanPayload)
+        .eq('id', cleanPayload.id)
+        .select();
 
-      const { data: updateData, error: updateErr } = await query.select();
       if (!updateErr && updateData && updateData.length > 0) {
         return { data: updateData, error: null };
       }
     }
 
-    if (saving.id) payload.id = saving.id;
-    let { data, error } = await client.from('savings_transactions').upsert(payload, { onConflict: 'id_tabungan' }).select();
-    if (!error && data && data.length > 0) {
-      return { data, error: null };
+    if (cleanPayload.id_tabungan) {
+      const { data: updateData, error: updateErr } = await client
+        .from('savings_transactions')
+        .update(cleanPayload)
+        .eq('id_tabungan', cleanPayload.id_tabungan)
+        .select();
+
+      if (!updateErr && updateData && updateData.length > 0) {
+        return { data: updateData, error: null };
+      }
     }
 
-    const insertPayload = { ...payload };
-    delete insertPayload.id;
-    return await client.from('savings_transactions').insert(insertPayload).select();
+    let { data, error } = await client.from('savings_transactions').upsert(cleanPayload, { onConflict: 'id_tabungan' }).select();
+    if (error) {
+      const insertPayload = { ...cleanPayload };
+      delete insertPayload.id;
+      const { data: insData, error: insErr } = await client.from('savings_transactions').insert(insertPayload).select();
+      if (!insErr && insData) return { data: insData, error: null };
+    }
+    return { data, error };
   },
 
   async addSavingTransaction(saving: SupabaseSavingTransaction): Promise<{ data: any; error: any }> {
@@ -1110,47 +1213,54 @@ export const SupabaseDebtService = {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const payload: any = {
-      id_hutang: debt.id_hutang || debt.id || `HTG-${Date.now()}`,
-      id_pelanggan: debt.id_pelanggan || debt.idPelanggan || '',
-      tanggal: debt.tanggal || debt.Tanggal || new Date().toISOString().slice(0, 10),
-      nama: debt.nama || debt.Nama || debt.nama_pelanggan || debt.NamaPelanggan || 'Pelanggan Umum',
-      nama_pelanggan: debt.nama_pelanggan || debt.nama || debt.Nama || 'Pelanggan Umum',
-      tipe: (debt.tipe || debt.Tipe || 'KASBON').toUpperCase(),
+    const cleanPayload: any = {
+      id_hutang: String(debt.id_hutang || debt.id || `HTG-${Date.now()}`).trim(),
+      id_pelanggan: String(debt.id_pelanggan || debt.idPelanggan || '').trim(),
+      tanggal: String(debt.tanggal || debt.Tanggal || new Date().toISOString().slice(0, 10)).trim(),
+      nama: String(debt.nama || debt.Nama || debt.nama_pelanggan || debt.NamaPelanggan || 'Pelanggan').trim(),
+      tipe: String(debt.tipe || debt.Tipe || 'KASBON').toUpperCase().trim(),
       jumlah: Number(debt.jumlah !== undefined ? debt.jumlah : (debt.Jumlah || 0)),
-      keterangan: debt.keterangan || debt.Keterangan || '',
-      saldo_akhir: Number(debt.saldo_akhir !== undefined ? debt.saldo_akhir : (debt.SaldoAkhir || 0))
+      keterangan: String(debt.keterangan || debt.Keterangan || '').trim(),
+      saldo_akhir: Number(debt.saldo_akhir !== undefined ? debt.saldo_akhir : (debt.SaldoAkhir || 0)),
+      sebagian: Number(debt.sebagian !== undefined ? debt.sebagian : (debt.Sebagian || 0))
     };
 
-    if (debt.sebagian !== undefined || debt.Sebagian !== undefined) {
-      payload.sebagian = Number(debt.sebagian !== undefined ? debt.sebagian : debt.Sebagian);
+    if (isValidUUID(debt.id)) {
+      cleanPayload.id = debt.id;
     }
 
-    if (debt.id || debt.id_hutang) {
-      let query = client.from('debt_transactions').update(payload);
-      if (debt.id && debt.id_hutang) {
-        query = query.or(`id.eq.${debt.id},id_hutang.eq.${debt.id_hutang}`);
-      } else if (debt.id) {
-        query = query.eq('id', debt.id);
-      } else {
-        query = query.eq('id_hutang', debt.id_hutang);
-      }
+    if (cleanPayload.id) {
+      const { data: updateData, error: updateErr } = await client
+        .from('debt_transactions')
+        .update(cleanPayload)
+        .eq('id', cleanPayload.id)
+        .select();
 
-      const { data: updateData, error: updateErr } = await query.select();
       if (!updateErr && updateData && updateData.length > 0) {
         return { data: updateData, error: null };
       }
     }
 
-    if (debt.id) payload.id = debt.id;
-    let { data, error } = await client.from('debt_transactions').upsert(payload, { onConflict: 'id_hutang' }).select();
-    if (!error && data && data.length > 0) {
-      return { data, error: null };
+    if (cleanPayload.id_hutang) {
+      const { data: updateData, error: updateErr } = await client
+        .from('debt_transactions')
+        .update(cleanPayload)
+        .eq('id_hutang', cleanPayload.id_hutang)
+        .select();
+
+      if (!updateErr && updateData && updateData.length > 0) {
+        return { data: updateData, error: null };
+      }
     }
 
-    const insertPayload = { ...payload };
-    delete insertPayload.id;
-    return await client.from('debt_transactions').insert(insertPayload).select();
+    let { data, error } = await client.from('debt_transactions').upsert(cleanPayload, { onConflict: 'id_hutang' }).select();
+    if (error) {
+      const insertPayload = { ...cleanPayload };
+      delete insertPayload.id;
+      const { data: insData, error: insErr } = await client.from('debt_transactions').insert(insertPayload).select();
+      if (!insErr && insData) return { data: insData, error: null };
+    }
+    return { data, error };
   },
 
   async addDebtTransaction(debt: SupabaseDebtTransaction): Promise<{ data: any; error: any }> {
@@ -1266,15 +1376,34 @@ export const SupabaseSalesService = {
     return { data: allData, error: null };
   },
 
-  async upsertSale(sale: SupabaseSalesTransaction): Promise<{ data: any; error: any }> {
+  async upsertSale(sale: SupabaseSalesTransaction | any): Promise<{ data: any; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    // 1. If id (UUID) exists, update existing row by primary key id first
-    if (sale.id) {
+    const payload: any = {
+      id_transaksi: sale.id_transaksi || sale.id || `TRX-${Date.now()}`,
+      id_pelanggan: sale.id_pelanggan || '',
+      tanggal: sale.tanggal || sale.Tanggal || new Date().toISOString().slice(0, 10),
+      nama: sale.nama || sale.Nama || 'Pelanggan',
+      jenis: sale.jenis || sale.Jenis || 'Penjualan',
+      metode: sale.metode || sale.Metode || 'Tunai',
+      pemasukan: Number(sale.pemasukan !== undefined ? sale.pemasukan : (sale.Pemasukan || 0)),
+      poin: Number(sale.poin !== undefined ? sale.poin : (sale.Poin || 0)),
+      status: sale.status || sale.Status || 'SELESAI',
+      melalui: sale.melalui || sale.Melalui || 'Kasir',
+      harga_modal: Number(sale.harga_modal !== undefined ? sale.harga_modal : (sale.HargaModal || 0)),
+      sebagian: Number(sale.sebagian !== undefined ? sale.sebagian : (sale.Sebagian || 0))
+    };
+
+    if (isValidUUID(sale.id)) {
+      payload.id = sale.id;
+    }
+
+    // 1. If id (UUID) exists and is valid, update existing row by primary key id first
+    if (isValidUUID(sale.id)) {
       const { data: updateData, error: updateErr } = await client
         .from('sales_transactions')
-        .update(sale)
+        .update(payload)
         .eq('id', sale.id)
         .select();
 
@@ -1284,11 +1413,11 @@ export const SupabaseSalesService = {
     }
 
     // 2. If id_transaksi exists, try updating existing row by id_transaksi
-    if (sale.id_transaksi) {
+    if (payload.id_transaksi) {
       const { data: updateData, error: updateErr } = await client
         .from('sales_transactions')
-        .update(sale)
-        .eq('id_transaksi', sale.id_transaksi)
+        .update(payload)
+        .eq('id_transaksi', payload.id_transaksi)
         .select();
 
       if (!updateErr && updateData && updateData.length > 0) {
@@ -1297,11 +1426,12 @@ export const SupabaseSalesService = {
     }
 
     // 3. Fallback to upsert/insert
-    let { data, error } = await client.from('sales_transactions').upsert(sale, { onConflict: 'id_transaksi' }).select();
-    if (error && (error.message?.includes('ON CONFLICT') || error.code === '42P10')) {
-      const { data: insData, error: insErr } = await client.from('sales_transactions').insert(sale).select();
-      data = insData;
-      error = insErr;
+    let { data, error } = await client.from('sales_transactions').upsert(payload, { onConflict: 'id_transaksi' }).select();
+    if (error) {
+      const insertPayload = { ...payload };
+      delete insertPayload.id;
+      const { data: insData, error: insErr } = await client.from('sales_transactions').insert(insertPayload).select();
+      if (!insErr && insData) return { data: insData, error: null };
     }
     return { data, error };
   },
@@ -1418,14 +1548,53 @@ export const SupabasePointsService = {
     return { data: allData, error: null };
   },
 
-  async upsertPoint(point: SupabaseRedeemedPoint): Promise<{ data: any; error: any }> {
+  async upsertPoint(point: SupabaseRedeemedPoint | any): Promise<{ data: any; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
-    let { data, error } = await client.from('redeemed_points').upsert(point, { onConflict: 'id_tukar' }).select();
-    if (error && (error.message?.includes('ON CONFLICT') || error.code === '42P10')) {
-      const { data: insData, error: insErr } = await client.from('redeemed_points').insert(point).select();
-      data = insData;
-      error = insErr;
+
+    const cleanPayload: any = {
+      id_tukar: String(point.id_tukar || point.id || `TKR-${Date.now()}`).trim(),
+      id_pelanggan: String(point.id_pelanggan || point.idPelanggan || '').trim(),
+      tanggal: String(point.tanggal || point.Tanggal || new Date().toISOString().slice(0, 10)).trim(),
+      nama: String(point.nama || point.Nama || 'Pelanggan').trim(),
+      poin: Number(point.poin !== undefined ? point.poin : (point.Poin || 0)),
+      hadiah: String(point.hadiah || point.Hadiah || '-').trim()
+    };
+
+    if (isValidUUID(point.id)) {
+      cleanPayload.id = point.id;
+    }
+
+    if (cleanPayload.id) {
+      const { data: updateData, error: updateErr } = await client
+        .from('redeemed_points')
+        .update(cleanPayload)
+        .eq('id', cleanPayload.id)
+        .select();
+
+      if (!updateErr && updateData && updateData.length > 0) {
+        return { data: updateData, error: null };
+      }
+    }
+
+    if (cleanPayload.id_tukar) {
+      const { data: updateData, error: updateErr } = await client
+        .from('redeemed_points')
+        .update(cleanPayload)
+        .eq('id_tukar', cleanPayload.id_tukar)
+        .select();
+
+      if (!updateErr && updateData && updateData.length > 0) {
+        return { data: updateData, error: null };
+      }
+    }
+
+    let { data, error } = await client.from('redeemed_points').upsert(cleanPayload, { onConflict: 'id_tukar' }).select();
+    if (error) {
+      const insertPayload = { ...cleanPayload };
+      delete insertPayload.id;
+      const { data: insData, error: insErr } = await client.from('redeemed_points').insert(insertPayload).select();
+      if (!insErr && insData) return { data: insData, error: null };
     }
     return { data, error };
   },

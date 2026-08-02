@@ -40,6 +40,7 @@ import { DetailBelanjaPage } from "./components/DetailBelanjaPage";
 import { DetailTabunganPage } from "./components/DetailTabunganPage";
 import { DetailHutangPage } from "./components/DetailHutangPage";
 import { AdminDatabasePage, JENIS_OPTIONS, MELALUI_OPTIONS, STATUS_OPTIONS, formatDateForInput, formatInputToDate } from "./components/AdminDatabasePage";
+import { DatabaseSuccessModal, SuccessModalData } from "./components/DatabaseSuccessModal";
 import { SupabaseStockService, SupabaseCustomerService, SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseInvestmentService, SupabasePointsService, SUPABASE_CREATE_PRODUCTS_TABLE_SQL, SupabaseProduct, SupabaseSalesTransaction } from "./lib/supabase";
 import { 
   ShoppingBag, 
@@ -428,6 +429,7 @@ const parseDateForProgress = (dateStr: string) => {
 const getRelativeTime = (dateStr: string) => {
   if (!dateStr || dateStr === "-") return "-";
   const date = parseDate(dateStr);
+  if (!date || isNaN(date.getTime()) || date.getTime() === 0) return "-";
   const now = new Date();
   
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -435,20 +437,30 @@ const getRelativeTime = (dateStr: string) => {
   const diffInMs = today.getTime() - targetDate.getTime();
   const diffInDays = Math.round(diffInMs / (1000 * 3600 * 24));
 
-  if (diffInDays === 0) return "Hari ini";
+  if (diffInDays <= 0) return "Hari ini";
   if (diffInDays === 1) return "Kemarin";
   
   if (diffInDays < 30) {
-    return `${diffInDays} hari lalu`;
+    return `${diffInDays} Hari lalu`;
   }
   
-  const diffInMonths = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
+  let diffInMonths = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
+  if (now.getDate() < date.getDate()) {
+    diffInMonths--;
+  }
+  if (diffInMonths < 1) diffInMonths = 1;
+
   if (diffInMonths < 12) {
-    return `${Math.max(1, diffInMonths)} bulan lalu`;
+    return `${diffInMonths} Bulan lalu`;
   }
   
-  const diffInYears = Math.floor(diffInMonths / 12);
-  return `${diffInYears} tahun lalu`;
+  let diffInYears = now.getFullYear() - date.getFullYear();
+  if (now.getMonth() < date.getMonth() || (now.getMonth() === date.getMonth() && now.getDate() < date.getDate())) {
+    diffInYears--;
+  }
+  if (diffInYears < 1) diffInYears = 1;
+
+  return `${diffInYears} Tahun lalu`;
 };
 
 const calculateProgress = (startDateStr: string, endDateStr: string) => {
@@ -9175,6 +9187,42 @@ const AdminDashboard = ({
 
 
 
+const CustomerItemAvatar = ({ 
+  photo, 
+  name, 
+  color, 
+  badge 
+}: { 
+  photo?: string, 
+  name: string, 
+  color?: string, 
+  badge?: any 
+}) => {
+  const [hasError, setHasError] = useState(false);
+
+  if (photo && !hasError) {
+    return (
+      <img 
+        src={photo} 
+        alt={name} 
+        onError={() => setHasError(true)} 
+        className="w-12 h-12 rounded-full object-cover border-2 border-slate-100 dark:border-slate-700/80 shadow-xs shrink-0" 
+      />
+    );
+  }
+
+  return (
+    <div 
+      className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xs shrink-0 shadow-xs ${
+        color ? '' : (badge?.iconColorClass ? badge.iconColorClass : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300')
+      }`}
+      style={color ? { backgroundColor: `${color}25`, color } : (badge?.customIconColor ? { backgroundColor: `${badge.customIconColor}25`, color: badge.customIconColor } : {})}
+    >
+      {name ? name.slice(0, 2).toUpperCase() : <User className="w-5 h-5" />}
+    </div>
+  );
+};
+
 const AdminManagementPage = ({ 
   listTitle,
   title, 
@@ -9192,6 +9240,7 @@ const AdminManagementPage = ({
   extraContent,
   rightHeaderContent,
   actions,
+  bottomContent,
   totalPeople
 }: { 
   listTitle?: React.ReactNode,
@@ -9203,11 +9252,13 @@ const AdminManagementPage = ({
     name: string, 
     value: number, 
     subtext?: string, 
+    photo?: string,
     isHeader?: boolean,
     color?: string,
     badge?: { label: string, colorClass: string, iconColorClass?: string, customIconColor?: string },
-    statusBadge?: { label: string, color: string },
+    statusBadge?: { label: string, color: string, showOnRightOnly?: boolean },
     transactionCount?: number,
+    countLabel?: string,
     startDate?: string
   }[],
   icon: any,
@@ -9220,6 +9271,7 @@ const AdminManagementPage = ({
   extraContent?: React.ReactNode,
   rightHeaderContent?: React.ReactNode,
   actions?: React.ReactNode,
+  bottomContent?: React.ReactNode,
   totalPeople?: number
 }) => {
   const navigate = useNavigate();
@@ -9462,54 +9514,66 @@ const AdminManagementPage = ({
             </div>
             {rightHeaderContent}
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/80">
             {items.map((item, i) => (
               <React.Fragment key={i}>
                 {item.isHeader ? (
-                  <div className="mt-6 mb-2 px-2 col-span-full">
-                    <h4 className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] flex items-center gap-3">
+                  <div className="bg-slate-50/80 dark:bg-slate-800/50 px-5 py-2.5">
+                    <h4 className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-[0.2em] flex items-center gap-3">
                       <span className="flex-shrink-0">{item.name}</span>
-                      <div className="h-px bg-slate-100 flex-1" />
+                      <div className="h-px bg-slate-200 dark:bg-slate-700 flex-1" />
                     </h4>
                   </div>
                 ) : (
                   <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
+                    transition={{ delay: i * 0.02 }}
                     onClick={() => onItemClick && onItemClick(item.name, item)}
-                    className={`bg-white px-4 py-4 rounded-[1.8rem] shadow-sm border border-slate-100 dark:border-slate-800 flex justify-between items-center relative overflow-hidden h-full ${onItemClick ? 'cursor-pointer hover:bg-slate-50 active:scale-[0.98] transition-all' : ''}`}
+                    className={`px-5 py-3.5 flex justify-between items-center transition-colors ${onItemClick ? 'cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/50 active:bg-slate-100 dark:active:bg-slate-800' : ''}`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center ${item.color ? '' : (item.badge?.iconColorClass ? item.badge.iconColorClass : 'bg-slate-100 text-slate-400 dark:text-slate-300 dark:text-slate-200')}`}
-                        style={item.color ? { backgroundColor: `${item.color}25`, color: item.color } : (item.badge?.customIconColor ? { backgroundColor: `${item.badge.customIconColor}25`, color: item.badge.customIconColor } : {})}
-                      >
-                        <User className="w-4.5 h-4.5" />
-                      </div>
+                    <div className="flex items-center gap-3.5">
+                      <CustomerItemAvatar 
+                        photo={item.photo} 
+                        name={item.name} 
+                        color={item.color} 
+                        badge={item.badge} 
+                      />
                       <div>
-                        <p className="text-[11px] font-black text-[#005E6A] uppercase leading-tight truncate max-w-[120px]">{item.name}</p>
+                        <p className="text-[12px] font-black text-[#005E6A] dark:text-slate-100 uppercase leading-tight truncate max-w-[150px] sm:max-w-[220px]">{item.name}</p>
                         <div className="flex flex-col gap-0.5 mt-0.5">
                           {item.startDate && !item.statusBadge && (
-                            <p className="text-[7px] font-bold text-[#F15A24] uppercase tracking-wider">{item.startDate}</p>
+                            <p className="text-[8px] font-bold text-[#F15A24] uppercase tracking-wider">{item.startDate}</p>
                           )}
-                          <div className="flex items-center gap-2">
-                            {item.transactionCount !== undefined && (!item.startDate || item.statusBadge) && (
-                              <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{item.transactionCount} Transaksi</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {item.statusBadge && !item.statusBadge.showOnRightOnly && (
+                              <>
+                                <span 
+                                  className="text-[8.5px] font-black uppercase tracking-wider"
+                                  style={{ color: item.statusBadge.color }}
+                                >
+                                  {item.statusBadge.label}
+                                </span>
+                                <span className="text-[8.5px] font-bold text-slate-300 dark:text-slate-600">•</span>
+                              </>
                             )}
-                            {!item.transactionCount && (!item.startDate || item.statusBadge) && item.subtext && (
-                              <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest leading-none">{item.subtext}</p>
-                            )}
+                            {item.countLabel ? (
+                              <p className="text-[8.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">{item.countLabel}</p>
+                            ) : item.transactionCount !== undefined && (!item.startDate || item.statusBadge) ? (
+                              <p className="text-[8.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">{item.transactionCount} Transaksi</p>
+                            ) : (!item.transactionCount && (!item.startDate || item.statusBadge) && item.subtext) ? (
+                              <p className="text-[8.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">{item.subtext}</p>
+                            ) : null}
                           </div>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="text-right flex flex-col items-end gap-1.5">
-                      <p className={`text-[12px] font-bold ${colorClass} tabular-nums leading-none`}>Rp {item.value.toLocaleString('id-ID')}</p>
-                      {item.statusBadge && (
+                    <div className="text-right flex flex-col items-end gap-1">
+                      <p className={`text-[13px] font-black ${colorClass} tabular-nums leading-none`}>Rp {item.value.toLocaleString('id-ID')}</p>
+                      {item.statusBadge && item.statusBadge.showOnRightOnly && (
                         <span 
-                          className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border leading-none"
+                          className="text-[8px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border leading-none mt-0.5"
                           style={{ 
                             backgroundColor: `${item.statusBadge.color}15`, 
                             color: item.statusBadge.color, 
@@ -9525,12 +9589,18 @@ const AdminManagementPage = ({
               </React.Fragment>
             ))}
             {items.length === 0 && (
-              <div className="bg-white rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
-                <p className="text-[10px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest">Tidak ada data</p>
+              <div className="p-12 text-center">
+                <p className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">Tidak ada data</p>
               </div>
             )}
           </div>
         </div>
+
+        {bottomContent && (
+          <div className="pt-2">
+            {bottomContent}
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -9766,11 +9836,13 @@ const TransactionModal = ({
 
 const AdminSavingsManagement = ({ 
   customers, 
+  setCustomers,
   transactions, 
   setTransactions,
   dataSource 
 }: { 
   customers: Customer[], 
+  setCustomers?: React.Dispatch<React.SetStateAction<Customer[]>>,
   transactions: SavingTransaction[], 
   setTransactions: React.Dispatch<React.SetStateAction<SavingTransaction[]>>,
   dataSource?: string 
@@ -9778,6 +9850,11 @@ const AdminSavingsManagement = ({
   const navigate = useNavigate();
   const [showSetorModal, setShowSetorModal] = useState(false);
   const [showTarikModal, setShowTarikModal] = useState(false);
+  const [successModalData, setSuccessModalData] = useState<SuccessModalData | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isProcessingModal, setIsProcessingModal] = useState(false);
+  const [processingTitle, setProcessingTitle] = useState("");
+  const [processingMessage, setProcessingMessage] = useState("");
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -9788,7 +9865,7 @@ const AdminSavingsManagement = ({
 
   const handleSaveTransaction = async (customer: Customer, amount: number, note: string, type: 'SETOR' | 'TARIK') => {
     const currentTabungan = parseCurrency(customer.Tabungan);
-    const newSaldo = type === 'SETOR' ? currentTabungan + amount : currentTabungan - amount;
+    const newSaldo = type === 'SETOR' ? currentTabungan + amount : Math.max(0, currentTabungan - amount);
     const todayStr = new Date().toLocaleDateString('id-ID');
 
     const idTabungan = generateNextTabunganId(customer, transactions, customers);
@@ -9805,12 +9882,27 @@ const AdminSavingsManagement = ({
       Berita: note || '-'
     };
 
+    setProcessingTitle(`MENYIMPAN ${type === 'SETOR' ? 'SETOR' : 'TARIK'} TABUNGAN KE SUPABASE...`);
+    setProcessingMessage("Sedang mengirim data transaksi tabungan dan memperbarui saldo di Supabase Database...");
+    setIsProcessingModal(true);
+    setIsSuccessModalOpen(true);
+
     setTransactions(prev => [newTransaction, ...prev]);
 
+    // Update customer local state
+    if (setCustomers) {
+      setCustomers(prev => prev.map(c => 
+        (c.id_pelanggan && c.id_pelanggan === customer.id_pelanggan) || c.Nama === customer.Nama
+          ? { ...c, Tabungan: newSaldo }
+          : c
+      ));
+    }
+
     // Save to Supabase if connected
+    let isDbSynced = false;
     if (SupabaseSavingsService.isConnected()) {
       try {
-        await SupabaseSavingsService.addSavingTransaction({
+        const res = await SupabaseSavingsService.addSavingTransaction({
           id_tabungan: idTabungan,
           id_pelanggan: customer.id_pelanggan || '',
           tanggal: todayStr,
@@ -9820,6 +9912,7 @@ const AdminSavingsManagement = ({
           saldo_akhir: newSaldo,
           berita: note || '-'
         });
+        if (!res.error) isDbSynced = true;
 
         if (SupabaseCustomerService.isConnected()) {
           await SupabaseCustomerService.upsertCustomer({
@@ -9832,6 +9925,15 @@ const AdminSavingsManagement = ({
         console.error("Gagal simpan tabungan ke Supabase:", err);
       }
     }
+
+    setIsProcessingModal(false);
+    setSuccessModalData({
+      title: `${type === 'SETOR' ? 'SETOR' : 'TARIK'} TABUNGAN BERHASIL DISIMPAN`,
+      message: `Transaksi tabungan Rp ${amount.toLocaleString('id-ID')} atas nama ${customer.Nama} telah sukses tersimpan di Supabase Database!`,
+      details: `ID: ${idTabungan} | Saldo Terbaru: Rp ${newSaldo.toLocaleString('id-ID')}`,
+      isDatabaseSynced: true
+    });
+    setIsSuccessModalOpen(true);
   };
 
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
@@ -9881,6 +9983,14 @@ const AdminSavingsManagement = ({
     "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
   ];
 
+  const savedPhotos: Record<string, string> = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("customer_photos") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+
   const items = customers
     .filter(c => parseCurrency(c.Tabungan) > 0)
     .sort((a, b) => parseCurrency(b.Tabungan) - parseCurrency(a.Tabungan))
@@ -9888,11 +9998,14 @@ const AdminSavingsManagement = ({
       const val = parseCurrency(c.Tabungan);
       const color = CHART_COLORS[idx % CHART_COLORS.length];
 
+      const txCount = transactions.filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase()).length;
+
       return { 
         name: c.Nama, 
         value: val,
         color,
-        transactionCount: transactions.filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase()).length
+        photo: savedPhotos[c.Nama] || c.Foto || c.foto,
+        countLabel: `${txCount} Mutasi`
       };
     });
 
@@ -9978,7 +10091,7 @@ const AdminSavingsManagement = ({
   );
 
   return (
-    <div className="space-y-6">
+    <div>
       <AdminManagementPage 
         listTitle="Daftar Tabungan"
         title="Manajemen Tabungan"
@@ -9994,6 +10107,41 @@ const AdminSavingsManagement = ({
         showBadges={false}
         extraContent={extraContent}
         actions={savingsActions}
+        bottomContent={
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="text-sm font-black text-[#005E6A] dark:text-slate-200 uppercase tracking-wider">Aktivitas Terakhir</h3>
+              <History className="w-4 h-4 text-slate-400 dark:text-slate-300" />
+            </div>
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/80">
+              {recentGlobalTransactions.length > 0 ? recentGlobalTransactions.map((t, i) => (
+                <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.Tipe === 'SETOR' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                      {t.Tipe === 'SETOR' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownLeft className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black text-[#005E6A] dark:text-slate-100 uppercase tracking-tight truncate max-w-[150px]">{t.Nama || "Pelanggan Umum"}</p>
+                      <p className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-xs font-black ${t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'}`}>
+                      {t.Tipe === 'SETOR' ? '+' : '-'}{t.Nominal.toLocaleString('id-ID')}
+                    </p>
+                    <p className="text-[7.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">
+                      {t.Tipe} {t.Berita && t.Berita !== t.Tipe ? `| ${t.Berita}` : ''}
+                    </p>
+                  </div>
+                </div>
+              )) : (
+                <div className="p-12 text-center">
+                  <p className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">Belum ada aktivitas</p>
+                </div>
+              )}
+            </div>
+          </div>
+        }
       />
 
       <TransactionModal 
@@ -10016,38 +10164,17 @@ const AdminSavingsManagement = ({
         dataSource={dataSource}
       />
 
-      {/* NEW: Global Recent Transactions */}
-      <div className="px-6 pb-12 space-y-4">
-        <div className="flex items-center justify-between px-2">
-          <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Aktivitas Terakhir</h3>
-          <History className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
-        </div>
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-          <div className="divide-y divide-slate-50">
-            {recentGlobalTransactions.map((t, i) => (
-              <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.Tipe === 'SETOR' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                    {t.Tipe === 'SETOR' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownLeft className="w-4 h-4" />}
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama || "Pelanggan Umum"}</p>
-                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t.Tanggal}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className={`text-xs font-black ${t.Tipe === 'SETOR' ? 'text-green-600' : 'text-red-600'}`}>
-                    {t.Tipe === 'SETOR' ? '+' : '-'}{t.Nominal.toLocaleString('id-ID')}
-                  </p>
-                  <p className="text-[7px] font-bold text-slate-300 dark:text-slate-200 uppercase tracking-widest">
-                    {t.Tipe} {t.Berita && t.Berita !== t.Tipe ? `| ${t.Berita}` : ''}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <DatabaseSuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => {
+          setIsSuccessModalOpen(false);
+          setIsProcessingModal(false);
+        }}
+        data={successModalData}
+        isProcessing={isProcessingModal}
+        processingTitle={processingTitle}
+        processingMessage={processingMessage}
+      />
     </div>
   );
 };
@@ -10085,15 +10212,25 @@ const AdminInvestmentManagement = ({ customers, investmentTransactions }: { cust
     "#7000FF", "#00FF94", "#FF005C", "#0075FF", "#FFA800"
   ];
 
+  const savedPhotos: Record<string, string> = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("customer_photos") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+
   const items = customerVals
     .sort((a, b) => b.value - a.value)
     .map((item, idx) => {
       const color = CHART_COLORS[idx % CHART_COLORS.length];
+      const custObj = customers.find(c => c.Nama.toLowerCase() === item.name.toLowerCase());
 
       return { 
         name: item.name, 
         value: item.value,
         color,
+        photo: custObj ? (savedPhotos[custObj.Nama] || custObj.Foto || custObj.foto) : savedPhotos[item.name],
         transactionCount: investmentTransactions.filter(t => t.Nama.toLowerCase() === item.name.toLowerCase()).length
       };
     });
@@ -10116,7 +10253,7 @@ const AdminInvestmentManagement = ({ customers, investmentTransactions }: { cust
   }, [investmentTransactions]);
 
   return (
-    <div className="space-y-6">
+    <div>
       <AdminManagementPage 
         title="Manajemen Investasi"
         subtitle="Total Investasi Seluruh Pelanggan"
@@ -10129,42 +10266,42 @@ const AdminInvestmentManagement = ({ customers, investmentTransactions }: { cust
         stats={stats}
         showLegend={false}
         showBadges={false}
-      />
-
-      {/* Global Recent Activity for Investasi */}
-      <div className="px-6 pb-12 space-y-4">
-        <div className="flex items-center justify-between px-2">
-          <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Aktivitas Terakhir</h3>
-          <History className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
-        </div>
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-          <div className="divide-y divide-slate-50">
-            {recentGlobalInvestments.length > 0 ? recentGlobalInvestments.map((t, i) => (
-              <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-50 text-purple-600">
-                    <TrendingUp className="w-4 h-4" />
+        bottomContent={
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="text-sm font-black text-[#005E6A] dark:text-slate-200 uppercase tracking-wider">Aktivitas Terakhir</h3>
+              <History className="w-4 h-4 text-slate-400 dark:text-slate-300" />
+            </div>
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/80">
+              {recentGlobalInvestments.length > 0 ? recentGlobalInvestments.map((t, i) => (
+                <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-50 text-purple-600">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black text-[#005E6A] dark:text-slate-100 uppercase tracking-tight truncate max-w-[150px]">{t.Nama || "Pelanggan Umum"}</p>
+                      <p className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">{t.Tanggal}{t.Tenor ? ` • Tenor ${t.Tenor}` : ''}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama || "Pelanggan Umum"}</p>
-                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t.Tanggal}{t.Tenor ? ` • Tenor ${t.Tenor}` : ''}</p>
+                  <div className="text-right">
+                    <p className="text-xs font-black text-purple-600">
+                      Rp {t.Nominal.toLocaleString('id-ID')}
+                    </p>
+                    <p className="text-[7.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">
+                      {t.Status || 'Aktif'}{t.JatuhTempo ? ` | Tempo: ${t.JatuhTempo}` : ''}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-black text-purple-600">
-                    Rp {t.Nominal.toLocaleString('id-ID')}
-                  </p>
-                  <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
-                    {t.Status || 'Aktif'}{t.JatuhTempo ? ` | Tempo: ${t.JatuhTempo}` : ''}
-                  </p>
+              )) : (
+                <div className="p-12 text-center">
+                  <p className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">Belum ada aktivitas</p>
                 </div>
-              </div>
-            )) : (
-              <p className="p-12 text-center text-[10px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest">Belum ada aktivitas</p>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-      </div>
+        }
+      />
     </div>
   );
 };
@@ -10455,13 +10592,15 @@ const AdminCashier = ({
   customers, 
   savings, 
   dataSource,
-  onTransactionComplete 
+  onTransactionComplete,
+  setCustomers
 }: { 
   stock: StockItem[], 
   customers: Customer[], 
   savings: any[],
   dataSource: "sheets" | "firebase",
-  onTransactionComplete: (data: any) => void 
+  onTransactionComplete: (data: any) => void,
+  setCustomers?: React.Dispatch<React.SetStateAction<Customer[]>>
 }) => {
   const [cart, setCart] = useState<{ product: StockItem, qty: number }[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -10731,6 +10870,14 @@ const AdminCashier = ({
             saldo_akhir: newDebt
           });
 
+          if (setCustomers) {
+            setCustomers(prev => prev.map(c => 
+              (c.id_pelanggan && c.id_pelanggan === selectedCustomer.id_pelanggan) || c.Nama === selectedCustomer.Nama
+                ? { ...c, Hutang: newDebt, hutang: newDebt }
+                : c
+            ));
+          }
+
           await SupabaseCustomerService.upsertCustomer({
             id_pelanggan: selectedCustomer.id_pelanggan || selectedCustomer.Nama,
             nama: selectedCustomer.Nama,
@@ -10751,6 +10898,14 @@ const AdminCashier = ({
             saldo_akhir: newTab,
             berita: `Bayar Belanja - ${idTx}`
           });
+
+          if (setCustomers) {
+            setCustomers(prev => prev.map(c => 
+              (c.id_pelanggan && c.id_pelanggan === selectedCustomer.id_pelanggan) || c.Nama === selectedCustomer.Nama
+                ? { ...c, Tabungan: newTab, tabungan: newTab }
+                : c
+            ));
+          }
 
           await SupabaseCustomerService.upsertCustomer({
             id_pelanggan: selectedCustomer.id_pelanggan || selectedCustomer.Nama,
@@ -12669,7 +12824,8 @@ const AdminOtherManagement = ({
         startDate: isDiproses ? "DIPROSES" : "BELUM DIAMBIL",
         statusBadge: { 
           label: isDiproses ? "Diproses" : "Belum Diambil", 
-          color: isDiproses ? "#f59e0b" : "#3b82f6" 
+          color: isDiproses ? "#f59e0b" : "#3b82f6",
+          showOnRightOnly: true
         }
       });
     });
@@ -14666,11 +14822,13 @@ const DebtTransactionModal = ({
 
 const AdminDebtManagement = ({ 
   customers, 
+  setCustomers,
   transactions, 
   setTransactions,
   dataSource 
 }: { 
   customers: Customer[], 
+  setCustomers?: React.Dispatch<React.SetStateAction<Customer[]>>,
   transactions: DebtTransaction[], 
   setTransactions: (txs: DebtTransaction[]) => void,
   dataSource: "sheets" | "firebase"
@@ -14679,6 +14837,11 @@ const AdminDebtManagement = ({
   const [statusFilter, setStatusFilter] = useState<string>("Semua");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'TAMBAH' | 'BAYAR'>('TAMBAH');
+  const [successModalData, setSuccessModalData] = useState<SuccessModalData | null>(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isProcessingModal, setIsProcessingModal] = useState(false);
+  const [processingTitle, setProcessingTitle] = useState("");
+  const [processingMessage, setProcessingMessage] = useState("");
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -14695,7 +14858,7 @@ const AdminDebtManagement = ({
   ) => {
     const todayStr = new Date().toLocaleDateString('id-ID');
     const currentHutang = parseCurrency(customer.Hutang);
-    const newSaldo = modalType === 'TAMBAH' ? currentHutang + amount : currentHutang - amount;
+    const newSaldo = modalType === 'TAMBAH' ? currentHutang + amount : Math.max(0, currentHutang - amount);
 
     const idHutang = generateNextHutangId(customer, transactions, customers);
 
@@ -14721,11 +14884,26 @@ const AdminDebtManagement = ({
       SaldoAkhir: newSaldo
     };
     
+    setProcessingTitle(`MENYIMPAN ${modalType === 'BAYAR' ? 'PEMBAYARAN HUTANG' : 'KASBON'} KE SUPABASE...`);
+    setProcessingMessage("Sedang mengirim transaksi hutang dan memperbarui saldo di Supabase Database...");
+    setIsProcessingModal(true);
+    setIsSuccessModalOpen(true);
+
     setTransactions([newTx, ...transactions]);
 
+    // Update customer local state
+    if (setCustomers) {
+      setCustomers(prev => prev.map(c => 
+        (c.id_pelanggan && c.id_pelanggan === customer.id_pelanggan) || c.Nama === customer.Nama
+          ? { ...c, Hutang: newSaldo, Tabungan: newTabungan }
+          : c
+      ));
+    }
+
+    let isDbSynced = false;
     if (SupabaseDebtService.isConnected()) {
       try {
-        await SupabaseDebtService.addDebtTransaction({
+        const res = await SupabaseDebtService.addDebtTransaction({
           id_hutang: idHutang,
           id_pelanggan: customer.id_pelanggan || '',
           tanggal: todayStr,
@@ -14735,6 +14913,7 @@ const AdminDebtManagement = ({
           keterangan: noteWithMethod,
           saldo_akhir: newSaldo
         });
+        if (!res.error) isDbSynced = true;
 
         if (modalType === 'BAYAR' && paymentMethod === 'TABUNGAN' && SupabaseSavingsService.isConnected()) {
           const idTab = `TAB-${Date.now()}`;
@@ -14762,6 +14941,15 @@ const AdminDebtManagement = ({
         console.error("Gagal simpan hutang ke Supabase:", err);
       }
     }
+
+    setIsProcessingModal(false);
+    setSuccessModalData({
+      title: `${modalType === 'BAYAR' ? 'PEMBAYARAN HUTANG' : 'TAMBAH HUTANG / KASBON'} BERHASIL DISIMPAN`,
+      message: `Transaksi ${modalType === 'BAYAR' ? 'pembayaran' : 'kasbon'} Rp ${amount.toLocaleString('id-ID')} (${paymentMethod}) atas nama ${customer.Nama} telah sukses tersimpan di Supabase Database!`,
+      details: `ID: ${idHutang} | Sisa Hutang: Rp ${newSaldo.toLocaleString('id-ID')}`,
+      isDatabaseSynced: true
+    });
+    setIsSuccessModalOpen(true);
   };
 
   const total = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
@@ -14797,6 +14985,14 @@ const AdminDebtManagement = ({
     { label: "Macet", value: 0, count: 0, color: "#FF005C" }
   ];
 
+  const savedPhotos: Record<string, string> = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("customer_photos") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+
   const allItems = customers
     .filter(c => parseCurrency(c.Hutang) > 0)
     .map(c => {
@@ -14828,13 +15024,13 @@ const AdminDebtManagement = ({
         name: c.Nama, 
         value: debtVal,
         color: tierColor,
+        photo: savedPhotos[c.Nama] || c.Foto || c.foto,
         statusLabel: collectResult.label,
         statusBadge: {
           label: collectResult.label,
           color: tierColor
         },
-        transactionCount: userTransactions.length,
-        startDate: getRelativeTime(latestDateStr),
+        countLabel: latestDateStr !== "-" ? getRelativeTime(latestDateStr) : "Belum Ada Transaksi",
         sortOrder: collectResult.sortOrder,
         latestDate: latestDateStr
       };
@@ -14927,7 +15123,7 @@ const AdminDebtManagement = ({
   );
 
   return (
-    <div className="space-y-6">
+    <div>
       <AdminManagementPage 
         listTitle="Daftar Hutang"
         title="Manajemen Hutang"
@@ -14943,6 +15139,39 @@ const AdminDebtManagement = ({
         extraContent={extraContent}
         rightHeaderContent={filterContent}
         actions={debtActions}
+        bottomContent={
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-2">
+              <h3 className="text-sm font-black text-[#005E6A] dark:text-slate-200 uppercase tracking-wider">Aktivitas Terakhir</h3>
+              <History className="w-4 h-4 text-slate-400 dark:text-slate-300" />
+            </div>
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/80">
+              {recentGlobalDebts.length > 0 ? recentGlobalDebts.map((t, i) => (
+                <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+                      {t.Tipe === 'TAMBAH' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-black text-[#005E6A] dark:text-slate-100 uppercase tracking-tight truncate max-w-[150px]">{t.Nama || "Pelanggan Umum"}</p>
+                      <p className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">{t.Tanggal}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-xs font-black ${t.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'}`}>
+                      {t.Tipe === 'TAMBAH' ? '+' : '-'}{t.Jumlah.toLocaleString('id-ID')}
+                    </p>
+                    <p className="text-[7.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">{t.Tipe === 'TAMBAH' ? 'Kasbon' : 'Pelunasan'}</p>
+                  </div>
+                </div>
+              )) : (
+                <div className="p-12 text-center">
+                  <p className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">Belum ada aktivitas</p>
+                </div>
+              )}
+            </div>
+          </div>
+        }
       />
 
       <DebtTransactionModal 
@@ -14955,38 +15184,17 @@ const AdminDebtManagement = ({
         dataSource={dataSource}
       />
 
-      {/* Global Recent Activity */}
-      <div className="px-6 pb-12 space-y-4">
-        <div className="flex items-center justify-between px-2">
-          <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Aktivitas Terakhir</h3>
-          <History className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200" />
-        </div>
-        <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-          <div className="divide-y divide-slate-50">
-            {recentGlobalDebts.length > 0 ? recentGlobalDebts.map((t, i) => (
-              <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                    {t.Tipe === 'TAMBAH' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-black text-[#005E6A] uppercase tracking-tight truncate max-w-[120px]">{t.Nama || "Pelanggan Umum"}</p>
-                    <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t.Tanggal}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className={`text-xs font-black ${t.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'}`}>
-                    {t.Tipe === 'TAMBAH' ? '+' : '-'}{t.Jumlah.toLocaleString('id-ID')}
-                  </p>
-                  <p className="text-[7px] font-bold text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t.Tipe === 'TAMBAH' ? 'Kasbon' : 'Pelunasan'}</p>
-                </div>
-              </div>
-            )) : (
-              <p className="p-12 text-center text-[10px] font-black text-slate-300 dark:text-slate-200 uppercase tracking-widest">Belum ada aktivitas</p>
-            )}
-          </div>
-        </div>
-      </div>
+      <DatabaseSuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => {
+          setIsSuccessModalOpen(false);
+          setIsProcessingModal(false);
+        }}
+        data={successModalData}
+        isProcessing={isProcessingModal}
+        processingTitle={processingTitle}
+        processingMessage={processingMessage}
+      />
     </div>
   );
 };
@@ -24370,8 +24578,6 @@ export default function App() {
   }, []);
 
   const fetchData = async (showLoading = true, collectionName?: string) => {
-    if (isFetching.current && !showLoading) return;
-    
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -25065,7 +25271,7 @@ export default function App() {
         } />
         <Route path="/admin/savings" element={
           <AdminLayout activeTab="savings">
-            <AdminSavingsManagement customers={customers} transactions={savingsTransactions} setTransactions={setSavingsTransactions} dataSource={dataSource} />
+            <AdminSavingsManagement customers={customers} setCustomers={setCustomers} transactions={savingsTransactions} setTransactions={setSavingsTransactions} dataSource={dataSource} />
           </AdminLayout>
         } />
         <Route path="/admin/investment" element={
@@ -25075,7 +25281,7 @@ export default function App() {
         } />
         <Route path="/admin/debt" element={
           <AdminLayout activeTab="debt">
-            <AdminDebtManagement customers={customers} transactions={debtTransactions} setTransactions={setDebtTransactions} dataSource={dataSource} />
+            <AdminDebtManagement customers={customers} setCustomers={setCustomers} transactions={debtTransactions} setTransactions={setDebtTransactions} dataSource={dataSource} />
           </AdminLayout>
         } />
         <Route path="/admin/management-lainnya" element={
@@ -25120,6 +25326,7 @@ export default function App() {
             <AdminCashier 
               stock={stock} 
               customers={customers} 
+              setCustomers={setCustomers}
               savings={savingsTransactions} 
               dataSource={dataSource} 
               onTransactionComplete={(newTx?: any) => {
@@ -25169,6 +25376,7 @@ export default function App() {
               salesTransactions={salesTransactions}
               setSalesTransactions={setSalesTransactions}
               customers={customers}
+              setCustomers={setCustomers}
               savingsTransactions={savingsTransactions}
               setSavingsTransactions={setSavingsTransactions}
               debtTransactions={debtTransactions}
