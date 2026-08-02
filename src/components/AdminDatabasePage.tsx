@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Search,
@@ -173,6 +174,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   debtTransactions = [],
   setDebtTransactions
 }) => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterJenis, setFilterJenis] = useState("semua");
   const [filterMetode, setFilterMetode] = useState("semua");
@@ -1791,8 +1793,11 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 skew-x-12 pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-none bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest text-teal-200">
-              <Database className="w-3.5 h-3.5" />
+            <div 
+              onClick={() => navigate("/admin")}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-none bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest text-teal-200 cursor-pointer hover:bg-white/20 transition-all group"
+            >
+              <Database className="w-3.5 h-3.5 transition-transform group-hover:scale-110" />
               <span>Admin Database Management</span>
             </div>
 

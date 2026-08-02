@@ -40,6 +40,7 @@ import { DetailBelanjaPage } from "./components/DetailBelanjaPage";
 import { DetailTabunganPage } from "./components/DetailTabunganPage";
 import { DetailHutangPage } from "./components/DetailHutangPage";
 import { AdminDatabasePage, JENIS_OPTIONS, MELALUI_OPTIONS, STATUS_OPTIONS, formatDateForInput, formatInputToDate } from "./components/AdminDatabasePage";
+import { AdminCashFlowPage } from "./components/AdminCashFlowPage";
 import { DatabaseSuccessModal, SuccessModalData } from "./components/DatabaseSuccessModal";
 import { SupabaseStockService, SupabaseCustomerService, SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseInvestmentService, SupabasePointsService, SUPABASE_CREATE_PRODUCTS_TABLE_SQL, SupabaseProduct, SupabaseSalesTransaction } from "./lib/supabase";
 import { 
@@ -74,6 +75,7 @@ import {
   Minus,
   ArrowUpRight,
   ArrowDownLeft,
+  ArrowLeftRight,
   RefreshCw,
   Copy,
   LayoutGrid,
@@ -4292,7 +4294,7 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
     { name: 'Investasi', value: investasiBalance, color: '#6366f1' },
     { name: 'Lainnya', value: lainnyaBalance, color: '#f39c12' },
     { name: 'Hutang', value: hutangBalance, color: '#ef4444' },
-  ].filter(item => item.value !== 0);
+  ].filter(item => item.value !== 0 || item.name === 'Investasi');
 
   const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
   const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
@@ -8401,7 +8403,7 @@ const AdminDashboard = ({
     { name: 'Investasi', value: totalInvestasi, color: '#8b5cf6', path: '/admin/investment' },
     { name: 'Hutang', value: totalHutang, color: '#f43f5e', path: '/admin/debt' },
     { name: 'Lainnya', value: totalLainnya, color: '#3b82f6', path: '/admin/management-lainnya' }
-  ].filter(d => d.value > 0).map(d => ({
+  ].filter(d => d.value > 0 || d.name === 'Investasi').map(d => ({
     ...d,
     percentage: grossAssets > 0 ? (d.value / grossAssets) * 100 : 0
   }));
@@ -8540,6 +8542,146 @@ const AdminDashboard = ({
     return { maxSales, minSales, maxProfit, minProfit, avgSales, avgProfit };
   }, [chartData]);
 
+  // Cash Flow Calculations for Arus Kas & Defisit/Surplus
+  const cashFlowData = useMemo(() => {
+    const salesInflow = filteredSales.reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
+    const salesOutflow = filteredSales.reduce((acc, curr) => acc + (parseCurrency(curr.HargaModal) || 0), 0);
+
+    const filteredSavings = savingsTransactions.filter(t => {
+      const d = parseDate(t.Tanggal);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+      if (timeFilter === "Hari ini") return targetDate.getTime() === today.getTime();
+      if (timeFilter === "Minggu ini") {
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        return targetDate >= startOfWeek && targetDate <= today;
+      }
+      if (timeFilter === "Bulan ini") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      if (timeFilter === "Tahun ini") return d.getFullYear() === now.getFullYear();
+      if (timeFilter.startsWith("day:")) {
+        const [y, m, dt] = timeFilter.split(":")[1].split("-").map(Number);
+        return d.getFullYear() === y && d.getMonth() === m - 1 && d.getDate() === dt;
+      }
+      if (timeFilter.startsWith("month:")) {
+        const [y, m] = timeFilter.split(":")[1].split("-").map(Number);
+        return d.getFullYear() === y && d.getMonth() === m - 1;
+      }
+      if (timeFilter.startsWith("year:")) {
+        return d.getFullYear() === parseInt(timeFilter.split(":")[1]);
+      }
+      return true;
+    });
+
+    const savingsInflow = filteredSavings
+      .filter(s => (s.Tipe || "").toUpperCase() === "SETOR")
+      .reduce((acc, curr) => acc + (parseCurrency(curr.Nominal) || 0), 0);
+    const savingsOutflow = filteredSavings
+      .filter(s => (s.Tipe || "").toUpperCase() === "TARIK")
+      .reduce((acc, curr) => acc + (parseCurrency(curr.Nominal) || 0), 0);
+
+    const filteredDebts = debtTransactions.filter(t => {
+      const d = parseDate(t.Tanggal);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const targetDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+      if (timeFilter === "Hari ini") return targetDate.getTime() === today.getTime();
+      if (timeFilter === "Minggu ini") {
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        return targetDate >= startOfWeek && targetDate <= today;
+      }
+      if (timeFilter === "Bulan ini") return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      if (timeFilter === "Tahun ini") return d.getFullYear() === now.getFullYear();
+      if (timeFilter.startsWith("day:")) {
+        const [y, m, dt] = timeFilter.split(":")[1].split("-").map(Number);
+        return d.getFullYear() === y && d.getMonth() === m - 1 && d.getDate() === dt;
+      }
+      if (timeFilter.startsWith("month:")) {
+        const [y, m] = timeFilter.split(":")[1].split("-").map(Number);
+        return d.getFullYear() === y && d.getMonth() === m - 1;
+      }
+      if (timeFilter.startsWith("year:")) {
+        return d.getFullYear() === parseInt(timeFilter.split(":")[1]);
+      }
+      return true;
+    });
+
+    const debtInflow = filteredDebts
+      .filter(d => {
+        const t = (d.Tipe || (d as any).tipe || (d as any).type || "").toString().toUpperCase();
+        return t === "BAYAR" || t === "LUNAS" || t === "PEMBAYARAN" || t === "SETOR" || t.includes("BAYAR") || t.includes("LUNAS");
+      })
+      .reduce((acc, curr) => acc + (parseCurrency((curr as any).Jumlah || (curr as any).jumlah || (curr as any).Nominal || (curr as any).nominal || (curr as any).NominalTransaksi || (curr as any).nominal_transaksi) || 0), 0);
+    const debtOutflow = filteredDebts
+      .filter(d => {
+        const t = (d.Tipe || (d as any).tipe || (d as any).type || "").toString().toUpperCase();
+        return t === "TAMBAH" || t === "KASBON" || t === "PINJAM" || t === "HUTANG" || t.includes("KASBON") || t.includes("TAMBAH");
+      })
+      .reduce((acc, curr) => acc + (parseCurrency((curr as any).Jumlah || (curr as any).jumlah || (curr as any).Nominal || (curr as any).nominal || (curr as any).NominalTransaksi || (curr as any).nominal_transaksi) || 0), 0);
+
+    const totalPemasukanKas = salesInflow + savingsInflow + debtInflow;
+    const totalPengeluaranKas = salesOutflow + savingsOutflow + debtOutflow;
+    const netDefisitSurplus = totalPemasukanKas - totalPengeluaranKas;
+
+    const statsByDate: Record<string, { pemasukan: number, pengeluaran: number }> = {};
+
+    filteredSales.forEach(t => {
+      const dateStr = (t.Tanggal || "").split(' ')[0];
+      if (!dateStr) return;
+      if (!statsByDate[dateStr]) statsByDate[dateStr] = { pemasukan: 0, pengeluaran: 0 };
+      statsByDate[dateStr].pemasukan += parseCurrency(t.Pemasukan) || 0;
+      statsByDate[dateStr].pengeluaran += parseCurrency(t.HargaModal) || 0;
+    });
+
+    filteredSavings.forEach(s => {
+      const dateStr = (s.Tanggal || "").split(' ')[0];
+      if (!dateStr) return;
+      if (!statsByDate[dateStr]) statsByDate[dateStr] = { pemasukan: 0, pengeluaran: 0 };
+      if ((s.Tipe || "").toUpperCase() === "SETOR") {
+        statsByDate[dateStr].pemasukan += parseCurrency(s.Nominal) || 0;
+      } else {
+        statsByDate[dateStr].pengeluaran += parseCurrency(s.Nominal) || 0;
+      }
+    });
+
+    filteredDebts.forEach(d => {
+      const dateStr = (d.Tanggal || "").split(' ')[0];
+      if (!dateStr) return;
+      if (!statsByDate[dateStr]) statsByDate[dateStr] = { pemasukan: 0, pengeluaran: 0 };
+      const t = (d.Tipe || (d as any).tipe || (d as any).type || "").toString().toUpperCase();
+      const amt = parseCurrency((d as any).Jumlah || (d as any).jumlah || (d as any).Nominal || (d as any).nominal || (d as any).NominalTransaksi || (d as any).nominal_transaksi) || 0;
+      if (t === "BAYAR" || t === "LUNAS" || t === "PEMBAYARAN" || t === "SETOR" || t.includes("BAYAR") || t.includes("LUNAS")) {
+        statsByDate[dateStr].pemasukan += amt;
+      } else {
+        statsByDate[dateStr].pengeluaran += amt;
+      }
+    });
+
+    const chartData = Object.keys(statsByDate).map(dateKey => {
+      const pem = statsByDate[dateKey].pemasukan;
+      const peng = statsByDate[dateKey].pengeluaran;
+      const net = pem - peng;
+      return {
+        date: dateKey,
+        pemasukan: pem,
+        pengeluaran: peng,
+        net,
+        status: net >= 0 ? 'Surplus' : 'Defisit'
+      };
+    }).sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
+
+    return {
+      totalPemasukanKas,
+      totalPengeluaranKas,
+      netDefisitSurplus,
+      chartData
+    };
+  }, [filteredSales, savingsTransactions, debtTransactions, timeFilter]);
+
   const handleAdminLogout = () => {
     localStorage.removeItem("admin_session");
     navigate("/");
@@ -8557,10 +8699,11 @@ const AdminDashboard = ({
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
         
         <div className="relative z-10">
-
-          
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+          <div 
+            onClick={() => navigate("/admin")}
+            className="flex items-center gap-3 mb-2 cursor-pointer group hover:opacity-90 transition-opacity"
+          >
+            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-black tracking-tight uppercase">Dashboard Admin</h1>
@@ -8572,13 +8715,13 @@ const AdminDashboard = ({
         {/* Stats Cards - Now Menu Buttons */}
         <div className="flex items-center gap-2 lg:gap-4 overflow-x-auto no-scrollbar pb-1">
           <button 
-            onClick={() => navigate("/admin/stock")}
-            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-[#F15A24]/10"
+            onClick={() => navigate("/admin/cashflow")}
+            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-teal-500"
           >
-            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-orange-50 rounded-xl flex items-center justify-center text-[#F15A24] group-hover:scale-110 transition-transform">
-              <Package className="w-5 h-5 lg:w-6 lg:h-6" />
+            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-teal-50 rounded-xl flex items-center justify-center text-[#005E6A] group-hover:scale-110 transition-transform">
+              <ArrowLeftRight className="w-5 h-5 lg:w-6 lg:h-6" />
             </div>
-            <p className="text-[9px] lg:text-[10px] font-black text-[#005E6A] uppercase tracking-widest text-center">Stok</p>
+            <p className="text-[9px] lg:text-[10px] font-black text-[#005E6A] uppercase tracking-widest text-center">Arus Kas</p>
           </button>
           <button 
             onClick={() => navigate("/admin/vouchers")}
@@ -8600,11 +8743,126 @@ const AdminDashboard = ({
           </button>
         </div>
 
+        {/* Kartu Arus Kas Ringkas & Grafik Defisit/Surplus */}
+        <div 
+          id="arus-kas-section"
+          className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 space-y-6"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-teal-50 rounded-2xl flex items-center justify-center text-[#005E6A] shadow-sm">
+                <ArrowLeftRight className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Laporan Arus Kas</h3>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-300 uppercase tracking-widest">
+                  Grafik Ringkasan Real-time
+                </p>
+              </div>
+            </div>
 
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => navigate("/admin/cashflow")}
+                className="px-4 py-2.5 rounded-2xl bg-[#005E6A] hover:bg-[#004e58] text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+              >
+                <ArrowLeftRight className="w-3.5 h-3.5" />
+                <span>Rincian & Mapping Kas &rarr;</span>
+              </button>
+
+              <div className={`px-4 py-2.5 rounded-2xl flex items-center gap-3 border shadow-sm ${
+                cashFlowData.netDefisitSurplus >= 0 
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                  : 'bg-rose-50 border-rose-200 text-rose-800'
+              }`}>
+                <div className={`w-3 h-3 rounded-full ${cashFlowData.netDefisitSurplus >= 0 ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500 animate-pulse'}`} />
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-widest opacity-70">
+                    Status: {cashFlowData.netDefisitSurplus >= 0 ? 'SURPLUS' : 'DEFISIT'}
+                  </p>
+                  <p className="text-sm font-black tabular-nums">
+                    {cashFlowData.netDefisitSurplus >= 0 ? '+' : ''}Rp {cashFlowData.netDefisitSurplus.toLocaleString('id-ID')}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-widest">
+                Grafik Defisit / Surplus Arus Kas ({timeFilter})
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                  <span className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase">Pemasukan</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  <span className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase">Pengeluaran</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="h-[240px] w-full">
+              {cashFlowData.chartData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  Tidak ada data arus kas untuk periode ini
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={cashFlowData.chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 9, fontWeight: 'bold' }} 
+                      stroke="#cbd5e1"
+                      tickFormatter={(v) => v.includes('-') ? v.split('-').slice(1).join('/') : v} 
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 9, fontWeight: 'bold' }} 
+                      stroke="#cbd5e1" 
+                      tickFormatter={(v) => `Rp${(v/1000).toFixed(0)}k`} 
+                    />
+                    <Tooltip 
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 text-xs space-y-1.5">
+                              <p className="font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">{label}</p>
+                              <div className="flex items-center justify-between gap-4 text-emerald-600 font-bold">
+                                <span>Pemasukan:</span>
+                                <span>Rp {data.pemasukan.toLocaleString('id-ID')}</span>
+                              </div>
+                              <div className="flex items-center justify-between gap-4 text-rose-600 font-bold">
+                                <span>Pengeluaran:</span>
+                                <span>Rp {data.pengeluaran.toLocaleString('id-ID')}</span>
+                              </div>
+                              <div className={`pt-1 border-t flex items-center justify-between gap-4 font-black ${
+                                data.net >= 0 ? 'text-teal-700' : 'text-rose-700'
+                              }`}>
+                                <span>{data.net >= 0 ? 'Surplus:' : 'Defisit:'}</span>
+                                <span>{data.net >= 0 ? '+' : ''}Rp {data.net.toLocaleString('id-ID')}</span>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="pemasukan" name="Pemasukan" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="pengeluaran" name="Pengeluaran" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,400px),1fr))] gap-6">
           {/* Asset Distribution Chart */}
-          <div className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 h-full">
+          <div className="bg-white p-6 rounded-xl shadow-xl border border-slate-100 dark:border-slate-800 h-full">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Distribusi Aset</h3>
@@ -8613,7 +8871,7 @@ const AdminDashboard = ({
                 <div className="flex items-center gap-2">
                   <p className="text-[10px] text-slate-700 dark:text-slate-200 font-black uppercase tracking-widest">Neto: Rp {totalAssets.toLocaleString('id-ID')}</p>
                   {grossAssets > 0 && (
-                    <div className={`px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-tighter ${
+                    <div className={`px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-tighter ${
                       (totalHutang / grossAssets) > 0.3 ? 'bg-red-100 text-red-600' : 'bg-teal-100 text-[#005E6A]'
                     }`}>
                       Rasio Hutang: {Math.round((totalHutang / grossAssets) * 100)}%
@@ -8622,7 +8880,7 @@ const AdminDashboard = ({
                 </div>
               </div>
             </div>
-            <div className="w-8 h-8 bg-teal-50 rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 bg-teal-50 rounded-lg flex items-center justify-center">
               <Wallet className="w-4 h-4 text-[#005E6A]" />
             </div>
           </div>
@@ -8646,7 +8904,7 @@ const AdminDashboard = ({
                 <Tooltip 
                   formatter={(value: number, name: string) => [`Rp ${value.toLocaleString('id-ID')}`, name]}
                   contentStyle={{ 
-                    borderRadius: '1rem', 
+                    borderRadius: '0.5rem', 
                     border: 'none', 
                     boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
                     fontSize: '10px',
@@ -8661,7 +8919,7 @@ const AdminDashboard = ({
                 <button 
                   key={i} 
                   onClick={() => navigate(item.path)}
-                  className="flex items-center gap-2 text-left hover:bg-slate-50 p-2 rounded-xl transition-colors group border border-transparent hover:border-slate-100 dark:border-slate-800 min-w-0"
+                  className="flex items-center gap-2 text-left hover:bg-slate-50 p-2 rounded-md transition-colors group border border-transparent hover:border-slate-100 dark:border-slate-800 min-w-0"
                 >
                   <div className="w-2 h-2 rounded-full group-hover:scale-125 transition-transform shrink-0" style={{ backgroundColor: item.color }} />
                   <div className="flex flex-col min-w-0">
@@ -8682,7 +8940,7 @@ const AdminDashboard = ({
         {/* Chart Card */}
         <div 
           onClick={() => navigate("/admin/report")}
-          className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 transition-all group/card cursor-pointer hover:border-[#005E6A]/40"
+          className="bg-white p-6 rounded-xl shadow-xl border border-slate-100 dark:border-slate-800 transition-all group/card cursor-pointer hover:border-[#005E6A]/40"
         >
           <div className="flex flex-col gap-4 mb-6">
             <div className="flex items-center justify-between">
@@ -8709,7 +8967,7 @@ const AdminDashboard = ({
                   )}
                 </div>
               </div>
-              <div className="w-8 h-8 bg-orange-50 rounded-full flex items-center justify-center group-hover/card:scale-110 transition-transform shrink-0">
+              <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center group-hover/card:scale-110 transition-transform shrink-0">
                 <TrendingUp className="w-4 h-4 text-[#F15A24]" />
               </div>
             </div>
@@ -8719,7 +8977,7 @@ const AdminDashboard = ({
               <select 
                 value={timeFilter}
                 onChange={(e) => setTimeFilter(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-[#005E6A]/20 cursor-pointer hover:bg-slate-100 transition-colors"
+                className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-[11px] font-black uppercase tracking-widest rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-[#005E6A]/20 cursor-pointer hover:bg-slate-100 transition-colors"
               >
                 <optgroup label="Cepat">
                   <option value="Hari ini">Hari ini</option>
@@ -8745,10 +9003,10 @@ const AdminDashboard = ({
             </div>
 
             {/* 4 Tabs to filter charts */}
-            <div className="grid grid-cols-4 gap-1 bg-slate-100/80 p-1 rounded-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="grid grid-cols-4 gap-1 bg-slate-100/80 p-1 rounded-lg" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => setChartTab("semua")}
-                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
+                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-md transition-all leading-none ${
                   chartTab === "semua"
                     ? "bg-[#005E6A] text-white shadow-sm"
                     : "text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-50"
@@ -8758,7 +9016,7 @@ const AdminDashboard = ({
               </button>
               <button
                 onClick={() => setChartTab("penjualan")}
-                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
+                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-md transition-all leading-none ${
                   chartTab === "penjualan"
                     ? "bg-[#F15A24] text-white shadow-sm"
                     : "text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-50"
@@ -8768,7 +9026,7 @@ const AdminDashboard = ({
               </button>
               <button
                 onClick={() => setChartTab("keuntungan")}
-                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
+                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-md transition-all leading-none ${
                   chartTab === "keuntungan"
                     ? "bg-green-600 text-white shadow-sm"
                     : "text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-50"
@@ -8778,7 +9036,7 @@ const AdminDashboard = ({
               </button>
               <button
                 onClick={() => setChartTab("transaksi")}
-                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-lg transition-all leading-none ${
+                className={`py-2 text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest rounded-md transition-all leading-none ${
                   chartTab === "transaksi"
                     ? "bg-blue-600 text-white shadow-sm"
                     : "text-slate-500 hover:text-slate-700 dark:text-slate-200 hover:bg-slate-50"
@@ -8791,7 +9049,7 @@ const AdminDashboard = ({
 
           {/* Growth Indicator - NEW */}
           <div className="mb-6 flex items-center gap-2">
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${growth >= 0 ? "bg-green-50 text-green-600" : "bg-rose-50 text-rose-600"}`}>
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md ${growth >= 0 ? "bg-green-50 text-green-600" : "bg-rose-50 text-rose-600"}`}>
               {growth >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
               <span className="text-[10px] font-black">{Math.abs(growth)}%</span>
             </div>
@@ -8856,7 +9114,7 @@ const AdminDashboard = ({
                       const transactionsVal = (payload.find(p => p.name === 'transactions' || p.dataKey === 'transactions')?.value as number) || 0;
                       
                       return (
-                        <div className="bg-white p-4 rounded-[1.2rem] shadow-xl border border-slate-100 dark:border-slate-800 text-[11px] font-black space-y-1 text-slate-700 dark:text-slate-200">
+                        <div className="bg-white p-4 rounded-md shadow-xl border border-slate-100 dark:border-slate-800 text-[11px] font-black space-y-1 text-slate-700 dark:text-slate-200">
                           <p className="text-[#005E6A] font-black border-b border-slate-100 dark:border-slate-800 pb-1 mb-1.5">{formattedDate}</p>
                           <div className="space-y-0.5">
                             {(chartTab === "semua" || chartTab === "penjualan") && (
@@ -8932,8 +9190,8 @@ const AdminDashboard = ({
           <div className="mt-6 pt-6 border-t border-slate-100/50 dark:border-slate-800/50 flex flex-col gap-6" onClick={(e) => e.stopPropagation()}>
             <div className="grid grid-cols-3 gap-3">
               {/* Card Penjualan (Orange) */}
-              <div className="bg-orange-50/40 hover:bg-orange-50/80 border border-orange-100 dark:border-orange-900/50/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
-                <div className="w-7 h-7 rounded-xl bg-orange-100/50 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+              <div className="bg-orange-50/40 hover:bg-orange-50/80 border border-orange-100 dark:border-orange-900/50/80 rounded-lg p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
+                <div className="w-7 h-7 rounded-md bg-orange-100/50 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
                   <TrendingUp className="w-3.5 h-3.5 text-[#F15A24]" />
                 </div>
                 <p className="text-[8px] lg:text-[9px] font-black text-orange-600 uppercase tracking-widest leading-none mb-1">Penjualan</p>
@@ -8941,8 +9199,8 @@ const AdminDashboard = ({
               </div>
 
               {/* Card Keuntungan (Green) */}
-              <div className="bg-green-50/40 hover:bg-green-50/80 border border-green-100 dark:border-green-900/50/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
-                <div className="w-7 h-7 rounded-xl bg-green-100/50 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+              <div className="bg-green-50/40 hover:bg-green-50/80 border border-green-100 dark:border-green-900/50/80 rounded-lg p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
+                <div className="w-7 h-7 rounded-md bg-green-100/50 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
                   <DollarSign className="w-3.5 h-3.5 text-green-600" />
                 </div>
                 <p className="text-[8px] lg:text-[9px] font-black text-green-700 uppercase tracking-widest leading-none mb-1">Keuntungan</p>
@@ -8950,172 +9208,371 @@ const AdminDashboard = ({
               </div>
 
               {/* Card Transaksi (Blue) */}
-              <div className="bg-blue-50/40 hover:bg-blue-50/80 border border-blue-100 dark:border-blue-900/50/80 rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
-                <div className="w-7 h-7 rounded-xl bg-blue-100/50 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+              <div className="bg-blue-50/40 hover:bg-blue-50/80 border border-blue-100 dark:border-blue-900/50/80 rounded-lg p-3 flex flex-col items-center justify-center text-center shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md relative overflow-hidden group">
+                <div className="w-7 h-7 rounded-md bg-blue-100/50 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
                   <Receipt className="w-3.5 h-3.5 text-blue-600" />
                 </div>
                 <p className="text-[8px] lg:text-[9px] font-black text-blue-700 uppercase tracking-widest leading-none mb-1">Transaksi</p>
                 <p className="text-[11px] lg:text-[13px] font-black text-blue-600 leading-none">{totalTransaksi} Order</p>
               </div>
             </div>
+            </div>
 
           {/* Detailed Stats Analysis */}
-          {stats && (
-            <div className="mt-8 pt-8 border-t border-slate-100/80 dark:border-slate-800/80">
-                {/* Header Section: Lively & Energetic */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F15A24] opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-[#F15A24]"></span>
-                      </div>
-                      <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] leading-none">Snapshot Performa</p>
-                    </div>
-                    <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">Ikhtisar Analitik & Tren Laba</h4>
-                  </div>
-                  
-                  {/* Glassmorphic Average Sales Badge */}
-                  <div className="bg-gradient-to-r from-teal-500/10 to-emerald-500/10 border border-teal-500/20 p-3 rounded-2xl flex items-center gap-3 shadow-[0_4px_20px_rgba(20,184,166,0.04)]">
-                    <div className="w-10 h-10 rounded-xl bg-teal-500 text-white flex items-center justify-center shadow-lg shadow-teal-500/20 animate-pulse">
-                      <TrendingUp className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="text-[8px] font-black text-teal-700 uppercase tracking-widest leading-none mb-1">Rata-rata Penjualan</p>
-                      <p className="text-sm font-black text-[#005E6A] tracking-tight">Rp {Math.round(stats.avgSales).toLocaleString('id-ID')}</p>
-                    </div>
-                  </div>
-                </div>
+          {stats && (() => {
+            const marginPercent = stats.avgSales > 0 ? Math.round((stats.avgProfit / stats.avgSales) * 100) : 0;
+            const aov = totalTransaksi > 0 ? Math.round(totalPemasukan / totalTransaksi) : 0;
+            const avgProfitPerOrder = totalTransaksi > 0 ? Math.round(totalKeuntungan / totalTransaksi) : 0;
+            const maxProfitMargin = stats.maxProfit.total > 0 ? Math.round((stats.maxProfit.profit / stats.maxProfit.total) * 100) : 0;
 
-                {/* Bento Grid: Very lively color styles */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  
-                  {/* Penjualan Bento Card - Warm Energizing Sunrise Gradient */}
-                  <div className="group bg-gradient-to-br from-orange-50/40 via-amber-50/10 to-white hover:from-orange-50/70 hover:via-amber-50/30 hover:to-white border border-orange-100 dark:border-orange-900/50/70 rounded-3xl p-6 transition-all duration-500 shadow-[0_10px_30px_rgba(241,90,36,0.03)] hover:shadow-[0_20px_40px_rgba(241,90,36,0.08)] hover:-translate-y-1 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-200/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700 pointer-events-none" />
-                    
-                    <div className="flex items-center justify-between mb-5 relative z-10">
+            const getMarginBadge = (pct: number) => {
+              if (pct >= 30) return { label: "Sangat Sehat", bg: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-300/50", dot: "bg-emerald-500" };
+              if (pct >= 15) return { label: "Stabil", bg: "bg-teal-500/15 text-teal-700 dark:text-teal-400 border-teal-300/50", dot: "bg-teal-500" };
+              if (pct >= 5) return { label: "Margin Wajar", bg: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-300/50", dot: "bg-amber-500" };
+              return { label: "Perlu Evaluasi", bg: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-300/50", dot: "bg-rose-500" };
+            };
+
+            const marginStatus = getMarginBadge(marginPercent);
+
+            return (
+              <div className="mt-8 pt-8 border-t border-slate-200/80 dark:border-slate-800/80">
+                {/* Header Section: Modern Glassmorphic Dashboard Bar */}
+                <div className="bg-gradient-to-r from-slate-900 via-[#003840] to-slate-900 rounded-xl p-5 md:p-6 mb-6 shadow-xl text-white relative overflow-hidden border border-teal-500/20">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+                    <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-orange-100 border border-orange-200 flex items-center justify-center">
-                          <DollarSign className="w-4 h-4 text-[#F15A24]" />
-                        </div>
-                        <p className="text-[10px] font-extrabold text-[#F15A24] uppercase tracking-wider">OMSET PENJUALAN</p>
+                        <span className="relative flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <p className="text-[10px] font-black text-teal-300 uppercase tracking-[0.25em] leading-none">Analitik Real-Time</p>
                       </div>
-                      <span className="text-[9px] font-black text-orange-600 bg-orange-100/50 px-2.5 py-1 rounded-full border border-orange-200/50 uppercase tracking-wide">Volume</span>
+                      <h4 className="text-base sm:text-lg font-black text-white uppercase tracking-wider">Ikhtisar Analitik & Tren Laba</h4>
+                      <p className="text-[11px] text-slate-300 font-medium">Monitoring performa omzet harian, rasio margin laba, dan efisiensi rata-rata transaksi</p>
                     </div>
-                    
-                    <div className="space-y-4 relative z-10">
-                      <div>
-                        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mb-1">Penjualan Tertinggi (Puncak)</p>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">Rp {stats.maxSales.total.toLocaleString('id-ID')}</span>
+
+                    {/* Quick Metric Badges Header */}
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <div className="bg-white/10 backdrop-blur-md border border-white/15 px-3.5 py-2 rounded-lg flex items-center gap-2.5 shadow-sm">
+                        <div className="w-8 h-8 rounded-md bg-orange-500/20 border border-orange-400/30 flex items-center justify-center text-orange-400">
+                          <DollarSign className="w-4 h-4" />
                         </div>
-                        <div className="mt-2 inline-flex items-center gap-1 bg-orange-100/80 px-2 py-0.5 rounded-lg border border-orange-200 text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
-                          <Calendar className="w-2.5 h-2.5" />
-                          <span>{stats.maxSales.date}</span>
+                        <div>
+                          <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none mb-0.5">Rata-Rata Omzet</p>
+                          <p className="text-xs font-black text-white tracking-tight">Rp {Math.round(stats.avgSales).toLocaleString('id-ID')}</p>
                         </div>
                       </div>
-                      
-                      <div className="h-px bg-gradient-to-r from-orange-100/80 to-transparent" />
-                      
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mb-1">Penjualan Terendah</p>
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-sm font-black text-slate-700 dark:text-slate-200">Rp {stats.minSales.total.toLocaleString('id-ID')}</span>
-                          </div>
-                          <div className="mt-2 inline-flex items-center gap-1 bg-orange-100/60 px-2 py-0.5 rounded-lg border border-orange-200/60 text-[9px] font-black text-[#F15A24] uppercase tracking-wider">
-                            <Calendar className="w-2.5 h-2.5" />
-                            <span>{stats.minSales.date}</span>
-                          </div>
+
+                      <div className="bg-white/10 backdrop-blur-md border border-white/15 px-3.5 py-2 rounded-lg flex items-center gap-2.5 shadow-sm">
+                        <div className="w-8 h-8 rounded-md bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
+                          <TrendingUp className="w-4 h-4" />
                         </div>
-                        <div className="w-1.5 h-1.5 rounded-full bg-orange-300 animate-pulse" />
+                        <div>
+                          <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none mb-0.5">Rata-Rata Laba</p>
+                          <p className="text-xs font-black text-white tracking-tight">Rp {Math.round(stats.avgProfit).toLocaleString('id-ID')}</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-white/10 backdrop-blur-md border border-white/15 px-3.5 py-2 rounded-lg flex items-center gap-2 shadow-sm">
+                        <div className="w-8 h-8 rounded-md bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 font-mono text-xs font-black">
+                          {marginPercent}%
+                        </div>
+                        <div>
+                          <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest leading-none mb-0.5">Rasio Margin</p>
+                          <span className="inline-flex items-center gap-1 text-[9px] font-black text-teal-300 uppercase tracking-wider">
+                            <span className={`w-1.5 h-1.5 rounded-full ${marginStatus.dot}`} />
+                            {marginStatus.label}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Keuntungan Bento Card - Fresh Revitalizing Emerald Gradient */}
-                  <div className="group bg-gradient-to-br from-emerald-50/40 via-teal-50/10 to-white hover:from-emerald-50/70 hover:via-teal-50/30 hover:to-white border border-emerald-100 dark:border-emerald-900/50/70 rounded-3xl p-6 transition-all duration-500 shadow-[0_10px_30px_rgba(16,185,129,0.03)] hover:shadow-[0_20px_40px_rgba(16,185,129,0.08)] hover:-translate-y-1 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-200/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700 pointer-events-none" />
+                {/* 3-Column Bento Analytics Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  
+                  {/* Card 1: Omzet Penjualan (Puncak & Terendah) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-28 h-28 bg-orange-500/5 rounded-full blur-2xl group-hover:bg-orange-500/10 transition-colors pointer-events-none" />
                     
-                    <div className="flex items-center justify-between mb-5 relative z-10">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 border border-emerald-200 flex items-center justify-center">
-                          <TrendingUp className="w-4 h-4 text-emerald-600" />
+                    <div>
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-lg bg-orange-50 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-800/50 flex items-center justify-center text-[#F15A24]">
+                            <Flame className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Omzet Penjualan</h5>
+                            <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest">Puncak vs Minimum</p>
+                          </div>
                         </div>
-                        <p className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">KEUNTUNGAN BERSIH</p>
+                        <span className="text-[9px] font-black text-[#F15A24] bg-orange-50 dark:bg-orange-950/60 px-2.5 py-1 rounded-md border border-orange-200 dark:border-orange-800/50 uppercase tracking-wider">Volume</span>
                       </div>
-                      <span className="text-[9px] font-black text-emerald-600 bg-emerald-100/50 px-2.5 py-1 rounded-full border border-emerald-200/50 uppercase tracking-wide">Profit</span>
+
+                      <div className="space-y-4">
+                        {/* Peak Sales */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-lg border border-slate-100 dark:border-slate-800 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-400 uppercase tracking-wider">Penjualan Tertinggi</span>
+                            <span className="text-[9px] font-black text-[#F15A24] bg-orange-100 dark:bg-orange-900/40 px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Calendar className="w-2.5 h-2.5" />
+                              {stats.maxSales.date}
+                            </span>
+                          </div>
+                          <p className="text-base font-black text-slate-900 dark:text-white tracking-tight">
+                            Rp {stats.maxSales.total.toLocaleString('id-ID')}
+                          </p>
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mt-1">
+                            <div className="bg-[#F15A24] h-full rounded-full" style={{ width: '100%' }} />
+                          </div>
+                        </div>
+
+                        {/* Minimum Sales */}
+                        <div className="p-3.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-800 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-400 uppercase tracking-wider">Penjualan Terendah</span>
+                            <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Calendar className="w-2.5 h-2.5" />
+                              {stats.minSales.date}
+                            </span>
+                          </div>
+                          <p className="text-sm font-black text-slate-700 dark:text-slate-300 tracking-tight">
+                            Rp {stats.minSales.total.toLocaleString('id-ID')}
+                          </p>
+                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+                            <div 
+                              className="bg-orange-300 dark:bg-orange-700 h-full rounded-full" 
+                              style={{ width: `${stats.maxSales.total > 0 ? Math.max(10, Math.round((stats.minSales.total / stats.maxSales.total) * 100)) : 0}%` }} 
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    
-                    <div className="space-y-4 relative z-10">
-                      <div>
-                        <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mb-1">Laba Bersih Tertinggi</p>
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-lg font-black text-[#005E6A] tracking-tight">Rp {stats.maxProfit.profit.toLocaleString('id-ID')}</span>
-                        </div>
-                        <div className="mt-2 inline-flex items-center gap-1 bg-emerald-100/80 px-2 py-0.5 rounded-lg border border-emerald-200 text-[9px] font-black text-emerald-700 uppercase tracking-wider">
-                          <Calendar className="w-2.5 h-2.5" />
-                          <span>{stats.maxProfit.date}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="h-px bg-gradient-to-r from-emerald-100/80 to-transparent" />
-                      
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider mb-1">Laba Bersih Terendah</p>
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-sm font-black text-slate-700 dark:text-slate-200">Rp {stats.minProfit.profit.toLocaleString('id-ID')}</span>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-extrabold text-slate-400 dark:text-slate-400 uppercase">
+                      <span>Rata-Rata Order</span>
+                      <span className="text-slate-800 dark:text-slate-200 font-black">{stats.maxSales.transactions} tx (Puncak)</span>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Keuntungan Bersih (Laba Max vs Min) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-colors pointer-events-none" />
+
+                    <div>
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                            <TrendingUp className="w-4 h-4" />
                           </div>
-                          <div className="mt-2 inline-flex items-center gap-1 bg-emerald-100/60 px-2 py-0.5 rounded-lg border border-emerald-200/60 text-[9px] font-black text-emerald-700 uppercase tracking-wider">
-                            <Calendar className="w-2.5 h-2.5" />
-                            <span>{stats.minProfit.date}</span>
+                          <div>
+                            <h5 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Keuntungan Bersih</h5>
+                            <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest">Laba Peak vs Min</p>
                           </div>
                         </div>
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                        <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-800/50 uppercase tracking-wider">Profit</span>
                       </div>
+
+                      <div className="space-y-4">
+                        {/* Peak Profit */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-lg border border-slate-100 dark:border-slate-800 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-400 uppercase tracking-wider">Laba Bersih Puncak</span>
+                            <span className="text-[9px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Calendar className="w-2.5 h-2.5" />
+                              {stats.maxProfit.date}
+                            </span>
+                          </div>
+                          <p className="text-base font-black text-[#005E6A] dark:text-teal-300 tracking-tight">
+                            Rp {stats.maxProfit.profit.toLocaleString('id-ID')}
+                          </p>
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mt-1">
+                            <div className="bg-emerald-500 h-full rounded-full" style={{ width: '100%' }} />
+                          </div>
+                        </div>
+
+                        {/* Min Profit */}
+                        <div className="p-3.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-800 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-400 uppercase tracking-wider">Laba Terendah</span>
+                            <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md flex items-center gap-1">
+                              <Calendar className="w-2.5 h-2.5" />
+                              {stats.minProfit.date}
+                            </span>
+                          </div>
+                          <p className="text-sm font-black text-slate-700 dark:text-slate-300 tracking-tight">
+                            Rp {stats.minProfit.profit.toLocaleString('id-ID')}
+                          </p>
+                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+                            <div 
+                              className="bg-emerald-300 dark:bg-emerald-700 h-full rounded-full" 
+                              style={{ width: `${stats.maxProfit.profit > 0 ? Math.max(10, Math.round((stats.minProfit.profit / stats.maxProfit.profit) * 100)) : 0}%` }} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-extrabold text-slate-400 dark:text-slate-400 uppercase">
+                      <span>Margin Peak Day</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-black">{maxProfitMargin}% Laba</span>
+                    </div>
+                  </div>
+
+                  {/* Card 3: Efisiensi & Nilai Order (AOV) */}
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-28 h-28 bg-blue-500/5 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors pointer-events-none" />
+
+                    <div>
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                            <ShoppingBag className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider">Efisiensi Transaksi</h5>
+                            <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest">Rataan per Order</p>
+                          </div>
+                        </div>
+                        <span className="text-[9px] font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 rounded-md border border-blue-200 dark:border-blue-800/50 uppercase tracking-wider">Order Value</span>
+                      </div>
+
+                      <div className="space-y-4">
+                        {/* AOV */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-lg border border-slate-100 dark:border-slate-800 space-y-1">
+                          <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-400 uppercase tracking-wider">Rata-Rata Nilai Order (AOV)</span>
+                          <p className="text-base font-black text-blue-700 dark:text-blue-300 tracking-tight">
+                            Rp {aov.toLocaleString('id-ID')} <span className="text-[10px] text-slate-400 font-normal">/ order</span>
+                          </p>
+                          <p className="text-[9px] text-slate-500 dark:text-slate-400 font-medium">
+                            Total {totalTransaksi} transaksi telah diproses
+                          </p>
+                        </div>
+
+                        {/* Profit Per Order */}
+                        <div className="p-3.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-800 space-y-1">
+                          <span className="text-[9px] font-extrabold text-slate-400 dark:text-slate-400 uppercase tracking-wider">Rata-Rata Laba per Order</span>
+                          <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+                            Rp {avgProfitPerOrder.toLocaleString('id-ID')} <span className="text-[10px] text-slate-400 font-normal">/ order</span>
+                          </p>
+                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1">
+                            <div 
+                              className="bg-blue-500 h-full rounded-full" 
+                              style={{ width: `${aov > 0 ? Math.min(100, Math.round((avgProfitPerOrder / aov) * 100)) : 0}%` }} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-extrabold text-slate-400 dark:text-slate-400 uppercase">
+                      <span>Metode Dominan</span>
+                      <span className="text-slate-800 dark:text-slate-200 font-black">Tunai & Transfer</span>
                     </div>
                   </div>
 
                 </div>
 
-                {/* Bottom Summary Bar: High-contrast Dark Tech Theme, Very Lively */}
-                <div className="mt-5 bg-gradient-to-tr from-slate-950 via-slate-900 to-[#002d33] rounded-3xl p-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between overflow-hidden relative shadow-xl shadow-teal-950/20 border border-teal-500/20 group hover:border-teal-400/40 transition-colors duration-500">
-                  <div className="absolute top-0 right-0 w-40 h-40 bg-teal-500/10 rounded-full -mr-16 -mt-16 blur-3xl pointer-events-none group-hover:scale-125 transition-transform duration-700" />
-                  <div className="absolute bottom-0 left-0 w-36 h-36 bg-orange-500/5 rounded-full -ml-16 -mb-16 blur-2xl pointer-events-none" />
+                {/* Bottom Visual Widget: Tren Laba & Rasio Margin Gauge */}
+                <div className="mt-6 bg-gradient-to-br from-slate-900 via-slate-950 to-[#00262b] rounded-xl p-6 shadow-xl text-white border border-teal-500/20 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
                   
-                  <div className="relative z-10 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-teal-400/10 border border-teal-400/20 flex items-center justify-center shrink-0 shadow-inner group-hover:scale-105 transition-transform duration-300">
-                      <Zap className="w-6 h-6 text-teal-400 animate-pulse" />
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10 items-center">
+                    
+                    {/* Left Info Column */}
+                    <div className="lg:col-span-7 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300">
+                          <Percent className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-teal-400 uppercase tracking-[0.25em]">TREN LABA & RASIO MARGIN</p>
+                          <h4 className="text-base font-black text-white uppercase tracking-wide">Efisiensi Profitabilitas Usaha</h4>
+                        </div>
+                      </div>
+
+                      {/* Visual Progress Gauge Bar */}
+                      <div className="space-y-2 bg-white/5 p-4 rounded-lg border border-white/10">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black text-slate-300 uppercase tracking-wider">Margin Laba Bersih</span>
+                          <span className="text-sm font-black text-teal-300 font-mono">{marginPercent}%</span>
+                        </div>
+
+                        {/* Interactive Progress Meter */}
+                        <div className="relative w-full bg-slate-800/80 h-3 rounded-full overflow-hidden p-0.5 border border-white/10">
+                          <div 
+                            className="h-full rounded-full bg-gradient-to-r from-teal-500 via-emerald-400 to-amber-400 transition-all duration-1000 shadow-sm"
+                            style={{ width: `${Math.min(100, Math.max(5, marginPercent))}%` }}
+                          />
+                        </div>
+
+                        {/* Scale Ticks */}
+                        <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-widest pt-0.5">
+                          <span>0% (Modal)</span>
+                          <span>15% (Stabil)</span>
+                          <span>30% (Sehat)</span>
+                          <span>50%+ (Optimal)</span>
+                        </div>
+                      </div>
+
+                      {/* Status Callout text */}
+                      <div className="flex items-start gap-2.5 text-xs text-slate-300 bg-teal-950/50 p-3 rounded-md border border-teal-500/20">
+                        <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+                        <p className="leading-relaxed text-[11px]">
+                          <strong className="text-teal-300 font-bold uppercase mr-1">Status {marginStatus.label}:</strong> 
+                          Setiap Rp 100.000 omzet yang didapatkan mampu menghasilkan <span className="text-white font-bold">Rp {(marginPercent * 1000).toLocaleString('id-ID')}</span> laba bersih setelah dikurangi HPP (harga modal).
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[9px] font-black text-teal-400 uppercase tracking-[0.25em] mb-1">RATA-RATA LABA BERSIH</p>
-                      <p className="text-base sm:text-lg font-black text-white tracking-tight">
-                        Rp {Math.round(stats.avgProfit).toLocaleString('id-ID')}
+
+                    {/* Right Split Column: HPP vs Laba Comparison */}
+                    <div className="lg:col-span-5 bg-white/5 backdrop-blur-md p-5 rounded-lg border border-white/10 space-y-4">
+                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest border-b border-white/10 pb-2">
+                        Komposisi Penjualan (HPP vs Laba)
                       </p>
+
+                      <div className="space-y-3">
+                        {/* HPP Modal */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[10px] font-black">
+                            <span className="text-slate-300 uppercase">Modal / HPP ({100 - marginPercent}%)</span>
+                            <span className="text-orange-400">Rp {(totalPemasukan - totalKeuntungan).toLocaleString('id-ID')}</span>
+                          </div>
+                          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div className="bg-orange-500 h-full rounded-full" style={{ width: `${Math.max(0, 100 - marginPercent)}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Laba Bersih */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[10px] font-black">
+                            <span className="text-slate-300 uppercase">Laba Bersih ({marginPercent}%)</span>
+                            <span className="text-emerald-400">Rp {totalKeuntungan.toLocaleString('id-ID')}</span>
+                          </div>
+                          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div className="bg-emerald-400 h-full rounded-full" style={{ width: `${marginPercent}%` }} />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] font-bold text-slate-300">
+                        <span>Rata-Rata Laba Bersih Harian</span>
+                        <span className="text-white font-black">Rp {Math.round(stats.avgProfit).toLocaleString('id-ID')} / hr</span>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="h-px sm:h-10 w-full sm:w-px bg-gradient-to-r sm:bg-gradient-to-b from-transparent via-teal-500/20 to-transparent" />
-                  
-                  <div className="relative z-10 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-orange-400/10 border border-orange-400/20 flex items-center justify-center shrink-0 shadow-inner">
-                      <Percent className="w-5 h-5 text-[#F15A24] animate-bounce" style={{ animationDuration: '3s' }} />
-                    </div>
-                    <div>
-                      <p className="text-[9px] font-black text-orange-400 uppercase tracking-[0.25em] mb-1">EFISIENSI MARGIN</p>
-                      <p className="text-base sm:text-lg font-black text-white tracking-tight font-mono">
-                        {Math.round((stats.avgProfit / stats.avgSales) * 100)}% <span className="text-[10px] text-teal-400 font-extrabold uppercase ml-1">Laba</span>
-                      </p>
-                    </div>
+
                   </div>
                 </div>
+
               </div>
-            )}
+            );
+          })()}
           </div>
         </div>
-      </div>
 
         <div className="grid grid-cols-1 gap-6">
           {/* Top Selling Products Card */}
@@ -22271,6 +22728,7 @@ const AdminLayout = ({
   
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid, path: "/admin" },
+    { id: "cashflow", label: "Arus Kas", icon: ArrowLeftRight, path: "/admin/cashflow" },
     { id: "customers", label: "Pelanggan", icon: Users, path: "/admin/customers" },
     { id: "stock", label: "Stok Barang", icon: Package, path: "/admin/stock" },
     { id: "report", label: "Laporan", icon: FileText, path: "/admin/report" },
@@ -22283,7 +22741,10 @@ const AdminLayout = ({
     <div className="min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans flex flex-col md:flex-row">
       {/* Mobile Top Header with Slidebar Button */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-100 dark:border-slate-800 px-4 h-16 flex items-center justify-between md:hidden shadow-sm">
-        <div className="flex items-center gap-3">
+        <div 
+          onClick={() => navigate("/admin")}
+          className="flex items-center gap-3 cursor-pointer hover:opacity-90 transition-opacity"
+        >
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-md shadow-[#005E6A]/20">
             <LayoutGrid className="w-4 h-4 text-white" />
           </div>
@@ -22305,9 +22766,12 @@ const AdminLayout = ({
       {/* Desktop Sidebar Navigation */}
       <nav className="hidden md:flex sticky top-0 h-screen w-64 bg-white/95 backdrop-blur-xl border-r border-slate-100 dark:border-slate-800 z-50 flex-col px-4 py-8 shadow-xl md:shadow-none shrink-0">
         {/* Logo Section */}
-        <div className="flex flex-col gap-1 mb-8 px-2">
+        <div 
+          onClick={() => navigate("/admin")}
+          className="flex flex-col gap-1 mb-8 px-2 cursor-pointer group hover:opacity-90 transition-opacity"
+        >
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-lg shadow-[#005E6A]/20 transform -rotate-3 transition-transform hover:rotate-0">
+            <div className="w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-[#005E6A] to-[#00818d] flex items-center justify-center shadow-lg shadow-[#005E6A]/20 transform -rotate-3 transition-transform group-hover:rotate-0">
               <LayoutGrid className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -25216,6 +25680,17 @@ export default function App() {
               debtTransactions={debtTransactions}
               redeemedPoints={redeemedPoints}
               stock={stock}
+            />
+          </AdminLayout>
+        } />
+
+        <Route path="/admin/cashflow" element={
+          <AdminLayout activeTab="cashflow">
+            <AdminCashFlowPage
+              salesTransactions={salesTransactions}
+              savingsTransactions={savingsTransactions}
+              debtTransactions={debtTransactions}
+              investmentTransactions={investmentTransactions}
             />
           </AdminLayout>
         } />

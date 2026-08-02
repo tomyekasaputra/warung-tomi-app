@@ -426,8 +426,11 @@ export default function CustomerManagement({
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+          <div 
+            onClick={() => navigate("/admin")}
+            className="flex items-center gap-4 cursor-pointer group hover:opacity-90 transition-opacity"
+          >
+            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center transition-transform group-hover:scale-105">
               <User className="w-6 h-6 text-white" />
             </div>
             <div>
