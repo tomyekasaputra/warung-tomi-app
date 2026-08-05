@@ -637,7 +637,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       finishProcessingSuccess(
         "PENJUALAN VIRTUAL BERHASIL DISIMPAN",
         `Transaksi ${newTx.id_transaksi} atas nama ${newTx.Nama} telah sukses tersimpan di Supabase Database!`,
-        `Jenis: ${newTx.Jenis} | Total: Rp ${newTx.Pemasukan.toLocaleString('id-ID')}`
+        `Jenis: ${newTx.Jenis} | Total: Rp ${(newTx.Pemasukan || 0).toLocaleString('id-ID')}`
       );
     } catch (err: any) {
       console.error("Gagal menambah transaksi virtual:", err);
@@ -926,7 +926,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       finishProcessingSuccess(
         "EDIT TRANSAKSI BERHASIL",
         `Data transaksi ${updatedTx.id_transaksi} atas nama ${updatedTx.Nama} berhasil diperbarui di Supabase Database!`,
-        `Jenis: ${updatedTx.Jenis} | Total: Rp ${updatedTx.Pemasukan.toLocaleString('id-ID')}`
+        `Jenis: ${updatedTx.Jenis} | Total: Rp ${(updatedTx.Pemasukan || 0).toLocaleString('id-ID')}`
       );
     } catch (err: any) {
       console.error("Gagal update transaksi:", err);
@@ -1199,8 +1199,8 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
     finishProcessingSuccess(
       `${newSaving.tipe === "TARIK" ? "TARIK" : "SETOR"} TABUNGAN BERHASIL`,
-      `Transaksi tabungan sebesar Rp ${newSaving.nominal.toLocaleString('id-ID')} telah sukses tersimpan di Supabase Database!`,
-      `Nasabah: ${newSaving.nama_nasabah} | Saldo Akhir: Rp ${newSaving.saldo_akhir.toLocaleString('id-ID')}`
+      `Transaksi tabungan sebesar Rp ${(newSaving.nominal || 0).toLocaleString('id-ID')} telah sukses tersimpan di Supabase Database!`,
+      `Nasabah: ${newSaving.nama_nasabah} | Saldo Akhir: Rp ${(newSaving.saldo_akhir || 0).toLocaleString('id-ID')}`
     );
   };
 
@@ -1272,7 +1272,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     finishProcessingSuccess(
       "EDIT TABUNGAN BERHASIL",
       `Data tabungan ${updated.nama_nasabah} telah sukses diperbarui di Supabase Database!`,
-      `Nominal: Rp ${updated.nominal.toLocaleString('id-ID')} | Tipe: ${updated.tipe}`
+      `Nominal: Rp ${(updated.nominal || 0).toLocaleString('id-ID')} | Tipe: ${updated.tipe}`
     );
   };
 
@@ -1386,8 +1386,8 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
     finishProcessingSuccess(
       `${newDebt.tipe === "BAYAR" ? "PEMBAYARAN HUTANG" : "KASBON"} BERHASIL`,
-      `Transaksi ${newDebt.tipe === "BAYAR" ? "pembayaran hutang" : "kasbon"} sebesar Rp ${newDebt.jumlah.toLocaleString('id-ID')} telah sukses tersimpan di Supabase Database!`,
-      `Pelanggan: ${newDebt.nama_pelanggan} | Saldo Akhir: Rp ${newDebt.saldo_akhir.toLocaleString('id-ID')}`
+      `Transaksi ${newDebt.tipe === "BAYAR" ? "pembayaran hutang" : "kasbon"} sebesar Rp ${(newDebt.jumlah || 0).toLocaleString('id-ID')} telah sukses tersimpan di Supabase Database!`,
+      `Pelanggan: ${newDebt.nama_pelanggan} | Saldo Akhir: Rp ${(newDebt.saldo_akhir || 0).toLocaleString('id-ID')}`
     );
   };
 
@@ -1459,7 +1459,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     finishProcessingSuccess(
       "EDIT HUTANG BERHASIL",
       `Data hutang/pembayaran ${updated.nama_pelanggan} telah sukses diperbarui di Supabase Database!`,
-      `Jumlah: Rp ${updated.jumlah.toLocaleString('id-ID')} | Tipe: ${updated.tipe}`
+      `Jumlah: Rp ${(updated.jumlah || 0).toLocaleString('id-ID')} | Tipe: ${updated.tipe}`
     );
   };
 
@@ -1510,24 +1510,49 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       showToast("Nama Investor harus diisi!", "error");
       return;
     }
-    const newInv: SupabaseInvestmentTransaction = {
+    const tenorM = Number(addInvestmentForm.tenor_bulan) || 12;
+    let jt = addInvestmentForm.jatuh_tempo || "";
+    if (!jt && addInvestmentForm.tanggal) {
+      const [y, m, d] = addInvestmentForm.tanggal.split("-").map(Number);
+      if (y && m && d) {
+        const dt = new Date(y, m - 1, d);
+        dt.setMonth(dt.getMonth() + tenorM);
+        const resY = dt.getFullYear();
+        const resM = String(dt.getMonth() + 1).padStart(2, "0");
+        const resD = String(dt.getDate()).padStart(2, "0");
+        jt = `${resY}-${resM}-${resD}`;
+      }
+    }
+
+    const newInv: any = {
       id: addInvestmentForm.id || `INV-${Date.now()}`,
       id_investasi: addInvestmentForm.id_investasi || addInvestmentForm.id || `INV-${Date.now()}`,
       tanggal: addInvestmentForm.tanggal || new Date().toISOString().slice(0, 10),
+      Tanggal: addInvestmentForm.tanggal || new Date().toISOString().slice(0, 10),
       nama: nameVal,
       nama_investor: nameVal,
+      Nama: nameVal,
       nominal: Number(addInvestmentForm.nominal) || 0,
-      tenor_bulan: Number(addInvestmentForm.tenor_bulan) || 12,
-      tenor: addInvestmentForm.tenor || `${addInvestmentForm.tenor_bulan || 12} Bulan`,
+      Nominal: Number(addInvestmentForm.nominal) || 0,
+      tenor_bulan: tenorM,
+      tenor: addInvestmentForm.tenor || `${tenorM} Bulan`,
+      Tenor: addInvestmentForm.tenor || `${tenorM} Bulan`,
+      jatuh_tempo: jt,
+      JatuhTempo: jt,
       nisbah_persen: Number(addInvestmentForm.nisbah_persen) || 10,
       nisbah: addInvestmentForm.nisbah || `${addInvestmentForm.nisbah_persen || 10}%`,
+      Nisbah: addInvestmentForm.nisbah || `${addInvestmentForm.nisbah_persen || 10}%`,
       status: (addInvestmentForm.status as "BERJALAN" | "SELESAI") || "BERJALAN",
+      Status: (addInvestmentForm.status as "BERJALAN" | "SELESAI") || "BERJALAN",
       keterangan: addInvestmentForm.keterangan || ""
     };
 
     setInvestmentList((prev) => [newInv, ...prev]);
     if (SupabaseInvestmentService.isConnected()) {
-      await SupabaseInvestmentService.upsertInvestment(newInv);
+      const { error } = await SupabaseInvestmentService.upsertInvestment(newInv);
+      if (error) {
+        showToast(`Peringatan Supabase: ${error.message || error}`, "error");
+      }
     }
     showToast("Data investasi berhasil ditambahkan!");
     setIsAddInvestmentOpen(false);
@@ -1541,18 +1566,25 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const handleSaveEditInvestment = async () => {
     if (!editingInvestment) return;
     const nameVal = editInvestmentForm.nama_investor || editInvestmentForm.nama || editingInvestment.nama_investor || editingInvestment.nama || "";
-    const updated: SupabaseInvestmentTransaction = {
+    const updated: any = {
       ...editingInvestment,
       ...editInvestmentForm,
       nama: nameVal,
       nama_investor: nameVal,
+      Nama: nameVal,
       nominal: Number(editInvestmentForm.nominal) || 0,
+      Nominal: Number(editInvestmentForm.nominal) || 0,
       tenor_bulan: Number(editInvestmentForm.tenor_bulan) || 0,
-      nisbah_persen: Number(editInvestmentForm.nisbah_persen) || 0
+      nisbah_persen: Number(editInvestmentForm.nisbah_persen) || 0,
+      jatuh_tempo: editInvestmentForm.jatuh_tempo || editingInvestment.jatuh_tempo || "",
+      JatuhTempo: editInvestmentForm.jatuh_tempo || editingInvestment.jatuh_tempo || ""
     };
     setInvestmentList((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
     if (SupabaseInvestmentService.isConnected()) {
-      await SupabaseInvestmentService.upsertInvestment(updated);
+      const { error } = await SupabaseInvestmentService.upsertInvestment(updated);
+      if (error) {
+        showToast(`Peringatan Supabase: ${error.message || error}`, "error");
+      }
     }
     showToast("Data investasi berhasil diperbarui!");
     setEditingInvestment(null);
@@ -1834,7 +1866,14 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <button
+              onClick={() => navigate(`/admin/input-data?tab=${['penjualan', 'tabungan', 'investasi', 'hutang'].includes(activeCategory) ? activeCategory : 'penjualan'}`)}
+              className="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 active:scale-95 transition-all rounded-none text-xs font-black uppercase tracking-wider flex items-center gap-2 text-slate-950 shadow-md cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Input Data</span>
+            </button>
             <button
               onClick={handleExportCSV}
               className="px-4 py-2.5 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-none text-xs font-black uppercase tracking-wider flex items-center gap-2 border border-white/20 backdrop-blur-md cursor-pointer text-white shadow-sm"
@@ -2144,7 +2183,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             {activeCategory === "penjualan" && (
               <button
-                onClick={handleOpenAdd}
+                onClick={() => navigate("/admin/input-data?tab=penjualan")}
                 className="px-3.5 py-2.5 bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider rounded-none shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0"
               >
                 <Plus className="w-4 h-4" />
@@ -2153,7 +2192,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             )}
             {activeCategory === "tabungan" && (
               <button
-                onClick={handleOpenAddSaving}
+                onClick={() => navigate("/admin/input-data?tab=tabungan")}
                 className="px-3.5 py-2.5 bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider rounded-none shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0"
               >
                 <Plus className="w-4 h-4" />
@@ -2162,7 +2201,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             )}
             {activeCategory === "hutang" && (
               <button
-                onClick={handleOpenAddDebt}
+                onClick={() => navigate("/admin/input-data?tab=hutang")}
                 className="px-3.5 py-2.5 bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider rounded-none shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0"
               >
                 <Plus className="w-4 h-4" />
@@ -2171,7 +2210,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             )}
             {activeCategory === "investasi" && (
               <button
-                onClick={handleOpenAddInvestment}
+                onClick={() => navigate("/admin/input-data?tab=investasi")}
                 className="px-3.5 py-2.5 bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider rounded-none shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0"
               >
                 <Plus className="w-4 h-4" />
@@ -2530,6 +2569,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                 <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
                   Tenor & Nisbah
                 </th>
+                <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                  Jatuh Tempo
+                </th>
                 <th className="py-3.5 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 text-right whitespace-nowrap">
                   Nominal
                 </th>
@@ -2544,7 +2586,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
               {filteredInvestments.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold whitespace-nowrap">
+                  <td colSpan={6} className="py-12 text-center text-slate-400 dark:text-slate-500 font-semibold whitespace-nowrap">
                     <TrendingUp className="w-8 h-8 mx-auto mb-2 opacity-40" />
                     <p>Tidak ada data investasi yang sesuai.</p>
                   </td>
@@ -2561,7 +2603,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                       <React.Fragment key={`inv_frag_${inv.id}_${idx}`}>
                         {isNewDateGroup && (
                           <tr className="bg-slate-100/90 dark:bg-slate-800/90 border-y border-slate-200 dark:border-slate-700 font-bold sticky top-[41px] z-10 backdrop-blur-xs">
-                            <td colSpan={5} className="py-2 px-4 text-xs font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 whitespace-nowrap">
+                            <td colSpan={6} className="py-2 px-4 text-xs font-black uppercase tracking-wider text-[#005E6A] dark:text-teal-300 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <Calendar className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-400" />
                                 <span>Tanggal: {currentDate}</span>
@@ -2579,6 +2621,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                           <td className="py-3 px-4 text-slate-600 dark:text-slate-300 font-medium whitespace-nowrap">
                             <span>{inv.tenor || (inv.tenor_bulan ? `${inv.tenor_bulan} Bln` : "-")}</span>
                             {inv.nisbah || inv.nisbah_persen ? <span className="text-teal-600 font-bold ml-2">({inv.nisbah || `${inv.nisbah_persen}%`})</span> : null}
+                          </td>
+                          <td className="py-3 px-4 text-slate-700 dark:text-slate-300 font-mono text-xs whitespace-nowrap">
+                            {inv.jatuh_tempo || (inv as any).JatuhTempo || "-"}
                           </td>
                           <td className="py-3 px-4 text-right font-black tabular-nums text-slate-900 dark:text-white whitespace-nowrap">
                             Rp {(inv.nominal || 0).toLocaleString("id-ID")}
@@ -3805,6 +3850,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                 <p><strong>Nama Investor:</strong> {detailInvestment.nama_investor || detailInvestment.nama || (detailInvestment as any).Nama || "-"}</p>
                 <p><strong>Nominal:</strong> Rp {(detailInvestment.nominal || 0).toLocaleString("id-ID")}</p>
                 <p><strong>Tenor:</strong> {detailInvestment.tenor || (detailInvestment.tenor_bulan ? `${detailInvestment.tenor_bulan} Bulan` : "-")}</p>
+                <p><strong>Jatuh Tempo:</strong> {detailInvestment.jatuh_tempo || (detailInvestment as any).JatuhTempo || "-"}</p>
                 <p><strong>Nisbah:</strong> {detailInvestment.nisbah || (detailInvestment.nisbah_persen ? `${detailInvestment.nisbah_persen}%` : "-")}</p>
                 <p><strong>Status:</strong> <span className="font-bold text-indigo-600">{detailInvestment.status}</span></p>
                 {detailInvestment.keterangan && <p><strong>Keterangan:</strong> {detailInvestment.keterangan}</p>}
@@ -3827,9 +3873,15 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                 <button onClick={() => setIsAddInvestmentOpen(false)} className="text-slate-400"><X className="w-5 h-5" /></button>
               </div>
               <div className="space-y-3 text-xs">
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Tanggal</label>
-                  <input type="date" value={addInvestmentForm.tanggal || ""} onChange={(e) => setAddInvestmentForm({ ...addInvestmentForm, tanggal: e.target.value })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-none text-xs" />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Tanggal</label>
+                    <input type="date" value={addInvestmentForm.tanggal || ""} onChange={(e) => setAddInvestmentForm({ ...addInvestmentForm, tanggal: e.target.value })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-none text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Jatuh Tempo</label>
+                    <input type="date" value={addInvestmentForm.jatuh_tempo || ""} onChange={(e) => setAddInvestmentForm({ ...addInvestmentForm, jatuh_tempo: e.target.value })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-none text-xs" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Nama Investor *</label>
@@ -3852,7 +3904,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                   </div>
                   <div>
                     <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Status</label>
-                    <select value={addInvestmentForm.status || "BERJALAN"} onChange={(e) => setAddInvestmentForm({ ...addInvestmentForm, status: e.target.value as "BERJALAN" | "SELESAI" })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-none text-xs">
+                    <select value={addInvestmentForm.status || "AKTIF"} onChange={(e) => setAddInvestmentForm({ ...addInvestmentForm, status: e.target.value })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-none text-xs">
+                      <option value="AKTIF">AKTIF</option>
+                      <option value="SUKSES DICAIRKAN">SUKSES DICAIRKAN</option>
                       <option value="BERJALAN">BERJALAN</option>
                       <option value="SELESAI">SELESAI</option>
                     </select>
@@ -3888,12 +3942,18 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                     <input type="number" value={editInvestmentForm.nominal || 0} onChange={(e) => setEditInvestmentForm({ ...editInvestmentForm, nominal: Number(e.target.value) })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-none text-xs" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Status</label>
-                    <select value={editInvestmentForm.status || "BERJALAN"} onChange={(e) => setEditInvestmentForm({ ...editInvestmentForm, status: e.target.value as "BERJALAN" | "SELESAI" })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-none text-xs">
-                      <option value="BERJALAN">BERJALAN</option>
-                      <option value="SELESAI">SELESAI</option>
-                    </select>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Jatuh Tempo</label>
+                    <input type="text" placeholder="DD/MM/YYYY" value={editInvestmentForm.jatuh_tempo || ""} onChange={(e) => setEditInvestmentForm({ ...editInvestmentForm, jatuh_tempo: e.target.value })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-none text-xs" />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Status</label>
+                  <select value={editInvestmentForm.status || "AKTIF"} onChange={(e) => setEditInvestmentForm({ ...editInvestmentForm, status: e.target.value })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-none text-xs">
+                    <option value="AKTIF">AKTIF</option>
+                    <option value="SUKSES DICAIRKAN">SUKSES DICAIRKAN</option>
+                    <option value="BERJALAN">BERJALAN</option>
+                    <option value="SELESAI">SELESAI</option>
+                  </select>
                 </div>
               </div>
               <div className="pt-2 flex justify-end gap-2">

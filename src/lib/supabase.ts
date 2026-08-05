@@ -75,6 +75,7 @@ export interface SupabaseSalesTransaction {
   poin?: number;
   status?: string;
   melalui?: string;
+  harga_admin?: number;
   harga_modal?: number;
   sebagian?: number;
   created_at?: string;
@@ -481,6 +482,16 @@ export const SupabaseCustomerService = {
     return { data: allData, error: null };
   },
 
+  async getCustomersMinimal(): Promise<{ data: Partial<SupabaseCustomer>[] | null; error: any }> {
+    const client = getSupabaseClient();
+    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    const { data, error } = await client
+      .from('customers')
+      .select('id_pelanggan, nama, foto')
+      .order('nama', { ascending: true });
+    return { data, error };
+  },
+
   async upsertCustomer(customer: SupabaseCustomer | any): Promise<{ data: any; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi") };
@@ -847,6 +858,55 @@ export const SupabaseStockService = {
 };
 
 /**
+ * Helper Format Tanggal ke dd/mm/yyyy (misal 07/08/2026)
+ */
+export function formatDateDDMMYYYY(val?: any): string {
+  if (!val) {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  const str = String(val).trim();
+
+  // Pattern 1: dd/mm/yyyy or d/m/yyyy (misal "07/08/2026" atau "7/8/2026")
+  const dmyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${day}/${month}/${year}`;
+  }
+
+  // Pattern 2: yyyy-mm-dd (misal "2026-08-07" atau ISO string)
+  const ymdMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (ymdMatch) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, '0');
+    const day = ymdMatch[3].padStart(2, '0');
+    return `${day}/${month}/${year}`;
+  }
+
+  // Pattern 3: standard Date object / parseable date string
+  const parsed = new Date(val);
+  if (!isNaN(parsed.getTime())) {
+    const day = String(parsed.getDate()).padStart(2, '0');
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const year = parsed.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  // Fallback ke tanggal hari ini dd/mm/yyyy
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+/**
  * Service Tabungan Supabase
  */
 export const SupabaseSavingsService = {
@@ -895,7 +955,7 @@ export const SupabaseSavingsService = {
     const cleanPayload: any = {
       id_tabungan: String(saving.id_tabungan || saving.id || `TBG-${Date.now()}`).trim(),
       id_pelanggan: String(saving.id_pelanggan || saving.idPelanggan || '').trim(),
-      tanggal: String(saving.tanggal || saving.Tanggal || new Date().toISOString().slice(0, 10)).trim(),
+      tanggal: formatDateDDMMYYYY(saving.tanggal || saving.Tanggal),
       nama: String(saving.nama || saving.Nama || saving.nama_nasabah || 'Nasabah').trim(),
       tipe: String(saving.tipe || saving.Tipe || 'SETOR').toUpperCase().trim(),
       nominal: Number(saving.nominal !== undefined ? saving.nominal : (saving.Nominal || 0)),
@@ -982,7 +1042,7 @@ export const SupabaseSavingsService = {
       const payload = {
         id_tabungan: idTabungan,
         id_pelanggan: item.id_pelanggan || '',
-        tanggal: item.Tanggal || item.tanggal || new Date().toISOString().split('T')[0],
+        tanggal: formatDateDDMMYYYY(item.Tanggal || item.tanggal),
         nama: nama,
         tipe: item.Tipe || item.tipe || 'Setor',
         nominal: typeof item.Nominal === 'number' ? item.Nominal : parseFloat(String(item.Nominal || '0').replace(/[^0-9.-]+/g, "")) || 0,
@@ -1059,43 +1119,57 @@ export const SupabaseInvestmentService = {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const payload: any = {
-      id_investasi: investment.id_investasi || investment.id || `INV-${Date.now()}`,
+    const cleanPayload: any = {
+      id_investasi: investment.id_investasi || (isValidUUID(investment.id) ? undefined : investment.id) || `INV-${Date.now()}`,
       id_pelanggan: investment.id_pelanggan || '',
       tanggal: investment.tanggal || investment.Tanggal || new Date().toISOString().slice(0, 10),
-      nama: investment.nama || investment.Nama || 'Investor',
-      nama_investor: investment.nama_investor || investment.nama || investment.Nama || 'Investor',
+      nama: investment.nama || investment.Nama || investment.nama_investor || 'Investor',
       nominal: Number(investment.nominal !== undefined ? investment.nominal : (investment.Nominal || 0)),
-      tenor: investment.tenor || '',
-      status: investment.status || 'Aktif',
-      keterangan: investment.keterangan || investment.Keterangan || ''
+      tenor: investment.tenor || investment.Tenor || (investment.tenor_bulan ? `${investment.tenor_bulan} Bulan` : '12 Bulan'),
+      jatuh_tempo: investment.jatuh_tempo || investment.JatuhTempo || '',
+      status: investment.status || investment.Status || 'Aktif',
+      keterangan: investment.keterangan || investment.Keterangan || '',
+      nisbah: investment.nisbah || investment.Nisbah || (investment.nisbah_persen ? `${investment.nisbah_persen}%` : '10%'),
+      sebagian: Number(investment.sebagian || investment.Sebagian || 0)
     };
 
-    if (investment.id || investment.id_investasi) {
-      let query = client.from('investment_transactions').update(payload);
-      if (investment.id && investment.id_investasi) {
-        query = query.or(`id.eq.${investment.id},id_investasi.eq.${investment.id_investasi}`);
-      } else if (investment.id) {
-        query = query.eq('id', investment.id);
-      } else {
-        query = query.eq('id_investasi', investment.id_investasi);
-      }
+    if (isValidUUID(investment.id)) {
+      cleanPayload.id = investment.id;
+    }
 
-      const { data: updateData, error: updateErr } = await query.select();
+    if (cleanPayload.id) {
+      const { data: updateData, error: updateErr } = await client
+        .from('investment_transactions')
+        .update(cleanPayload)
+        .eq('id', cleanPayload.id)
+        .select();
+
       if (!updateErr && updateData && updateData.length > 0) {
         return { data: updateData, error: null };
       }
     }
 
-    if (investment.id) payload.id = investment.id;
-    let { data, error } = await client.from('investment_transactions').upsert(payload, { onConflict: 'id_investasi' }).select();
-    if (!error && data && data.length > 0) {
-      return { data, error: null };
+    if (cleanPayload.id_investasi) {
+      const { data: updateData, error: updateErr } = await client
+        .from('investment_transactions')
+        .update(cleanPayload)
+        .eq('id_investasi', cleanPayload.id_investasi)
+        .select();
+
+      if (!updateErr && updateData && updateData.length > 0) {
+        return { data: updateData, error: null };
+      }
     }
 
-    const insertPayload = { ...payload };
-    delete insertPayload.id;
-    return await client.from('investment_transactions').insert(insertPayload).select();
+    let { data, error } = await client.from('investment_transactions').upsert(cleanPayload, { onConflict: 'id_investasi' }).select();
+    if (error) {
+      const insertPayload = { ...cleanPayload };
+      delete insertPayload.id;
+      const { data: insData, error: insErr } = await client.from('investment_transactions').insert(insertPayload).select();
+      if (!insErr && insData) return { data: insData, error: null };
+      return { data: null, error: insErr || error };
+    }
+    return { data, error };
   },
 
   async addInvestmentTransaction(investment: SupabaseInvestmentTransaction): Promise<{ data: any; error: any }> {
@@ -1216,7 +1290,7 @@ export const SupabaseDebtService = {
     const cleanPayload: any = {
       id_hutang: String(debt.id_hutang || debt.id || `HTG-${Date.now()}`).trim(),
       id_pelanggan: String(debt.id_pelanggan || debt.idPelanggan || '').trim(),
-      tanggal: String(debt.tanggal || debt.Tanggal || new Date().toISOString().slice(0, 10)).trim(),
+      tanggal: formatDateDDMMYYYY(debt.tanggal || debt.Tanggal),
       nama: String(debt.nama || debt.Nama || debt.nama_pelanggan || debt.NamaPelanggan || 'Pelanggan').trim(),
       tipe: String(debt.tipe || debt.Tipe || 'KASBON').toUpperCase().trim(),
       jumlah: Number(debt.jumlah !== undefined ? debt.jumlah : (debt.Jumlah || 0)),
@@ -1303,7 +1377,7 @@ export const SupabaseDebtService = {
       const payload = {
         id_hutang: idHutang,
         id_pelanggan: item.id_pelanggan || '',
-        tanggal: item.Tanggal || item.tanggal || new Date().toISOString().split('T')[0],
+        tanggal: formatDateDDMMYYYY(item.Tanggal || item.tanggal),
         nama: nama,
         tipe: item.Tipe || item.tipe || 'Kasbon',
         jumlah: typeof item.Jumlah === 'number' ? item.Jumlah : parseFloat(String(item.Jumlah || '0').replace(/[^0-9.-]+/g, "")) || 0,

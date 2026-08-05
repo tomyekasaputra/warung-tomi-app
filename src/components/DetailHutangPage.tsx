@@ -116,7 +116,7 @@ export const DetailHutangPage = ({ user, transactions, salesTransactions }: Deta
   const matchingSalesTx = useMemo(() => {
     if (!transaction || !salesTransactions || transaction.Tipe !== 'TAMBAH') return null;
     return salesTransactions.find(st => {
-      const sameName = st.Nama.toLowerCase() === transaction.Nama.toLowerCase();
+      const sameName = (st.Nama || (st as any).nama || "").toLowerCase() === (transaction.Nama || (transaction as any).nama || "").toLowerCase();
       const date1 = st.Tanggal.replace(/[^0-9]/g, '');
       const date2 = transaction.Tanggal.replace(/[^0-9]/g, '');
       const sameDate = date1 === date2 || date1.includes(date2) || date2.includes(date1);

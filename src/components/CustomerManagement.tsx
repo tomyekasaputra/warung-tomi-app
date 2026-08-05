@@ -150,7 +150,7 @@ export default function CustomerManagement({
   };
 
   const calculateCustomerStats = (customerNama: string, idPelanggan?: string) => {
-    const name = customerNama.toLowerCase();
+    const name = (customerNama || "").toLowerCase();
     const targetCustObj = { id_pelanggan: idPelanggan, Nama: customerNama };
     
     // 1. Savings
@@ -216,7 +216,7 @@ export default function CustomerManagement({
     setLoading(true);
     try {
       if (SupabaseCustomerService.isConnected()) {
-        const { data, error } = await SupabaseCustomerService.getCustomers();
+        const { data, error } = await SupabaseCustomerService.getCustomersMinimal();
         if (!error && data) {
           const formatted = data.map((c: any, index: number) => ({
             id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
@@ -347,12 +347,14 @@ export default function CustomerManagement({
   const filteredCustomers = useMemo(() => {
     return customersWithStats
       .filter(c => {
-        const matchesSearch = c.nama.toLowerCase().includes(search.toLowerCase()) || 
-                            c.id_pelanggan.toLowerCase().includes(search.toLowerCase());
+        const cNama = c.nama || c.Nama || "";
+        const cId = c.id_pelanggan || c.id || "";
+        const matchesSearch = cNama.toLowerCase().includes((search || "").toLowerCase()) || 
+                            cId.toLowerCase().includes((search || "").toLowerCase());
         const matchesLevel = filterLevel === 'Semua' || c.level === filterLevel;
         return matchesSearch && matchesLevel;
       })
-      .sort((a, b) => a.nama.localeCompare(b.nama));
+      .sort((a, b) => (a.nama || a.Nama || "").localeCompare(b.nama || b.Nama || ""));
   }, [customersWithStats, search, filterLevel]);
 
   const [displayLimit, setDisplayLimit] = useState(12);
@@ -460,53 +462,56 @@ export default function CustomerManagement({
               </div>
             </div>
 
-            <div className="h-56 w-full relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={levelStats}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={85}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {levelStats.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                          <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-50">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">{data.name}</p>
-                            <p className="text-[10px] font-black text-[#005E6A]">{data.value} Orang</p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            {levelStats.length > 0 && (
-              <div className="flex flex-col gap-3 border-t border-slate-50 pt-5">
-                {levelStats.map((s, idx) => (
-                  <div key={idx} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{s.name}</span>
-                    </div>
-                    <p className="text-[10px] font-black text-[#005E6A]">{s.value} Orang</p>
-                  </div>
-                ))}
+            <div className="flex flex-row items-center gap-2 sm:gap-6">
+              <div className="h-44 sm:h-56 w-1/2 relative shrink-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={levelStats}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={70}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {levelStats.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-2 sm:p-3 rounded-xl shadow-xl border border-slate-50">
+                              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{data.name}</p>
+                              <p className="text-[10px] font-black text-[#005E6A]">{data.value}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            )}
+
+              {levelStats.length > 0 && (
+                <div className="w-1/2 flex flex-col gap-2 border-l border-slate-100 pl-3 sm:pl-6">
+                  <p className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Keterangan Level</p>
+                  {levelStats.map((s, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-0.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                        <span className="text-[9px] sm:text-[10px] font-black text-slate-600 uppercase tracking-wider truncate">{s.name}</span>
+                      </div>
+                      <p className="text-[11px] sm:text-xs font-black text-[#005E6A] shrink-0 ml-1">{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -578,65 +583,27 @@ export default function CustomerManagement({
             </div>
           ) : (
             <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="bg-white rounded-3xl border border-slate-100 divide-y divide-slate-100 shadow-sm overflow-hidden">
                 {displayedCustomers.map((customer, i) => (
                   <motion.div 
                     layout
                     key={`cust-${customer.id_pelanggan}-${i}`}
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                    transition={{ delay: Math.min(i * 0.02, 0.2) }}
                     onClick={() => navigate(`/admin/customers/${encodeURIComponent(customer.nama)}`)}
-                    className="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden flex flex-col justify-between group cursor-pointer hover:border-[#005E6A]/20 transition-all active:scale-[0.98]"
+                    className="p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors group"
                   >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                        <div 
-                          className="w-12 h-12 rounded-2xl bg-slate-50 overflow-hidden border flex-shrink-0 flex items-center justify-center transition-all"
-                          style={{ borderColor: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color }}
-                        >
-                          {customer.foto ? (
-                            <img src={customer.foto} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <User 
-                              className="w-6 h-6 animate-pulse" 
-                              style={{ color: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color }}
-                            />
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="text-xs font-black text-[#005E6A] uppercase leading-none mb-1 group-hover:text-teal-600 transition-colors">{customer.nama}</h4>
-                          <div className="flex items-center gap-2">
-                            <p className="text-[8px] font-black font-mono text-slate-400 uppercase tracking-[0.2em]">{customer.id_pelanggan}</p>
-                            <span 
-                              className="text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border"
-                              style={{ 
-                                backgroundColor: `${(LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color}1A`,
-                                color: (LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color,
-                                borderColor: `${(LEVEL_METADATA[customer.level || 'Bronze'] || LEVEL_METADATA['Bronze']).color}33`,
-                              }}
-                            >
-                              {customer.level || 'Bronze'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); openEditModal(customer as any); }}
-                          className="p-2 bg-slate-50 text-slate-400 rounded-xl hover:bg-teal-50 hover:text-[#005E6A] transition-all"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); confirmDelete(customer.id_pelanggan); }}
-                          className="p-2 bg-red-50 text-red-400 rounded-xl hover:bg-red-100 hover:text-red-600 transition-all"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                    <div className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shrink-0 flex items-center justify-center">
+                      {customer.foto ? (
+                        <img src={customer.foto} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-5 h-5 text-slate-400" />
+                      )}
                     </div>
+                    <h4 className="text-xs font-black text-[#005E6A] uppercase tracking-wide group-hover:text-teal-600 transition-colors">
+                      {customer.nama}
+                    </h4>
                   </motion.div>
                 ))}
               </div>
@@ -694,7 +661,7 @@ export default function CustomerManagement({
                        <User className="w-4 h-4" /> Informasi Identitas
                     </h3>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-6">
                       <div>
                         <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Identity ID</label>
                         <input 

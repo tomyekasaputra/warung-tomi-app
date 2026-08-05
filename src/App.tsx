@@ -40,9 +40,10 @@ import { DetailBelanjaPage } from "./components/DetailBelanjaPage";
 import { DetailTabunganPage } from "./components/DetailTabunganPage";
 import { DetailHutangPage } from "./components/DetailHutangPage";
 import { AdminDatabasePage, JENIS_OPTIONS, MELALUI_OPTIONS, STATUS_OPTIONS, formatDateForInput, formatInputToDate } from "./components/AdminDatabasePage";
+import { AdminInputDataPage } from "./components/AdminInputDataPage";
 import { AdminCashFlowPage } from "./components/AdminCashFlowPage";
 import { DatabaseSuccessModal, SuccessModalData } from "./components/DatabaseSuccessModal";
-import { SupabaseStockService, SupabaseCustomerService, SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseInvestmentService, SupabasePointsService, SUPABASE_CREATE_PRODUCTS_TABLE_SQL, SupabaseProduct, SupabaseSalesTransaction } from "./lib/supabase";
+import { SupabaseStockService, SupabaseCustomerService, SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseInvestmentService, SupabasePointsService, SUPABASE_CREATE_PRODUCTS_TABLE_SQL, SupabaseProduct, SupabaseSalesTransaction, formatDateDDMMYYYY } from "./lib/supabase";
 import { 
   ShoppingBag, 
   Award,
@@ -115,6 +116,9 @@ import {
   Share2,
   ExternalLink,
   Camera,
+  Image,
+  ZoomIn,
+  ZoomOut,
   CameraOff,
   Bluetooth,
   LogOut,
@@ -927,8 +931,8 @@ const Header = ({
 
   const ADMIN_ACCESS_CODE = "160910";
 
-  // Reusable 5-second long press hook helper
-  const useLongPress5s = (onLongPress: () => void) => {
+  // Reusable 3-second long press hook helper
+  const useLongPress3s = (onLongPress: () => void) => {
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const animRef = useRef<number | null>(null);
     const startTimeRef = useRef<number>(0);
@@ -944,9 +948,9 @@ const Header = ({
 
       const update = () => {
         const elapsed = Date.now() - startTimeRef.current;
-        const pct = Math.min(100, (elapsed / 5000) * 100);
+        const pct = Math.min(100, (elapsed / 3000) * 100);
         setProgress(pct);
-        if (elapsed < 5000) {
+        if (elapsed < 3000) {
           animRef.current = requestAnimationFrame(update);
         }
       };
@@ -958,7 +962,7 @@ const Header = ({
         setPressing(false);
         setProgress(0);
         if (animRef.current) cancelAnimationFrame(animRef.current);
-      }, 5000);
+      }, 3000);
     }, [onLongPress]);
 
     const cancelPress = useCallback(() => {
@@ -983,12 +987,12 @@ const Header = ({
     };
   };
 
-  const logoLongPress = useLongPress5s(() => {
+  const logoLongPress = useLongPress3s(() => {
     setIsKasirPopupOpen(true);
     setKasirError("");
   });
 
-  const titleLongPress = useLongPress5s(() => {
+  const titleLongPress = useLongPress3s(() => {
     setIsAdminPopupOpen(true);
     setAdminError("");
   });
@@ -1042,7 +1046,7 @@ const Header = ({
       <header className="bg-white/80 backdrop-blur-xl fixed top-0 left-0 right-0 z-50 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-all duration-300 h-16 flex items-center">
         <div className="px-4 sm:px-6 w-full flex items-center justify-between max-w-7xl mx-auto gap-2">
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-            {/* Logo Container - Hold 5 seconds for Kasir Login */}
+            {/* Logo Container - Hold 3 seconds for Kasir Login */}
             <div 
               {...logoLongPress.handlers}
               onClick={(e) => {
@@ -1055,7 +1059,7 @@ const Header = ({
                 navigate("/");
               }}
               className="relative group cursor-pointer select-none"
-              title="Warung Tomi Logo (Tekan & tahan 5 detik untuk Login Kasir)"
+              title="Warung Tomi Logo (Tekan & tahan 3 detik untuk Login Kasir)"
             >
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl overflow-hidden shadow-lg border border-white bg-slate-50 flex items-center justify-center shrink-0 transition-transform group-active:scale-95 shadow-slate-200/50 relative">
                 <img 
@@ -1075,7 +1079,7 @@ const Header = ({
               </div>
             </div>
 
-            {/* Header Title Container - Hold 5 seconds for Admin Login */}
+            {/* Header Title Container - Hold 3 seconds for Admin Login */}
             <div 
               {...titleLongPress.handlers}
               onClick={(e) => {
@@ -1088,7 +1092,7 @@ const Header = ({
                 navigate("/");
               }}
               className="flex flex-col group cursor-pointer select-none relative"
-              title="WARUNG TOMI (Tekan & tahan 5 detik untuk Login Admin)"
+              title="WARUNG TOMI (Tekan & tahan 3 detik untuk Login Admin)"
             >
               <div className="flex items-center gap-1">
                 <span className="text-[15px] sm:text-[18px] font-black tracking-tighter text-[#005E6A] transition-colors uppercase">WARUNG</span>
@@ -8368,7 +8372,7 @@ const AdminDashboard = ({
 
   const totalTabungan = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
   const totalInvestasi = investmentTransactions
-    .filter(t => t.Status.toLowerCase() !== "sukses dicairkan")
+    .filter(t => (t.Status || (t as any).status || "").toLowerCase() !== "sukses dicairkan")
     .reduce((acc, curr) => {
       const estimate = calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo);
       return acc + estimate.total;
@@ -8724,13 +8728,13 @@ const AdminDashboard = ({
             <p className="text-[9px] lg:text-[10px] font-black text-[#005E6A] uppercase tracking-widest text-center">Arus Kas</p>
           </button>
           <button 
-            onClick={() => navigate("/admin/vouchers")}
-            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-purple-100"
+            onClick={() => navigate("/admin/input-data")}
+            className="flex-1 min-w-[90px] bg-white p-4 lg:p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col items-center gap-2 group hover:bg-slate-50 transition-colors border-b-4 border-b-blue-100"
           >
-            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
-              <Ticket className="w-5 h-5 lg:w-6 lg:h-6" />
+            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+              <ClipboardList className="w-5 h-5 lg:w-6 lg:h-6" />
             </div>
-            <p className="text-[9px] lg:text-[10px] font-black text-[#005E6A] uppercase tracking-widest text-center">Voucher</p>
+            <p className="text-[9px] lg:text-[10px] font-black text-[#005E6A] uppercase tracking-widest text-center">Input Data</p>
           </button>
           <button 
             onClick={() => navigate("/admin/rewards")}
@@ -10323,7 +10327,7 @@ const AdminSavingsManagement = ({
   const handleSaveTransaction = async (customer: Customer, amount: number, note: string, type: 'SETOR' | 'TARIK') => {
     const currentTabungan = parseCurrency(customer.Tabungan);
     const newSaldo = type === 'SETOR' ? currentTabungan + amount : Math.max(0, currentTabungan - amount);
-    const todayStr = new Date().toLocaleDateString('id-ID');
+    const todayStr = formatDateDDMMYYYY();
 
     const idTabungan = generateNextTabunganId(customer, transactions, customers);
 
@@ -10647,9 +10651,10 @@ const AdminInvestmentManagement = ({ customers, investmentTransactions }: { cust
   }, [navigate]);
 
   const calculateTotalVal = (customerName: string) => {
+    const custLower = (customerName || "").toLowerCase();
     const userInvestments = investmentTransactions.filter(t => 
-      t.Nama.toLowerCase() === customerName.toLowerCase() &&
-      t.Status.toLowerCase() !== "sukses dicairkan"
+      (t.Nama || (t as any).nama || "").toLowerCase() === custLower &&
+      (t.Status || (t as any).status || "").toLowerCase() !== "sukses dicairkan"
     );
     return userInvestments.reduce((acc, curr) => {
       const estimate = calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo);
@@ -10657,10 +10662,13 @@ const AdminInvestmentManagement = ({ customers, investmentTransactions }: { cust
     }, 0);
   };
 
-  const customerVals = customers.map(c => ({
-    name: c.Nama,
-    value: calculateTotalVal(c.Nama)
-  })).filter(item => item.value > 0);
+  const customerVals = customers.map(c => {
+    const cName = c.Nama || c.nama || '';
+    return {
+      name: cName,
+      value: calculateTotalVal(cName)
+    };
+  }).filter(item => item.value > 0);
 
   const total = customerVals.reduce((acc, item) => acc + item.value, 0);
   
@@ -10681,14 +10689,15 @@ const AdminInvestmentManagement = ({ customers, investmentTransactions }: { cust
     .sort((a, b) => b.value - a.value)
     .map((item, idx) => {
       const color = CHART_COLORS[idx % CHART_COLORS.length];
-      const custObj = customers.find(c => c.Nama.toLowerCase() === item.name.toLowerCase());
+      const itemLower = (item.name || "").toLowerCase();
+      const custObj = customers.find(c => (c.Nama || c.nama || "").toLowerCase() === itemLower);
 
       return { 
         name: item.name, 
         value: item.value,
         color,
-        photo: custObj ? (savedPhotos[custObj.Nama] || custObj.Foto || custObj.foto) : savedPhotos[item.name],
-        transactionCount: investmentTransactions.filter(t => t.Nama.toLowerCase() === item.name.toLowerCase()).length
+        photo: custObj ? (savedPhotos[custObj.Nama || custObj.nama] || custObj.Foto || custObj.foto) : savedPhotos[item.name],
+        transactionCount: investmentTransactions.filter(t => (t.Nama || (t as any).nama || "").toLowerCase() === itemLower).length
       };
     });
 
@@ -10790,23 +10799,19 @@ const AdminCustomerDetailPage = ({
 
   const customer = customers.find(c => c.Nama.toLowerCase() === customerName?.toLowerCase());
   
-  if (!customer) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
-        <div className="bg-white p-12 rounded-[3rem] shadow-xl border border-slate-100 dark:border-slate-800">
-           <User className="w-16 h-16 text-slate-100 mx-auto mb-4" />
-           <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tighter">Pelanggan<br/>Tidak Ditemukan</h2>
-           <p className="text-xs font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 mt-2 mb-8 uppercase tracking-widest leading-relaxed">Data yang Anda cari tidak tersedia atau telah dihapus.</p>
-           <Button onClick={() => navigate("/admin/customers")} className="w-full bg-[#005E6A] hover:bg-[#004e58] text-white py-6 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-teal-100">Kembali</Button>
-        </div>
-      </div>
-    );
-  }
+  const [localCustomer, setLocalCustomer] = useState<Customer | null>(customer || null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
-  const activePoints = calculateActivePoints(customer.Nama, salesTransactions, redeemedPoints);
-  const levelInfo = calculateCustomerLevel(salesTransactions, customer.Nama);
-  
-  const [selectedFilter, setSelectedFilter] = useState(`${new Date().getMonth()}-${new Date().getFullYear()}`);
+  useEffect(() => {
+    if (customer) {
+      setLocalCustomer(customer);
+    }
+  }, [customer]);
+
+  const now = new Date();
+  const currentMonthFilterKey = `${now.getMonth()}-${now.getFullYear()}`;
+  const [selectedFilter, setSelectedFilter] = useState(currentMonthFilterKey);
 
   const months = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -10814,18 +10819,19 @@ const AdminCustomerDetailPage = ({
   ];
 
   const userSales = useMemo(() => {
+    if (!localCustomer) return [];
     return salesTransactions
-      .filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase())
+      .filter(t => t.Nama.toLowerCase() === localCustomer.Nama.toLowerCase())
       .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
-  }, [salesTransactions, customer.Nama]);
+  }, [salesTransactions, localCustomer]);
 
   const availableMonths = useMemo(() => {
-    if (userSales.length === 0) {
-      const now = new Date();
+    const nowDate = new Date();
+    if (!localCustomer || userSales.length === 0) {
       return [{ 
-        month: now.getMonth(), 
-        year: now.getFullYear(),
-        label: `${months[now.getMonth()]} ${now.getFullYear()}`
+        month: nowDate.getMonth(), 
+        year: nowDate.getFullYear(),
+        label: `${months[nowDate.getMonth()]} ${nowDate.getFullYear()}`
       }];
     }
     
@@ -10846,28 +10852,239 @@ const AdminCustomerDetailPage = ({
       current.setMonth(current.getMonth() + 1);
     }
     
-    return options.reverse(); // Newest first
-  }, [userSales]);
+    return options.reverse();
+  }, [userSales, localCustomer]);
 
   const filteredUserSales = useMemo(() => {
+    if (!localCustomer) return [];
     const [m, y] = selectedFilter.split('-').map(Number);
     return userSales.filter(t => {
       const d = parseDate(t.Tanggal);
       return d.getMonth() === m && d.getFullYear() === y;
     });
-  }, [userSales, selectedFilter]);
+  }, [userSales, selectedFilter, localCustomer]);
+
+  // Per-field modal states
+  type EditFieldType = 'nama' | 'telepon' | 'alamat' | 'pin' | 'level' | 'poin' | 'url_foto' | 'field_menu' | null;
+  const [activeEditField, setActiveEditField] = useState<EditFieldType>(null);
+  const [fieldValue, setFieldValue] = useState<string | number>("");
+  const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
+
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
+
+  const openSingleEditModal = (field: EditFieldType) => {
+    if (!localCustomer) return;
+    setActiveEditField(field);
+    switch (field) {
+      case 'nama':
+        setFieldValue(localCustomer.Nama || "");
+        break;
+      case 'telepon':
+        setFieldValue(localCustomer.Telepon || "");
+        break;
+      case 'alamat':
+        setFieldValue(localCustomer.Alamat || "");
+        break;
+      case 'pin':
+        setFieldValue(localCustomer.PIN || "");
+        break;
+      case 'level':
+        setFieldValue(localCustomer.Level || "Bronze");
+        break;
+      case 'poin':
+        setFieldValue(localCustomer.Poin || 0);
+        break;
+      case 'url_foto':
+        setFieldValue(localCustomer.Foto || (localCustomer as any).foto || "");
+        break;
+      default:
+        setFieldValue("");
+    }
+  };
+
+  const getFieldTitle = (field: EditFieldType) => {
+    switch (field) {
+      case 'nama': return 'Nama Pelanggan';
+      case 'telepon': return 'Nomor Telepon';
+      case 'alamat': return 'Alamat';
+      case 'pin': return 'PIN Akses';
+      case 'level': return 'Level Pelanggan';
+      case 'poin': return 'Poin Pelanggan';
+      case 'url_foto': return 'URL Foto Profil';
+      default: return 'Data Pelanggan';
+    }
+  };
+
+  const handleSaveSingleField = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!localCustomer || !activeEditField) return;
+    setIsSaving(true);
+    setSaveSuccessMsg(null);
+    try {
+      const newNama = activeEditField === 'nama' ? String(fieldValue).trim() : (localCustomer.Nama || '');
+      const newTelepon = activeEditField === 'telepon' ? String(fieldValue).trim() : (localCustomer.Telepon || '');
+      const newAlamat = activeEditField === 'alamat' ? String(fieldValue).trim() : (localCustomer.Alamat || '');
+      const newPin = activeEditField === 'pin' ? String(fieldValue).trim() : (localCustomer.PIN || '');
+      const newFoto = activeEditField === 'url_foto' ? String(fieldValue).trim() : (localCustomer.Foto || (localCustomer as any).foto || '');
+      const newLevel = activeEditField === 'level' ? String(fieldValue) : (localCustomer.Level || 'Bronze');
+      const newPoin = activeEditField === 'poin' ? Number(fieldValue) : (localCustomer.Poin || 0);
+
+      const payload = {
+        id_pelanggan: localCustomer.id_pelanggan,
+        nama: newNama,
+        telepon: newTelepon,
+        alamat: newAlamat,
+        pin: newPin,
+        foto: newFoto,
+        level: newLevel,
+        point: newPoin,
+        tabungan: parseCurrency(localCustomer.Tabungan) || 0,
+        investasi: parseCurrency(localCustomer.Investasi) || 0,
+        lainnya: parseCurrency(localCustomer.Lainnya) || 0,
+        hutang: parseCurrency(localCustomer.Hutang) || 0,
+      };
+
+      await SupabaseCustomerService.upsertCustomer(payload);
+
+      const updatedObj = {
+        ...localCustomer,
+        Nama: newNama,
+        Telepon: newTelepon,
+        Alamat: newAlamat,
+        PIN: newPin,
+        Foto: newFoto,
+        Level: newLevel,
+        Poin: newPoin,
+      };
+
+      setLocalCustomer(updatedObj);
+      const title = getFieldTitle(activeEditField);
+      setActiveEditField(null);
+      setSaveSuccessMsg(`${title} berhasil diperbarui!`);
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+
+      if (activeEditField === 'nama' && newNama !== localCustomer.Nama) {
+        navigate(`/admin/customers/${encodeURIComponent(newNama)}`, { replace: true });
+      }
+    } catch (err: any) {
+      console.error("Gagal menyimpan data:", err);
+      alert("Terjadi kesalahan saat menyimpan data ke database.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handlePhotoFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !localCustomer) return;
+
+    const reader = new FileReader();
+    reader.onload = async (uploadEvt) => {
+      const base64 = uploadEvt.target?.result as string;
+      if (!base64) return;
+
+      setIsSaving(true);
+      try {
+        const payload = {
+          id_pelanggan: localCustomer.id_pelanggan,
+          nama: localCustomer.Nama || '',
+          telepon: localCustomer.Telepon || '',
+          alamat: localCustomer.Alamat || '',
+          pin: localCustomer.PIN || '',
+          foto: base64,
+          level: localCustomer.Level || 'Bronze',
+          point: localCustomer.Poin || 0,
+          tabungan: parseCurrency(localCustomer.Tabungan) || 0,
+          investasi: parseCurrency(localCustomer.Investasi) || 0,
+          lainnya: parseCurrency(localCustomer.Lainnya) || 0,
+          hutang: parseCurrency(localCustomer.Hutang) || 0,
+        };
+
+        await SupabaseCustomerService.upsertCustomer(payload);
+
+        setLocalCustomer({
+          ...localCustomer,
+          Foto: base64,
+        });
+
+        setIsPhotoPickerOpen(false);
+        setSaveSuccessMsg("Foto profil berhasil diperbarui!");
+        setTimeout(() => setSaveSuccessMsg(null), 3000);
+      } catch (err) {
+        console.error("Gagal memperbarui foto profil:", err);
+        alert("Terjadi kesalahan saat mengunggah foto profil.");
+      } finally {
+        setIsSaving(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = async () => {
+    if (!localCustomer) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        id_pelanggan: localCustomer.id_pelanggan,
+        nama: localCustomer.Nama || '',
+        telepon: localCustomer.Telepon || '',
+        alamat: localCustomer.Alamat || '',
+        pin: localCustomer.PIN || '',
+        foto: '',
+        level: localCustomer.Level || 'Bronze',
+        point: localCustomer.Poin || 0,
+        tabungan: parseCurrency(localCustomer.Tabungan) || 0,
+        investasi: parseCurrency(localCustomer.Investasi) || 0,
+        lainnya: parseCurrency(localCustomer.Lainnya) || 0,
+        hutang: parseCurrency(localCustomer.Hutang) || 0,
+      };
+
+      await SupabaseCustomerService.upsertCustomer(payload);
+
+      setLocalCustomer({
+        ...localCustomer,
+        Foto: '',
+      });
+
+      setIsPhotoPickerOpen(false);
+      setSaveSuccessMsg("Foto profil berhasil dihapus!");
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+    } catch (err) {
+      console.error("Gagal menghapus foto:", err);
+      alert("Gagal menghapus foto profil.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!localCustomer) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center">
+        <div className="bg-white p-10 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800">
+           <User className="w-14 h-14 text-slate-200 mx-auto mb-4" />
+           <h2 className="text-xl font-black text-[#005E6A] uppercase tracking-tighter">Pelanggan<br/>Tidak Ditemukan</h2>
+           <p className="text-xs font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 mt-2 mb-8 uppercase tracking-widest leading-relaxed">Data yang Anda cari tidak tersedia atau telah dihapus.</p>
+           <Button onClick={() => navigate("/admin/customers")} className="w-full bg-[#005E6A] hover:bg-[#004e58] text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-lg shadow-teal-100">Kembali</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const activePoints = calculateActivePoints(localCustomer.Nama, salesTransactions, redeemedPoints);
+  const levelInfo = calculateCustomerLevel(salesTransactions, localCustomer.Nama);
     
-  const userSavings = savingsTransactions.filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase());
-  const currentSavings = userSavings.length > 0 ? userSavings[userSavings.length - 1].SaldoAkhir : parseCurrency(customer.Tabungan);
+  const userSavings = savingsTransactions.filter(t => t.Nama.toLowerCase() === localCustomer.Nama.toLowerCase());
+  const currentSavings = userSavings.length > 0 ? userSavings[userSavings.length - 1].SaldoAkhir : parseCurrency(localCustomer.Tabungan);
   
-  const userDebts = debtTransactions.filter(t => (customer.id_pelanggan && t.id_pelanggan === customer.id_pelanggan) || t.Nama.toLowerCase() === customer.Nama.toLowerCase());
-  const currentDebt = parseCurrency(customer.Hutang);
+  const userDebts = debtTransactions.filter(t => (localCustomer.id_pelanggan && t.id_pelanggan === localCustomer.id_pelanggan) || t.Nama.toLowerCase() === localCustomer.Nama.toLowerCase());
+  const currentDebt = parseCurrency(localCustomer.Hutang);
   
-  const userInvestments = investmentTransactions.filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase());
+  const userInvestments = investmentTransactions.filter(t => t.Nama.toLowerCase() === localCustomer.Nama.toLowerCase());
   const totalInvestment = userInvestments.filter(t => t.Status !== "Selesai").reduce((acc, curr) => acc + curr.Nominal, 0);
 
   const currentOthers = salesTransactions
-    .filter(t => t.Nama.toLowerCase() === customer.Nama.toLowerCase() && (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL")
+    .filter(t => t.Nama.toLowerCase() === localCustomer.Nama.toLowerCase() && (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL")
     .reduce((acc, t) => {
       let base = parseCurrency(t.HargaModal) || 0;
       if ((t.Melalui || "").toUpperCase().trim() === "EDC BNI") {
@@ -10876,12 +11093,16 @@ const AdminCustomerDetailPage = ({
       return acc + Math.max(0, base - (parseCurrency(t.Sebagian) || 0));
     }, 0);
 
+  const totalAssetNet = currentSavings + totalInvestment + currentOthers - currentDebt;
+
   const levelColorMap: Record<string, string> = {
-    Bronze: "text-orange-600",
-    Silver: "text-slate-500",
-    Gold: "text-yellow-600",
-    Platinum: "text-indigo-600",
+    Bronze: "text-orange-600 bg-orange-50 border-orange-200",
+    Silver: "text-slate-600 bg-slate-50 border-slate-200",
+    Gold: "text-amber-600 bg-amber-50 border-amber-200",
+    Platinum: "text-indigo-600 bg-indigo-50 border-indigo-200",
   };
+
+  const photoUrl = localCustomer.Foto || (localCustomer as any).foto || "";
 
   return (
     <motion.div 
@@ -10889,157 +11110,691 @@ const AdminCustomerDetailPage = ({
       animate={{ opacity: 1 }}
       className="min-h-screen bg-slate-50 pb-24"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-24 rounded-none shadow-xl relative overflow-hidden">
+      {/* Hidden inputs for camera & gallery */}
+      <input 
+        type="file" 
+        ref={cameraInputRef} 
+        accept="image/*" 
+        capture="environment" 
+        onChange={handlePhotoFileSelected} 
+        className="hidden" 
+      />
+      <input 
+        type="file" 
+        ref={galleryInputRef} 
+        accept="image/*" 
+        onChange={handlePhotoFileSelected} 
+        className="hidden" 
+      />
+
+      <div className="bg-[#005E6A] text-white px-6 pt-10 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
-        <div className="relative z-10">
+        <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-[2rem] bg-white flex items-center justify-center shadow-lg transform rotate-3">
-               <User className="w-8 h-8 text-[#005E6A]" />
-            </div>
+            <button 
+              onClick={() => navigate("/admin/customers")}
+              className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all active:scale-95"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <div>
-              <h1 className="text-2xl font-black uppercase tracking-tight leading-none mb-1">Detail Pelanggan</h1>
-              <p className="text-[10px] font-medium text-white/60 uppercase tracking-[0.2em]">Profil & Riwayat Transaksi</p>
+              <h1 className="text-xl font-black uppercase tracking-tight leading-none mb-1">Detail Pelanggan</h1>
+              <p className="text-[10px] font-medium text-white/70 uppercase tracking-[0.2em]">{localCustomer.Nama}</p>
             </div>
           </div>
+          <button
+            onClick={() => setActiveEditField('field_menu')}
+            className="flex items-center gap-2 bg-white text-[#005E6A] px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md hover:bg-teal-50 transition-all active:scale-95"
+          >
+            <Edit2 className="w-3.5 h-3.5" />
+            <span>Edit Profil</span>
+          </button>
         </div>
       </div>
 
-      <div className="px-6 -mt-12 relative z-20 space-y-6">
-        {/* Profile Card */}
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 dark:border-slate-800 flex items-center gap-5">
-           <div className="w-20 h-20 rounded-[2rem] bg-slate-50 overflow-hidden border border-slate-100 dark:border-slate-800 flex items-center justify-center shadow-inner shrink-0">
-              {customer.Foto ? (
-                <img src={customer.Foto} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <User className="w-10 h-10 text-slate-200" />
-              )}
-           </div>
-           <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <h3 className="text-lg font-black text-[#005E6A] uppercase leading-none truncate">{customer.Nama}</h3>
+      <div className="px-4 sm:px-6 -mt-10 relative z-20 space-y-5 max-w-4xl mx-auto">
+        {saveSuccessMsg && (
+          <div className="bg-emerald-500 text-white px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-between shadow-lg">
+            <span>{saveSuccessMsg}</span>
+            <Check className="w-4 h-4" />
+          </div>
+        )}
+
+        {/* GROUP UNIFIKASI: PROFIL & REWARD (1 KARTU) */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          {/* Header Kartu dengan Foto Profil di Tengah */}
+          <div className="bg-slate-50/80 px-5 py-6 border-b border-slate-100 flex flex-col items-center justify-center text-center relative">
+            <div className="relative group cursor-pointer mb-3">
+              <button 
+                onClick={() => setIsPhotoPickerOpen(true)}
+                className="w-20 h-20 rounded-full bg-slate-100 border-4 border-white shadow-md overflow-hidden flex items-center justify-center relative group-hover:ring-4 group-hover:ring-[#005E6A]/20 transition-all"
+                title="Klik untuk ubah foto profil"
+              >
+                {photoUrl ? (
+                  <img src={photoUrl} alt={localCustomer.Nama} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-10 h-10 text-slate-300" />
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <Camera className="w-5 h-5 text-white" />
+                </div>
+              </button>
+              <button
+                onClick={() => setIsPhotoPickerOpen(true)}
+                className="absolute bottom-0 right-0 w-7 h-7 bg-[#005E6A] text-white rounded-full flex items-center justify-center shadow-md border-2 border-white hover:bg-[#004e58] transition-all"
+                title="Ubah Foto"
+              >
+                <Camera className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-2">
+              <h2 className="text-base font-black text-slate-800 uppercase tracking-tight">{localCustomer.Nama}</h2>
+              <button 
+                onClick={() => openSingleEditModal('nama')} 
+                className="p-1 text-slate-400 hover:text-[#005E6A] transition-colors"
+                title="Edit Nama"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {localCustomer.Telepon && (
+              <p className="text-xs font-bold text-slate-400 font-mono mt-0.5">{localCustomer.Telepon}</p>
+            )}
+
+            <div className="mt-2.5 flex items-center gap-2">
+              <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full border shadow-xs ${levelColorMap[levelInfo.name] || 'text-slate-600 bg-slate-50 border-slate-200'}`}>
+                {levelInfo.name} • {activePoints} Poin
+              </span>
+            </div>
+          </div>
+
+          <div className="divide-y divide-slate-100 text-xs">
+            {/* Nama */}
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 text-[#005E6A] flex items-center justify-center shrink-0">
+                  <User className="w-4 h-4" />
+                </div>
+                <span className="font-black text-slate-500 uppercase tracking-wider text-[10px]">Nama</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-slate-800 uppercase tracking-wide">{localCustomer.Nama}</span>
                 <button 
-                  onClick={() => navigate("/admin/customers")} // For now, navigate back to list where editing is available
-                  className="p-2 bg-slate-50 text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-xl hover:bg-teal-50 hover:text-[#005E6A] transition-all"
+                  onClick={() => openSingleEditModal('nama')} 
+                  className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all"
+                  title="Edit Nama"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                 <div className="bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800">
-                    <p className="text-[7px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-0.5">ID Pelanggan</p>
-                    <p className="text-[10px] font-black text-[#005E6A] font-mono">{customer.id_pelanggan || '-'}</p>
-                 </div>
-                 <div className="bg-[#F15A24]/5 px-3 py-2 rounded-xl border border-[#F15A24]/10">
-                    <p className="text-[7px] font-black text-[#F15A24] uppercase tracking-widest mb-0.5">PIN Akses</p>
-                    <p className="text-[10px] font-black text-[#F15A24] font-mono">{customer.PIN || '-'}</p>
-                 </div>
-              </div>
-           </div>
-        </div>
+            </div>
 
-        <div className="bg-white p-6 rounded-[2.5rem] shadow-lg border border-slate-100 dark:border-slate-800 flex items-center divide-x divide-slate-50">
-           <div className="flex-1 text-center">
-              <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1 leading-none">Poin Aktif</p>
-              <h3 className={`text-2xl font-black tabular-nums leading-none ${activePoints < 0 ? 'text-red-600' : 'text-[#F15A24]'}`}>{activePoints}</h3>
-              {activePoints < 0 && (
-                 <p className="text-[6px] font-bold text-red-500 uppercase tracking-tighter mt-1 leading-tight max-w-[80px] mx-auto">Tukar melebihi dapat</p>
-              )}
-           </div>
-           <div className="flex-1 text-center">
-              <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1 leading-none">Level Member</p>
-              <h3 className={`text-xs font-black uppercase tracking-tighter ${levelColorMap[levelInfo.name] || 'text-slate-600 dark:text-slate-300 dark:text-slate-200'}`}>
-                {levelInfo.name}
-              </h3>
-           </div>
-        </div>
-
-        <div className="space-y-3">
-          <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-widest px-2">Data Keuangan & Aset</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              { 
-                name: "Tabungan", 
-                balance: currentSavings, 
-                gradient: "from-green-500 to-emerald-600",
-                icon: PiggyBank,
-                path: `/tabungan/${encodeURIComponent(customer.Nama)}`
-              },
-              { 
-                name: "Investasi", 
-                balance: totalInvestment, 
-                gradient: "from-indigo-500 to-violet-600",
-                icon: TrendingUp,
-                path: `/investasi/${encodeURIComponent(customer.Nama)}`
-              },
-              { 
-                name: "Lainnya", 
-                balance: currentOthers, 
-                gradient: "from-teal-500 to-cyan-600",
-                icon: Layers,
-                path: `/lainnya/${encodeURIComponent(customer.Nama)}`
-              },
-              { 
-                name: "Hutang", 
-                balance: currentDebt, 
-                gradient: "from-rose-500 to-red-600",
-                icon: Receipt,
-                path: `/hutang/${encodeURIComponent(customer.Nama)}`
-              },
-            ].map((item, i) => (
-              <div 
-                key={i} 
-                onClick={() => navigate(item.path)}
-                className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-4 rounded-[1.8rem] flex flex-col justify-between shadow-lg shadow-slate-200/20 min-h-[110px] cursor-pointer active:scale-95 transition-transform`}
-              >
-                <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-2xl" />
-                
-                <div className="flex justify-between items-start relative z-10">
-                  <div className="w-8 h-8 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/20">
-                    <item.icon className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="w-5 h-5 bg-white/10 rounded-full flex items-center justify-center">
-                    <ChevronRight className="w-2.5 h-2.5 text-white" />
-                  </div>
+            {/* Telepon */}
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 text-[#005E6A] flex items-center justify-center shrink-0">
+                  <Phone className="w-4 h-4" />
                 </div>
-
-                <div className="relative z-10 mt-3">
-                  <p className="text-[7px] font-black text-white/70 uppercase tracking-widest leading-none mb-1">{item.name}</p>
-                  <p className="text-[12px] font-black text-white tracking-tight leading-none">Rp {item.balance.toLocaleString('id-ID')}</p>
-                </div>
+                <span className="font-black text-slate-500 uppercase tracking-wider text-[10px]">Telepon</span>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-700 font-mono text-xs">{localCustomer.Telepon || '-'}</span>
+                <button 
+                  onClick={() => openSingleEditModal('telepon')} 
+                  className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all"
+                  title="Edit Telepon"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Alamat */}
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 text-[#005E6A] flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <span className="font-black text-slate-500 uppercase tracking-wider text-[10px] shrink-0">Alamat</span>
+              </div>
+              <div className="flex items-center gap-2 max-w-[60%]">
+                <span className="font-bold text-slate-700 text-right truncate">{localCustomer.Alamat || '-'}</span>
+                <button 
+                  onClick={() => openSingleEditModal('alamat')} 
+                  className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all shrink-0"
+                  title="Edit Alamat"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* PIN Akses */}
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#F15A24] flex items-center justify-center shrink-0">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <span className="font-black text-slate-500 uppercase tracking-wider text-[10px]">PIN Akses</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-[#F15A24] font-mono tracking-widest">{localCustomer.PIN || '-'}</span>
+                <button 
+                  onClick={() => openSingleEditModal('pin')} 
+                  className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all"
+                  title="Edit PIN"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Level */}
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                  <Award className="w-4 h-4" />
+                </div>
+                <span className="font-black text-slate-500 uppercase tracking-wider text-[10px]">Level Pelanggan</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg border ${levelColorMap[levelInfo.name] || 'text-slate-600 bg-slate-50 border-slate-200'}`}>
+                  {levelInfo.name}
+                </span>
+                <button 
+                  onClick={() => openSingleEditModal('level')} 
+                  className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all"
+                  title="Edit Level"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Poin */}
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Coins className="w-4 h-4" />
+                </div>
+                <span className="font-black text-slate-500 uppercase tracking-wider text-[10px]">Poin Pelanggan</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`font-black text-sm tabular-nums ${activePoints < 0 ? 'text-red-600' : 'text-[#F15A24]'}`}>
+                  {activePoints} Poin
+                </span>
+                <button 
+                  onClick={() => openSingleEditModal('poin')} 
+                  className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all"
+                  title="Edit Poin"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-           <div className="flex items-center justify-between px-2">
-             <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-widest">Riwayat Belanja</h3>
-             <div className="flex items-center gap-2">
-               <select 
-                 value={selectedFilter}
-                 onChange={(e) => setSelectedFilter(e.target.value)}
-                 className="bg-white border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-1.5 text-[9px] font-black text-[#005E6A] outline-none shadow-sm"
-               >
-                 {availableMonths.map((opt, idx) => (
-                   <option key={idx} value={`${opt.month}-${opt.year}`}>{opt.label.toUpperCase()}</option>
-                 ))}
-               </select>
-             </div>
-           </div>
-           
-           <div className="space-y-3">
-             {filteredUserSales.map((t, i) => (
-                <TransactionCard key={i} t={t} index={i} isAdmin={true} />
-             ))}
-             {filteredUserSales.length === 0 && (
-               <div className="bg-white p-12 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-slate-700 text-center">
-                 <ShoppingBag className="w-10 h-10 text-slate-200 mx-auto mb-3 opacity-20" />
-                 <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Belum ada riwayat transaksi</p>
-               </div>
-             )}
-           </div>
+        {/* GROUP 4: ASET */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="bg-slate-50/80 px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-[#005E6A]/10 text-[#005E6A] flex items-center justify-center">
+                <Wallet className="w-4 h-4" />
+              </div>
+              <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-wider">Aset</h3>
+            </div>
+          </div>
+
+          <div className="divide-y divide-slate-100 text-xs">
+            {/* Total Aset */}
+            <div className="p-4 bg-teal-50/50 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-[#005E6A] text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Wallet className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-black text-[#005E6A] uppercase tracking-wider text-[10px] block">Total Aset</span>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tight">(Tabungan + Investasi + Lainnya - Hutang)</span>
+                </div>
+              </div>
+              <span className={`font-black text-sm ${totalAssetNet < 0 ? 'text-red-600' : 'text-[#005E6A]'}`}>
+                Rp {totalAssetNet.toLocaleString('id-ID')}
+              </span>
+            </div>
+
+            {/* Tabungan */}
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <PiggyBank className="w-4 h-4" />
+                </div>
+                <span className="font-black text-slate-500 uppercase tracking-wider text-[10px]">Tabungan</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-slate-800">Rp {currentSavings.toLocaleString('id-ID')}</span>
+                <button 
+                  onClick={() => navigate(`/tabungan/${encodeURIComponent(localCustomer.Nama)}`)}
+                  className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all"
+                  title="Detail Tabungan"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Investasi */}
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+                <span className="font-black text-slate-500 uppercase tracking-wider text-[10px]">Investasi</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-slate-800">Rp {totalInvestment.toLocaleString('id-ID')}</span>
+                <button 
+                  onClick={() => navigate(`/investasi/${encodeURIComponent(localCustomer.Nama)}`)}
+                  className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all"
+                  title="Detail Investasi"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Lainnya */}
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <span className="font-black text-slate-500 uppercase tracking-wider text-[10px]">Lainnya</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-slate-800">Rp {currentOthers.toLocaleString('id-ID')}</span>
+                <button 
+                  onClick={() => navigate(`/lainnya/${encodeURIComponent(localCustomer.Nama)}`)}
+                  className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all"
+                  title="Detail Lainnya"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Hutang */}
+            <div className="p-4 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <span className="font-black text-slate-500 uppercase tracking-wider text-[10px]">Hutang</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-rose-600">Rp {currentDebt.toLocaleString('id-ID')}</span>
+                <button 
+                  onClick={() => navigate(`/hutang/${encodeURIComponent(localCustomer.Nama)}`)}
+                  className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all"
+                  title="Detail Hutang"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* GROUP 5: RIWAYAT BELANJA */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="bg-slate-50/80 px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-[#005E6A]/10 text-[#005E6A] flex items-center justify-center">
+                <ShoppingBag className="w-4 h-4" />
+              </div>
+              <h3 className="text-xs font-black text-[#005E6A] uppercase tracking-wider">Riwayat Belanja Bulan Ini</h3>
+            </div>
+            <select 
+              value={selectedFilter}
+              onChange={(e) => setSelectedFilter(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-[10px] font-black text-[#005E6A] outline-none shadow-sm cursor-pointer"
+            >
+              {availableMonths.map((opt, idx) => (
+                <option key={idx} value={`${opt.month}-${opt.year}`}>{opt.label.toUpperCase()}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="divide-y divide-slate-100 text-xs">
+            {filteredUserSales.map((t, i) => {
+              const nominal = parseCurrency(t.Pemasukan || (t as any).Nominal || (t as any).nominal || 0);
+              const jenisLabel = t.Jenis || (t as any).jenis || 'Transaksi';
+
+              return (
+                <div key={i} className="p-4 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-teal-50 text-[#005E6A] flex items-center justify-center shrink-0">
+                      <ShoppingBag className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="font-black text-slate-800 uppercase tracking-wide block">{jenisLabel}</span>
+                      {t.Tanggal && (
+                        <span className="text-[10px] font-bold text-slate-400 font-mono block">{t.Tanggal}</span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="font-black text-slate-900 text-xs font-mono">
+                    Rp {nominal.toLocaleString('id-ID')}
+                  </span>
+                </div>
+              );
+            })}
+            {filteredUserSales.length === 0 && (
+              <div className="p-8 text-center">
+                <ShoppingBag className="w-10 h-10 text-slate-200 mx-auto mb-2 opacity-30" />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Belum ada riwayat belanja bulan ini</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* POPUP PILIH FOTO PROFIL */}
+      <AnimatePresence>
+        {isPhotoPickerOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-tight">Foto Profil</h3>
+                <button 
+                  onClick={() => setIsPhotoPickerOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2.5">
+                {/* Opsi Kamera */}
+                <button 
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="w-full flex items-center gap-3.5 p-3.5 bg-slate-50 hover:bg-teal-50/70 border border-slate-100 rounded-xl text-left transition-all active:scale-98 group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-teal-100 text-[#005E6A] flex items-center justify-center shrink-0">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-wide">Ambil dari Kamera</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Gunakan kamera perangkat</p>
+                  </div>
+                </button>
+
+                {/* Opsi Galeri */}
+                <button 
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="w-full flex items-center gap-3.5 p-3.5 bg-slate-50 hover:bg-indigo-50/70 border border-slate-100 rounded-xl text-left transition-all active:scale-98 group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                    <CloudUpload className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-wide">Pilih dari Galeri</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Pilih gambar dari file galeri</p>
+                  </div>
+                </button>
+
+                {/* Opsi Input Link URL */}
+                <button 
+                  onClick={() => {
+                    setIsPhotoPickerOpen(false);
+                    openSingleEditModal('url_foto');
+                  }}
+                  className="w-full flex items-center gap-3.5 p-3.5 bg-slate-50 hover:bg-amber-50/70 border border-slate-100 rounded-xl text-left transition-all active:scale-98 group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                    <ExternalLink className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-wide">Input Link Foto (URL)</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Masukkan alamat URL gambar</p>
+                  </div>
+                </button>
+
+                {/* Hapus Foto jika ada */}
+                {photoUrl && (
+                  <button 
+                    onClick={handleRemovePhoto}
+                    disabled={isSaving}
+                    className="w-full flex items-center gap-3.5 p-3.5 bg-rose-50 hover:bg-rose-100/70 border border-rose-100 rounded-xl text-left transition-all active:scale-98 text-rose-600"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                      <Trash2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wide">Hapus Foto Profil</p>
+                      <p className="text-[9px] font-bold text-rose-400 uppercase tracking-tight">Kembalikan ke avatar default</p>
+                    </div>
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SINGLE FIELD MENU MODAL (HEADER EDIT PROFIL CLICK) */}
+      <AnimatePresence>
+        {activeEditField === 'field_menu' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-tight">Pilih Data Yang Ingin Diedit</h3>
+                <button 
+                  onClick={() => setActiveEditField(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2 text-xs font-bold">
+                {[
+                  { key: 'foto_pick', label: 'Foto Profil', icon: Camera, action: () => { setActiveEditField(null); setIsPhotoPickerOpen(true); } },
+                  { key: 'nama', label: 'Nama Pelanggan', icon: User, action: () => openSingleEditModal('nama') },
+                  { key: 'telepon', label: 'Nomor Telepon', icon: Phone, action: () => openSingleEditModal('telepon') },
+                  { key: 'alamat', label: 'Alamat', icon: MapPin, action: () => openSingleEditModal('alamat') },
+                  { key: 'pin', label: 'PIN Akses', icon: Lock, action: () => openSingleEditModal('pin') },
+                  { key: 'level', label: 'Level Pelanggan', icon: Award, action: () => openSingleEditModal('level') },
+                  { key: 'poin', label: 'Poin Pelanggan', icon: Coins, action: () => openSingleEditModal('poin') },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={item.action}
+                    className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-teal-50 rounded-xl border border-slate-100 text-slate-700 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className="w-4 h-4 text-[#005E6A]" />
+                      <span className="font-black text-xs uppercase tracking-wider">{item.label}</span>
+                    </div>
+                    <Edit2 className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SINGLE FIELD SPECIFIC EDIT MODAL */}
+      <AnimatePresence>
+        {activeEditField && activeEditField !== 'field_menu' && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-100 space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-tight">
+                  Edit {getFieldTitle(activeEditField)}
+                </h3>
+                <button 
+                  onClick={() => setActiveEditField(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveSingleField} className="space-y-4 text-xs font-bold">
+                {activeEditField === 'nama' && (
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                      Nama Pelanggan
+                    </label>
+                    <input 
+                      type="text" 
+                      required
+                      value={String(fieldValue)}
+                      onChange={(e) => setFieldValue(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#005E6A]"
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                {activeEditField === 'telepon' && (
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                      Nomor Telepon
+                    </label>
+                    <input 
+                      type="text" 
+                      value={String(fieldValue)}
+                      onChange={(e) => setFieldValue(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#005E6A]"
+                      placeholder="Contoh: 08123456789"
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                {activeEditField === 'alamat' && (
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                      Alamat
+                    </label>
+                    <textarea 
+                      rows={3}
+                      value={String(fieldValue)}
+                      onChange={(e) => setFieldValue(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#005E6A]"
+                      placeholder="Masukkan alamat lengkap"
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                {activeEditField === 'pin' && (
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                      PIN Akses
+                    </label>
+                    <input 
+                      type="text" 
+                      value={String(fieldValue)}
+                      onChange={(e) => setFieldValue(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#005E6A] font-mono tracking-widest text-[#F15A24]"
+                      placeholder="Contoh: 1234"
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                {activeEditField === 'level' && (
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                      Level Pelanggan
+                    </label>
+                    <select 
+                      value={String(fieldValue)}
+                      onChange={(e) => setFieldValue(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#005E6A]"
+                    >
+                      <option value="Bronze">Bronze</option>
+                      <option value="Silver">Silver</option>
+                      <option value="Gold">Gold</option>
+                      <option value="Platinum">Platinum</option>
+                    </select>
+                  </div>
+                )}
+
+                {activeEditField === 'poin' && (
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                      Jumlah Poin
+                    </label>
+                    <input 
+                      type="number" 
+                      value={Number(fieldValue)}
+                      onChange={(e) => setFieldValue(Number(e.target.value))}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#005E6A]"
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                {activeEditField === 'url_foto' && (
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                      Link Foto Profil (URL)
+                    </label>
+                    <input 
+                      type="text" 
+                      value={String(fieldValue)}
+                      onChange={(e) => setFieldValue(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-[#005E6A]"
+                      autoFocus
+                    />
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => setActiveEditField(null)}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 font-black text-xs uppercase tracking-wider hover:bg-slate-50"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isSaving}
+                    className="px-5 py-2 rounded-xl bg-[#005E6A] text-white font-black text-xs uppercase tracking-wider hover:bg-[#004e58] flex items-center gap-2"
+                  >
+                    {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>Simpan</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
@@ -15313,7 +16068,7 @@ const AdminDebtManagement = ({
     note: string, 
     paymentMethod: "TUNAI" | "TABUNGAN" = "TUNAI"
   ) => {
-    const todayStr = new Date().toLocaleDateString('id-ID');
+    const todayStr = formatDateDDMMYYYY();
     const currentHutang = parseCurrency(customer.Hutang);
     const newSaldo = modalType === 'TAMBAH' ? currentHutang + amount : Math.max(0, currentHutang - amount);
 
@@ -19262,27 +20017,32 @@ const ProfileSettingsPage = ({
   onLogin,
   setCustomers,
   onUpdatePhoto,
-  setToastNotice
+  setToastNotice,
+  onLogout
 }: {
   user: Customer | null;
   onLogin: (user: Customer) => void;
   setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
   onUpdatePhoto: (nama: string, base64: string, file?: File | null) => Promise<void> | void;
   setToastNotice?: (msg: string | null) => void;
+  onLogout?: () => void;
 }) => {
   const navigate = useNavigate();
-  const { language, t } = useLanguage();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { language } = useLanguage();
 
+  // Hidden file inputs for Camera and Gallery
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  // States for fields
   const [nameInput, setNameInput] = useState<string>(user?.Nama || user?.nama || "");
   const [phoneInput, setPhoneInput] = useState<string>(
     user?.Telepon || user?.telepon || user?.HP || user?.hp || user?.NoHP || user?.no_hp || ""
   );
   const [addressInput, setAddressInput] = useState<string>(user?.Alamat || user?.alamat || "");
-
   const [currentPhoto, setCurrentPhoto] = useState<string>(user?.Foto || user?.foto || "");
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
 
+  // PIN states
   const [oldPinInput, setOldPinInput] = useState<string>("");
   const [newPinInput, setNewPinInput] = useState<string>("");
   const [confirmPinInput, setConfirmPinInput] = useState<string>("");
@@ -19290,9 +20050,15 @@ const ProfileSettingsPage = ({
   const [showNewPin, setShowNewPin] = useState<boolean>(false);
   const [showConfirmPin, setShowConfirmPin] = useState<boolean>(false);
 
+  // Photo URL input state
+  const [photoUrlInput, setPhotoUrlInput] = useState<string>("");
+  const [showUrlInput, setShowUrlInput] = useState<boolean>(false);
+
+  // Active Modal State: 'photo' | 'nama' | 'telepon' | 'alamat' | 'pin' | 'logout' | null
+  const [activeModal, setActiveModal] = useState<'photo' | 'nama' | 'telepon' | 'alamat' | 'pin' | 'logout' | null>(null);
+
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -19303,79 +20069,35 @@ const ProfileSettingsPage = ({
     }
   }, [user]);
 
-  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    if (file.size > 15 * 1024 * 1024) {
-      alert(language === "en" ? "Image size max 15MB" : "Ukuran foto terlalu besar. Maksimal 15MB.");
-      return;
-    }
-
-    try {
-      setIsUploadingPhoto(true);
-      const { compressedFile, base64 } = await compressImage(file, 800, 800, 0.75);
-      setCurrentPhoto(base64);
-      await onUpdatePhoto(user.Nama, base64, compressedFile);
-      setIsUploadingPhoto(false);
-    } catch (err) {
-      console.error("Gagal unggah foto:", err);
-      setIsUploadingPhoto(false);
-    }
-  };
-
-  const handleSaveProfile = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  // Unified save function
+  const saveUserData = async (updates: {
+    nama?: string;
+    telepon?: string;
+    alamat?: string;
+    pin?: string;
+    foto?: string;
+  }) => {
     if (!user) return;
-
-    setSaveError(null);
     setIsSaving(true);
+    setModalError(null);
 
-    const existingPin = String(user.PIN || user.pin || "").trim();
-    let finalPin = existingPin;
+    const finalName = updates.nama !== undefined ? updates.nama.trim() : (nameInput.trim() || user.Nama);
+    const finalPhone = updates.telepon !== undefined ? updates.telepon.trim() : phoneInput.trim();
+    const finalAddress = updates.alamat !== undefined ? updates.alamat.trim() : addressInput.trim();
+    const finalPin = updates.pin !== undefined ? updates.pin.trim() : (user.PIN || user.pin || "");
+    const finalPhoto = updates.foto !== undefined ? updates.foto : (currentPhoto || user.Foto || user.foto || "");
 
-    if (newPinInput.trim() || oldPinInput.trim() || confirmPinInput.trim()) {
-      if (existingPin && oldPinInput.trim() !== existingPin) {
-        setSaveError(language === "en" ? "Old PIN is incorrect." : "PIN lama yang Anda masukkan salah.");
-        setIsSaving(false);
-        return;
-      }
-
-      if (!newPinInput.trim()) {
-        setSaveError(language === "en" ? "New PIN cannot be empty." : "PIN baru tidak boleh kosong.");
-        setIsSaving(false);
-        return;
-      }
-
-      if (newPinInput.trim().length < 4) {
-        setSaveError(language === "en" ? "New PIN must be at least 4 digits." : "PIN baru minimal 4 angka/karakter.");
-        setIsSaving(false);
-        return;
-      }
-
-      if (newPinInput.trim() !== confirmPinInput.trim()) {
-        setSaveError(language === "en" ? "New PIN and Confirmation PIN do not match." : "PIN baru dan Konfirmasi PIN tidak cocok.");
-        setIsSaving(false);
-        return;
-      }
-
-      finalPin = newPinInput.trim();
-    }
-
-    const newName = nameInput.trim() || user.Nama;
-    const newPhone = phoneInput.trim();
-    const newAddress = addressInput.trim();
     const customerId = user.id_pelanggan || user.id || user.Nama;
 
     try {
       if (SupabaseCustomerService.isConnected()) {
         await SupabaseCustomerService.upsertCustomer({
           id_pelanggan: customerId,
-          nama: newName,
+          nama: finalName,
           pin: finalPin,
-          telepon: newPhone,
-          alamat: newAddress,
-          foto: currentPhoto || user.Foto || user.foto || "",
+          telepon: finalPhone,
+          alamat: finalAddress,
+          foto: finalPhoto,
           tabungan: parseCurrency(user.Tabungan),
           investasi: parseCurrency(user.Investasi),
           lainnya: parseCurrency(user.Lainnya),
@@ -19387,29 +20109,29 @@ const ProfileSettingsPage = ({
         const client = SupabaseCustomerService.getClient();
         if (client) {
           await client.from('customers').update({
-            nama: newName,
+            nama: finalName,
             pin: finalPin,
-            telepon: newPhone,
-            alamat: newAddress,
-            foto: currentPhoto || user.Foto || user.foto || ""
+            telepon: finalPhone,
+            alamat: finalAddress,
+            foto: finalPhoto
           }).eq('id_pelanggan', customerId);
         }
       }
 
       const updatedUser: Customer = {
         ...user,
-        Nama: newName,
-        nama: newName,
+        Nama: finalName,
+        nama: finalName,
         PIN: finalPin,
         pin: finalPin,
-        Telepon: newPhone,
-        telepon: newPhone,
-        HP: newPhone,
-        NoHP: newPhone,
-        Alamat: newAddress,
-        alamat: newAddress,
-        Foto: currentPhoto || user.Foto || user.foto || "",
-        foto: currentPhoto || user.Foto || user.foto || ""
+        Telepon: finalPhone,
+        telepon: finalPhone,
+        HP: finalPhone,
+        NoHP: finalPhone,
+        Alamat: finalAddress,
+        alamat: finalAddress,
+        Foto: finalPhoto,
+        foto: finalPhoto
       };
 
       onLogin(updatedUser);
@@ -19424,32 +20146,106 @@ const ProfileSettingsPage = ({
 
       localStorage.setItem("warung_tomi_user", JSON.stringify(updatedUser));
 
-      setIsSaving(false);
-      setSaveSuccess(true);
-      if (setToastNotice) {
-        setToastNotice(language === "en" ? "Profile updated successfully!" : "Profil & PIN berhasil diperbarui!");
-      }
+      // Sync local state
+      setNameInput(finalName);
+      setPhoneInput(finalPhone);
+      setAddressInput(finalAddress);
+      setCurrentPhoto(finalPhoto);
 
-      setTimeout(() => {
-        navigate(-1);
-      }, 1000);
+      setIsSaving(false);
+      setActiveModal(null);
+      setShowUrlInput(false);
+      setPhotoUrlInput("");
+      setOldPinInput("");
+      setNewPinInput("");
+      setConfirmPinInput("");
+
+      if (setToastNotice) {
+        setToastNotice(language === "en" ? "Data saved successfully!" : "Data berhasil disimpan!");
+      }
     } catch (err: any) {
-      console.error("Gagal simpan profil:", err);
-      setSaveError(language === "en" ? "Failed to save profile changes." : "Gagal menyimpan perubahan profil.");
+      console.error("Gagal simpan data profil:", err);
+      setModalError(language === "en" ? "Failed to save changes." : "Gagal menyimpan perubahan.");
       setIsSaving(false);
     }
   };
 
+  // Handle Photo File Pick
+  const handlePhotoFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 15 * 1024 * 1024) {
+      alert(language === "en" ? "Image size max 15MB" : "Ukuran foto terlalu besar. Maksimal 15MB.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const { compressedFile, base64 } = await compressImage(file, 800, 800, 0.75);
+      await onUpdatePhoto(user.Nama, base64, compressedFile);
+      await saveUserData({ foto: base64 });
+    } catch (err) {
+      console.error("Gagal unggah foto:", err);
+      setIsSaving(false);
+    }
+  };
+
+  // Handle PIN Save
+  const handleSavePin = async () => {
+    const existingPin = String(user?.PIN || user?.pin || "").trim();
+
+    if (existingPin) {
+      if (!oldPinInput.trim()) {
+        setModalError(language === "en" ? "Please enter your old PIN." : "Masukkan PIN lama Anda.");
+        return;
+      }
+      if (oldPinInput.trim() !== existingPin) {
+        setModalError(language === "en" ? "Old PIN is incorrect." : "PIN lama yang Anda masukkan salah.");
+        return;
+      }
+    }
+
+    if (!newPinInput.trim()) {
+      setModalError(language === "en" ? "New PIN cannot be empty." : "PIN baru tidak boleh kosong.");
+      return;
+    }
+
+    if (newPinInput.trim().length < 4) {
+      setModalError(language === "en" ? "New PIN must be at least 4 digits." : "PIN baru minimal 4 digit.");
+      return;
+    }
+
+    if (newPinInput.trim() !== confirmPinInput.trim()) {
+      setModalError(language === "en" ? "New PIN and Confirmation PIN do not match." : "PIN baru dan Konfirmasi PIN tidak cocok.");
+      return;
+    }
+
+    await saveUserData({ pin: newPinInput.trim() });
+  };
+
+  const hasExistingPin = Boolean(user?.PIN || user?.pin);
+
   return (
-    <div className="max-w-xl mx-auto px-4 py-6">
+    <div className="max-w-xl mx-auto px-4 py-6 mb-20">
+      {/* Hidden File Inputs */}
       <input
         type="file"
-        ref={fileInputRef}
-        onChange={handlePhotoSelect}
+        ref={cameraInputRef}
+        onChange={handlePhotoFileSelect}
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+      />
+      <input
+        type="file"
+        ref={galleryInputRef}
+        onChange={handlePhotoFileSelect}
         accept="image/*"
         className="hidden"
       />
 
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => navigate(-1)}
@@ -19463,228 +20259,631 @@ const ProfileSettingsPage = ({
         <div className="w-10" />
       </div>
 
-      <AnimatePresence>
-        {saveError && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-3"
-          >
-            <Info className="w-5 h-5 shrink-0" />
-            <span>{saveError}</span>
-          </motion.div>
-        )}
-        {saveSuccess && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="mb-6 p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-900/60 text-teal-600 dark:text-teal-400 text-xs font-bold flex items-center gap-3"
-          >
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <span>{language === "en" ? "Profile successfully updated!" : "Profil dan database berhasil diperbarui!"}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <form onSubmit={handleSaveProfile} className="space-y-6">
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none p-6 text-center">
-          <div className="relative w-28 h-28 mx-auto mb-4 group">
-            <div className="w-full h-full rounded-full overflow-hidden ring-4 ring-teal-500/20 dark:ring-teal-400/20 shadow-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              {currentPhoto ? (
-                <img
-                  src={currentPhoto}
-                  alt={user?.Nama}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <User className="w-12 h-12 text-slate-400" />
-              )}
+      {/* 1. KELOMPOK INFORMASI PRIBADI */}
+      <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 px-1">
+        INFORMASI PRIBADI
+      </h3>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 divide-y divide-slate-100 dark:divide-slate-800">
+        
+        {/* FOTO PROFIL */}
+        <div className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-[#005E6A] dark:text-teal-300 shrink-0">
+              <Camera className="w-5 h-5" />
             </div>
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploadingPhoto}
-              className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-[#005E6A] text-white flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900 hover:bg-teal-700 transition-all cursor-pointer"
-            >
-              {isUploadingPhoto ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Camera className="w-4 h-4" />
-              )}
-            </button>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Foto Profil
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0 flex items-center justify-center">
+                  {currentPhoto ? (
+                    <img src={currentPhoto} alt="Foto Profil" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-5 h-5 text-slate-400" />
+                  )}
+                </div>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">
+                  {currentPhoto ? "Foto Terpasang" : "Belum Ada Foto"}
+                </span>
+              </div>
+            </div>
           </div>
-
           <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploadingPhoto}
-            className="text-xs font-black text-[#005E6A] dark:text-teal-400 hover:underline uppercase tracking-wider inline-flex items-center gap-1.5 cursor-pointer"
+            onClick={() => {
+              setModalError(null);
+              setShowUrlInput(false);
+              setActiveModal('photo');
+            }}
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-[#005E6A] hover:text-white dark:hover:bg-teal-600 transition-all flex items-center justify-center shrink-0 cursor-pointer"
+            title="Edit Foto Profil"
           >
-            <Camera className="w-3.5 h-3.5" />
-            <span>{language === "en" ? "Change Profile Photo" : "Ganti Foto Profil"}</span>
+            <Pencil className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none p-6 space-y-4">
-          <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-            <User className="w-4 h-4 text-teal-500" />
-            <span>{language === "en" ? "Personal Information" : "Informasi Pribadi"}</span>
-          </h3>
-
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-              {language === "en" ? "Full Name" : "Nama Lengkap"}
-            </label>
-            <div className="relative">
-              <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                placeholder="Masukkan nama anda"
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
-              />
+        {/* NAMA */}
+        <div className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-[#005E6A] dark:text-teal-300 shrink-0">
+              <User className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Nama Lengkap
+              </p>
+              <p className="text-xs font-bold text-slate-800 dark:text-white truncate mt-0.5">
+                {nameInput || "Belum diisi"}
+              </p>
             </div>
           </div>
-
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-              {language === "en" ? "Phone Number" : "Nomor Ponsel / WA"}
-            </label>
-            <div className="relative">
-              <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="tel"
-                value={phoneInput}
-                onChange={(e) => setPhoneInput(e.target.value)}
-                placeholder="Contoh: 081234567890"
-                className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-              {language === "en" ? "Address" : "Alamat Tempat Tinggal"}
-            </label>
-            <div className="relative">
-              <MapPin className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-              <textarea
-                value={addressInput}
-                onChange={(e) => setAddressInput(e.target.value)}
-                rows={3}
-                placeholder="Contoh: Jl. Merdeka No. 12, RT 01/02, Kota Baru"
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] resize-none"
-              />
-            </div>
-          </div>
+          <button
+            onClick={() => {
+              setModalError(null);
+              setActiveModal('nama');
+            }}
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-[#005E6A] hover:text-white dark:hover:bg-teal-600 transition-all flex items-center justify-center shrink-0 cursor-pointer"
+            title="Edit Nama"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none p-6 space-y-4">
-          <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-            <KeyRound className="w-4 h-4 text-teal-500" />
-            <span>{language === "en" ? "Security PIN Settings" : "Keamanan PIN Login"}</span>
-          </h3>
-
-          <p className="text-[10px] font-medium text-slate-400 dark:text-slate-400 leading-relaxed mb-3">
-            {language === "en"
-              ? "Leave PIN fields empty if you don't want to change your PIN."
-              : "Kosongkan kolom PIN jika tidak ingin mengubah PIN keamanan Anda."}
-          </p>
-
-          {Boolean(user?.PIN || user?.pin) && (
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                {language === "en" ? "Old PIN" : "PIN Lama"}
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type={showOldPin ? "text" : "password"}
-                  value={oldPinInput}
-                  onChange={(e) => setOldPinInput(e.target.value)}
-                  placeholder="Masukkan PIN lama Anda"
-                  className="w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowOldPin(!showOldPin)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showOldPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+        {/* TELPON */}
+        <div className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-[#005E6A] dark:text-teal-300 shrink-0">
+              <Phone className="w-5 h-5" />
             </div>
-          )}
-
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-              {language === "en" ? "New PIN" : "PIN Baru"}
-            </label>
-            <div className="relative">
-              <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type={showNewPin ? "text" : "password"}
-                value={newPinInput}
-                onChange={(e) => setNewPinInput(e.target.value)}
-                placeholder="Minimal 4 digit angka/karakter"
-                className="w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPin(!showNewPin)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                {showNewPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Nomor Telepon / WA
+              </p>
+              <p className="text-xs font-bold text-slate-800 dark:text-white truncate mt-0.5">
+                {phoneInput || "Belum diisi"}
+              </p>
             </div>
           </div>
-
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-              {language === "en" ? "Confirm New PIN" : "Konfirmasi PIN Baru"}
-            </label>
-            <div className="relative">
-              <CheckCircle2 className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type={showConfirmPin ? "text" : "password"}
-                value={confirmPinInput}
-                onChange={(e) => setConfirmPinInput(e.target.value)}
-                placeholder="Ulangi PIN baru Anda"
-                className="w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPin(!showConfirmPin)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                {showConfirmPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={() => {
+              setModalError(null);
+              setActiveModal('telepon');
+            }}
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-[#005E6A] hover:text-white dark:hover:bg-teal-600 transition-all flex items-center justify-center shrink-0 cursor-pointer"
+            title="Edit Nomor Telepon"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
         </div>
 
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="w-full py-4 bg-[#005E6A] hover:bg-teal-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>{language === "en" ? "Saving..." : "Menyimpan Perubahan..."}</span>
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              <span>{language === "en" ? "Save Profile Changes" : "Simpan Perubahan Profil"}</span>
-            </>
-          )}
-        </button>
-      </form>
+        {/* ALAMAT */}
+        <div className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-[#005E6A] dark:text-teal-300 shrink-0 mt-0.5">
+              <MapPin className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Alamat Tempat Tinggal
+              </p>
+              <p className="text-xs font-bold text-slate-800 dark:text-white break-words whitespace-normal leading-snug mt-0.5">
+                {addressInput || "Belum diisi"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setModalError(null);
+              setActiveModal('alamat');
+            }}
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-[#005E6A] hover:text-white dark:hover:bg-teal-600 transition-all flex items-center justify-center shrink-0 cursor-pointer"
+            title="Edit Alamat"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        </div>
+
+      </div>
+
+      {/* 2. KELOMPOK KEAMANAN */}
+      <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 px-1">
+        KEAMANAN
+      </h3>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-8 divide-y divide-slate-100 dark:divide-slate-800">
+        
+        {/* GANTI PIN */}
+        <div className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 dark:bg-teal-950/50 flex items-center justify-center text-[#005E6A] dark:text-teal-300 shrink-0">
+              <KeyRound className="w-5 h-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                PIN Keamanan Login
+              </p>
+              <p className="text-xs font-bold text-slate-800 dark:text-white truncate mt-0.5">
+                {hasExistingPin ? "•••••• (PIN Sudah Diatur)" : "Belum Ada PIN"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setModalError(null);
+              setOldPinInput("");
+              setNewPinInput("");
+              setConfirmPinInput("");
+              setActiveModal('pin');
+            }}
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-[#005E6A] hover:text-white dark:hover:bg-teal-600 transition-all flex items-center justify-center shrink-0 cursor-pointer"
+            title="Ganti PIN"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+        </div>
+
+      </div>
+
+      {/* 3. LOGOUT BUTTON */}
+      {user && onLogout && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setActiveModal('logout')}
+            className="w-full py-4 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 rounded-2xl font-black text-xs uppercase tracking-widest border border-rose-200 dark:border-rose-900 shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Keluar Akun</span>
+          </button>
+        </div>
+      )}
+
+      {/* ========================================================================
+          MODALS FOR EDITING SPECIFIC FIELDS
+          ======================================================================== */}
+      <AnimatePresence>
+        {activeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => {
+              if (!isSaving) {
+                setActiveModal(null);
+                setModalError(null);
+              }
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-2xl p-6 w-full max-w-md relative overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button */}
+              <button
+                onClick={() => {
+                  if (!isSaving) {
+                    setActiveModal(null);
+                    setModalError(null);
+                  }
+                }}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              {/* Modal Error Banner */}
+              {modalError && (
+                <div className="mb-4 p-3 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{modalError}</span>
+                </div>
+              )}
+
+              {/* ------------------- MODAL FOTO PROFIL ------------------- */}
+              {activeModal === 'photo' && (
+                <div>
+                  <h3 className="text-base font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider mb-1">
+                    Ganti Foto Profil
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">
+                    Pilih sumber foto yang ingin digunakan
+                  </p>
+
+                  <div className="space-y-2.5">
+                    {/* Kamera */}
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      disabled={isSaving}
+                      className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-teal-50 dark:hover:bg-teal-950/30 border border-slate-200 dark:border-slate-700 hover:border-teal-300 flex items-center gap-3 text-left transition-all cursor-pointer group"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-900/50 text-[#005E6A] dark:text-teal-300 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Camera className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider">
+                          Kamera
+                        </p>
+                        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                          Ambil foto langsung melalui kamera
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Galeri */}
+                    <button
+                      type="button"
+                      onClick={() => galleryInputRef.current?.click()}
+                      disabled={isSaving}
+                      className="w-full p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-teal-50 dark:hover:bg-teal-950/30 border border-slate-200 dark:border-slate-700 hover:border-teal-300 flex items-center gap-3 text-left transition-all cursor-pointer group"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-900/50 text-[#005E6A] dark:text-teal-300 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Image className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider">
+                          Galeri
+                        </p>
+                        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                          Pilih berkas foto dari penyimpanan perangkat
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Link URL */}
+                    <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setShowUrlInput(!showUrlInput)}
+                        disabled={isSaving}
+                        className="w-full p-4 flex items-center gap-3 text-left transition-all cursor-pointer group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-900/50 text-[#005E6A] dark:text-teal-300 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Globe className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider">
+                            Link URL Foto
+                          </p>
+                          <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                            Gunakan tautan gambar dari internet
+                          </p>
+                        </div>
+                      </button>
+
+                      {showUrlInput && (
+                        <div className="p-4 pt-0 space-y-2 border-t border-slate-200/60 dark:border-slate-700/60 mt-1">
+                          <input
+                            type="url"
+                            value={photoUrlInput}
+                            onChange={(e) => setPhotoUrlInput(e.target.value)}
+                            placeholder="https://example.com/foto.jpg"
+                            className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+                          />
+                          <button
+                            type="button"
+                            disabled={!photoUrlInput.trim() || isSaving}
+                            onClick={() => saveUserData({ foto: photoUrlInput.trim() })}
+                            className="w-full py-2.5 bg-[#005E6A] hover:bg-teal-700 text-white rounded-xl font-black text-xs uppercase tracking-wider disabled:opacity-50 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                          >
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Gunakan Link Foto"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Hapus Foto */}
+                    {currentPhoto && (
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => saveUserData({ foto: "" })}
+                        className="w-full p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 flex items-center gap-3 text-left transition-all cursor-pointer group"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <Trash2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wider">
+                            Hapus Foto
+                          </p>
+                          <p className="text-[10px] font-medium opacity-80">
+                            Kembalikan ke foto profil bawaan
+                          </p>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ------------------- MODAL EDIT NAMA ------------------- */}
+              {activeModal === 'nama' && (
+                <div>
+                  <h3 className="text-base font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider mb-1">
+                    Edit Nama Lengkap
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                    Masukkan nama lengkap terbaru Anda
+                  </p>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                        Nama Lengkap
+                      </label>
+                      <input
+                        type="text"
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        placeholder="Masukkan nama lengkap Anda"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => setActiveModal(null)}
+                        className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => saveUserData({ nama: nameInput })}
+                        className="flex-1 py-3 bg-[#005E6A] hover:bg-teal-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Simpan"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ------------------- MODAL EDIT TELEPON ------------------- */}
+              {activeModal === 'telepon' && (
+                <div>
+                  <h3 className="text-base font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider mb-1">
+                    Edit Nomor Telepon
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                    Masukkan nomor telepon / WhatsApp terbaru
+                  </p>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                        Nomor Ponsel / WA
+                      </label>
+                      <input
+                        type="tel"
+                        value={phoneInput}
+                        onChange={(e) => setPhoneInput(e.target.value)}
+                        placeholder="Contoh: 081234567890"
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => setActiveModal(null)}
+                        className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => saveUserData({ telepon: phoneInput })}
+                        className="flex-1 py-3 bg-[#005E6A] hover:bg-teal-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Simpan"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ------------------- MODAL EDIT ALAMAT ------------------- */}
+              {activeModal === 'alamat' && (
+                <div>
+                  <h3 className="text-base font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider mb-1">
+                    Edit Alamat Tempat Tinggal
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                    Masukkan alamat tempat tinggal lengkap Anda
+                  </p>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                        Alamat Lengkap
+                      </label>
+                      <textarea
+                        value={addressInput}
+                        onChange={(e) => setAddressInput(e.target.value)}
+                        rows={4}
+                        placeholder="Contoh: Jl. Merdeka No. 12, RT 01/02, Kota Baru"
+                        className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] resize-none"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2">
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => setActiveModal(null)}
+                        className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => saveUserData({ alamat: addressInput })}
+                        className="flex-1 py-3 bg-[#005E6A] hover:bg-teal-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Simpan"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ------------------- MODAL EDIT PIN ------------------- */}
+              {activeModal === 'pin' && (
+                <div>
+                  <h3 className="text-base font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider mb-1">
+                    {hasExistingPin ? "Ganti PIN Keamanan" : "Buat PIN Keamanan"}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                    {hasExistingPin
+                      ? "Masukkan PIN lama Anda lalu atur PIN baru"
+                      : "Atur PIN keamanan baru untuk akun Anda"}
+                  </p>
+
+                  <div className="space-y-3.5">
+                    {/* PIN Lama (jika sudah ada PIN) */}
+                    {hasExistingPin && (
+                      <div>
+                        <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                          PIN Lama
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showOldPin ? "text" : "password"}
+                            value={oldPinInput}
+                            onChange={(e) => setOldPinInput(e.target.value)}
+                            placeholder="Masukkan PIN lama"
+                            className="w-full pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowOldPin(!showOldPin)}
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          >
+                            {showOldPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* PIN Baru */}
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        PIN Baru
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showNewPin ? "text" : "password"}
+                          value={newPinInput}
+                          onChange={(e) => setNewPinInput(e.target.value)}
+                          placeholder="Minimal 4 digit"
+                          className="w-full pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPin(!showNewPin)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          {showNewPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Konfirmasi PIN Baru */}
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Konfirmasi PIN Baru
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPin ? "text" : "password"}
+                          value={confirmPinInput}
+                          onChange={(e) => setConfirmPinInput(e.target.value)}
+                          placeholder="Ulangi PIN baru"
+                          className="w-full pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPin(!showConfirmPin)}
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          {showConfirmPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-3">
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => setActiveModal(null)}
+                        className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={handleSavePin}
+                        className="flex-1 py-3 bg-[#005E6A] hover:bg-teal-700 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-colors cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Simpan PIN"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ------------------- MODAL LOGOUT ------------------- */}
+              {activeModal === 'logout' && (
+                <div className="text-center py-2">
+                  <div className="w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto mb-4">
+                    <LogOut className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-wider mb-2">
+                    Konfirmasi Keluar
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+                    Apakah Anda yakin ingin keluar dari akun?
+                  </p>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal(null)}
+                      className="flex-1 py-3.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-2xl font-black text-xs uppercase tracking-wider transition-colors cursor-pointer"
+                    >
+                      Tidak
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveModal(null);
+                        if (onLogout) onLogout();
+                        navigate("/");
+                      }}
+                      className="flex-1 py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-lg transition-colors cursor-pointer"
+                    >
+                      Ya, Keluar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -19714,7 +20913,12 @@ const ProfilPage = ({
   const [showQR, setShowQR] = useState(false);
   const [showLevelBenefits, setShowLevelBenefits] = useState(false);
   const [uploadStep, setUploadStep] = useState<"compressing" | "uploading" | null>(null);
+  const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
+  const [fullScreenPhotoUrl, setFullScreenPhotoUrl] = useState<string | null>(null);
+  const [zoomScale, setZoomScale] = useState<number>(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const assetScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -19923,7 +21127,7 @@ const ProfilPage = ({
       return;
     }
     if (uploadStep !== null) return;
-    fileInputRef.current?.click();
+    setIsPhotoPickerOpen(true);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -19936,7 +21140,6 @@ const ProfilPage = ({
 
       try {
         setUploadStep("compressing");
-        // Animasi kompresi singkat untuk memberikan umpan balik visual
         await new Promise((r) => setTimeout(r, 500));
         
         const { compressedFile, base64 } = await compressImage(file, 800, 800, 0.75);
@@ -19959,6 +21162,8 @@ const ProfilPage = ({
       } finally {
         setUploadStep(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
+        if (cameraInputRef.current) cameraInputRef.current.value = "";
+        if (galleryInputRef.current) galleryInputRef.current.value = "";
         setTimeout(() => setToastNotice(null), 3500);
       }
     }
@@ -20008,7 +21213,7 @@ const ProfilPage = ({
         animate={{ opacity: 1, y: 0, transitionEnd: { transform: "none" } }}
         className="px-6 py-4"
       >
-      {/* Hidden File Input */}
+      {/* Hidden File Inputs */}
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -20016,53 +21221,76 @@ const ProfilPage = ({
         accept="image/*" 
         className="hidden" 
       />
+      <input 
+        type="file" 
+        ref={cameraInputRef} 
+        onChange={handleFileChange} 
+        accept="image/*" 
+        capture="user"
+        className="hidden" 
+      />
+      <input 
+        type="file" 
+        ref={galleryInputRef} 
+        onChange={handleFileChange} 
+        accept="image/*" 
+        className="hidden" 
+      />
 
-      {/* 1. KELOMPOK PROFIL */}
-      <div className="bg-gradient-to-br from-[#F15A24] via-orange-500 to-amber-500 rounded-[2.5rem] shadow-xl shadow-orange-500/20 text-white overflow-hidden mb-6 group p-6 relative">
+      {/* 1. KELOMPOK PROFIL & REWARD (GABUNG 1 KARTU, FOTO DI TENGAH) */}
+      <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 px-1">
+        PROFIL
+      </h3>
+      <div className="bg-gradient-to-br from-[#F15A24] via-orange-500 to-amber-500 rounded-2xl shadow-xl shadow-orange-500/20 text-white overflow-hidden mb-6 p-5 relative">
         {/* Decorative Glow */}
         <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
 
-        <div className="flex items-center justify-between gap-4 relative z-10">
+        {/* QR Code Button at Top Right */}
+        {user && (
+          <div className="absolute top-4 right-4 z-10">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowQR(true)}
+              className="p-2.5 bg-white/20 hover:bg-white/30 border border-white/30 rounded-xl transition-all shadow-sm flex items-center justify-center cursor-pointer backdrop-blur-md"
+              title="Tampilkan QR Code"
+            >
+              <QrCode className="w-5 h-5 text-white" />
+            </motion.button>
+          </div>
+        )}
+
+        <div className="flex flex-col items-center justify-center text-center relative z-10 pt-1">
           
-          {/* Left: Foto Profil Pelanggan (sebelah kiri center) */}
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="p-1 rounded-full bg-white/20 backdrop-blur-md shadow-md relative border border-white/30">
-              <div 
-                onClick={handlePhotoClick}
-                className="w-20 h-20 rounded-full border-4 border-white overflow-hidden bg-white/20 relative group/avatar flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-300"
-              >
-                {user?.Foto ? (
-                  <img src={user.Foto} alt={user.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                  <div className="w-full h-full bg-white/20 flex items-center justify-center">
-                    <User className="w-10 h-10 text-white drop-shadow-md" />
-                  </div>
-                )}
-                {uploadStep ? (
-                  <div className="absolute inset-0 bg-black/75 flex flex-col items-center justify-center text-white backdrop-blur-[2px] p-1 text-center">
-                    <div className="relative flex items-center justify-center mb-1">
-                      <div className="w-5 h-5 border-2 border-teal-300 border-t-transparent rounded-full animate-spin" />
-                      {uploadStep === "compressing" && (
-                        <span className="absolute w-2 h-2 bg-amber-400 rounded-full animate-ping" />
-                      )}
-                    </div>
-                    <span className="text-[7px] font-black uppercase tracking-wider text-teal-300">
-                      {uploadStep === "compressing" ? "Kompresi..." : "Mengunggah..."}
-                    </span>
-                  </div>
-                ) : user ? (
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                    <Camera className="w-6 h-6 text-white" />
-                  </div>
-                ) : null}
-              </div>
+          {/* Centered Profile Photo */}
+          <div className="relative group cursor-pointer mb-3">
+            <div 
+              onClick={() => {
+                if (user?.Foto) {
+                  setFullScreenPhotoUrl(user.Foto);
+                  setZoomScale(1);
+                } else {
+                  setToastNotice(language === "en" ? "No profile photo set yet" : "Foto profil belum diatur.");
+                  setTimeout(() => setToastNotice(null), 3000);
+                }
+              }}
+              className="w-28 h-28 rounded-full border-4 border-white overflow-hidden bg-white/20 shadow-xl relative flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-300 hover:ring-4 hover:ring-white/40"
+              title={user?.Foto ? "Klik untuk lihat foto full screen" : "Foto Profil"}
+            >
+              {user?.Foto ? (
+                <img src={user.Foto} alt={user.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-full h-full bg-white/20 flex items-center justify-center">
+                  <User className="w-14 h-14 text-white drop-shadow-md" />
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Center-Left: Nama Pelanggan (sebelah kanan foto profil) & ID Pelanggan (dibawah nama) */}
+          {/* Centered Name and ID */}
           {user ? (
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-black text-white uppercase tracking-tight leading-tight mb-1 truncate drop-shadow-xs">
+            <div className="mb-1">
+              <h1 className="text-xl font-black text-white uppercase tracking-tight leading-tight mb-0.5 drop-shadow-xs">
                 {user.Nama}
               </h1>
               <p className="text-[10px] font-black text-orange-100 uppercase tracking-widest">
@@ -20070,12 +21298,12 @@ const ProfilPage = ({
               </p>
             </div>
           ) : (
-            <div className="flex-1 min-w-0">
+            <div className="mb-3">
               <button 
                 onClick={() => navigate("/login")}
-                className="text-left group/masuk block cursor-pointer"
+                className="text-center group/masuk inline-block cursor-pointer"
               >
-                <h1 className="text-xl font-black text-white hover:text-orange-100 uppercase tracking-tight leading-tight mb-1 flex items-center gap-1.5 transition-colors cursor-pointer">
+                <h1 className="text-xl font-black text-white hover:text-orange-100 uppercase tracking-tight leading-tight mb-0.5 flex items-center justify-center gap-1.5 transition-colors">
                   {t("Masuk", "Log In")} <ArrowRight className="w-4 h-4 group-hover/masuk:translate-x-1 transition-transform text-white" />
                 </h1>
                 <p className="text-[10px] font-black text-orange-100 uppercase tracking-widest">
@@ -20085,462 +21313,309 @@ const ProfilPage = ({
             </div>
           )}
 
-          {/* Right: Kode QR (sebelah kanan center) */}
-          {user && (
-            <div className="shrink-0 flex items-center justify-center">
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setShowQR(true)}
-                className="p-3 bg-white/20 hover:bg-white/30 border border-white/30 rounded-2xl transition-all shadow-sm flex items-center justify-center cursor-pointer backdrop-blur-md"
-                title="Tampilkan QR Code"
+          {/* 1. Kelengkapan Profil (Disembunyikan jika sudah 100%) */}
+          {user && (() => {
+            const hasPin = Boolean(user.PIN || user.pin);
+            const hasPhoto = Boolean(user.Foto || user.foto);
+            const hasPhone = Boolean(user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp);
+            const hasAddress = Boolean(user.Alamat || user.alamat);
+
+            const totalItems = 4;
+            const completedCount = (hasPin ? 1 : 0) + (hasPhoto ? 1 : 0) + (hasPhone ? 1 : 0) + (hasAddress ? 1 : 0);
+            const completionPercentage = Math.round((completedCount / totalItems) * 100);
+
+            // Sembunyikan jika sudah 100%
+            if (completionPercentage === 100) return null;
+
+            return (
+              <div 
+                onClick={() => navigate("/pengaturan-profil")}
+                className="w-full pt-3 border-t border-white/20 mt-3 cursor-pointer group hover:opacity-95 transition-opacity"
               >
-                <QrCode className="w-8 h-8 text-white" />
-              </motion.button>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-white">
+                      {language === "en" ? "Profile Completion" : "Kelengkapan Akun"}
+                    </span>
+                    <span className="text-[9px] font-extrabold text-amber-200 bg-black/20 px-2 py-0.5 rounded-full">
+                      {completionPercentage}%
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-white/90 group-hover:translate-x-0.5 transition-transform">
+                    <span className="text-[9px] font-bold uppercase tracking-wider">
+                      {completedCount}/{totalItems}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-white" />
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-black/20 h-2 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${completionPercentage}%` }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className="h-full bg-gradient-to-r from-amber-300 to-yellow-400 rounded-full"
+                  />
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 2. Data Kontak/Alamat Pengguna (Tampil Antara Kelengkapan Akun dan Reward, Garis Pembatas Antar Data, Tanpa Link) */}
+          {user && (() => {
+            const phoneVal = user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp;
+            const addressVal = user.Alamat || user.alamat;
+
+            if (!phoneVal && !addressVal) return null;
+
+            return (
+              <div className="w-full pt-3 border-t border-white/20 mt-3 text-left">
+                {phoneVal && (
+                  <div className="flex items-center gap-3 text-xs font-bold text-white">
+                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                      <Phone className="w-5 h-5 text-amber-200" />
+                    </div>
+                    <span className="break-words whitespace-normal leading-snug">{phoneVal}</span>
+                  </div>
+                )}
+
+                {phoneVal && addressVal && (
+                  <div className="border-t border-white/20 my-2.5" />
+                )}
+
+                {addressVal && (
+                  <div className="flex items-start gap-3 text-xs font-bold text-white">
+                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
+                      <MapPin className="w-5 h-5 text-amber-200" />
+                    </div>
+                    <span className="break-words whitespace-normal leading-relaxed flex-1">{addressVal}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* 3. Reward Section (Level & Poin - Cukup Garis Pembatas Saja, Tanpa Kartu Sub-Wrapper) */}
+          {user && (
+            <div className="w-full pt-3 border-t border-white/20 grid grid-cols-2 divide-x divide-white/20 mt-3">
+              {/* Level */}
+              <div 
+                onClick={() => navigate("/level")}
+                className="cursor-pointer flex items-center justify-center gap-2.5 hover:opacity-90 transition-opacity active:scale-98 pr-2"
+              >
+                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                  <Trophy className="w-4 h-4 text-amber-300 fill-amber-300" />
+                </div>
+                <div className="text-left min-w-0">
+                  <p className="text-[8px] font-black text-orange-100 uppercase tracking-wider">{t("Level", "Level")}</p>
+                  <p className="text-xs font-black text-white uppercase truncate">{customerLevel.name}</p>
+                </div>
+              </div>
+
+              {/* Poin */}
+              <div 
+                onClick={() => navigate(user ? `/poin/${encodeURIComponent(user.Nama)}` : '/poin')}
+                className="cursor-pointer flex items-center justify-center gap-2.5 hover:opacity-90 transition-opacity active:scale-98 pl-2"
+              >
+                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+                  <Star className="w-4 h-4 text-amber-300 fill-amber-300" />
+                </div>
+                <div className="text-left min-w-0">
+                  <p className="text-[8px] font-black text-orange-100 uppercase tracking-wider">{t("Poin Saya", "My Points")}</p>
+                  <p className="text-xs font-black text-white uppercase truncate">
+                    {activePoints.toLocaleString('id-ID')} {t("Poin", "Pts")}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
         </div>
       </div>
 
-      {/* 2. KELOMPOK REWARD (Pindahkan ke atas aset) */}
+      {/* 2. KELOMPOK ASET & HUTANG */}
       {user && (
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
-          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">{t("Loyalitas & Reward", "Loyalty & Rewards")}</h3>
-          <div className="grid grid-cols-2 gap-4">
-            
-            {/* Level (Sebelah Kiri) */}
+        <>
+          <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 px-1">
+            ASET & HUTANG
+          </h3>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 p-5">
             <div 
-              onClick={() => navigate("/level")}
-              className="bg-slate-50 hover:bg-slate-100/50 border border-slate-100/50 dark:border-slate-800/50 p-4 rounded-lg cursor-pointer transition-all active:scale-95 flex items-center gap-3"
+              ref={assetScrollRef}
+              className="flex overflow-x-auto gap-3.5 snap-x snap-mandatory scrollbar-hide pb-1 w-full"
             >
-              <div className={`w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center text-orange-500 shrink-0`}>
-                <Trophy className="w-5 h-5 text-[#F15A24] fill-[#F15A24]" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">{t("Level Pelanggan", "Customer Level")}</p>
-                <p className="text-xs font-black text-[#F15A24] uppercase truncate">{customerLevel.name}</p>
-              </div>
-            </div>
+              
+              {/* Tabungan Card */}
+              <div 
+                onClick={() => {
+                  navigate(`/tabungan/${encodeURIComponent(user?.Nama || '')}`);
+                }}
+                className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#2ecc71] to-[#27ae60] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
+              >
+                {/* Left spine fold shadow line of the wallet */}
+                <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
+                
+                {/* Slit/Slot design lines simulating wallet card slots */}
+                <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
+                <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
+                
+                {/* Wallet clasp fastener extending from the right side */}
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
+                  <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
+                  </div>
+                </div>
 
-            {/* Poin (Sebelah Kanan) */}
-            <div 
-              onClick={() => navigate(user ? `/poin/${encodeURIComponent(user.Nama)}` : '/poin')}
-              className="bg-slate-50 hover:bg-slate-100/50 border border-slate-100/50 dark:border-slate-800/50 p-4 rounded-lg cursor-pointer transition-all active:scale-95 flex items-center gap-3"
-            >
-              <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
-                <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                {/* Content: Icon & Text Info */}
+                <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
+                  <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
+                    <Wallet className="w-4 h-4 text-white" />
+                  </div>
+                  
+                  <div className="min-w-0 text-left flex-1">
+                    <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
+                      {t("Tabungan", "Savings")}
+                    </p>
+                    <div className="flex items-center gap-0.5 leading-none">
+                      <span className="text-[7px] font-black text-white/70 italic">Rp</span>
+                      <span className="text-xs font-black text-white tracking-tight truncate block">
+                        {tabunganBalance.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">{t("Poin Saya", "My Points")}</p>
-                <p className="text-xs font-black text-amber-600 uppercase truncate">
-                  {activePoints.toLocaleString('id-ID')} {t("Poin", "Pts")}
-                </p>
-              </div>
-            </div>
 
+              {/* Investasi Card */}
+              <div 
+                onClick={() => {
+                  navigate(`/investasi/${encodeURIComponent(user?.Nama || '')}`);
+                }}
+                className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#9b59b6] to-[#8e44ad] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
+              >
+                {/* Left spine fold shadow line of the wallet */}
+                <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
+                
+                {/* Slit/Slot design lines simulating wallet card slots */}
+                <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
+                <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
+                
+                {/* Wallet clasp fastener extending from the right side */}
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
+                  <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
+                  </div>
+                </div>
+
+                {/* Content: Icon & Text Info */}
+                <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
+                  <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
+                    <TrendingUp className="w-4 h-4 text-white" />
+                  </div>
+                  
+                  <div className="min-w-0 text-left flex-1">
+                    <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
+                      {t("Investasi", "Investments")}
+                    </p>
+                    <div className="flex items-center gap-0.5 leading-none">
+                      <span className="text-[7px] font-black text-white/70 italic">Rp</span>
+                      <span className="text-xs font-black text-white tracking-tight truncate block">
+                        {investasiBalance.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lainnya Card */}
+              <div 
+                onClick={() => {
+                  navigate(`/lainnya/${encodeURIComponent(user?.Nama || '')}`);
+                }}
+                className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#f1c40f] to-[#f39c12] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
+              >
+                {/* Left spine fold shadow line of the wallet */}
+                <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
+                
+                {/* Slit/Slot design lines simulating wallet card slots */}
+                <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
+                <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
+                
+                {/* Wallet clasp fastener extending from the right side */}
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
+                  <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
+                  </div>
+                </div>
+
+                {/* Content: Icon & Text Info */}
+                <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
+                  <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
+                    <ShoppingBag className="w-4 h-4 text-white" />
+                  </div>
+                  
+                  <div className="min-w-0 text-left flex-1">
+                    <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
+                      {t("Lainnya", "Others")}
+                    </p>
+                    <div className="flex items-center gap-0.5 leading-none">
+                      <span className="text-[7px] font-black text-white/70 italic">Rp</span>
+                      <span className="text-xs font-black text-white tracking-tight truncate block">
+                        {lainnyaBalance.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hutang Card */}
+              <div 
+                onClick={() => {
+                  navigate(`/hutang/${encodeURIComponent(user?.Nama || '')}`);
+                }}
+                className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#e74c3c] to-[#c0392b] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
+              >
+                {/* Left spine fold shadow line of the wallet */}
+                <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
+                
+                {/* Slit/Slot design lines simulating wallet card slots */}
+                <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
+                <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
+                
+                {/* Wallet clasp fastener extending from the right side */}
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
+                  <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
+                  </div>
+                </div>
+
+                {/* Content: Icon & Text Info */}
+                <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
+                  <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
+                    <CreditCard className="w-4 h-4 text-white" />
+                  </div>
+                  
+                  <div className="min-w-0 text-left flex-1">
+                    <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
+                      {t("Hutang", "Debt")}
+                    </p>
+                    <div className="flex items-center gap-0.5 leading-none">
+                      <span className="text-[7px] font-black text-white/70 italic">Rp</span>
+                      <span className="text-xs font-black text-white tracking-tight truncate block">
+                        {hutangBalance.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* 3. KELOMPOK ASET */}
-      {user && (
-        <div className="bg-white rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 overflow-hidden mb-6 p-6">
-          <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] mb-4">{t("Aset/Hutang", "Assets & Liabilities")}</h3>
-          <div 
-            ref={assetScrollRef}
-            className="flex overflow-x-auto gap-3.5 snap-x snap-mandatory scrollbar-hide pb-1 w-full"
-          >
-            
-            {/* Tabungan Card */}
-            <div 
-              onClick={() => {
-                navigate(`/tabungan/${encodeURIComponent(user?.Nama || '')}`);
-              }}
-              className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#2ecc71] to-[#27ae60] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
-            >
-              {/* Left spine fold shadow line of the wallet */}
-              <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
-              
-              {/* Slit/Slot design lines simulating wallet card slots */}
-              <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
-              <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
-              
-              {/* Wallet clasp fastener extending from the right side */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
-                <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
-                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
-                </div>
-              </div>
 
-              {/* Content: Icon & Text Info */}
-              <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
-                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
-                  <Wallet className="w-4 h-4 text-white" />
-                </div>
-                
-                <div className="min-w-0 text-left flex-1">
-                  <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
-                    {t("Tabungan", "Savings")}
-                  </p>
-                  <div className="flex items-center gap-0.5 leading-none">
-                    <span className="text-[7px] font-black text-white/70 italic">Rp</span>
-                    <span className="text-xs font-black text-white tracking-tight truncate block">
-                      {tabunganBalance.toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Investasi Card */}
-            <div 
-              onClick={() => {
-                navigate(`/investasi/${encodeURIComponent(user?.Nama || '')}`);
-              }}
-              className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#9b59b6] to-[#8e44ad] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
-            >
-              {/* Left spine fold shadow line of the wallet */}
-              <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
-              
-              {/* Slit/Slot design lines simulating wallet card slots */}
-              <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
-              <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
-              
-              {/* Wallet clasp fastener extending from the right side */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
-                <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
-                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
-                </div>
-              </div>
-
-              {/* Content: Icon & Text Info */}
-              <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
-                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
-                  <TrendingUp className="w-4 h-4 text-white" />
-                </div>
-                
-                <div className="min-w-0 text-left flex-1">
-                  <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
-                    {t("Investasi", "Investments")}
-                  </p>
-                  <div className="flex items-center gap-0.5 leading-none">
-                    <span className="text-[7px] font-black text-white/70 italic">Rp</span>
-                    <span className="text-xs font-black text-white tracking-tight truncate block">
-                      {investasiBalance.toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Lainnya Card */}
-            <div 
-              onClick={() => {
-                navigate(`/lainnya/${encodeURIComponent(user?.Nama || '')}`);
-              }}
-              className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#f1c40f] to-[#f39c12] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
-            >
-              {/* Left spine fold shadow line of the wallet */}
-              <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
-              
-              {/* Slit/Slot design lines simulating wallet card slots */}
-              <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
-              <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
-              
-              {/* Wallet clasp fastener extending from the right side */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
-                <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
-                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
-                </div>
-              </div>
-
-              {/* Content: Icon & Text Info */}
-              <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
-                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
-                  <ShoppingBag className="w-4 h-4 text-white" />
-                </div>
-                
-                <div className="min-w-0 text-left flex-1">
-                  <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
-                    {t("Lainnya", "Others")}
-                  </p>
-                  <div className="flex items-center gap-0.5 leading-none">
-                    <span className="text-[7px] font-black text-white/70 italic">Rp</span>
-                    <span className="text-xs font-black text-white tracking-tight truncate block">
-                      {lainnyaBalance.toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Hutang Card */}
-            <div 
-              onClick={() => {
-                navigate(`/hutang/${encodeURIComponent(user?.Nama || '')}`);
-              }}
-              className="relative flex flex-col justify-between w-[170px] h-[4.75rem] bg-gradient-to-br from-[#e74c3c] to-[#c0392b] hover:brightness-105 hover:shadow-lg active:scale-95 transition-all duration-300 rounded-lg overflow-hidden shadow-md border border-white/10 cursor-pointer p-3.5 pl-4.5 shrink-0 snap-start group/wallet"
-            >
-              {/* Left spine fold shadow line of the wallet */}
-              <div className="absolute left-0 top-0 w-1.5 h-full bg-black/10 rounded-l-lg pointer-events-none" />
-              
-              {/* Slit/Slot design lines simulating wallet card slots */}
-              <div className="absolute top-2 right-8 w-12 h-[1px] bg-white/20 pointer-events-none" />
-              <div className="absolute top-3.5 right-8 w-12 h-[1px] bg-white/15 pointer-events-none" />
-              
-              {/* Wallet clasp fastener extending from the right side */}
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center z-10 pointer-events-none">
-                <div className="w-6 h-5.5 rounded-l-md bg-white/15 backdrop-blur-md flex items-center justify-center border-y border-l border-white/30 shadow-sm group-hover/wallet:w-7 transition-all duration-300">
-                  <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-300 to-yellow-500 border border-white/40 shadow-inner" />
-                </div>
-              </div>
-
-              {/* Content: Icon & Text Info */}
-              <div className="flex items-center gap-2.5 z-10 pr-3 h-full">
-                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white shrink-0 shadow-inner group-hover/wallet:scale-105 transition-transform duration-300">
-                  <CreditCard className="w-4 h-4 text-white" />
-                </div>
-                
-                <div className="min-w-0 text-left flex-1">
-                  <p className="text-[7.5px] font-black text-white/85 uppercase tracking-wider leading-none mb-1">
-                    {t("Hutang", "Debt")}
-                  </p>
-                  <div className="flex items-center gap-0.5 leading-none">
-                    <span className="text-[7px] font-black text-white/70 italic">Rp</span>
-                    <span className="text-xs font-black text-white tracking-tight truncate block">
-                      {hutangBalance.toLocaleString('id-ID')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* 3.5 KELOMPOK KELENGKAPAN AKUN */}
-      {user && (() => {
-        const hasPin = Boolean(user.PIN || user.pin);
-        const hasPhoto = Boolean(user.Foto || user.foto);
-        const hasPhone = Boolean(user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp);
-        const hasAddress = Boolean(user.Alamat || user.alamat);
-
-        const totalItems = 4;
-        const completedCount = (hasPin ? 1 : 0) + (hasPhoto ? 1 : 0) + (hasPhone ? 1 : 0) + (hasAddress ? 1 : 0);
-        const completionPercentage = Math.round((completedCount / totalItems) * 100);
-
-        return (
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 p-6">
-            <div 
-              onClick={() => setIsCompletionExpanded(prev => !prev)}
-              className="flex items-center justify-between cursor-pointer select-none group"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em]">
-                    {language === "en" ? "Account Completion" : "Kelengkapan Akun"}
-                  </h3>
-                  {isCompletionExpanded ? (
-                    <ChevronUp className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-[#005E6A] transition-colors" />
-                  ) : (
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-[#005E6A] transition-colors" />
-                  )}
-                </div>
-                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider mt-0.5">
-                  {completedCount} dari {totalItems} Selesai ({completionPercentage}%)
-                </p>
-              </div>
-              <span className={`text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider ${
-                completionPercentage === 100 
-                  ? "bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800" 
-                  : "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
-              }`}>
-                {completionPercentage === 100 ? "Lengkap" : "Belum Lengkap"}
-              </span>
-            </div>
-
-            {/* Progress Bar (Always visible) */}
-            <div 
-              onClick={() => setIsCompletionExpanded(prev => !prev)}
-              className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mt-3 cursor-pointer"
-            >
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${completionPercentage}%` }}
-                transition={{ duration: 0.8, ease: "easeOut" }}
-                className="h-full bg-gradient-to-r from-[#005E6A] to-teal-400 rounded-full"
-              />
-            </div>
-
-            {/* Checklist items (Expandable) */}
-            <AnimatePresence>
-              {isCompletionExpanded && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                  animate={{ opacity: 1, height: "auto", marginTop: 16 }}
-                  exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                  className="space-y-2.5 overflow-hidden"
-                >
-                  {/* Item 1: PIN Keamanan */}
-                  <div 
-                    onClick={() => navigate("/pengaturan-profil")}
-                    className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
-                      hasPin 
-                        ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 hover:bg-slate-100/60" 
-                        : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                        hasPin 
-                          ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
-                          : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
-                      }`}>
-                        <KeyRound className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                          1. PIN Keamanan
-                        </p>
-                        <p className={`text-[9px] font-bold uppercase tracking-wider ${
-                          hasPin ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
-                        }`}>
-                          {hasPin ? "PIN sudah diatur" : "Belum ada PIN (Atur di Pengaturan Profil)"}
-                        </p>
-                      </div>
-                    </div>
-                    {hasPin ? (
-                      <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Item 2: Foto Profil */}
-                  <div 
-                    onClick={() => navigate("/pengaturan-profil")}
-                    className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
-                      hasPhoto 
-                        ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 hover:bg-slate-100/60" 
-                        : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                        hasPhoto 
-                          ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
-                          : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
-                      }`}>
-                        <Camera className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                          2. Foto Profil
-                        </p>
-                        <p className={`text-[9px] font-bold uppercase tracking-wider ${
-                          hasPhoto ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
-                        }`}>
-                          {hasPhoto ? "Foto profil sudah terpasang" : "Belum ada foto (Unggah Foto)"}
-                        </p>
-                      </div>
-                    </div>
-                    {hasPhoto ? (
-                      <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Item 3: Nomor Ponsel */}
-                  <div 
-                    onClick={() => navigate("/pengaturan-profil")}
-                    className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
-                      hasPhone 
-                        ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 hover:bg-slate-100/60" 
-                        : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                        hasPhone 
-                          ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
-                          : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
-                      }`}>
-                        <Phone className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                          3. Nomor Ponsel
-                        </p>
-                        <p className={`text-[9px] font-bold uppercase tracking-wider ${
-                          hasPhone ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
-                        }`}>
-                          {hasPhone 
-                            ? (user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp) 
-                            : "Belum ada nomor ponsel (Lengkapi Sekarang)"}
-                        </p>
-                      </div>
-                    </div>
-                    {hasPhone ? (
-                      <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Item 4: Alamat */}
-                  <div 
-                    onClick={() => navigate("/pengaturan-profil")}
-                    className={`p-3 rounded-2xl border flex items-center justify-between transition-all cursor-pointer ${
-                      hasAddress 
-                        ? "bg-slate-50/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-800 hover:bg-slate-100/60" 
-                        : "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                        hasAddress 
-                          ? "bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400" 
-                          : "bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400"
-                      }`}>
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight">
-                          4. Alamat
-                        </p>
-                        <p className={`text-[9px] font-bold uppercase tracking-wider ${
-                          hasAddress ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"
-                        }`}>
-                          {hasAddress 
-                            ? (user.Alamat || user.alamat) 
-                            : "Belum ada alamat (Lengkapi Sekarang)"}
-                        </p>
-                      </div>
-                    </div>
-                    {hasAddress ? (
-                      <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
-                    ) : (
-                      <div className="w-5 h-5 rounded-full border-2 border-amber-400 flex items-center justify-center shrink-0">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        );
-      })()}
 
       {/* Toast Notification Banner for Settings Changes */}
       <AnimatePresence>
@@ -20557,11 +21632,11 @@ const ProfilPage = ({
         )}
       </AnimatePresence>
 
-      {/* 4. KELOMPOK PENGATURAN */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 p-6">
-        <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-3">
-          {language === "en" ? "Settings" : "Pengaturan"}
-        </h3>
+      {/* 3. KELOMPOK PENGATURAN */}
+      <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 px-1">
+        PENGATURAN
+      </h3>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 p-5">
         <div className="space-y-1">
           
           {/* Pengaturan Profil (Posisi Pertama) */}
@@ -21106,9 +22181,11 @@ const ProfilPage = ({
         )}
       </AnimatePresence>
 
-      {/* 5. KELOMPOK PUSAT INFORMASI */}
-      <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 p-6">
-        <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-3">{t("Pusat Informasi", "Information Center")}</h3>
+      {/* 4. KELOMPOK PUSAT INFORMASI */}
+      <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 px-1">
+        PUSAT INFORMASI
+      </h3>
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden mb-6 p-5">
         <div className="space-y-1">
           
           {/* Lokasi */}
@@ -21169,20 +22246,15 @@ const ProfilPage = ({
         </div>
       </div>
 
-      {/* Logout / Spacing Button */}
-      {user ? (
-        <div className="px-2 mb-20">
-          <button 
-            onClick={onLogout}
-            className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 p-5 rounded-[2rem] flex items-center justify-center gap-3 transition-all active:scale-95 border border-rose-100 dark:border-rose-900/50 shadow-sm group cursor-pointer"
-          >
-            <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-xs font-black uppercase tracking-[0.3em]">{t("Keluar Akun", "Log Out")}</span>
-          </button>
-        </div>
-      ) : (
-        <div className="h-20 mb-20" />
-      )}
+      {/* Copyright Warungtomi 2026 at bottom */}
+      <div className="text-center py-6 mb-20">
+        <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.25em]">
+          © 2026 WARUNGTOMI
+        </p>
+        <p className="text-[8px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest mt-0.5">
+          Hak Cipta Dilindungi
+        </p>
+      </div>
       </motion.div>
 
       {/* QR Code Popup Modal */}
@@ -21279,6 +22351,164 @@ const ProfilPage = ({
                   <p className="text-sm font-black text-[#F15A24]">Rp {customerLevel.total.toLocaleString('id-ID')}</p>
                 </div>
               </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* Photo Picker Options Modal */}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {isPhotoPickerOpen && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl border border-slate-100 flex flex-col items-center relative text-center"
+              >
+                <button 
+                  onClick={() => setIsPhotoPickerOpen(false)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                
+                <div className="w-12 h-12 bg-[#F15A24]/10 rounded-2xl flex items-center justify-center mb-3 text-[#F15A24]">
+                  <Camera className="w-6 h-6" />
+                </div>
+                
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide mb-1">
+                  Ubah Foto Profil
+                </h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-5">
+                  Pilih sumber foto yang ingin Anda gunakan
+                </p>
+                
+                <div className="w-full space-y-2.5">
+                  <button
+                    onClick={() => {
+                      setIsPhotoPickerOpen(false);
+                      setTimeout(() => cameraInputRef.current?.click(), 100);
+                    }}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-[#F15A24] to-orange-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>Ambil dari Kamera</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsPhotoPickerOpen(false);
+                      setTimeout(() => galleryInputRef.current?.click(), 100);
+                    }}
+                    className="w-full py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+                  >
+                    <Image className="w-4 h-4 text-slate-500" />
+                    <span>Pilih dari Galeri</span>
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* Full Screen Interactive Zoomable Photo Modal */}
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {fullScreenPhotoUrl && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-md flex flex-col items-center justify-between p-4 select-none"
+              onClick={() => {
+                setFullScreenPhotoUrl(null);
+                setZoomScale(1);
+              }}
+            >
+              {/* Header Controls */}
+              <div 
+                className="w-full max-w-xl flex items-center justify-between z-10 text-white p-2.5 bg-black/60 rounded-2xl backdrop-blur-md border border-white/10 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center gap-2 pl-2">
+                  <User className="w-4 h-4 text-orange-400" />
+                  <span className="text-xs font-black uppercase tracking-wider text-white truncate max-w-[150px] sm:max-w-xs">
+                    {user?.Nama || "Foto Profil"}
+                  </span>
+                </div>
+                
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setZoomScale(prev => Math.max(0.5, Number((prev - 0.25).toFixed(2))))}
+                    className="p-2 bg-white/10 hover:bg-white/20 active:scale-95 rounded-xl text-white transition-all cursor-pointer"
+                    title="Zoom Out (-)"
+                  >
+                    <ZoomOut className="w-4 h-4" />
+                  </button>
+                  <span className="text-[11px] font-black font-mono w-12 text-center text-amber-300">
+                    {Math.round(zoomScale * 100)}%
+                  </span>
+                  <button
+                    onClick={() => setZoomScale(prev => Math.min(4, Number((prev + 0.25).toFixed(2))))}
+                    className="p-2 bg-white/10 hover:bg-white/20 active:scale-95 rounded-xl text-white transition-all cursor-pointer"
+                    title="Zoom In (+)"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+                  {zoomScale !== 1 && (
+                    <button
+                      onClick={() => setZoomScale(1)}
+                      className="px-2.5 py-1 bg-white/15 hover:bg-white/25 rounded-xl text-[10px] font-bold text-slate-200 transition-all cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setFullScreenPhotoUrl(null);
+                      setZoomScale(1);
+                    }}
+                    className="p-2 bg-red-500/80 hover:bg-red-600 rounded-xl text-white transition-all cursor-pointer ml-1"
+                    title="Tutup"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Zoomable Image Canvas */}
+              <div 
+                className="flex-1 w-full flex items-center justify-center overflow-auto p-4 relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <motion.img 
+                  src={fullScreenPhotoUrl} 
+                  alt={user?.Nama || "Foto Profil Full Screen"} 
+                  className="max-w-full max-h-[82vh] object-contain rounded-2xl shadow-2xl transition-transform duration-200 cursor-zoom-in"
+                  style={{ transform: `scale(${zoomScale})` }}
+                  onDoubleClick={() => setZoomScale(prev => prev > 1 ? 1 : 2.25)}
+                />
+              </div>
+
+              {/* Bottom hint */}
+              <div 
+                className="w-full max-w-xs text-center pb-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-[10px] text-white/70 font-medium tracking-wide bg-black/60 px-3.5 py-1.5 rounded-full border border-white/10 inline-block backdrop-blur-md shadow-lg">
+                  Ketuk 2x foto untuk zoom • Gunakan + / - untuk skala
+                </p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>,
@@ -25270,20 +26500,21 @@ export default function App() {
 
       if (cData && cData.length > 0) {
         const updatedCustomers = cData.map(c => {
-          const name = c.Nama;
+          const name = c.Nama || c.nama || '';
           const levelInfo = calculateCustomerLevel(processedSales, name);
           const activePoints = calculateActivePoints(name, processedSales, processedRedeemedPoints);
-          
-          const userSavings = allSavingsTransactions.filter(s => s.Nama.toLowerCase() === name.toLowerCase());
+          const nameLower = (name || "").toLowerCase();
+
+          const userSavings = allSavingsTransactions.filter(s => (s.Nama || (s as any).nama || "").toLowerCase() === nameLower);
           const lastSaving = userSavings[userSavings.length - 1];
           const savingBal = lastSaving ? lastSaving.SaldoAkhir : c.Tabungan;
 
-          const userDebts = allDebtTransactions.filter(d => d.Nama.toLowerCase() === name.toLowerCase());
+          const userDebts = allDebtTransactions.filter(d => (d.Nama || (d as any).nama || "").toLowerCase() === nameLower);
           const lastDebt = userDebts[userDebts.length - 1];
           const debtBal = lastDebt ? lastDebt.SaldoAkhir : c.Hutang;
 
-          const userInvests = allInvestmentTransactions.filter(i => i.Nama.toLowerCase() === name.toLowerCase() && i.Status.toLowerCase() !== "sukses dicairkan");
-          const investBal = userInvests.length > 0 ? userInvests.reduce((acc, curr) => acc + curr.Nominal, 0) : c.Investasi;
+          const userInvests = allInvestmentTransactions.filter(i => (i.Nama || (i as any).nama || "").toLowerCase() === nameLower && (i.Status || (i as any).status || "").toLowerCase() !== "sukses dicairkan");
+          const investBal = userInvests.length > 0 ? userInvests.reduce((acc, curr) => acc + (curr.Nominal || 0), 0) : c.Investasi;
 
           return {
             ...c,
@@ -25299,7 +26530,9 @@ export default function App() {
 
         setLoggedInUser(prev => {
           if (!prev) return null;
-          const updated = updatedCustomers.find(vc => vc.Nama.toLowerCase() === prev.Nama.toLowerCase());
+          const prevName = (prev.Nama || (prev as any).nama || "").toLowerCase();
+          if (!prevName) return prev;
+          const updated = updatedCustomers.find(vc => (vc.Nama || (vc as any).nama || "").toLowerCase() === prevName);
           return updated || prev;
         });
       }
@@ -25577,6 +26810,7 @@ export default function App() {
                 onLogin={handleLogin}
                 setCustomers={setCustomers}
                 onUpdatePhoto={handleUpdatePhoto}
+                onLogout={handleLogout}
               />
             </ProtectedPage>
           </Layout>
@@ -25593,6 +26827,7 @@ export default function App() {
                 onLogin={handleLogin}
                 setCustomers={setCustomers}
                 onUpdatePhoto={handleUpdatePhoto}
+                onLogout={handleLogout}
               />
             </ProtectedPage>
           </Layout>
@@ -25856,6 +27091,22 @@ export default function App() {
               setSavingsTransactions={setSavingsTransactions}
               debtTransactions={debtTransactions}
               setDebtTransactions={setDebtTransactions}
+            />
+          </AdminLayout>
+        } />
+        <Route path="/admin/input-data" element={
+          <AdminLayout activeTab="database">
+            <AdminInputDataPage 
+              salesTransactions={salesTransactions}
+              setSalesTransactions={setSalesTransactions}
+              customers={customers}
+              setCustomers={setCustomers}
+              savingsTransactions={savingsTransactions}
+              setSavingsTransactions={setSavingsTransactions}
+              debtTransactions={debtTransactions}
+              setDebtTransactions={setDebtTransactions}
+              investmentTransactions={investmentTransactions}
+              setInvestmentTransactions={setInvestmentTransactions}
             />
           </AdminLayout>
         } />
