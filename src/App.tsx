@@ -108,6 +108,9 @@ import {
   Download,
   Layers,
   ChevronLeft,
+  Contact,
+  Wifi,
+  Sparkles,
   Printer,
   ShoppingCart,
   ScanLine,
@@ -126,7 +129,6 @@ import {
   Cookie,
   CupSoda,
   Flame,
-  Sparkles,
   Pill,
   Pencil,
   LogIn,
@@ -2685,6 +2687,9 @@ const MainServices = ({ loggedInUser }: { loggedInUser: Customer | null }) => {
                 else if (service.name === "Poin Loyalitas") navigate("/poin");
                 else if (service.name === "QRIS") navigate("/qris");
                 else if (service.name === "Tarik Tunai") navigate("/tariktunai");
+                else if (service.name === "Pulsa") navigate("/pulsa");
+                else if (service.name === "Data" || service.name === "Paket Data") navigate("/paket-data");
+                else if (service.name === "Listrik" || service.name === "Token Listrik") navigate("/listrik");
                 else if (service.id === 1) navigate("/admin");
               }}
               className="flex flex-col items-center gap-2 group"
@@ -2989,7 +2994,12 @@ const LoginPage = ({
   };
 
   const handlePinSubmit = () => {
-    if (selectedCustomer && selectedCustomer.PIN === pinInput && onLogin && setActiveTab) {
+    const cleanPin = pinInput.trim();
+    if (cleanPin.length !== 6) {
+      setError("PIN HARUS 6 DIGIT");
+      return;
+    }
+    if (selectedCustomer && String(selectedCustomer.PIN || selectedCustomer.pin || "").trim() === cleanPin && onLogin && setActiveTab) {
       onLogin(selectedCustomer);
       setCustomerName("");
       setPinInput("");
@@ -3161,9 +3171,15 @@ const LoginPage = ({
                 <input 
                   type="password" 
                   inputMode="numeric"
-                  placeholder="MASUKKAN PIN"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  placeholder="MASUKKAN PIN (6 DIGIT)"
                   value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setPinInput(val);
+                    setError("");
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handlePinSubmit();
                   }}
@@ -20206,22 +20222,24 @@ const ProfileSettingsPage = ({
       }
     }
 
-    if (!newPinInput.trim()) {
+    const cleanNewPin = newPinInput.trim();
+
+    if (!cleanNewPin) {
       setModalError(language === "en" ? "New PIN cannot be empty." : "PIN baru tidak boleh kosong.");
       return;
     }
 
-    if (newPinInput.trim().length < 4) {
-      setModalError(language === "en" ? "New PIN must be at least 4 digits." : "PIN baru minimal 4 digit.");
+    if (!/^\d{6}$/.test(cleanNewPin)) {
+      setModalError(language === "en" ? "PIN must be exactly 6 digits." : "PIN harus 6 digit angka (tidak boleh kurang atau lebih).");
       return;
     }
 
-    if (newPinInput.trim() !== confirmPinInput.trim()) {
+    if (cleanNewPin !== confirmPinInput.trim()) {
       setModalError(language === "en" ? "New PIN and Confirmation PIN do not match." : "PIN baru dan Konfirmasi PIN tidak cocok.");
       return;
     }
 
-    await saveUserData({ pin: newPinInput.trim() });
+    await saveUserData({ pin: cleanNewPin });
   };
 
   const hasExistingPin = Boolean(user?.PIN || user?.pin);
@@ -20283,9 +20301,11 @@ const ProfileSettingsPage = ({
                     <User className="w-5 h-5 text-slate-400" />
                   )}
                 </div>
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">
-                  {currentPhoto ? "Foto Terpasang" : "Belum Ada Foto"}
-                </span>
+                {!currentPhoto && (
+                  <span className="text-xs font-bold text-amber-500 dark:text-amber-400 font-extrabold truncate">
+                    Belum Ada Foto
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -20312,7 +20332,7 @@ const ProfileSettingsPage = ({
               <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 Nama Lengkap
               </p>
-              <p className="text-xs font-bold text-slate-800 dark:text-white truncate mt-0.5">
+              <p className={`text-xs font-bold ${nameInput ? "text-slate-800 dark:text-white" : "text-amber-500 dark:text-amber-400 font-extrabold"} truncate mt-0.5`}>
                 {nameInput || "Belum diisi"}
               </p>
             </div>
@@ -20339,7 +20359,7 @@ const ProfileSettingsPage = ({
               <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 Nomor Telepon / WA
               </p>
-              <p className="text-xs font-bold text-slate-800 dark:text-white truncate mt-0.5">
+              <p className={`text-xs font-bold ${phoneInput ? "text-slate-800 dark:text-white" : "text-amber-500 dark:text-amber-400 font-extrabold"} truncate mt-0.5`}>
                 {phoneInput || "Belum diisi"}
               </p>
             </div>
@@ -20366,7 +20386,7 @@ const ProfileSettingsPage = ({
               <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 Alamat Tempat Tinggal
               </p>
-              <p className="text-xs font-bold text-slate-800 dark:text-white break-words whitespace-normal leading-snug mt-0.5">
+              <p className={`text-xs font-bold ${addressInput ? "text-slate-800 dark:text-white" : "text-amber-500 dark:text-amber-400 font-extrabold"} break-words whitespace-normal leading-snug mt-0.5`}>
                 {addressInput || "Belum diisi"}
               </p>
             </div>
@@ -20401,8 +20421,8 @@ const ProfileSettingsPage = ({
               <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 PIN Keamanan Login
               </p>
-              <p className="text-xs font-bold text-slate-800 dark:text-white truncate mt-0.5">
-                {hasExistingPin ? "•••••• (PIN Sudah Diatur)" : "Belum Ada PIN"}
+              <p className={`text-xs font-bold ${hasExistingPin ? "text-slate-800 dark:text-white" : "text-amber-500 dark:text-amber-400 font-extrabold"} truncate mt-0.5`}>
+                {hasExistingPin ? "*****" : "Belum Ada PIN"}
               </p>
             </div>
           </div>
@@ -20760,9 +20780,12 @@ const ProfileSettingsPage = ({
                         <div className="relative">
                           <input
                             type={showOldPin ? "text" : "password"}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={6}
                             value={oldPinInput}
-                            onChange={(e) => setOldPinInput(e.target.value)}
-                            placeholder="Masukkan PIN lama"
+                            onChange={(e) => setOldPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            placeholder="Masukkan 6 digit PIN lama"
                             className="w-full pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
                           />
                           <button
@@ -20784,9 +20807,12 @@ const ProfileSettingsPage = ({
                       <div className="relative">
                         <input
                           type={showNewPin ? "text" : "password"}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={6}
                           value={newPinInput}
-                          onChange={(e) => setNewPinInput(e.target.value)}
-                          placeholder="Minimal 4 digit"
+                          onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="Masukkan 6 digit PIN baru"
                           className="w-full pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
                         />
                         <button
@@ -20807,9 +20833,12 @@ const ProfileSettingsPage = ({
                       <div className="relative">
                         <input
                           type={showConfirmPin ? "text" : "password"}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={6}
                           value={confirmPinInput}
-                          onChange={(e) => setConfirmPinInput(e.target.value)}
-                          placeholder="Ulangi PIN baru"
+                          onChange={(e) => setConfirmPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="Ulangi 6 digit PIN baru"
                           className="w-full pl-4 pr-10 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
                         />
                         <button
@@ -21237,76 +21266,76 @@ const ProfilPage = ({
         className="hidden" 
       />
 
-      {/* 1. KELOMPOK PROFIL & REWARD (GABUNG 1 KARTU, FOTO DI TENGAH) */}
+      {/* 1. KELOMPOK PROFIL & REWARD (GABUNG 1 KARTU, KARTU PUTIH, FOTO FULL KOTAK, NAMA DI BEBAWAH FOTO) */}
       <h3 className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-[0.2em] mb-2 px-1">
         PROFIL
       </h3>
-      <div className="bg-gradient-to-br from-[#F15A24] via-orange-500 to-amber-500 rounded-2xl shadow-xl shadow-orange-500/20 text-white overflow-hidden mb-6 p-5 relative">
-        {/* Decorative Glow */}
-        <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none text-slate-800 dark:text-white overflow-hidden mb-6 relative">
+        
+        {/* Full Square Photo Area (Tinggi & Lebar Sama) */}
+        <div 
+          onClick={() => {
+            if (user?.Foto) {
+              setFullScreenPhotoUrl(user.Foto);
+              setZoomScale(1);
+            } else {
+              setToastNotice(language === "en" ? "No profile photo set yet" : "Foto profil belum diatur.");
+              setTimeout(() => setToastNotice(null), 3000);
+            }
+          }}
+          className={`relative w-full aspect-square overflow-hidden ${user?.Foto ? "bg-slate-100 dark:bg-slate-800" : "bg-gradient-to-br from-[#F15A24] via-orange-500 to-amber-500"} cursor-pointer group`}
+          title={user?.Foto ? "Klik untuk lihat foto full screen" : "Foto Profil"}
+        >
+          {user?.Foto ? (
+            <img 
+              src={user.Foto} 
+              alt={user?.Nama || "Profile"} 
+              className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300" 
+              referrerPolicy="no-referrer" 
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center p-4 relative">
+              {/* Subtle Background Glows */}
+              <div className="absolute -top-10 -left-10 w-48 h-48 bg-white/20 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -bottom-10 -right-10 w-52 h-52 bg-black/15 rounded-full blur-2xl pointer-events-none" />
 
-        {/* QR Code Button at Top Right */}
-        {user && (
-          <div className="absolute top-4 right-4 z-10">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setShowQR(true)}
-              className="p-2.5 bg-white/20 hover:bg-white/30 border border-white/30 rounded-xl transition-all shadow-sm flex items-center justify-center cursor-pointer backdrop-blur-md"
-              title="Tampilkan QR Code"
-            >
-              <QrCode className="w-5 h-5 text-white" />
-            </motion.button>
-          </div>
-        )}
-
-        <div className="flex flex-col items-center justify-center text-center relative z-10 pt-1">
-          
-          {/* Centered Profile Photo */}
-          <div className="relative group cursor-pointer mb-3">
-            <div 
-              onClick={() => {
-                if (user?.Foto) {
-                  setFullScreenPhotoUrl(user.Foto);
-                  setZoomScale(1);
-                } else {
-                  setToastNotice(language === "en" ? "No profile photo set yet" : "Foto profil belum diatur.");
-                  setTimeout(() => setToastNotice(null), 3000);
-                }
-              }}
-              className="w-28 h-28 rounded-full border-4 border-white overflow-hidden bg-white/20 shadow-xl relative flex items-center justify-center cursor-pointer active:scale-95 transition-all duration-300 hover:ring-4 hover:ring-white/40"
-              title={user?.Foto ? "Klik untuk lihat foto full screen" : "Foto Profil"}
-            >
-              {user?.Foto ? (
-                <img src={user.Foto} alt={user.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <div className="w-full h-full bg-white/20 flex items-center justify-center">
-                  <User className="w-14 h-14 text-white drop-shadow-md" />
-                </div>
-              )}
+              <User className="w-28 h-28 sm:w-36 sm:h-36 text-white drop-shadow-xl relative z-10" />
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Centered Name and ID */}
+        {/* Card Content Area Below Photo */}
+        <div className="p-4 sm:p-5 pt-4 relative z-10">
+          
+          {/* Centered Name and SCAN QR Badge directly below photo */}
           {user ? (
-            <div className="mb-1">
-              <h1 className="text-xl font-black text-white uppercase tracking-tight leading-tight mb-0.5 drop-shadow-xs">
+            <div className="flex flex-col items-center text-center mb-3">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white uppercase tracking-tight leading-tight mb-1.5">
                 {user.Nama}
               </h1>
-              <p className="text-[10px] font-black text-orange-100 uppercase tracking-widest">
-                ID: {customerId}
-              </p>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowQR(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#005E6A]/10 hover:bg-[#005E6A]/20 dark:bg-teal-500/20 dark:hover:bg-teal-500/30 border border-[#005E6A]/20 dark:border-teal-500/30 rounded-full text-[#005E6A] dark:text-teal-300 cursor-pointer transition-all active:scale-95 group/qr"
+                title="Tampilkan Kode QR Pelanggan"
+              >
+                <span className="text-[10px] font-black uppercase tracking-wider">
+                  SCAN QR
+                </span>
+                <QrCode className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-300 group-hover/qr:scale-110 transition-transform" />
+              </motion.button>
             </div>
           ) : (
-            <div className="mb-3">
+            <div className="flex flex-col items-center text-center mb-3">
               <button 
                 onClick={() => navigate("/login")}
                 className="text-center group/masuk inline-block cursor-pointer"
               >
-                <h1 className="text-xl font-black text-white hover:text-orange-100 uppercase tracking-tight leading-tight mb-0.5 flex items-center justify-center gap-1.5 transition-colors">
-                  {t("Masuk", "Log In")} <ArrowRight className="w-4 h-4 group-hover/masuk:translate-x-1 transition-transform text-white" />
+                <h1 className="text-xl font-black text-slate-800 dark:text-white hover:text-[#005E6A] dark:hover:text-teal-300 uppercase tracking-tight leading-tight mb-0.5 flex items-center justify-center gap-1.5 transition-colors">
+                  {t("Masuk", "Log In")} <ArrowRight className="w-4 h-4 group-hover/masuk:translate-x-1 transition-transform text-[#005E6A] dark:text-teal-300" />
                 </h1>
-                <p className="text-[10px] font-black text-orange-100 uppercase tracking-widest">
+                <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                   {t("Ketuk untuk masuk ke akun Anda", "Tap to log in to your account")}
                 </p>
               </button>
@@ -21315,13 +21344,14 @@ const ProfilPage = ({
 
           {/* 1. Kelengkapan Profil (Disembunyikan jika sudah 100%) */}
           {user && (() => {
+            const hasName = Boolean(user.Nama || user.nama || user.name);
             const hasPin = Boolean(user.PIN || user.pin);
             const hasPhoto = Boolean(user.Foto || user.foto);
             const hasPhone = Boolean(user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp);
             const hasAddress = Boolean(user.Alamat || user.alamat);
 
-            const totalItems = 4;
-            const completedCount = (hasPin ? 1 : 0) + (hasPhoto ? 1 : 0) + (hasPhone ? 1 : 0) + (hasAddress ? 1 : 0);
+            const totalItems = 5;
+            const completedCount = (hasName ? 1 : 0) + (hasPin ? 1 : 0) + (hasPhoto ? 1 : 0) + (hasPhone ? 1 : 0) + (hasAddress ? 1 : 0);
             const completionPercentage = Math.round((completedCount / totalItems) * 100);
 
             // Sembunyikan jika sudah 100%
@@ -21330,39 +21360,39 @@ const ProfilPage = ({
             return (
               <div 
                 onClick={() => navigate("/pengaturan-profil")}
-                className="w-full pt-3 border-t border-white/20 mt-3 cursor-pointer group hover:opacity-95 transition-opacity"
+                className="w-full pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 cursor-pointer group hover:opacity-95 transition-opacity"
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-white">
-                      {language === "en" ? "Profile Completion" : "Kelengkapan Akun"}
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      {language === "en" ? "Profile Completion" : "Kelengkapan Profil"}
                     </span>
-                    <span className="text-[9px] font-extrabold text-amber-200 bg-black/20 px-2 py-0.5 rounded-full">
+                    <span className="text-[9px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-800/80 px-2 py-0.5 rounded-full">
                       {completionPercentage}%
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-white/90 group-hover:translate-x-0.5 transition-transform">
+                  <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500 group-hover:translate-x-0.5 transition-transform">
                     <span className="text-[9px] font-bold uppercase tracking-wider">
                       {completedCount}/{totalItems}
                     </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-white" />
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                   </div>
                 </div>
 
-                {/* Progress Bar */}
-                <div className="w-full bg-black/20 h-2 rounded-full overflow-hidden">
+                {/* Progress Bar (Kuning & Lebih Tebal) */}
+                <div className="w-full bg-amber-50 dark:bg-slate-800 h-3 rounded-full overflow-hidden border border-amber-100 dark:border-slate-700/50 p-0.5">
                   <motion.div 
                     initial={{ width: 0 }}
                     animate={{ width: `${completionPercentage}%` }}
                     transition={{ duration: 0.8, ease: "easeOut" }}
-                    className="h-full bg-gradient-to-r from-amber-300 to-yellow-400 rounded-full"
+                    className="h-full bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 rounded-full shadow-xs"
                   />
                 </div>
               </div>
             );
           })()}
 
-          {/* 2. Data Kontak/Alamat Pengguna (Tampil Antara Kelengkapan Akun dan Reward, Garis Pembatas Antar Data, Tanpa Link) */}
+          {/* 2. Data Kontak/Alamat Pengguna */}
           {user && (() => {
             const phoneVal = user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp;
             const addressVal = user.Alamat || user.alamat;
@@ -21370,24 +21400,24 @@ const ProfilPage = ({
             if (!phoneVal && !addressVal) return null;
 
             return (
-              <div className="w-full pt-3 border-t border-white/20 mt-3 text-left">
+              <div className="w-full pt-3 border-t border-slate-100 dark:border-slate-800 mt-3 text-left">
                 {phoneVal && (
-                  <div className="flex items-center gap-3 text-xs font-bold text-white">
-                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-                      <Phone className="w-5 h-5 text-amber-200" />
+                  <div className="flex items-center gap-3 text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 text-[#005E6A] dark:text-teal-400">
+                      <Phone className="w-4 h-4" />
                     </div>
                     <span className="break-words whitespace-normal leading-snug">{phoneVal}</span>
                   </div>
                 )}
 
                 {phoneVal && addressVal && (
-                  <div className="border-t border-white/20 my-2.5" />
+                  <div className="border-t border-slate-100 dark:border-slate-800 my-2.5" />
                 )}
 
                 {addressVal && (
-                  <div className="flex items-start gap-3 text-xs font-bold text-white">
-                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
-                      <MapPin className="w-5 h-5 text-amber-200" />
+                  <div className="flex items-start gap-3 text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 text-[#005E6A] dark:text-teal-400 mt-0.5">
+                      <MapPin className="w-4 h-4" />
                     </div>
                     <span className="break-words whitespace-normal leading-relaxed flex-1">{addressVal}</span>
                   </div>
@@ -21396,34 +21426,34 @@ const ProfilPage = ({
             );
           })()}
 
-          {/* 3. Reward Section (Level & Poin - Cukup Garis Pembatas Saja, Tanpa Kartu Sub-Wrapper) */}
+          {/* 3. Reward Section (Level & Poin) */}
           {user && (
-            <div className="w-full pt-3 border-t border-white/20 grid grid-cols-2 divide-x divide-white/20 mt-3">
+            <div className="w-full pt-4 pb-2 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 divide-x divide-slate-100 dark:divide-slate-800 mt-4">
               {/* Level */}
               <div 
                 onClick={() => navigate("/level")}
-                className="cursor-pointer flex items-center justify-center gap-2.5 hover:opacity-90 transition-opacity active:scale-98 pr-2"
+                className="cursor-pointer flex items-center justify-center gap-3 hover:opacity-90 transition-opacity active:scale-98 py-2 pr-3"
               >
-                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-                  <Trophy className="w-4 h-4 text-amber-300 fill-amber-300" />
+                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center shrink-0 text-amber-500 shadow-xs">
+                  <Trophy className="w-5 h-5 fill-amber-500" />
                 </div>
                 <div className="text-left min-w-0">
-                  <p className="text-[8px] font-black text-orange-100 uppercase tracking-wider">{t("Level", "Level")}</p>
-                  <p className="text-xs font-black text-white uppercase truncate">{customerLevel.name}</p>
+                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">{t("Level", "Level")}</p>
+                  <p className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase truncate">{customerLevel.name}</p>
                 </div>
               </div>
 
               {/* Poin */}
               <div 
                 onClick={() => navigate(user ? `/poin/${encodeURIComponent(user.Nama)}` : '/poin')}
-                className="cursor-pointer flex items-center justify-center gap-2.5 hover:opacity-90 transition-opacity active:scale-98 pl-2"
+                className="cursor-pointer flex items-center justify-center gap-3 hover:opacity-90 transition-opacity active:scale-98 py-2 pl-3"
               >
-                <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
-                  <Star className="w-4 h-4 text-amber-300 fill-amber-300" />
+                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center shrink-0 text-amber-500 shadow-xs">
+                  <Star className="w-5 h-5 fill-amber-500" />
                 </div>
                 <div className="text-left min-w-0">
-                  <p className="text-[8px] font-black text-orange-100 uppercase tracking-wider">{t("Poin Saya", "My Points")}</p>
-                  <p className="text-xs font-black text-white uppercase truncate">
+                  <p className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">{t("Poin Saya", "My Points")}</p>
+                  <p className="text-xs sm:text-sm font-black text-slate-800 dark:text-white uppercase truncate">
                     {activePoints.toLocaleString('id-ID')} {t("Poin", "Pts")}
                   </p>
                 </div>
@@ -22797,6 +22827,1666 @@ const QRISPage = () => {
       </AnimatePresence>
 
 
+    </motion.div>
+  );
+};
+
+// --- PULSA & PAKET DATA COMPONENT ---
+
+interface ProviderInfo {
+  id: string;
+  name: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  textColor: string;
+  badgeBg: string;
+  logoText: string;
+  prefixes: string[];
+}
+
+const PROVIDERS: ProviderInfo[] = [
+  {
+    id: "tsel",
+    name: "Telkomsel",
+    color: "from-red-600 to-red-700",
+    bgColor: "bg-red-500",
+    borderColor: "border-red-200 dark:border-red-800",
+    textColor: "text-red-600 dark:text-red-400",
+    badgeBg: "bg-red-50 text-red-600 border-red-200 dark:bg-red-950/50 dark:text-red-300 dark:border-red-800",
+    logoText: "TSEL",
+    prefixes: ["0811", "0812", "0813", "0821", "0822", "0823", "0851", "0852", "0853"]
+  },
+  {
+    id: "isat",
+    name: "Indosat Ooredoo",
+    color: "from-amber-500 to-yellow-600",
+    bgColor: "bg-amber-500",
+    borderColor: "border-amber-200 dark:border-amber-800",
+    textColor: "text-amber-700 dark:text-amber-400",
+    badgeBg: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800",
+    logoText: "IM3",
+    prefixes: ["0814", "0815", "0816", "0855", "0856", "0857", "0858"]
+  },
+  {
+    id: "xl",
+    name: "XL Axiata",
+    color: "from-blue-600 to-indigo-700",
+    bgColor: "bg-blue-600",
+    borderColor: "border-blue-200 dark:border-blue-800",
+    textColor: "text-blue-600 dark:text-blue-400",
+    badgeBg: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800",
+    logoText: "XL",
+    prefixes: ["0817", "0818", "0819", "0859", "0877", "0878"]
+  },
+  {
+    id: "axis",
+    name: "AXIS",
+    color: "from-purple-600 to-fuchsia-700",
+    bgColor: "bg-purple-600",
+    borderColor: "border-purple-200 dark:border-purple-800",
+    textColor: "text-purple-600 dark:text-purple-400",
+    badgeBg: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800",
+    logoText: "AXIS",
+    prefixes: ["0831", "0832", "0833", "0838"]
+  },
+  {
+    id: "tri",
+    name: "Tri (3)",
+    color: "from-orange-500 to-amber-600",
+    bgColor: "bg-orange-500",
+    borderColor: "border-orange-200 dark:border-orange-800",
+    textColor: "text-orange-600 dark:text-orange-400",
+    badgeBg: "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-950/50 dark:text-orange-300 dark:border-orange-800",
+    logoText: "3",
+    prefixes: ["0895", "0896", "0897", "0898", "0899"]
+  },
+  {
+    id: "smart",
+    name: "Smartfren",
+    color: "from-pink-600 to-rose-700",
+    bgColor: "bg-pink-600",
+    borderColor: "border-pink-200 dark:border-pink-800",
+    textColor: "text-pink-600 dark:text-pink-400",
+    badgeBg: "bg-pink-50 text-pink-600 border-pink-200 dark:bg-pink-950/50 dark:text-pink-300 dark:border-pink-800",
+    logoText: "SMART",
+    prefixes: ["0881", "0882", "0883", "0884", "0885", "0886", "0887", "0888", "0889"]
+  }
+];
+
+const detectProvider = (number: string): ProviderInfo | null => {
+  const clean = number.replace(/\D/g, '');
+  if (clean.length < 4) return null;
+  const prefix4 = clean.slice(0, 4);
+  return PROVIDERS.find(p => p.prefixes.includes(prefix4)) || null;
+};
+
+interface PulsaOption {
+  id: string;
+  nominal: number;
+  price: number;
+  activePeriod: string;
+  points: number;
+  popular?: boolean;
+}
+
+const PULSA_OPTIONS: PulsaOption[] = [
+  { id: "p5", nominal: 5000, price: 6500, activePeriod: "+7 Hari", points: 5 },
+  { id: "p10", nominal: 10000, price: 11500, activePeriod: "+15 Hari", points: 10, popular: true },
+  { id: "p15", nominal: 15000, price: 16500, activePeriod: "+20 Hari", points: 15 },
+  { id: "p20", nominal: 20000, price: 21500, activePeriod: "+30 Hari", points: 20 },
+  { id: "p25", nominal: 25000, price: 26500, activePeriod: "+30 Hari", points: 25, popular: true },
+  { id: "p50", nominal: 50000, price: 51500, activePeriod: "+45 Hari", points: 50, popular: true },
+  { id: "p100", nominal: 100000, price: 101500, activePeriod: "+60 Hari", points: 100 },
+  { id: "p150", nominal: 150000, price: 151000, activePeriod: "+90 Hari", points: 150 },
+  { id: "p200", nominal: 200000, price: 201000, activePeriod: "+120 Hari", points: 200 }
+];
+
+interface DataOption {
+  id: string;
+  providerId?: string;
+  category: 'harian' | 'mingguan' | 'bulanan' | 'unlimited';
+  name: string;
+  quota: string;
+  bonus?: string;
+  validity: string;
+  price: number;
+  points: number;
+  popular?: boolean;
+}
+
+const DATA_OPTIONS: DataOption[] = [
+  // TSEL
+  { id: "d_tsel_1", providerId: "tsel", category: "harian", name: "Internet Harian 3GB", quota: "3 GB Utama 24 Jam", validity: "3 Hari", price: 14000, points: 14, popular: true },
+  { id: "d_tsel_2", providerId: "tsel", category: "bulanan", name: "Internet OMG! 7GB", quota: "5 GB Utama + 2 GB OMG!", bonus: "Bonus Streaming Nonton", validity: "30 Hari", price: 38000, points: 38 },
+  { id: "d_tsel_3", providerId: "tsel", category: "bulanan", name: "Combo Sakti 15GB", quota: "15 GB Utama + 150 Mnt Telp", bonus: "Bebas Chat & Sosmed", validity: "30 Hari", price: 62000, points: 62, popular: true },
+  { id: "d_tsel_4", providerId: "tsel", category: "unlimited", name: "Internet Max 20GB", quota: "18 GB Utama + 2 GB OMG!", bonus: "Akses Maxstream & Games", validity: "30 Hari", price: 85000, points: 85 },
+  
+  // ISAT
+  { id: "d_isat_1", providerId: "isat", category: "harian", name: "Freedom Internet 3GB", quota: "3 GB Utama 24 Jam", validity: "5 Hari", price: 12500, points: 12, popular: true },
+  { id: "d_isat_2", providerId: "isat", category: "bulanan", name: "Freedom Internet 10GB", quota: "10 GB Utama 24 Jam", bonus: "Pulsa Safe Akses", validity: "30 Hari", price: 35000, points: 35, popular: true },
+  { id: "d_isat_3", providerId: "isat", category: "bulanan", name: "Freedom Combo 20GB", quota: "14 GB Utama + 6 GB Malam", bonus: "Telp Sepuasnya ke IM3", validity: "30 Hari", price: 58000, points: 58 },
+  { id: "d_isat_4", providerId: "isat", category: "unlimited", name: "Freedom U 7GB", quota: "7 GB Utama + Apps Unlimited", bonus: "Akses WA, IG, YT, Spotify", validity: "30 Hari", price: 45000, points: 45 },
+
+  // XL
+  { id: "d_xl_1", providerId: "xl", category: "mingguan", name: "Xtra Combo Mini 4GB", quota: "4 GB Utama 24 Jam", validity: "7 Hari", price: 15000, points: 15, popular: true },
+  { id: "d_xl_2", providerId: "xl", category: "bulanan", name: "Xtra Combo Flex 12GB", quota: "12 GB Utama 24 Jam", bonus: "Bonus Kuota Utama / App Flex", validity: "30 Hari", price: 42000, points: 42, popular: true },
+  { id: "d_xl_3", providerId: "xl", category: "bulanan", name: "Xtra Combo VIP 26GB", quota: "26 GB VIP Utama", bonus: "Bebas Akses YouTube 24 Jam", validity: "30 Hari", price: 75000, points: 75 },
+
+  // AXIS
+  { id: "d_axis_1", providerId: "axis", category: "harian", name: "Bronet 2GB 24Jam", quota: "2 GB Utama", validity: "3 Hari", price: 9500, points: 9 },
+  { id: "d_axis_2", providerId: "axis", category: "bulanan", name: "OWSEM 16GB", quota: "4 GB Utama + 8 GB Sosmed + 4 GB Game", bonus: "Unlimited Game FX", validity: "30 Hari", price: 39000, points: 39, popular: true },
+  { id: "d_axis_3", providerId: "axis", category: "bulanan", name: "Bronet 24Jam 10GB", quota: "10 GB Utama 24 Jam", validity: "30 Hari", price: 32000, points: 32 },
+
+  // TRI
+  { id: "d_tri_1", providerId: "tri", category: "harian", name: "Happy 3GB", quota: "3 GB Utama 24 Jam", validity: "3 Hari", price: 11000, points: 11 },
+  { id: "d_tri_2", providerId: "tri", category: "bulanan", name: "AlwaysOn 10GB", quota: "10 GB Utama (Masa Aktif Ikut Kartu)", bonus: "Kuota Tidak Hangus", validity: "30 Hari", price: 28000, points: 28, popular: true },
+  { id: "d_tri_3", providerId: "tri", category: "bulanan", name: "Happy 25GB", quota: "25 GB Utama 24 Jam", bonus: "Bebas Nelpon 30 Mnt", validity: "30 Hari", price: 60000, points: 60, popular: true },
+
+  // SMART
+  { id: "d_smart_1", providerId: "smart", category: "bulanan", name: "Kuota Volume 10GB", quota: "10 GB 24 Jam", validity: "30 Hari", price: 30000, points: 30 },
+  { id: "d_smart_2", providerId: "smart", category: "unlimited", name: "Unlimited Nonstop 6GB", quota: "6 GB Utama + Unlimited Speed Pasca Kuota", bonus: "Akses Apapun Bebas", validity: "30 Hari", price: 35000, points: 35, popular: true }
+];
+
+const PulsaPage = ({ user, customers, initialTab }: { user: Customer | null; customers?: Customer[]; initialTab?: 'pulsa' | 'data' }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tabFromQuery = searchParams.get('tab') === 'data' ? 'data' : (initialTab || 'pulsa');
+  
+  const [activeTab, setActiveTab] = useState<'pulsa' | 'data'>(tabFromQuery);
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [selectedContactName, setSelectedContactName] = useState<string>("");
+  const [showContactModal, setShowContactModal] = useState<boolean>(false);
+  const [dataCategory, setDataCategory] = useState<'semua' | 'harian' | 'mingguan' | 'bulanan' | 'unlimited'>('semua');
+  
+  const [selectedProduct, setSelectedProduct] = useState<{
+    type: 'pulsa' | 'data';
+    title: string;
+    subTitle?: string;
+    nominalOrQuota: string;
+    price: number;
+    points: number;
+    activePeriod?: string;
+    provider?: ProviderInfo | null;
+  } | null>(null);
+  
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qris' | 'tabungan' | 'kasbon' | 'wa'>('cash');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [transactionSuccess, setTransactionSuccess] = useState<any | null>(null);
+  const [contactSearch, setContactSearch] = useState("");
+
+  useEffect(() => {
+    const qTab = searchParams.get('tab');
+    if (qTab === 'data' || qTab === 'pulsa') {
+      setActiveTab(qTab);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (user && !phoneNumber) {
+      const userPhone = user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp || "";
+      if (userPhone) {
+        let clean = String(userPhone).replace(/\D/g, '');
+        if (clean.startsWith('62')) clean = '0' + clean.slice(2);
+        setPhoneNumber(clean);
+        setSelectedContactName(user.Nama || user.nama || "Nomor Saya");
+      }
+    }
+  }, [user]);
+
+  const provider = useMemo(() => detectProvider(phoneNumber), [phoneNumber]);
+
+  const handlePickContact = async () => {
+    if (typeof window !== 'undefined' && 'navigator' in window && 'contacts' in navigator && 'select' in (navigator as any).contacts) {
+      try {
+        const contacts = await (navigator as any).contacts.select(['name', 'tel'], { multiple: false });
+        if (contacts && contacts.length > 0 && contacts[0].tel && contacts[0].tel.length > 0) {
+          let rawNumber = contacts[0].tel[0];
+          let clean = rawNumber.replace(/\s+/g, '').replace(/-/g, '').replace(/^\+62/, '0').replace(/\D/g, '');
+          if (clean.startsWith('62')) clean = '0' + clean.slice(2);
+          setPhoneNumber(clean);
+          setSelectedContactName(contacts[0].name ? contacts[0].name[0] : 'Kontak HP');
+          return;
+        }
+      } catch (err) {
+        console.log("Native contact picker closed or not supported", err);
+      }
+    }
+    setShowContactModal(true);
+  };
+
+  const handleSelectProduct = (item: any, type: 'pulsa' | 'data') => {
+    if (phoneNumber.replace(/\D/g, '').length < 10) {
+      alert("Masukkan nomor HP yang valid terlebih dahulu (minimal 10 digit).");
+      return;
+    }
+    if (type === 'pulsa') {
+      setSelectedProduct({
+        type: 'pulsa',
+        title: `Pulsa ${provider ? provider.name : 'Regular'} ${item.nominal.toLocaleString('id-ID')}`,
+        nominalOrQuota: `Rp ${item.nominal.toLocaleString('id-ID')}`,
+        price: item.price,
+        points: item.points,
+        activePeriod: item.activePeriod,
+        provider: provider
+      });
+    } else {
+      setSelectedProduct({
+        type: 'data',
+        title: item.name,
+        subTitle: item.quota,
+        nominalOrQuota: item.quota,
+        price: item.price,
+        points: item.points,
+        activePeriod: item.validity,
+        provider: provider
+      });
+    }
+  };
+
+  const handleProcessPurchase = () => {
+    if (!selectedProduct) return;
+    setIsProcessing(true);
+
+    setTimeout(() => {
+      setIsProcessing(false);
+      const trxId = "PPOB-" + Date.now().toString().slice(-8);
+      const successData = {
+        id: trxId,
+        date: new Date().toLocaleString('id-ID'),
+        phone: phoneNumber,
+        contactName: selectedContactName,
+        product: selectedProduct.title,
+        price: selectedProduct.price,
+        paymentMethod: paymentMethod,
+        providerName: provider ? provider.name : 'All Operator',
+        status: 'BERHASIL'
+      };
+      setTransactionSuccess(successData);
+
+      if (paymentMethod === 'wa') {
+        const message = `Halo Admin Warung Tomi, saya ingin membeli ${selectedProduct.title} (${selectedProduct.nominalOrQuota}) untuk nomor: ${phoneNumber} ${selectedContactName ? `(${selectedContactName})` : ''} - Total: Rp ${selectedProduct.price.toLocaleString('id-ID')}`;
+        window.open(`https://wa.me/6281234567890?text=${encodeURIComponent(message)}`, '_blank');
+      }
+    }, 1000);
+  };
+
+  const filteredDataOptions = useMemo(() => {
+    return DATA_OPTIONS.filter(opt => {
+      if (provider) {
+        if (opt.providerId && opt.providerId !== provider.id) return false;
+      }
+      if (dataCategory !== 'semua' && opt.category !== dataCategory) return false;
+      return true;
+    });
+  }, [provider, dataCategory]);
+
+  const filteredCustomers = useMemo(() => {
+    if (!customers) return [];
+    if (!contactSearch) return customers;
+    const q = contactSearch.toLowerCase();
+    return customers.filter(c => 
+      (c.Nama || '').toLowerCase().includes(q) || 
+      (c.Telepon || c.HP || c.NoHP || '').includes(q)
+    );
+  }, [customers, contactSearch]);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-28"
+    >
+      {/* Header */}
+      <div className="bg-gradient-to-br from-[#005E6A] via-[#007A87] to-[#004D57] text-white px-6 pt-10 pb-16 relative overflow-hidden shadow-md">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-400/10 rounded-full -ml-24 -mb-24 blur-2xl" />
+
+        <div className="relative z-10 flex items-center justify-between">
+          <button 
+            onClick={() => navigate("/")}
+            className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all active:scale-95"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="text-center">
+            <h1 className="text-lg font-black uppercase tracking-tight">Pulsa & Paket Data</h1>
+            <p className="text-[9px] font-bold text-teal-100/70 uppercase tracking-widest">Pengisian Instan & Serba Hemat</p>
+          </div>
+          <div className="w-10" />
+        </div>
+      </div>
+
+      <div className="px-5 -mt-10 relative z-20 space-y-5 max-w-xl mx-auto">
+        {/* Input Phone Number Card */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-xl border border-slate-100 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Smartphone className="w-4 h-4 text-[#005E6A] dark:text-teal-400" />
+              Nomor Telepon Tujuan
+            </label>
+            {provider && (
+              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${provider.badgeBg} uppercase tracking-wider animate-pulse`}>
+                {provider.name}
+              </span>
+            )}
+          </div>
+
+          {/* Input field with Contact icon beside it */}
+          <div className="relative flex items-center gap-2">
+            <div className="relative flex-1">
+              <input 
+                type="tel"
+                inputMode="numeric"
+                maxLength={14}
+                value={phoneNumber}
+                onChange={(e) => {
+                  let clean = e.target.value.replace(/\D/g, '').slice(0, 13);
+                  setPhoneNumber(clean);
+                  if (selectedContactName && clean !== phoneNumber) {
+                    setSelectedContactName("");
+                  }
+                }}
+                placeholder="Contoh: 081234567890"
+                className="w-full pl-11 pr-10 py-3.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-base font-black text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#005E6A] dark:focus:ring-teal-400 transition-all tracking-wider"
+              />
+              <Smartphone className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {phoneNumber && (
+                <button 
+                  onClick={() => {
+                    setPhoneNumber("");
+                    setSelectedContactName("");
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center hover:bg-slate-300 transition-all"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Icon Kontak button */}
+            <button
+              onClick={handlePickContact}
+              title="Pilih dari Kontak HP"
+              className="h-13 px-3.5 bg-[#005E6A]/10 dark:bg-teal-500/20 hover:bg-[#005E6A]/20 text-[#005E6A] dark:text-teal-300 border border-[#005E6A]/20 dark:border-teal-500/30 rounded-2xl flex items-center justify-center gap-1.5 transition-all active:scale-95 shrink-0"
+            >
+              <Contact className="w-5 h-5 text-[#005E6A] dark:text-teal-300" />
+              <span className="text-xs font-black uppercase tracking-wider hidden sm:inline">Kontak</span>
+            </button>
+          </div>
+
+          {/* Contact Badge if selected */}
+          {selectedContactName && (
+            <div className="flex items-center justify-between bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/60 px-3 py-1.5 rounded-xl text-xs">
+              <span className="font-bold text-teal-800 dark:text-teal-200 flex items-center gap-1.5 truncate">
+                <User className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                {selectedContactName} ({phoneNumber})
+              </span>
+              <button 
+                onClick={() => setSelectedContactName("")}
+                className="text-teal-500 hover:text-teal-700 dark:hover:text-teal-300 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {!provider && phoneNumber.length >= 4 && (
+            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 italic">
+              * Operator otomatis terdeteksi berdasarkan prefix nomor HP.
+            </p>
+          )}
+        </div>
+
+        {/* 2 Tabs: Pulsa & Paket Data */}
+        <div className="bg-slate-200/80 dark:bg-slate-800 p-1.5 rounded-2xl grid grid-cols-2 gap-1.5 shadow-inner">
+          <button
+            onClick={() => setActiveTab('pulsa')}
+            className={`py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'pulsa'
+                ? 'bg-white dark:bg-slate-900 text-[#005E6A] dark:text-teal-300 shadow-md border border-slate-100 dark:border-slate-800'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Smartphone className="w-4 h-4" />
+            Pulsa
+          </button>
+          <button
+            onClick={() => setActiveTab('data')}
+            className={`py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+              activeTab === 'data'
+                ? 'bg-white dark:bg-slate-900 text-[#005E6A] dark:text-teal-300 shadow-md border border-slate-100 dark:border-slate-800'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            Paket Data
+          </button>
+        </div>
+
+        {/* Tab Content: PULSA */}
+        {activeTab === 'pulsa' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                Pilihan Nominal Pulsa
+              </h3>
+              <span className="text-[10px] font-bold text-slate-400">
+                {provider ? provider.name : 'All Operator'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {PULSA_OPTIONS.map((item) => (
+                <div 
+                  key={item.id}
+                  onClick={() => handleSelectProduct(item, 'pulsa')}
+                  className={`bg-white dark:bg-slate-900 rounded-2xl p-4 border transition-all cursor-pointer relative overflow-hidden group hover:shadow-lg active:scale-98 ${
+                    item.popular 
+                      ? 'border-amber-300 dark:border-amber-700 shadow-sm' 
+                      : 'border-slate-100 dark:border-slate-800 shadow-xs'
+                  }`}
+                >
+                  {item.popular && (
+                    <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-600 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-widest shadow-xs">
+                      Populer
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                      Pulsa
+                    </p>
+                    <p className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                      Rp {item.nominal.toLocaleString('id-ID')}
+                    </p>
+                    <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                      <Clock className="w-3 h-3 text-slate-400" />
+                      Masa Aktif {item.activePeriod}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 block uppercase">Harga</span>
+                      <span className="text-sm font-black text-[#005E6A] dark:text-teal-400">
+                        Rp {item.price.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                    <span className="text-[9px] font-extrabold bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300 px-2 py-1 rounded-lg border border-amber-200/60 dark:border-amber-800/60">
+                      +{item.points} Pts
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Tab Content: PAKET DATA */}
+        {activeTab === 'data' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            {/* Category Filter Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+              {[
+                { id: 'semua', label: 'Semua' },
+                { id: 'harian', label: 'Harian' },
+                { id: 'mingguan', label: 'Mingguan' },
+                { id: 'bulanan', label: 'Bulanan' },
+                { id: 'unlimited', label: 'Unlimited' },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setDataCategory(cat.id as any)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all uppercase tracking-wider ${
+                    dataCategory === cat.id
+                      ? 'bg-[#005E6A] text-white shadow-md'
+                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-800 hover:bg-slate-50'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {filteredDataOptions.map((item) => {
+                const optProvider = PROVIDERS.find(p => p.id === item.providerId) || provider;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleSelectProduct(item, 'data')}
+                    className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-xs hover:shadow-md transition-all cursor-pointer relative overflow-hidden group active:scale-98"
+                  >
+                    {item.popular && (
+                      <div className="absolute top-0 right-0 bg-gradient-to-l from-teal-500 to-emerald-600 text-white text-[8px] font-black px-2.5 py-0.5 rounded-bl-lg uppercase tracking-widest shadow-xs">
+                        Rekomendasi
+                      </div>
+                    )}
+
+                    <div className="flex items-start justify-between mb-2">
+                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${optProvider ? optProvider.badgeBg : 'bg-slate-100 text-slate-600'}`}>
+                        {optProvider ? optProvider.name : 'Paket Data'}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {item.validity}
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight mb-1">
+                      {item.name}
+                    </h4>
+
+                    <div className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700/50 my-2 space-y-1">
+                      <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 flex items-center gap-1">
+                        <Wifi className="w-3.5 h-3.5" />
+                        {item.quota}
+                      </p>
+                      {item.bonus && (
+                        <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 shrink-0" />
+                          {item.bonus}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 uppercase block">Harga</span>
+                        <span className="text-base font-black text-[#005E6A] dark:text-teal-400">
+                          Rp {item.price.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+
+                      <button className="px-3.5 py-1.5 rounded-xl bg-[#005E6A] hover:bg-[#004D57] text-white text-xs font-extrabold uppercase tracking-wider shadow-xs transition-all">
+                        Beli
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Fallback Contact Picker Modal */}
+      <AnimatePresence>
+        {showContactModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl p-5 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#005E6A]/10 text-[#005E6A] dark:text-teal-400 flex items-center justify-center">
+                    <Contact className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Pilih Kontak</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Daftar Pelanggan Warung Tomi</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowContactModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center hover:bg-slate-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Search contacts */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input 
+                  type="text"
+                  placeholder="Cari nama atau nomor HP..."
+                  value={contactSearch}
+                  onChange={(e) => setContactSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#005E6A]"
+                />
+              </div>
+
+              {/* Quick Pick "Nomor Saya" */}
+              {user && (
+                <button
+                  onClick={() => {
+                    const p = user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp || "";
+                    let clean = String(p).replace(/\D/g, '');
+                    if (clean.startsWith('62')) clean = '0' + clean.slice(2);
+                    setPhoneNumber(clean);
+                    setSelectedContactName(user.Nama || user.nama || "Nomor Saya");
+                    setShowContactModal(false);
+                  }}
+                  className="w-full bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100/80 border border-teal-200 dark:border-teal-800 p-3 rounded-2xl flex items-center justify-between text-left transition-all"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <User className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    <div>
+                      <p className="text-xs font-black text-teal-900 dark:text-teal-200 uppercase">Nomor Saya ({user.Nama})</p>
+                      <p className="text-[10px] font-bold text-teal-600 dark:text-teal-400">
+                        {user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp || "-"}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-teal-500" />
+                </button>
+              )}
+
+              {/* List of customer contacts */}
+              <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredCustomers.length > 0 ? (
+                  filteredCustomers.map((c, i) => {
+                    const phone = c.Telepon || c.telepon || c.HP || c.hp || c.NoHP || c.no_hp || "";
+                    if (!phone) return null;
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => {
+                          let clean = String(phone).replace(/\D/g, '');
+                          if (clean.startsWith('62')) clean = '0' + clean.slice(2);
+                          setPhoneNumber(clean);
+                          setSelectedContactName(c.Nama || c.nama || "Pelanggan");
+                          setShowContactModal(false);
+                        }}
+                        className="py-2.5 px-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center justify-between cursor-pointer transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-xs text-slate-600 dark:text-slate-300 uppercase">
+                            {(c.Nama || "P").slice(0, 1)}
+                          </div>
+                          <div>
+                            <p className="text-xs font-extrabold text-slate-800 dark:text-white uppercase">{c.Nama}</p>
+                            <p className="text-[10px] font-bold text-slate-400">{phone}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-black text-[#005E6A] dark:text-teal-400 uppercase">Pilih</span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-center py-8 text-xs font-bold text-slate-400 uppercase">Tidak ada kontak ditemukan</p>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Checkout / Confirmation Modal */}
+      <AnimatePresence>
+        {selectedProduct && !transactionSuccess && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl p-6 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-5"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">Konfirmasi Pembelian</h3>
+                <button 
+                  onClick={() => setSelectedProduct(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center hover:bg-slate-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Product Details Box */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Nomor Tujuan</span>
+                  <span className="text-xs font-black text-slate-900 dark:text-white font-mono tracking-wider">
+                    {phoneNumber} {selectedContactName ? `(${selectedContactName})` : ''}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Provider</span>
+                  <span className="text-xs font-black text-[#005E6A] dark:text-teal-300 uppercase">
+                    {provider ? provider.name : 'All Operator'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Produk</span>
+                  <span className="text-xs font-black text-slate-900 dark:text-white uppercase text-right max-w-[200px] truncate">
+                    {selectedProduct.title}
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                  <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase">Total Harga</span>
+                  <span className="text-lg font-black text-[#005E6A] dark:text-teal-400">
+                    Rp {selectedProduct.price.toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Payment Methods */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Pilih Metode Pembayaran</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setPaymentMethod('cash')}
+                    className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
+                      paymentMethod === 'cash' 
+                        ? 'border-[#005E6A] bg-[#005E6A]/10 text-[#005E6A] font-black' 
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold'
+                    }`}
+                  >
+                    <Wallet className="w-4 h-4 text-[#005E6A]" />
+                    <span className="text-xs uppercase">Tunai di Toko</span>
+                  </button>
+
+                  <button
+                    onClick={() => setPaymentMethod('wa')}
+                    className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
+                      paymentMethod === 'wa' 
+                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 font-black' 
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold'
+                    }`}
+                  >
+                    <Phone className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs uppercase">Beli via WA Admin</span>
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={handleProcessPurchase}
+                disabled={isProcessing}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#005E6A] to-teal-600 hover:from-[#004D57] hover:to-teal-700 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-98"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Memproses...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5" />
+                    Konfirmasi Pembelian
+                  </>
+                )}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Modal / Receipt */}
+      <AnimatePresence>
+        {transactionSuccess && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-100 dark:border-slate-800 text-center space-y-4"
+            >
+              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
+                <Check className="w-8 h-8 stroke-[3]" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Transaksi Berhasil!</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">Warung Tomi PPOB Service</p>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50 text-left space-y-2 text-xs font-semibold">
+                <div className="flex justify-between">
+                  <span className="text-slate-400 uppercase">ID Transaksi</span>
+                  <span className="font-mono font-black text-slate-800 dark:text-white">{transactionSuccess.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400 uppercase">Nomor HP</span>
+                  <span className="font-bold text-slate-800 dark:text-white">{transactionSuccess.phone}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400 uppercase">Produk</span>
+                  <span className="font-bold text-slate-800 dark:text-white uppercase truncate max-w-[150px]">{transactionSuccess.product}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-600 dark:text-slate-300 font-extrabold uppercase">Total</span>
+                  <span className="font-black text-[#005E6A] dark:text-teal-400 text-sm">Rp {transactionSuccess.price.toLocaleString('id-ID')}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setTransactionSuccess(null);
+                  setSelectedProduct(null);
+                }}
+                className="w-full py-3.5 rounded-2xl bg-[#005E6A] hover:bg-[#004D57] text-white font-black text-xs uppercase tracking-wider shadow-md transition-all"
+              >
+                Kembali
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+// --- LISTRIK PLN COMPONENT ---
+
+interface PLNInquiryResult {
+  idpl: string;
+  nama: string;
+  tarifDaya: string;
+  dayaVA: number;
+  standMeter: string;
+  periode: string;
+  tagihanListrik: number;
+  adminBank: number;
+  denda: number;
+  totalTagihan: number;
+  statusTagihan: 'LUNAS' | 'BELUM DIBAYAR';
+  refId: string;
+}
+
+const TOKEN_NOMINALS = [
+  { nominal: 20000, price: 23000, points: 5 },
+  { nominal: 50000, price: 53000, points: 10, popular: true },
+  { nominal: 100000, price: 103000, points: 20, popular: true },
+  { nominal: 200000, price: 203000, points: 40 },
+  { nominal: 500000, price: 503000, points: 100 },
+  { nominal: 1000000, price: 1003000, points: 200 },
+];
+
+const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: Customer[] }) => {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'token' | 'tagihan'>('token');
+  const [idpl, setIdpl] = useState<string>("");
+  const [inquiryData, setInquiryData] = useState<PLNInquiryResult | null>(null);
+  const [isInquiring, setIsInquiring] = useState<boolean>(false);
+  const [selectedToken, setSelectedToken] = useState<typeof TOKEN_NOMINALS[0] | null>(null);
+  
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qris' | 'tabungan' | 'wa'>('cash');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [transactionSuccess, setTransactionSuccess] = useState<any | null>(null);
+  const [copiedToken, setCopiedToken] = useState(false);
+
+  const [isEditingCustomerData, setIsEditingCustomerData] = useState<boolean>(false);
+  const [editedName, setEditedName] = useState<string>("");
+  const [editedTariff, setEditedTariff] = useState<string>("");
+
+  useEffect(() => {
+    if (user && !idpl) {
+      const possibleIdpl = (user as any).IDPL || (user as any).NoMeter || "14238901234";
+      if (possibleIdpl) setIdpl(possibleIdpl);
+    }
+  }, [user]);
+
+  const performInquiry = (cleanIdpl: string) => {
+    if (cleanIdpl.length < 10) {
+      setInquiryData(null);
+      return;
+    }
+    setIsInquiring(true);
+    setTimeout(() => {
+      setIsInquiring(false);
+      let numHash = 0;
+      for (let i = 0; i < cleanIdpl.length; i++) {
+        numHash += cleanIdpl.charCodeAt(i) * (i + 1);
+      }
+      
+      const names = [
+        "BUDI SANTOSO", "SITI AMINAH", "AHMAD SUBAGJO", 
+        "EKO PRASETYO", "RINA WIJAYA", "DEDI KURNIAWAN", 
+        "HERU SULISTYO", "SRI WAHYUNI", "M. AGUS PRIYANTO"
+      ];
+      const tariffs = [
+        { tarif: "R1M / 900 VA", va: 900, baseBill: 145000 },
+        { tarif: "R1 / 1300 VA", va: 1300, baseBill: 235000 },
+        { tarif: "R1 / 2200 VA", va: 2200, baseBill: 382000 },
+        { tarif: "B1 / 3500 VA", va: 3500, baseBill: 620000 },
+        { tarif: "R1 / 450 VA (Subsidi)", va: 450, baseBill: 75000 },
+      ];
+
+      // Check if user saved a custom name in localStorage for this IDPL
+      const savedCustomName = localStorage.getItem(`pln_cust_name_${cleanIdpl}`);
+      const savedCustomTariff = localStorage.getItem(`pln_cust_tariff_${cleanIdpl}`);
+
+      const nameIndex = numHash % names.length;
+      const tariffObj = tariffs[numHash % tariffs.length];
+      
+      let custName = savedCustomName || ((user && cleanIdpl === "14238901234") ? (user.Nama || "PELANGGAN WARUNG TOMI").toUpperCase() : `BAPAK/IBU ${names[nameIndex]}`);
+      let custTariff = savedCustomTariff || tariffObj.tarif;
+      let va = tariffObj.va;
+      if (custTariff.includes("1300")) va = 1300;
+      else if (custTariff.includes("2200")) va = 2200;
+      else if (custTariff.includes("3500")) va = 3500;
+      else if (custTariff.includes("450")) va = 450;
+      else va = 900;
+
+      const standAwal = (numHash % 40) * 100 + 3500;
+      const standAkhir = standAwal + 120 + (numHash % 80);
+      const tagihanListrik = tariffObj.baseBill + ((numHash % 12) * 5000);
+      const adminBank = 3000;
+
+      setInquiryData({
+        idpl: cleanIdpl,
+        nama: custName,
+        tarifDaya: custTariff,
+        dayaVA: va,
+        standMeter: `Awal: ${standAwal} kWh - Akhir: ${standAkhir} kWh`,
+        periode: "AGUSTUS 2026",
+        tagihanListrik: tagihanListrik,
+        adminBank: adminBank,
+        denda: 0,
+        totalTagihan: tagihanListrik + adminBank,
+        statusTagihan: 'BELUM DIBAYAR',
+        refId: `PLN-${Date.now().toString().slice(-8)}`
+      });
+      setEditedName(custName);
+      setEditedTariff(custTariff);
+    }, 800);
+  };
+
+  useEffect(() => {
+    const clean = idpl.replace(/\D/g, '');
+    if (clean.length >= 11) {
+      performInquiry(clean);
+    } else if (clean.length < 10) {
+      setInquiryData(null);
+    }
+  }, [idpl]);
+
+  const generate20DigitToken = () => {
+    let result = '';
+    for (let i = 0; i < 4; i++) {
+      const chunk = Math.floor(1000 + Math.random() * 9000).toString();
+      result += (i === 0 ? '' : ' - ') + chunk;
+    }
+    return result;
+  };
+
+  const handleProcessTokenPurchase = () => {
+    if (!selectedToken || !inquiryData) return;
+    setIsProcessing(true);
+
+    setTimeout(() => {
+      setIsProcessing(false);
+      const tokenNumber = generate20DigitToken();
+      const kwhAmount = (selectedToken.nominal / (inquiryData.dayaVA > 900 ? 1444.7 : 1352)).toFixed(1);
+
+      const successPayload = {
+        type: 'token',
+        id: `PLN-TKN-${Date.now().toString().slice(-8)}`,
+        date: new Date().toLocaleString('id-ID'),
+        idpl: inquiryData.idpl,
+        nama: inquiryData.nama,
+        tarifDaya: inquiryData.tarifDaya,
+        nominalToken: selectedToken.nominal,
+        adminFee: 3000,
+        totalPrice: selectedToken.price,
+        stroomToken: tokenNumber,
+        kwh: kwhAmount,
+        paymentMethod: paymentMethod,
+        points: selectedToken.points
+      };
+
+      setTransactionSuccess(successPayload);
+
+      if (paymentMethod === 'wa') {
+        const msg = `Halo Admin Warung Tomi, saya ingin beli Token Listrik PLN Rp ${selectedToken.nominal.toLocaleString('id-ID')} untuk IDPL: ${inquiryData.idpl} (${inquiryData.nama}) - Total: Rp ${selectedToken.price.toLocaleString('id-ID')}`;
+        window.open(`https://wa.me/6281234567890?text=${encodeURIComponent(msg)}`, '_blank');
+      }
+    }, 1200);
+  };
+
+  const handleProcessBillPayment = () => {
+    if (!inquiryData) return;
+    setIsProcessing(true);
+
+    setTimeout(() => {
+      setIsProcessing(false);
+
+      const successPayload = {
+        type: 'tagihan',
+        id: `PLN-BILL-${Date.now().toString().slice(-8)}`,
+        date: new Date().toLocaleString('id-ID'),
+        idpl: inquiryData.idpl,
+        nama: inquiryData.nama,
+        tarifDaya: inquiryData.tarifDaya,
+        periode: inquiryData.periode,
+        standMeter: inquiryData.standMeter,
+        tagihanListrik: inquiryData.tagihanListrik,
+        adminFee: inquiryData.adminBank,
+        totalPrice: inquiryData.totalTagihan,
+        refPln: `PLNREF${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+        paymentMethod: paymentMethod,
+        status: 'LUNAS'
+      };
+
+      setInquiryData(prev => prev ? { ...prev, statusTagihan: 'LUNAS' } : null);
+      setTransactionSuccess(successPayload);
+
+      if (paymentMethod === 'wa') {
+        const msg = `Halo Admin Warung Tomi, saya ingin bayar Tagihan Listrik PLN Periode ${inquiryData.periode} untuk IDPL: ${inquiryData.idpl} (${inquiryData.nama}) - Total: Rp ${inquiryData.totalTagihan.toLocaleString('id-ID')}`;
+        window.open(`https://wa.me/6281234567890?text=${encodeURIComponent(msg)}`, '_blank');
+      }
+    }, 1200);
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-28"
+    >
+      {/* Top Banner */}
+      <div className="bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-600 text-white px-6 pt-10 pb-16 relative overflow-hidden shadow-md">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-yellow-300/20 rounded-full -ml-24 -mb-24 blur-2xl" />
+
+        <div className="relative z-10 flex items-center justify-between">
+          <button 
+            onClick={() => navigate("/")}
+            className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white transition-all active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="text-center">
+            <h1 className="text-lg font-black uppercase tracking-tight flex items-center justify-center gap-1.5">
+              <Zap className="w-5 h-5 text-yellow-200 fill-yellow-200" />
+              Listrik PLN
+            </h1>
+            <p className="text-[9px] font-bold text-yellow-100/80 uppercase tracking-widest">Token Prabayar & Tagihan Pascabayar</p>
+          </div>
+          <div className="w-10" />
+        </div>
+      </div>
+
+      <div className="px-5 -mt-10 relative z-20 space-y-5 max-w-xl mx-auto">
+        {/* Input IDPL / No Meter Card */}
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 shadow-xl border border-slate-100 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+              ID Pelanggan / No. Meter (IDPL)
+            </label>
+            <span className="text-[9px] font-black bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 uppercase tracking-wider">
+              PLN RESMI
+            </span>
+          </div>
+
+          <div className="relative flex items-center gap-2">
+            <div className="relative flex-1">
+              <input 
+                type="tel"
+                inputMode="numeric"
+                maxLength={12}
+                value={idpl}
+                onChange={(e) => setIdpl(e.target.value.replace(/\D/g, ''))}
+                placeholder="Contoh: 14238901234"
+                className="w-full pl-11 pr-10 py-3.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-base font-black text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all tracking-wider font-mono"
+              />
+              <Zap className="w-5 h-5 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {idpl && (
+                <button 
+                  onClick={() => {
+                    setIdpl("");
+                    setInquiryData(null);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center hover:bg-slate-300 transition-all cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                if (idpl.length >= 10) performInquiry(idpl);
+                else alert("Masukkan minimal 10 digit IDPL PLN.");
+              }}
+              disabled={isInquiring || idpl.length < 10}
+              className="h-13 px-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+            >
+              {isInquiring ? <Loader2 className="w-4 h-4 animate-spin" /> : "Cek IDPL"}
+            </button>
+          </div>
+
+          {/* Preset Example Buttons */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Contoh IDPL:</span>
+            <button 
+              onClick={() => {
+                setIdpl("14238901234");
+              }}
+              className="text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 hover:text-amber-600 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-lg transition-all font-mono cursor-pointer"
+            >
+              14238901234
+            </button>
+            <button 
+              onClick={() => {
+                setIdpl("53820192837");
+              }}
+              className="text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 hover:text-amber-600 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-lg transition-all font-mono cursor-pointer"
+            >
+              53820192837
+            </button>
+          </div>
+
+          {/* PLN API Customer Information Panel */}
+          {isInquiring && (
+            <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3.5 rounded-2xl flex items-center gap-3 animate-pulse">
+              <Loader2 className="w-5 h-5 text-amber-600 animate-spin shrink-0" />
+              <div>
+                <p className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase">Menghubungkan ke API PLN...</p>
+                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">Memeriksa nama pelanggan & tarif daya</p>
+              </div>
+            </div>
+          )}
+
+          {inquiryData && !isInquiring && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-amber-500/10 border border-amber-300/80 dark:border-amber-700/80 p-4 rounded-2xl space-y-3"
+            >
+              <div className="flex items-center justify-between border-b border-amber-200/60 dark:border-amber-800/60 pb-2">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                    {inquiryData.nama}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Terverifikasi
+                  </span>
+                  <button
+                    onClick={() => {
+                      setIsEditingCustomerData(!isEditingCustomerData);
+                      setEditedName(inquiryData.nama);
+                      setEditedTariff(inquiryData.tarifDaya);
+                    }}
+                    className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/60 dark:hover:bg-amber-800/80 px-2 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                    title="Ubah nama / tarif PLN agar sesuai"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    Ubah Nama
+                  </button>
+                </div>
+              </div>
+
+              {isEditingCustomerData ? (
+                <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-amber-200 dark:border-amber-700 space-y-3 animate-fadeIn">
+                  <p className="text-[10px] font-black text-amber-800 dark:text-amber-200 uppercase tracking-wide">
+                    Sesuaikan Data Pelanggan PLN Anda
+                  </p>
+
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">
+                      Nama Pelanggan di Struk / Listrik PLN
+                    </label>
+                    <input 
+                      type="text"
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      placeholder="Masukkan nama sesuai kuitansi PLN"
+                      className="w-full px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 uppercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">
+                      Tarif / Daya PLN
+                    </label>
+                    <select
+                      value={editedTariff}
+                      onChange={(e) => setEditedTariff(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 uppercase"
+                    >
+                      <option value="R1M / 900 VA">R1M / 900 VA</option>
+                      <option value="R1 / 1300 VA">R1 / 1300 VA</option>
+                      <option value="R1 / 2200 VA">R1 / 2200 VA</option>
+                      <option value="B1 / 3500 VA">B1 / 3500 VA</option>
+                      <option value="R1 / 450 VA (Subsidi)">R1 / 450 VA (Subsidi)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        const finalName = editedName.trim().toUpperCase() || inquiryData.nama;
+                        const finalTariff = editedTariff || inquiryData.tarifDaya;
+                        
+                        localStorage.setItem(`pln_cust_name_${inquiryData.idpl}`, finalName);
+                        localStorage.setItem(`pln_cust_tariff_${inquiryData.idpl}`, finalTariff);
+
+                        let va = 900;
+                        if (finalTariff.includes("1300")) va = 1300;
+                        else if (finalTariff.includes("2200")) va = 2200;
+                        else if (finalTariff.includes("3500")) va = 3500;
+                        else if (finalTariff.includes("450")) va = 450;
+
+                        setInquiryData({
+                          ...inquiryData,
+                          nama: finalName,
+                          tarifDaya: finalTariff,
+                          dayaVA: va
+                        });
+                        setIsEditingCustomerData(false);
+                      }}
+                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer"
+                    >
+                      Simpan Data PLN
+                    </button>
+                    <button
+                      onClick={() => setIsEditingCustomerData(false)}
+                      className="px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase block">Tarif / Daya</span>
+                    <span className="font-black text-amber-700 dark:text-amber-300">{inquiryData.tarifDaya}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase block">No. Meter / IDPL</span>
+                    <span className="font-black font-mono text-slate-800 dark:text-slate-200">{inquiryData.idpl}</span>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </div>
+
+        {/* 2 Tabs: Token Listrik vs Tagihan Listrik */}
+        <div className="bg-slate-200/80 dark:bg-slate-800 p-1.5 rounded-2xl grid grid-cols-2 gap-1.5 shadow-inner">
+          <button
+            onClick={() => setActiveTab('token')}
+            className={`py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'token'
+                ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-md border border-slate-100 dark:border-slate-800'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Zap className="w-4 h-4 fill-current" />
+            Token Listrik (Prabayar)
+          </button>
+          <button
+            onClick={() => setActiveTab('tagihan')}
+            className={`py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'tagihan'
+                ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-md border border-slate-100 dark:border-slate-800'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Receipt className="w-4 h-4" />
+            Tagihan Listrik (Pascabayar)
+          </button>
+        </div>
+
+        {/* TAB 1: TOKEN LISTRIK PRABAYAR */}
+        {activeTab === 'token' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                Pilihan Nominal Token
+              </h3>
+              <span className="text-[10px] font-bold text-slate-400">
+                + Admin Toko Rp 3.000
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {TOKEN_NOMINALS.map((opt, idx) => {
+                const estKwh = inquiryData ? (opt.nominal / (inquiryData.dayaVA > 900 ? 1444.7 : 1352)).toFixed(1) : (opt.nominal / 1444.7).toFixed(1);
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      if (idpl.length < 10) {
+                        alert("Masukkan nomor IDPL PLN terlebih dahulu.");
+                        return;
+                      }
+                      if (!inquiryData) {
+                        performInquiry(idpl);
+                      }
+                      setSelectedToken(opt);
+                    }}
+                    className={`bg-white dark:bg-slate-900 rounded-2xl p-4 border transition-all cursor-pointer relative overflow-hidden group hover:shadow-lg active:scale-98 ${
+                      opt.popular 
+                        ? 'border-amber-400 dark:border-amber-600 shadow-sm' 
+                        : 'border-slate-100 dark:border-slate-800 shadow-xs'
+                    }`}
+                  >
+                    {opt.popular && (
+                      <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-yellow-600 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-widest shadow-xs">
+                        Populer
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                        Token
+                      </p>
+                      <p className="text-base font-black text-slate-900 dark:text-white tracking-tight font-mono">
+                        Rp {opt.nominal.toLocaleString('id-ID')}
+                      </p>
+                      <p className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                        <Zap className="w-3 h-3 fill-amber-500" />
+                        Est. ~{estKwh} kWh
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Harga</span>
+                        <span className="text-xs font-black text-[#005E6A] dark:text-teal-400">
+                          Rp {opt.price.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                      <span className="text-[8px] font-extrabold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-800/60">
+                        +{opt.points} Pts
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* TAB 2: TAGIHAN LISTRIK PASCABAYAR */}
+        {activeTab === 'tagihan' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-4"
+          >
+            {inquiryData ? (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800 shadow-xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Receipt className="w-5 h-5 text-amber-500" />
+                    <div>
+                      <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase">Rincian Tagihan Listrik</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Periode: {inquiryData.periode}</p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase border ${
+                    inquiryData.statusTagihan === 'LUNAS' 
+                      ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
+                      : 'bg-rose-50 text-rose-600 border-rose-200 animate-pulse'
+                  }`}>
+                    {inquiryData.statusTagihan}
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs font-semibold">
+                  <div className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800">
+                    <span className="text-slate-400 uppercase">Nama Pelanggan</span>
+                    <span className="font-extrabold text-slate-800 dark:text-white">{inquiryData.nama}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800">
+                    <span className="text-slate-400 uppercase">Tarif / Daya</span>
+                    <span className="font-extrabold text-amber-600 dark:text-amber-400">{inquiryData.tarifDaya}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800">
+                    <span className="text-slate-400 uppercase">Stand Meter</span>
+                    <span className="font-mono text-slate-700 dark:text-slate-300">{inquiryData.standMeter}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800">
+                    <span className="text-slate-400 uppercase">Tagihan Listrik</span>
+                    <span className="font-bold text-slate-800 dark:text-white">Rp {inquiryData.tagihanListrik.toLocaleString('id-ID')}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-50 dark:border-slate-800">
+                    <span className="text-slate-400 uppercase">Biaya Admin PLN/Toko</span>
+                    <span className="font-bold text-slate-800 dark:text-white">Rp {inquiryData.adminBank.toLocaleString('id-ID')}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 text-sm font-black">
+                    <span className="text-slate-800 dark:text-white uppercase">Total Bayar</span>
+                    <span className="text-amber-600 dark:text-amber-400 font-mono">Rp {inquiryData.totalTagihan.toLocaleString('id-ID')}</span>
+                  </div>
+                </div>
+
+                {inquiryData.statusTagihan === 'BELUM DIBAYAR' ? (
+                  <button
+                    onClick={() => {
+                      setSelectedToken({ nominal: inquiryData.totalTagihan, price: inquiryData.totalTagihan, points: 50 });
+                    }}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white font-black text-xs uppercase tracking-wider shadow-lg transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Receipt className="w-4 h-4" />
+                    Bayar Tagihan Listrik Sekarang
+                  </button>
+                ) : (
+                  <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 p-3 rounded-2xl text-center text-xs font-black text-emerald-700 dark:text-emerald-300 uppercase">
+                    Tagihan Periode Ini Sudah Lunas
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 text-center space-y-3 border border-slate-100 dark:border-slate-800 shadow-sm">
+                <Receipt className="w-10 h-10 text-amber-400 mx-auto opacity-80" />
+                <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase">Masukkan IDPL untuk Cek Tagihan</h4>
+                <p className="text-[10px] font-bold text-slate-400 max-w-xs mx-auto">
+                  Ketik 11-12 digit ID Pelanggan PLN Anda pada kolom input di atas untuk melihat rincian tagihan pascabayar.
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </div>
+
+      {/* Confirmation & Payment Modal */}
+      <AnimatePresence>
+        {selectedToken && !transactionSuccess && inquiryData && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, y: 100 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 100 }}
+              className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-t-[2.5rem] sm:rounded-3xl p-6 shadow-2xl border border-slate-100 dark:border-slate-800 space-y-5"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">Konfirmasi Listrik PLN</h3>
+                <button 
+                  onClick={() => setSelectedToken(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center hover:bg-slate-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Rincian Pesanan */}
+              <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2.5">
+                <div className="flex justify-between text-xs">
+                  <span className="font-bold text-slate-400 uppercase">ID Pelanggan</span>
+                  <span className="font-black text-slate-900 dark:text-white font-mono">{inquiryData.idpl}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="font-bold text-slate-400 uppercase">Nama Pelanggan</span>
+                  <span className="font-black text-slate-900 dark:text-white uppercase">{inquiryData.nama}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="font-bold text-slate-400 uppercase">Tarif / Daya</span>
+                  <span className="font-black text-amber-600 dark:text-amber-400">{inquiryData.tarifDaya}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="font-bold text-slate-400 uppercase">Jenis Layanan</span>
+                  <span className="font-black text-slate-900 dark:text-white uppercase">
+                    {activeTab === 'token' ? `Token Rp ${selectedToken.nominal.toLocaleString('id-ID')}` : `Tagihan ${inquiryData.periode}`}
+                  </span>
+                </div>
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                  <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase">Total Pembayaran</span>
+                  <span className="text-base font-black text-amber-600 dark:text-amber-400 font-mono">
+                    Rp {(activeTab === 'token' ? selectedToken.price : inquiryData.totalTagihan).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Payment Methods */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Pilih Metode Pembayaran</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setPaymentMethod('cash')}
+                    className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                      paymentMethod === 'cash' 
+                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-700 font-black' 
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold'
+                    }`}
+                  >
+                    <Wallet className="w-4 h-4 text-amber-600" />
+                    <span className="text-xs uppercase">Tunai di Toko</span>
+                  </button>
+
+                  <button
+                    onClick={() => setPaymentMethod('wa')}
+                    className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                      paymentMethod === 'wa' 
+                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 font-black' 
+                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold'
+                    }`}
+                  >
+                    <Phone className="w-4 h-4 text-emerald-600" />
+                    <span className="text-xs uppercase">Beli via WA Admin</span>
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (activeTab === 'token') handleProcessTokenPurchase();
+                  else handleProcessBillPayment();
+                }}
+                disabled={isProcessing}
+                className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white font-black text-sm uppercase tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all active:scale-98 cursor-pointer"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Memproses Ke API PLN...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5" />
+                    Konfirmasi & Bayar
+                  </>
+                )}
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Success Modal / Struk Bukti PLN */}
+      <AnimatePresence>
+        {transactionSuccess && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-100 dark:border-slate-800 text-center space-y-4"
+            >
+              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-inner">
+                <Check className="w-8 h-8 stroke-[3]" />
+              </div>
+
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Transaksi PLN Berhasil!</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">Struk Resmi Pembelian Listrik</p>
+              </div>
+
+              {/* Display Stroom Token if token purchase */}
+              {transactionSuccess.type === 'token' && (
+                <div className="bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 p-4 rounded-2xl space-y-2 text-center">
+                  <span className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-300 tracking-wider block">
+                    KODE STROOM TOKEN PLN (20 DIGIT)
+                  </span>
+                  <p className="text-lg font-black text-slate-900 dark:text-white font-mono tracking-wider selection:bg-amber-200">
+                    {transactionSuccess.stroomToken}
+                  </p>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(transactionSuccess.stroomToken.replace(/\s+/g, ''));
+                      setCopiedToken(true);
+                      setTimeout(() => setCopiedToken(false), 2000);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold uppercase tracking-wider shadow-xs flex items-center justify-center gap-1.5 mx-auto transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    {copiedToken ? "Berhasil Disalin!" : "Salin Kode Token"}
+                  </button>
+                </div>
+              )}
+
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-700/50 text-left space-y-2 text-xs font-semibold">
+                <div className="flex justify-between">
+                  <span className="text-slate-400 uppercase">No. Ref PLN</span>
+                  <span className="font-mono font-black text-slate-800 dark:text-white">{transactionSuccess.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400 uppercase">ID Pelanggan</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-white">{transactionSuccess.idpl}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400 uppercase">Nama</span>
+                  <span className="font-bold text-slate-800 dark:text-white uppercase">{transactionSuccess.nama}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400 uppercase">Tarif / Daya</span>
+                  <span className="font-bold text-amber-600 dark:text-amber-400">{transactionSuccess.tarifDaya}</span>
+                </div>
+                {transactionSuccess.type === 'token' && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 uppercase">Estimasi kWh</span>
+                    <span className="font-bold text-slate-800 dark:text-white">~{transactionSuccess.kwh} kWh</span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-600 dark:text-slate-300 font-extrabold uppercase">Total Bayar</span>
+                  <span className="font-black text-amber-600 dark:text-amber-400 text-sm">Rp {transactionSuccess.totalPrice.toLocaleString('id-ID')}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setTransactionSuccess(null);
+                  setSelectedToken(null);
+                }}
+                className="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+              >
+                Selesai
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
@@ -24201,7 +25891,9 @@ const Layout = ({
   const location = useLocation();
   const isBansosPage = location.pathname.includes("/bansos");
   const isNotificationPage = location.pathname.includes("/notifikasi") || activeTab === "notifikasi";
-  const isNoBottomNav = isBansosPage || activeTab === "konfirmasi-pesanan" || isNotificationPage;
+  const isPulsaPage = location.pathname.startsWith("/pulsa") || location.pathname.startsWith("/paket-data");
+  const isProfileSettingsPage = location.pathname.startsWith("/pengaturan-profil") || location.pathname.includes("/pengaturan") || activeTab === "pengaturan-profil" || activeTab === "pengaturan";
+  const isNoBottomNav = isBansosPage || activeTab === "konfirmasi-pesanan" || isNotificationPage || isPulsaPage || isProfileSettingsPage;
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -24476,7 +26168,7 @@ const HomePage = ({
           {loggedInUser ? (
             <div className="relative">
               {/* BNI Blue Header / Dynamic Vector Illustration background */}
-              <div className={`relative rounded-none px-6 pt-12 pb-24 sm:pt-14 sm:pb-28 overflow-hidden shadow-lg transition-all duration-1000 bg-gradient-to-br ${
+              <div className={`relative rounded-none px-6 pt-14 pb-28 sm:pt-16 sm:pb-32 overflow-hidden shadow-lg transition-all duration-1000 bg-gradient-to-br ${
                 greeting === "Pagi" ? "from-[#005E6A] via-[#008B99] to-[#009EAD]" :
                 greeting === "Siang" ? "from-[#004C56] via-[#005E6A] to-[#007F8F]" :
                 greeting === "Sore" ? "from-[#E65100] via-[#F15A24] to-[#C0392B]" :
@@ -26598,7 +28290,9 @@ export default function App() {
   const handleLogout = () => {
     setLoggedInUser(null);
     localStorage.removeItem("warung_tomi_user");
-    window.location.href = "/login";
+    setActiveTab("beranda");
+    window.history.pushState({}, "", "/");
+    window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
   return (
@@ -26843,6 +28537,21 @@ export default function App() {
         } />
         <Route path="/qris" element={<QRISPage />} />
         <Route path="/tariktunai" element={<TarikTunaiPage />} />
+        <Route path="/pulsa" element={
+          <Layout activeTab={activeTab} setActiveTab={setActiveTab} user={loggedInUser}>
+            <PulsaPage user={loggedInUser} customers={customers} />
+          </Layout>
+        } />
+        <Route path="/paket-data" element={
+          <Layout activeTab={activeTab} setActiveTab={setActiveTab} user={loggedInUser}>
+            <PulsaPage user={loggedInUser} customers={customers} initialTab="data" />
+          </Layout>
+        } />
+        <Route path="/listrik" element={
+          <Layout activeTab={activeTab} setActiveTab={setActiveTab} user={loggedInUser}>
+            <ListrikPage user={loggedInUser} customers={customers} />
+          </Layout>
+        } />
         <Route path="/bantuan" element={<HelpPage />} />
         <Route path="/level" element={<LevelPage user={loggedInUser} transactions={salesTransactions} customers={customers} />} />
         <Route path="/notifikasi" element={
