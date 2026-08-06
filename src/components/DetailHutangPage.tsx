@@ -147,7 +147,19 @@ export const DetailHutangPage = ({ user, transactions, salesTransactions }: Deta
     );
   }
 
-  const isTambah = transaction.Tipe === 'TAMBAH';
+  const isTambah = useMemo(() => {
+    const ket = (transaction.Keterangan || (transaction as any).keterangan || "").toLowerCase();
+    if (
+      ket.includes("bayar belanja") ||
+      ket.includes("metode hutang") ||
+      ket.includes("kasbon belanja") ||
+      ket.includes("belanja")
+    ) {
+      return true;
+    }
+    const rawTipe = (transaction.Tipe || (transaction as any).tipe || "").toUpperCase();
+    return rawTipe === "TAMBAH" || rawTipe === "KASBON";
+  }, [transaction]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e74c3c] to-[#c0392b] flex flex-col items-center py-8 px-4 sm:px-6 print:py-0 print:px-0 print:bg-white">
@@ -218,7 +230,7 @@ export const DetailHutangPage = ({ user, transactions, salesTransactions }: Deta
           </div>
           <div>
             <p className="font-bold text-slate-400 uppercase tracking-wider">Tipe Transaksi</p>
-            <p className="font-black text-[#005E6A] uppercase tracking-tight mt-0.5">{transaction.Tipe}</p>
+            <p className="font-black text-[#005E6A] uppercase tracking-tight mt-0.5">{isTambah ? "KASBON" : "BAYAR"}</p>
           </div>
           <div>
             <p className="font-bold text-slate-400 uppercase tracking-wider">Status</p>

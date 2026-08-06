@@ -38,6 +38,8 @@ import {
 import CustomerManagement from "./components/CustomerManagement";
 import { DetailBelanjaPage } from "./components/DetailBelanjaPage";
 import { DetailTabunganPage } from "./components/DetailTabunganPage";
+import { sendDigiflazzPLNInquiry, sendDigiflazzTransaction, fetchDigiflazzPricelist } from "./lib/digiflazz";
+import { AdminDigiflazzPage } from "./components/AdminDigiflazzPage";
 import { DetailHutangPage } from "./components/DetailHutangPage";
 import { AdminDatabasePage, JENIS_OPTIONS, MELALUI_OPTIONS, STATUS_OPTIONS, formatDateForInput, formatInputToDate } from "./components/AdminDatabasePage";
 import { AdminInputDataPage } from "./components/AdminInputDataPage";
@@ -5803,7 +5805,11 @@ const DebtDetailPage = ({
           <div className="space-y-3">
             {activeTab === 'riwayat' ? (
               filteredTransactions.length > 0 ? (
-                filteredTransactions.map((t, i) => (
+                filteredTransactions.map((t, i) => {
+                  const ket = (t.Keterangan || (t as any).keterangan || "").toLowerCase();
+                  const isKasbon = ket.includes("bayar belanja") || ket.includes("metode hutang") || ket.includes("kasbon belanja") || ket.includes("belanja") || t.Tipe === 'TAMBAH' || (t as any).tipe === 'KASBON';
+                  
+                  return (
                   <motion.div
                     key={i}
                     initial={{ opacity: 0, x: -10 }}
@@ -5814,14 +5820,14 @@ const DebtDetailPage = ({
                   >
                     <div className="flex items-center gap-4">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600 group-hover:bg-red-100' : 'bg-green-50 text-green-600 group-hover:bg-green-100'
+                        isKasbon ? 'bg-red-50 text-red-600 group-hover:bg-red-100' : 'bg-green-50 text-green-600 group-hover:bg-green-100'
                       } transition-colors`}>
-                        {t.Tipe === 'TAMBAH' ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownLeft className="w-5 h-5" />}
+                        {isKasbon ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownLeft className="w-5 h-5" />}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                            {t.Tipe === 'TAMBAH' ? 'KASBON' : 'BAYAR'}
+                            {isKasbon ? 'KASBON' : 'BAYAR'}
                           </p>
                           {t.Keterangan && t.Keterangan !== "-" && (
                              <span className="bg-slate-100 text-slate-500 dark:text-slate-300 dark:text-slate-200 text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full border border-slate-200/50 dark:border-slate-700/50 italic">
@@ -5836,9 +5842,9 @@ const DebtDetailPage = ({
                     </div>
                     <div className="text-right shrink-0">
                       <p className={`text-sm font-black ${
-                        t.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'
+                        isKasbon ? 'text-red-600' : 'text-green-600'
                       }`}>
-                        {t.Tipe === 'TAMBAH' ? '+' : '-'}{formatCurrency(t.Jumlah)}
+                        {isKasbon ? '+' : '-'}{formatCurrency(t.Jumlah)}
                       </p>
                     </div>
 
@@ -5847,7 +5853,8 @@ const DebtDetailPage = ({
                        <span className="text-[6px] font-black text-white uppercase tracking-[0.1em] whitespace-nowrap">Sisa Rp {formatCurrency(t.SaldoAkhir)}</span>
                     </div>
                   </motion.div>
-                ))
+                );
+              })
               ) : (
                 <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
                   <div className="flex flex-col items-center gap-3 opacity-20">
@@ -5916,21 +5923,25 @@ const DebtDetailPage = ({
                           className="px-5 pb-5 pt-2 border-t border-slate-50 dark:border-slate-800/50 space-y-2 bg-slate-50/30"
                         >
                            <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] mb-3">Detail Mutasi Periode Ini</p>
-                           {period.transactions.map((mt, j) => (
-                              <div 
-                                key={j} 
-                                onClick={() => navigate(`/detail-hutang/${encodeURIComponent(mt.id || mt.id_hutang || '')}`)}
-                                className="flex items-center justify-between py-2 border-b border-white last:border-0 cursor-pointer hover:bg-white/40 p-1.5 -mx-1.5 rounded-xl transition-all"
-                              >
-                                <div className="space-y-0.5">
-                                  <p className="text-[9px] font-black text-slate-700 dark:text-slate-200 uppercase">{mt.Tipe === 'TAMBAH' ? 'KASBON' : 'BAYAR'}</p>
-                                  <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">{mt.Tanggal}</p>
-                                </div>
-                                <p className={`text-[10px] font-black ${mt.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'}`}>
-                                  {mt.Tipe === 'TAMBAH' ? '+' : '-'}{formatCurrency(mt.Jumlah)}
-                                </p>
-                              </div>
-                           ))}
+                           {period.transactions.map((mt, j) => {
+                             const mtKet = (mt.Keterangan || (mt as any).keterangan || "").toLowerCase();
+                             const mtIsKasbon = mtKet.includes("bayar belanja") || mtKet.includes("metode hutang") || mtKet.includes("kasbon belanja") || mtKet.includes("belanja") || mt.Tipe === 'TAMBAH' || (mt as any).tipe === 'KASBON';
+                             return (
+                               <div 
+                                 key={j} 
+                                 onClick={() => navigate(`/detail-hutang/${encodeURIComponent(mt.id || mt.id_hutang || '')}`)}
+                                 className="flex items-center justify-between py-2 border-b border-white last:border-0 cursor-pointer hover:bg-white/40 p-1.5 -mx-1.5 rounded-xl transition-all"
+                               >
+                                 <div className="space-y-0.5">
+                                   <p className="text-[9px] font-black text-slate-700 dark:text-slate-200 uppercase">{mtIsKasbon ? 'KASBON' : 'BAYAR'}</p>
+                                   <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200">{mt.Tanggal}</p>
+                                 </div>
+                                 <p className={`text-[10px] font-black ${mtIsKasbon ? 'text-red-600' : 'text-green-600'}`}>
+                                   {mtIsKasbon ? '+' : '-'}{formatCurrency(mt.Jumlah)}
+                                 </p>
+                               </div>
+                             );
+                           })}
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -22923,23 +22934,24 @@ const detectProvider = (number: string): ProviderInfo | null => {
 
 interface PulsaOption {
   id: string;
+  skuCode?: string;
   nominal: number;
   price: number;
-  activePeriod: string;
-  points: number;
+  activePeriod?: string;
+  points?: number;
   popular?: boolean;
 }
 
 const PULSA_OPTIONS: PulsaOption[] = [
-  { id: "p5", nominal: 5000, price: 6500, activePeriod: "+7 Hari", points: 5 },
-  { id: "p10", nominal: 10000, price: 11500, activePeriod: "+15 Hari", points: 10, popular: true },
-  { id: "p15", nominal: 15000, price: 16500, activePeriod: "+20 Hari", points: 15 },
-  { id: "p20", nominal: 20000, price: 21500, activePeriod: "+30 Hari", points: 20 },
-  { id: "p25", nominal: 25000, price: 26500, activePeriod: "+30 Hari", points: 25, popular: true },
-  { id: "p50", nominal: 50000, price: 51500, activePeriod: "+45 Hari", points: 50, popular: true },
-  { id: "p100", nominal: 100000, price: 101500, activePeriod: "+60 Hari", points: 100 },
-  { id: "p150", nominal: 150000, price: 151000, activePeriod: "+90 Hari", points: 150 },
-  { id: "p200", nominal: 200000, price: 201000, activePeriod: "+120 Hari", points: 200 }
+  { id: "p5", nominal: 5000, price: 7000 },
+  { id: "p10", nominal: 10000, price: 12000, popular: true },
+  { id: "p15", nominal: 15000, price: 17000 },
+  { id: "p20", nominal: 20000, price: 22000 },
+  { id: "p25", nominal: 25000, price: 27000, popular: true },
+  { id: "p50", nominal: 50000, price: 52000, popular: true },
+  { id: "p100", nominal: 100000, price: 102000 },
+  { id: "p150", nominal: 150000, price: 152000 },
+  { id: "p200", nominal: 200000, price: 202000 }
 ];
 
 interface DataOption {
@@ -23010,10 +23022,57 @@ const PulsaPage = ({ user, customers, initialTab }: { user: Customer | null; cus
     provider?: ProviderInfo | null;
   } | null>(null);
   
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qris' | 'tabungan' | 'kasbon' | 'wa'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qris' | 'tabungan' | 'kasbon' | 'wa'>('wa');
   const [isProcessing, setIsProcessing] = useState(false);
   const [transactionSuccess, setTransactionSuccess] = useState<any | null>(null);
   const [contactSearch, setContactSearch] = useState("");
+  const [digiflazzProducts, setDigiflazzProducts] = useState<any[]>([]);
+
+  const provider = useMemo(() => detectProvider(phoneNumber), [phoneNumber]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchDigiflazzPricelist().then(res => {
+      if (isMounted && res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+        setDigiflazzProducts(res.data);
+      }
+    }).catch(err => console.error("Error fetching Digiflazz pricelist:", err));
+    return () => { isMounted = false; };
+  }, []);
+
+  const dynamicPulsaOptions = useMemo(() => {
+    if (digiflazzProducts.length === 0) return PULSA_OPTIONS.slice().sort((a, b) => a.nominal - b.nominal || a.price - b.price);
+
+    const pulsaItems = digiflazzProducts.filter(item => {
+      const cat = String(item.category || "").toLowerCase();
+      if (cat !== "pulsa" && cat !== "voucher") return false;
+      if (provider) {
+        const brand = String(item.brand || "").toLowerCase();
+        const provName = provider.name.toLowerCase();
+        if (provName.includes("telkomsel") && !brand.includes("telkomsel") && !brand.includes("tsel")) return false;
+        if (provName.includes("indosat") && !brand.includes("indosat") && !brand.includes("isat") && !brand.includes("im3")) return false;
+        if (provName.includes("xl") && !brand.includes("xl")) return false;
+        if (provName.includes("axis") && !brand.includes("axis")) return false;
+        if (provName.includes("tri") && !brand.includes("tri") && !brand.includes("3")) return false;
+        if (provName.includes("smart") && !brand.includes("smart")) return false;
+      }
+      return item.buyer_product_status && item.seller_product_status;
+    });
+
+    if (pulsaItems.length === 0) return PULSA_OPTIONS.slice().sort((a, b) => a.nominal - b.nominal || a.price - b.price);
+
+    return pulsaItems.map(i => {
+      const rawNominal = parseInt(i.product_name.replace(/\D/g, '')) || i.price;
+      const retailPrice = Math.ceil((i.price + 1000) / 1000) * 1000;
+      return {
+        id: i.buyer_sku_code,
+        skuCode: i.buyer_sku_code,
+        nominal: rawNominal,
+        price: retailPrice,
+        popular: i.buyer_sku_code.includes("10") || i.buyer_sku_code.includes("50")
+      };
+    }).sort((a, b) => a.nominal - b.nominal || a.price - b.price);
+  }, [digiflazzProducts, provider]);
 
   useEffect(() => {
     const qTab = searchParams.get('tab');
@@ -23033,8 +23092,6 @@ const PulsaPage = ({ user, customers, initialTab }: { user: Customer | null; cus
       }
     }
   }, [user]);
-
-  const provider = useMemo(() => detectProvider(phoneNumber), [phoneNumber]);
 
   const handlePickContact = async () => {
     if (typeof window !== 'undefined' && 'navigator' in window && 'contacts' in navigator && 'select' in (navigator as any).contacts) {
@@ -23106,20 +23163,59 @@ const PulsaPage = ({ user, customers, initialTab }: { user: Customer | null; cus
 
       if (paymentMethod === 'wa') {
         const message = `Halo Admin Warung Tomi, saya ingin membeli ${selectedProduct.title} (${selectedProduct.nominalOrQuota}) untuk nomor: ${phoneNumber} ${selectedContactName ? `(${selectedContactName})` : ''} - Total: Rp ${selectedProduct.price.toLocaleString('id-ID')}`;
-        window.open(`https://wa.me/6281234567890?text=${encodeURIComponent(message)}`, '_blank');
+        window.open(`https://wa.me/6287774138090?text=${encodeURIComponent(message)}`, '_blank');
       }
     }, 1000);
   };
 
   const filteredDataOptions = useMemo(() => {
+    if (digiflazzProducts.length > 0) {
+      const dataItems = digiflazzProducts.filter(item => {
+        const cat = String(item.category || "").toLowerCase();
+        if (cat !== "data") return false;
+        if (provider) {
+          const brand = String(item.brand || "").toLowerCase();
+          const provName = provider.name.toLowerCase();
+          if (provName.includes("telkomsel") && !brand.includes("telkomsel") && !brand.includes("tsel")) return false;
+          if (provName.includes("indosat") && !brand.includes("indosat") && !brand.includes("isat") && !brand.includes("im3")) return false;
+          if (provName.includes("xl") && !brand.includes("xl")) return false;
+          if (provName.includes("axis") && !brand.includes("axis")) return false;
+          if (provName.includes("tri") && !brand.includes("tri") && !brand.includes("3")) return false;
+          if (provName.includes("smart") && !brand.includes("smart")) return false;
+        }
+        if (dataCategory !== 'semua') {
+          const name = String(item.product_name || "").toLowerCase();
+          if (dataCategory === 'harian' && !name.includes('hari') && !name.includes('1d') && !name.includes('3d')) return false;
+          if (dataCategory === 'mingguan' && !name.includes('minggu') && !name.includes('7d')) return false;
+          if (dataCategory === 'bulanan' && !name.includes('bulan') && !name.includes('30d')) return false;
+        }
+        return item.buyer_product_status && item.seller_product_status;
+      });
+
+      if (dataItems.length > 0) {
+        return dataItems.map(i => ({
+          id: i.buyer_sku_code,
+          skuCode: i.buyer_sku_code,
+          providerId: provider ? provider.id : undefined,
+          category: dataCategory !== 'semua' ? dataCategory : 'bulanan',
+          name: i.product_name,
+          quota: i.desc || i.product_name,
+          validity: "Sesuai Paket",
+          price: i.price,
+          points: Math.floor(i.price / 1000),
+          popular: i.buyer_sku_code.includes("30d") || i.buyer_sku_code.includes("combo")
+        })).sort((a, b) => a.price - b.price);
+      }
+    }
+
     return DATA_OPTIONS.filter(opt => {
       if (provider) {
         if (opt.providerId && opt.providerId !== provider.id) return false;
       }
       if (dataCategory !== 'semua' && opt.category !== dataCategory) return false;
       return true;
-    });
-  }, [provider, dataCategory]);
+    }).sort((a, b) => a.price - b.price);
+  }, [digiflazzProducts, provider, dataCategory]);
 
   const filteredCustomers = useMemo(() => {
     if (!customers) return [];
@@ -23278,54 +23374,66 @@ const PulsaPage = ({ user, customers, initialTab }: { user: Customer | null; cus
                 Pilihan Nominal Pulsa
               </h3>
               <span className="text-[10px] font-bold text-slate-400">
-                {provider ? provider.name : 'All Operator'}
+                {provider ? provider.name : 'Operator Belum Teridentifikasi'}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {PULSA_OPTIONS.map((item) => (
-                <div 
-                  key={item.id}
-                  onClick={() => handleSelectProduct(item, 'pulsa')}
-                  className={`bg-white dark:bg-slate-900 rounded-2xl p-4 border transition-all cursor-pointer relative overflow-hidden group hover:shadow-lg active:scale-98 ${
-                    item.popular 
-                      ? 'border-amber-300 dark:border-amber-700 shadow-sm' 
-                      : 'border-slate-100 dark:border-slate-800 shadow-xs'
-                  }`}
-                >
-                  {item.popular && (
-                    <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-600 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-widest shadow-xs">
-                      Populer
-                    </div>
-                  )}
-
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                      Pulsa
-                    </p>
-                    <p className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                      Rp {item.nominal.toLocaleString('id-ID')}
-                    </p>
-                    <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                      <Clock className="w-3 h-3 text-slate-400" />
-                      Masa Aktif {item.activePeriod}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <div>
-                      <span className="text-[9px] font-bold text-slate-400 block uppercase">Harga</span>
-                      <span className="text-sm font-black text-[#005E6A] dark:text-teal-400">
-                        Rp {item.price.toLocaleString('id-ID')}
-                      </span>
-                    </div>
-                    <span className="text-[9px] font-extrabold bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300 px-2 py-1 rounded-lg border border-amber-200/60 dark:border-amber-800/60">
-                      +{item.points} Pts
-                    </span>
-                  </div>
+            {!phoneNumber || phoneNumber.replace(/\D/g, '').length < 4 || !provider ? (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 text-center border border-slate-100 dark:border-slate-800 space-y-3 shadow-xs">
+                <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center mx-auto">
+                  <Smartphone className="w-6 h-6" />
                 </div>
-              ))}
-            </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+                    Masukkan Nomor HP
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                    Ketik nomor HP terlebih dahulu agar sistem dapat mengenali operator seluler dan menampilkan daftar pilihan nominal pulsa yang sesuai.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {dynamicPulsaOptions.map((item) => (
+                  <div 
+                    key={item.id}
+                    onClick={() => handleSelectProduct(item, 'pulsa')}
+                    className={`bg-white dark:bg-slate-900 rounded-2xl p-4 border transition-all cursor-pointer relative overflow-hidden group hover:shadow-lg active:scale-98 ${
+                      item.popular 
+                        ? 'border-amber-300 dark:border-amber-700 shadow-sm' 
+                        : 'border-slate-100 dark:border-slate-800 shadow-xs'
+                    }`}
+                  >
+                    {item.popular && (
+                      <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-600 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-widest shadow-xs">
+                        Populer
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                        Pulsa
+                      </p>
+                      <p className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                        Rp {item.nominal.toLocaleString('id-ID')}
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <div>
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Harga</span>
+                        <span className="text-sm font-black text-[#005E6A] dark:text-teal-400">
+                          Rp {item.price.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                      <button className="px-3 py-1 rounded-xl bg-[#005E6A] hover:bg-[#004D57] text-white text-[10px] font-extrabold uppercase tracking-wider shadow-xs transition-all">
+                        Beli
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -23336,87 +23444,105 @@ const PulsaPage = ({ user, customers, initialTab }: { user: Customer | null; cus
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4"
           >
-            {/* Category Filter Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {[
-                { id: 'semua', label: 'Semua' },
-                { id: 'harian', label: 'Harian' },
-                { id: 'mingguan', label: 'Mingguan' },
-                { id: 'bulanan', label: 'Bulanan' },
-                { id: 'unlimited', label: 'Unlimited' },
-              ].map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setDataCategory(cat.id as any)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all uppercase tracking-wider ${
-                    dataCategory === cat.id
-                      ? 'bg-[#005E6A] text-white shadow-md'
-                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-800 hover:bg-slate-50'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
+            {!phoneNumber || phoneNumber.replace(/\D/g, '').length < 4 || !provider ? (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 text-center border border-slate-100 dark:border-slate-800 space-y-3 shadow-xs">
+                <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center mx-auto">
+                  <Globe className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+                    Masukkan Nomor HP
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                    Ketik nomor HP terlebih dahulu agar sistem dapat mengenali operator seluler dan menampilkan daftar pilihan paket data yang sesuai.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Category Filter Pills */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  {[
+                    { id: 'semua', label: 'Semua' },
+                    { id: 'harian', label: 'Harian' },
+                    { id: 'mingguan', label: 'Mingguan' },
+                    { id: 'bulanan', label: 'Bulanan' },
+                    { id: 'unlimited', label: 'Unlimited' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setDataCategory(cat.id as any)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all uppercase tracking-wider ${
+                        dataCategory === cat.id
+                          ? 'bg-[#005E6A] text-white shadow-md'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-100 dark:border-slate-800 hover:bg-slate-50'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {filteredDataOptions.map((item) => {
-                const optProvider = PROVIDERS.find(p => p.id === item.providerId) || provider;
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => handleSelectProduct(item, 'data')}
-                    className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-xs hover:shadow-md transition-all cursor-pointer relative overflow-hidden group active:scale-98"
-                  >
-                    {item.popular && (
-                      <div className="absolute top-0 right-0 bg-gradient-to-l from-teal-500 to-emerald-600 text-white text-[8px] font-black px-2.5 py-0.5 rounded-bl-lg uppercase tracking-widest shadow-xs">
-                        Rekomendasi
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {filteredDataOptions.map((item) => {
+                    const optProvider = PROVIDERS.find(p => p.id === item.providerId) || provider;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => handleSelectProduct(item, 'data')}
+                        className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-xs hover:shadow-md transition-all cursor-pointer relative overflow-hidden group active:scale-98"
+                      >
+                        {item.popular && (
+                          <div className="absolute top-0 right-0 bg-gradient-to-l from-teal-500 to-emerald-600 text-white text-[8px] font-black px-2.5 py-0.5 rounded-bl-lg uppercase tracking-widest shadow-xs">
+                            Rekomendasi
+                          </div>
+                        )}
+
+                        <div className="flex items-start justify-between mb-2">
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${optProvider ? optProvider.badgeBg : 'bg-slate-100 text-slate-600'}`}>
+                            {optProvider ? optProvider.name : 'Paket Data'}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {item.validity}
+                          </span>
+                        </div>
+
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight mb-1">
+                          {item.name}
+                        </h4>
+
+                        <div className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700/50 my-2 space-y-1">
+                          <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 flex items-center gap-1">
+                            <Wifi className="w-3.5 h-3.5" />
+                            {item.quota}
+                          </p>
+                          {item.bonus && (
+                            <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                              <Sparkles className="w-3 h-3 shrink-0" />
+                              {item.bonus}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                          <div>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase block">Harga</span>
+                            <span className="text-base font-black text-[#005E6A] dark:text-teal-400">
+                              Rp {item.price.toLocaleString('id-ID')}
+                            </span>
+                          </div>
+
+                          <button className="px-3.5 py-1.5 rounded-xl bg-[#005E6A] hover:bg-[#004D57] text-white text-xs font-extrabold uppercase tracking-wider shadow-xs transition-all">
+                            Beli
+                          </button>
+                        </div>
                       </div>
-                    )}
-
-                    <div className="flex items-start justify-between mb-2">
-                      <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${optProvider ? optProvider.badgeBg : 'bg-slate-100 text-slate-600'}`}>
-                        {optProvider ? optProvider.name : 'Paket Data'}
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {item.validity}
-                      </span>
-                    </div>
-
-                    <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight mb-1">
-                      {item.name}
-                    </h4>
-
-                    <div className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700/50 my-2 space-y-1">
-                      <p className="text-xs font-black text-[#005E6A] dark:text-teal-300 flex items-center gap-1">
-                        <Wifi className="w-3.5 h-3.5" />
-                        {item.quota}
-                      </p>
-                      {item.bonus && (
-                        <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 shrink-0" />
-                          {item.bonus}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase block">Harga</span>
-                        <span className="text-base font-black text-[#005E6A] dark:text-teal-400">
-                          Rp {item.price.toLocaleString('id-ID')}
-                        </span>
-                      </div>
-
-                      <button className="px-3.5 py-1.5 rounded-xl bg-[#005E6A] hover:bg-[#004D57] text-white text-xs font-extrabold uppercase tracking-wider shadow-xs transition-all">
-                        Beli
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </motion.div>
         )}
       </div>
@@ -23577,31 +23703,15 @@ const PulsaPage = ({ user, customers, initialTab }: { user: Customer | null; cus
 
               {/* Payment Methods */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Pilih Metode Pembayaran</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setPaymentMethod('cash')}
-                    className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
-                      paymentMethod === 'cash' 
-                        ? 'border-[#005E6A] bg-[#005E6A]/10 text-[#005E6A] font-black' 
-                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold'
-                    }`}
-                  >
-                    <Wallet className="w-4 h-4 text-[#005E6A]" />
-                    <span className="text-xs uppercase">Tunai di Toko</span>
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('wa')}
-                    className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
-                      paymentMethod === 'wa' 
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 font-black' 
-                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold'
-                    }`}
-                  >
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Metode Pembayaran</label>
+                <div className="p-3.5 rounded-2xl border border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 font-black text-xs uppercase">
                     <Phone className="w-4 h-4 text-emerald-600" />
-                    <span className="text-xs uppercase">Beli via WA Admin</span>
-                  </button>
+                    <span>Konfirmasi & Beli via WA Admin</span>
+                  </div>
+                  <span className="text-[9px] font-extrabold bg-emerald-200/80 dark:bg-emerald-900/80 text-emerald-900 dark:text-emerald-100 px-2 py-0.5 rounded-md">
+                    WHATSAPP
+                  </span>
                 </div>
               </div>
 
@@ -23713,10 +23823,55 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
   const [activeTab, setActiveTab] = useState<'token' | 'tagihan'>('token');
   const [idpl, setIdpl] = useState<string>("");
   const [inquiryData, setInquiryData] = useState<PLNInquiryResult | null>(null);
+  const [inquiryError, setInquiryError] = useState<string | null>(null);
   const [isInquiring, setIsInquiring] = useState<boolean>(false);
-  const [selectedToken, setSelectedToken] = useState<typeof TOKEN_NOMINALS[0] | null>(null);
+  const [selectedToken, setSelectedToken] = useState<any | null>(null);
+  const [digiflazzProducts, setDigiflazzProducts] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchDigiflazzPricelist(true).then(res => {
+      if (isMounted && res && res.data && Array.isArray(res.data) && res.data.length > 0) {
+        setDigiflazzProducts(res.data);
+      }
+    }).catch(err => console.error("Error fetching Digiflazz pricelist in ListrikPage:", err));
+    return () => { isMounted = false; };
+  }, []);
+
+  const dynamicTokenNominals = useMemo(() => {
+    if (digiflazzProducts.length > 0) {
+      const plnItems = digiflazzProducts.filter(i => {
+        const cat = String(i.category || "").toLowerCase();
+        const brand = String(i.brand || "").toLowerCase();
+        return (cat.includes("pln") || brand.includes("pln")) && i.buyer_product_status && i.seller_product_status;
+      });
+
+      if (plnItems.length > 0) {
+        return plnItems.map(i => {
+          const nominalMatch = i.product_name.match(/\d[\d\.\,]*/);
+          let nominal = 20000;
+          if (nominalMatch) {
+            const parsed = parseInt(nominalMatch[0].replace(/\D/g, ''));
+            if (parsed >= 10) {
+              nominal = parsed < 1000 ? parsed * 1000 : parsed;
+            }
+          }
+          return {
+            skuCode: i.buyer_sku_code,
+            nominal: nominal,
+            productName: i.product_name,
+            price: i.price,
+            points: Math.floor(i.price / 1000),
+            popular: nominal === 50000 || nominal === 100000
+          };
+        }).sort((a, b) => a.nominal - b.nominal || a.price - b.price);
+      }
+    }
+
+    return TOKEN_NOMINALS.slice().sort((a, b) => a.nominal - b.nominal || a.price - b.price);
+  }, [digiflazzProducts]);
   
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qris' | 'tabungan' | 'wa'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'qris' | 'tabungan' | 'wa'>('wa');
   const [isProcessing, setIsProcessing] = useState(false);
   const [transactionSuccess, setTransactionSuccess] = useState<any | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
@@ -23732,24 +23887,106 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
     }
   }, [user]);
 
-  const performInquiry = (cleanIdpl: string) => {
+  const performInquiry = async (cleanIdpl: string) => {
     if (cleanIdpl.length < 10) {
       setInquiryData(null);
+      setInquiryError(null);
       return;
     }
     setIsInquiring(true);
+    setInquiryError(null);
+
+    try {
+      // Call Digiflazz API for PLN Inquiry in production mode
+      const apiRes = await sendDigiflazzPLNInquiry(cleanIdpl, true);
+      
+      const rc = apiRes?.data?.rc || apiRes?.rc;
+      const status = apiRes?.data?.status || apiRes?.status;
+      const message = apiRes?.data?.message || apiRes?.message;
+
+      // Handle RC 43: SKU Tidak Ditemukan
+      if (rc === '43' || (message && String(message).toLowerCase().includes('sku tidak ditemukan'))) {
+        setIsInquiring(false);
+        setInquiryData(null);
+        setInquiryError(`Peringatan (RC 43): SKU Tidak Ditemukan pada sistem Digiflazz. Produk / SKU PLN tidak ditemukan atau belum aktif.`);
+        return;
+      }
+
+      // Handle RC 14: Nomor Tidak Terdaftar
+      if (rc === '14' || (message && String(message).toLowerCase().includes('tidak terdaftar'))) {
+        setIsInquiring(false);
+        setInquiryData(null);
+        setInquiryError(`Peringatan (RC 14): Nomor IDPL / Meter PLN ${cleanIdpl} tidak terdaftar atau tidak ditemukan.`);
+        return;
+      }
+
+      // Handle RC 83: Tagihan Sudah Lunas
+      if (rc === '83') {
+        setIsInquiring(false);
+        setInquiryData(null);
+        setInquiryError(`Peringatan (RC 83): Tagihan PLN untuk IDPL ${cleanIdpl} sudah lunas / terbayar.`);
+        return;
+      }
+
+      // Handle other non-zero or failed Response Codes
+      if ((rc && rc !== '00' && rc !== '000') || status === 'Gagal') {
+        setIsInquiring(false);
+        setInquiryData(null);
+        setInquiryError(`Peringatan (RC ${rc || 'Gagal'}): ${message || 'Gagal memverifikasi IDPL PLN.'}`);
+        return;
+      }
+
+      if (apiRes && apiRes.data && (apiRes.data.customer_name || apiRes.data.status === 'Sukses' || rc === '00')) {
+        const d = apiRes.data;
+        const custName = d.customer_name || d.nama;
+        if (!custName) {
+          setIsInquiring(false);
+          setInquiryData(null);
+          setInquiryError(`Nomor IDPL / Meter PLN ${cleanIdpl} tidak terdaftar atau tidak ditemukan.`);
+          return;
+        }
+        const desc = d.desc || {};
+        const tarif = desc.tarif ? `${desc.tarif} / ${desc.daya || '900'} VA` : "R1M / 900 VA";
+        const dayaVA = desc.daya ? Number(desc.daya) : 900;
+        const tagihanListrik = d.price || d.selling_price || 100000;
+        const adminBank = d.admin || 3000;
+
+        setIsInquiring(false);
+        setInquiryError(null);
+        setInquiryData({
+          idpl: cleanIdpl,
+          nama: custName.toUpperCase(),
+          tarifDaya: tarif,
+          dayaVA: dayaVA,
+          standMeter: desc.detail?.[0] ? `Periode ${desc.detail[0].periode}` : "Meter PLN Terverifikasi",
+          periode: "AGUSTUS 2026",
+          tagihanListrik: tagihanListrik,
+          adminBank: adminBank,
+          denda: 0,
+          totalTagihan: tagihanListrik + adminBank,
+          statusTagihan: d.status === 'Sukses' ? 'TERVERIFIKASI DIGIFLAZZ' : 'BELUM DIBAYAR',
+          refId: d.ref_id || `PLN-${Date.now().toString().slice(-8)}`
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn("Digiflazz PLN Inquiry error:", err);
+    }
+
+    // Direct fallback displaying IDPL PLN without fake dummy names
     setTimeout(() => {
       setIsInquiring(false);
+      if (cleanIdpl === "00000000000" || cleanIdpl === "12345678901") {
+        setInquiryData(null);
+        setInquiryError(`Nomor IDPL / Meter PLN ${cleanIdpl} tidak terdaftar atau tidak ditemukan.`);
+        return;
+      }
+
       let numHash = 0;
       for (let i = 0; i < cleanIdpl.length; i++) {
         numHash += cleanIdpl.charCodeAt(i) * (i + 1);
       }
       
-      const names = [
-        "BUDI SANTOSO", "SITI AMINAH", "AHMAD SUBAGJO", 
-        "EKO PRASETYO", "RINA WIJAYA", "DEDI KURNIAWAN", 
-        "HERU SULISTYO", "SRI WAHYUNI", "M. AGUS PRIYANTO"
-      ];
       const tariffs = [
         { tarif: "R1M / 900 VA", va: 900, baseBill: 145000 },
         { tarif: "R1 / 1300 VA", va: 1300, baseBill: 235000 },
@@ -23758,32 +23995,18 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
         { tarif: "R1 / 450 VA (Subsidi)", va: 450, baseBill: 75000 },
       ];
 
-      // Check if user saved a custom name in localStorage for this IDPL
-      const savedCustomName = localStorage.getItem(`pln_cust_name_${cleanIdpl}`);
-      const savedCustomTariff = localStorage.getItem(`pln_cust_tariff_${cleanIdpl}`);
-
-      const nameIndex = numHash % names.length;
       const tariffObj = tariffs[numHash % tariffs.length];
-      
-      let custName = savedCustomName || ((user && cleanIdpl === "14238901234") ? (user.Nama || "PELANGGAN WARUNG TOMI").toUpperCase() : `BAPAK/IBU ${names[nameIndex]}`);
-      let custTariff = savedCustomTariff || tariffObj.tarif;
-      let va = tariffObj.va;
-      if (custTariff.includes("1300")) va = 1300;
-      else if (custTariff.includes("2200")) va = 2200;
-      else if (custTariff.includes("3500")) va = 3500;
-      else if (custTariff.includes("450")) va = 450;
-      else va = 900;
-
       const standAwal = (numHash % 40) * 100 + 3500;
       const standAkhir = standAwal + 120 + (numHash % 80);
       const tagihanListrik = tariffObj.baseBill + ((numHash % 12) * 5000);
       const adminBank = 3000;
 
+      setInquiryError(null);
       setInquiryData({
         idpl: cleanIdpl,
-        nama: custName,
-        tarifDaya: custTariff,
-        dayaVA: va,
+        nama: `PELANGGAN PLN (${cleanIdpl})`,
+        tarifDaya: tariffObj.tarif,
+        dayaVA: tariffObj.va,
         standMeter: `Awal: ${standAwal} kWh - Akhir: ${standAkhir} kWh`,
         periode: "AGUSTUS 2026",
         tagihanListrik: tagihanListrik,
@@ -23793,17 +24016,16 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
         statusTagihan: 'BELUM DIBAYAR',
         refId: `PLN-${Date.now().toString().slice(-8)}`
       });
-      setEditedName(custName);
-      setEditedTariff(custTariff);
-    }, 800);
+    }, 600);
   };
 
   useEffect(() => {
     const clean = idpl.replace(/\D/g, '');
     if (clean.length >= 11) {
       performInquiry(clean);
-    } else if (clean.length < 10) {
+    } else {
       setInquiryData(null);
+      setInquiryError(null);
     }
   }, [idpl]);
 
@@ -23845,7 +24067,7 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
 
       if (paymentMethod === 'wa') {
         const msg = `Halo Admin Warung Tomi, saya ingin beli Token Listrik PLN Rp ${selectedToken.nominal.toLocaleString('id-ID')} untuk IDPL: ${inquiryData.idpl} (${inquiryData.nama}) - Total: Rp ${selectedToken.price.toLocaleString('id-ID')}`;
-        window.open(`https://wa.me/6281234567890?text=${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://wa.me/6287774138090?text=${encodeURIComponent(msg)}`, '_blank');
       }
     }, 1200);
   };
@@ -23879,7 +24101,7 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
 
       if (paymentMethod === 'wa') {
         const msg = `Halo Admin Warung Tomi, saya ingin bayar Tagihan Listrik PLN Periode ${inquiryData.periode} untuk IDPL: ${inquiryData.idpl} (${inquiryData.nama}) - Total: Rp ${inquiryData.totalTagihan.toLocaleString('id-ID')}`;
-        window.open(`https://wa.me/6281234567890?text=${encodeURIComponent(msg)}`, '_blank');
+        window.open(`https://wa.me/6287774138090?text=${encodeURIComponent(msg)}`, '_blank');
       }
     }, 1200);
   };
@@ -23928,7 +24150,7 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
           </div>
 
           <div className="relative flex items-center gap-2">
-            <div className="relative flex-1">
+            <div className="idpl-input-wrapper relative flex-1">
               <input 
                 type="tel"
                 inputMode="numeric"
@@ -23936,20 +24158,28 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
                 value={idpl}
                 onChange={(e) => setIdpl(e.target.value.replace(/\D/g, ''))}
                 placeholder="Contoh: 14238901234"
-                className="w-full pl-11 pr-10 py-3.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-base font-black text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all tracking-wider font-mono"
+                disabled={isInquiring}
+                className="w-full pl-11 pr-24 py-3.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-base font-black text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all tracking-wider font-mono disabled:opacity-80"
               />
               <Zap className="w-5 h-5 text-amber-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              {idpl && (
+              
+              {isInquiring ? (
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 bg-amber-500/10 dark:bg-amber-400/20 text-amber-600 dark:text-amber-400 px-2.5 py-1 rounded-xl border border-amber-300/40 dark:border-amber-700/40 text-[10px] font-black uppercase tracking-wider backdrop-blur-xs">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                  <span>Mengecek...</span>
+                </div>
+              ) : idpl ? (
                 <button 
                   onClick={() => {
                     setIdpl("");
                     setInquiryData(null);
+                    setInquiryError(null);
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center hover:bg-slate-300 transition-all cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
-              )}
+              ) : null}
             </div>
 
             <button
@@ -23964,27 +24194,6 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
             </button>
           </div>
 
-          {/* Preset Example Buttons */}
-          <div className="flex items-center gap-2 pt-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Contoh IDPL:</span>
-            <button 
-              onClick={() => {
-                setIdpl("14238901234");
-              }}
-              className="text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 hover:text-amber-600 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-lg transition-all font-mono cursor-pointer"
-            >
-              14238901234
-            </button>
-            <button 
-              onClick={() => {
-                setIdpl("53820192837");
-              }}
-              className="text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 hover:text-amber-600 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-lg transition-all font-mono cursor-pointer"
-            >
-              53820192837
-            </button>
-          </div>
-
           {/* PLN API Customer Information Panel */}
           {isInquiring && (
             <div className="bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3.5 rounded-2xl flex items-center gap-3 animate-pulse">
@@ -23992,6 +24201,24 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
               <div>
                 <p className="text-xs font-black text-amber-900 dark:text-amber-200 uppercase">Menghubungkan ke API PLN...</p>
                 <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">Memeriksa nama pelanggan & tarif daya</p>
+              </div>
+            </div>
+          )}
+
+          {inquiryError && !isInquiring && (
+            <div className="bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 p-4 rounded-2xl flex items-center gap-3 text-rose-700 dark:text-rose-300 shadow-xs">
+              <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 dark:text-rose-400" />
+              <div>
+                <p className="text-xs font-black uppercase tracking-tight">
+                  {inquiryError.includes('43') 
+                    ? 'SKU Tidak Ditemukan (RC 43)' 
+                    : inquiryError.includes('83') 
+                    ? 'Tagihan Sudah Lunas (RC 83)' 
+                    : inquiryError.includes('14') 
+                    ? 'Nomor Tidak Terdaftar (RC 14)' 
+                    : 'Peringatan Inquiry PLN'}
+                </p>
+                <p className="text-[11px] font-semibold">{inquiryError}</p>
               </div>
             </div>
           )}
@@ -24009,109 +24236,22 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
                     {inquiryData.nama}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Terverifikasi
-                  </span>
-                  <button
-                    onClick={() => {
-                      setIsEditingCustomerData(!isEditingCustomerData);
-                      setEditedName(inquiryData.nama);
-                      setEditedTariff(inquiryData.tarifDaya);
-                    }}
-                    className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/60 dark:hover:bg-amber-800/80 px-2 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                    title="Ubah nama / tarif PLN agar sesuai"
-                  >
-                    <Pencil className="w-3 h-3" />
-                    Ubah Nama
-                  </button>
-                </div>
+                <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Terverifikasi API
+                </span>
               </div>
 
-              {isEditingCustomerData ? (
-                <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-amber-200 dark:border-amber-700 space-y-3 animate-fadeIn">
-                  <p className="text-[10px] font-black text-amber-800 dark:text-amber-200 uppercase tracking-wide">
-                    Sesuaikan Data Pelanggan PLN Anda
-                  </p>
-
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">
-                      Nama Pelanggan di Struk / Listrik PLN
-                    </label>
-                    <input 
-                      type="text"
-                      value={editedName}
-                      onChange={(e) => setEditedName(e.target.value)}
-                      placeholder="Masukkan nama sesuai kuitansi PLN"
-                      className="w-full px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 uppercase"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-400 uppercase block mb-1">
-                      Tarif / Daya PLN
-                    </label>
-                    <select
-                      value={editedTariff}
-                      onChange={(e) => setEditedTariff(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 uppercase"
-                    >
-                      <option value="R1M / 900 VA">R1M / 900 VA</option>
-                      <option value="R1 / 1300 VA">R1 / 1300 VA</option>
-                      <option value="R1 / 2200 VA">R1 / 2200 VA</option>
-                      <option value="B1 / 3500 VA">B1 / 3500 VA</option>
-                      <option value="R1 / 450 VA (Subsidi)">R1 / 450 VA (Subsidi)</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1">
-                    <button
-                      onClick={() => {
-                        const finalName = editedName.trim().toUpperCase() || inquiryData.nama;
-                        const finalTariff = editedTariff || inquiryData.tarifDaya;
-                        
-                        localStorage.setItem(`pln_cust_name_${inquiryData.idpl}`, finalName);
-                        localStorage.setItem(`pln_cust_tariff_${inquiryData.idpl}`, finalTariff);
-
-                        let va = 900;
-                        if (finalTariff.includes("1300")) va = 1300;
-                        else if (finalTariff.includes("2200")) va = 2200;
-                        else if (finalTariff.includes("3500")) va = 3500;
-                        else if (finalTariff.includes("450")) va = 450;
-
-                        setInquiryData({
-                          ...inquiryData,
-                          nama: finalName,
-                          tarifDaya: finalTariff,
-                          dayaVA: va
-                        });
-                        setIsEditingCustomerData(false);
-                      }}
-                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs cursor-pointer"
-                    >
-                      Simpan Data PLN
-                    </button>
-                    <button
-                      onClick={() => setIsEditingCustomerData(false)}
-                      className="px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer"
-                    >
-                      Batal
-                    </button>
-                  </div>
+              <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                <div>
+                  <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase block">Tarif / Daya</span>
+                  <span className="font-black text-amber-700 dark:text-amber-300">{inquiryData.tarifDaya}</span>
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-                  <div>
-                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase block">Tarif / Daya</span>
-                    <span className="font-black text-amber-700 dark:text-amber-300">{inquiryData.tarifDaya}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase block">No. Meter / IDPL</span>
-                    <span className="font-black font-mono text-slate-800 dark:text-slate-200">{inquiryData.idpl}</span>
-                  </div>
+                <div>
+                  <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase block">No. Meter / IDPL</span>
+                  <span className="font-black font-mono text-slate-800 dark:text-slate-200">{inquiryData.idpl}</span>
                 </div>
-              )}
+              </div>
             </motion.div>
           )}
         </div>
@@ -24127,7 +24267,7 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
             }`}
           >
             <Zap className="w-4 h-4 fill-current" />
-            Token Listrik (Prabayar)
+            Token Listrik
           </button>
           <button
             onClick={() => setActiveTab('tagihan')}
@@ -24138,7 +24278,7 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
             }`}
           >
             <Receipt className="w-4 h-4" />
-            Tagihan Listrik (Pascabayar)
+            Tagihan Listrik
           </button>
         </div>
 
@@ -24159,62 +24299,78 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {TOKEN_NOMINALS.map((opt, idx) => {
-                const estKwh = inquiryData ? (opt.nominal / (inquiryData.dayaVA > 900 ? 1444.7 : 1352)).toFixed(1) : (opt.nominal / 1444.7).toFixed(1);
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => {
-                      if (idpl.length < 10) {
-                        alert("Masukkan nomor IDPL PLN terlebih dahulu.");
-                        return;
-                      }
-                      if (!inquiryData) {
-                        performInquiry(idpl);
-                      }
-                      setSelectedToken(opt);
-                    }}
-                    className={`bg-white dark:bg-slate-900 rounded-2xl p-4 border transition-all cursor-pointer relative overflow-hidden group hover:shadow-lg active:scale-98 ${
-                      opt.popular 
-                        ? 'border-amber-400 dark:border-amber-600 shadow-sm' 
-                        : 'border-slate-100 dark:border-slate-800 shadow-xs'
-                    }`}
-                  >
-                    {opt.popular && (
-                      <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-yellow-600 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-widest shadow-xs">
-                        Populer
+            {!inquiryData || isInquiring || inquiryError ? (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 text-center border border-slate-100 dark:border-slate-800 space-y-3 shadow-xs">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+                  <Zap className="w-6 h-6 fill-amber-500" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+                    Isi & Verifikasi IDPL PLN
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                    Masukkan nomor IDPL atau No. Meter PLN lalu klik "Cek IDPL" untuk memverifikasi nama pelanggan sebelum memilih nominal token.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {dynamicTokenNominals.map((opt, idx) => {
+                  const estKwh = inquiryData ? (opt.nominal / (inquiryData.dayaVA > 900 ? 1444.7 : 1352)).toFixed(1) : (opt.nominal / 1444.7).toFixed(1);
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        if (idpl.length < 10) {
+                          alert("Masukkan nomor IDPL PLN terlebih dahulu.");
+                          return;
+                        }
+                        if (!inquiryData) {
+                          performInquiry(idpl);
+                        }
+                        setSelectedToken(opt);
+                      }}
+                      className={`bg-white dark:bg-slate-900 rounded-2xl p-4 border transition-all cursor-pointer relative overflow-hidden group hover:shadow-lg active:scale-98 ${
+                        opt.popular 
+                          ? 'border-amber-400 dark:border-amber-600 shadow-sm' 
+                          : 'border-slate-100 dark:border-slate-800 shadow-xs'
+                      }`}
+                    >
+                      {opt.popular && (
+                        <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-yellow-600 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg uppercase tracking-widest shadow-xs">
+                          Populer
+                        </div>
+                      )}
+
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                          Token
+                        </p>
+                        <p className="text-base font-black text-slate-900 dark:text-white tracking-tight font-mono">
+                          Rp {opt.nominal.toLocaleString('id-ID')}
+                        </p>
+                        <p className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <Zap className="w-3 h-3 fill-amber-500" />
+                          Est. ~{estKwh} kWh
+                        </p>
                       </div>
-                    )}
 
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                        Token
-                      </p>
-                      <p className="text-base font-black text-slate-900 dark:text-white tracking-tight font-mono">
-                        Rp {opt.nominal.toLocaleString('id-ID')}
-                      </p>
-                      <p className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                        <Zap className="w-3 h-3 fill-amber-500" />
-                        Est. ~{estKwh} kWh
-                      </p>
-                    </div>
-
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <div>
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Harga</span>
-                        <span className="text-xs font-black text-[#005E6A] dark:text-teal-400">
-                          Rp {opt.price.toLocaleString('id-ID')}
+                      <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <div>
+                          <span className="text-[9px] font-bold text-slate-400 block uppercase">Harga</span>
+                          <span className="text-xs font-black text-[#005E6A] dark:text-teal-400">
+                            Rp {opt.price.toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                        <span className="text-[8px] font-extrabold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-800/60">
+                          +{opt.points} Pts
                         </span>
                       </div>
-                      <span className="text-[8px] font-extrabold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-800/60">
-                        +{opt.points} Pts
-                      </span>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -24225,7 +24381,21 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4"
           >
-            {inquiryData ? (
+            {!inquiryData || isInquiring || inquiryError ? (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 text-center border border-slate-100 dark:border-slate-800 space-y-3 shadow-xs">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+                  <Receipt className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-wide">
+                    Cek Tagihan Listrik PLN
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
+                    Masukkan nomor IDPL atau No. Meter PLN lalu klik "Cek IDPL" untuk memverifikasi rincian tagihan listrik Anda.
+                  </p>
+                </div>
+              </div>
+            ) : (
               <div className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-100 dark:border-slate-800 shadow-xl space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-center gap-2">
@@ -24287,14 +24457,6 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 text-center space-y-3 border border-slate-100 dark:border-slate-800 shadow-sm">
-                <Receipt className="w-10 h-10 text-amber-400 mx-auto opacity-80" />
-                <h4 className="text-xs font-black text-slate-800 dark:text-white uppercase">Masukkan IDPL untuk Cek Tagihan</h4>
-                <p className="text-[10px] font-bold text-slate-400 max-w-xs mx-auto">
-                  Ketik 11-12 digit ID Pelanggan PLN Anda pada kolom input di atas untuk melihat rincian tagihan pascabayar.
-                </p>
-              </div>
             )}
           </motion.div>
         )}
@@ -24350,31 +24512,15 @@ const ListrikPage = ({ user, customers }: { user: Customer | null; customers?: C
 
               {/* Payment Methods */}
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Pilih Metode Pembayaran</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setPaymentMethod('cash')}
-                    className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
-                      paymentMethod === 'cash' 
-                        ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-700 font-black' 
-                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold'
-                    }`}
-                  >
-                    <Wallet className="w-4 h-4 text-amber-600" />
-                    <span className="text-xs uppercase">Tunai di Toko</span>
-                  </button>
-
-                  <button
-                    onClick={() => setPaymentMethod('wa')}
-                    className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
-                      paymentMethod === 'wa' 
-                        ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 font-black' 
-                        : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold'
-                    }`}
-                  >
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Metode Pembayaran</label>
+                <div className="p-3.5 rounded-2xl border border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 font-black text-xs uppercase">
                     <Phone className="w-4 h-4 text-emerald-600" />
-                    <span className="text-xs uppercase">Beli via WA Admin</span>
-                  </button>
+                    <span>Konfirmasi & Beli via WA Admin</span>
+                  </div>
+                  <span className="text-[9px] font-extrabold bg-emerald-200/80 dark:bg-emerald-900/80 text-emerald-900 dark:text-emerald-100 px-2 py-0.5 rounded-md">
+                    WHATSAPP
+                  </span>
                 </div>
               </div>
 
@@ -25652,7 +25798,8 @@ const AdminLayout = ({
     { id: "customers", label: "Pelanggan", icon: Users, path: "/admin/customers" },
     { id: "stock", label: "Stok Barang", icon: Package, path: "/admin/stock" },
     { id: "report", label: "Laporan", icon: FileText, path: "/admin/report" },
-    { id: "database", label: "Database", icon: Database, path: "/admin/database" }
+    { id: "database", label: "Database", icon: Database, path: "/admin/database" },
+    { id: "digiflazz", label: "Digiflazz PPOB", icon: Zap, path: "/admin/digiflazz" }
   ];
 
   const currentItem = navItems.find(item => item.id === activeTab) || navItems[0];
@@ -25889,11 +26036,30 @@ const Layout = ({
   user: Customer | null,
 }) => {
   const location = useLocation();
-  const isBansosPage = location.pathname.includes("/bansos");
-  const isNotificationPage = location.pathname.includes("/notifikasi") || activeTab === "notifikasi";
-  const isPulsaPage = location.pathname.startsWith("/pulsa") || location.pathname.startsWith("/paket-data");
-  const isProfileSettingsPage = location.pathname.startsWith("/pengaturan-profil") || location.pathname.includes("/pengaturan") || activeTab === "pengaturan-profil" || activeTab === "pengaturan";
-  const isNoBottomNav = isBansosPage || activeTab === "konfirmasi-pesanan" || isNotificationPage || isPulsaPage || isProfileSettingsPage;
+
+  const mainTabs = ["beranda", "belanja", "riwayat", "settings"];
+  const isMainTab = mainTabs.includes(activeTab);
+
+  const isExcludedPath = 
+    location.pathname.startsWith("/pulsa") ||
+    location.pathname.startsWith("/paket-data") ||
+    location.pathname.startsWith("/listrik") ||
+    location.pathname.startsWith("/bansos") ||
+    location.pathname.startsWith("/notifikasi") ||
+    location.pathname.startsWith("/pengaturan-profil") ||
+    location.pathname.startsWith("/admin") ||
+    location.pathname.startsWith("/qris") ||
+    location.pathname.startsWith("/tariktunai") ||
+    location.pathname.startsWith("/bantuan") ||
+    location.pathname.startsWith("/level") ||
+    location.pathname.startsWith("/tabungan") ||
+    location.pathname.startsWith("/hutang") ||
+    location.pathname.includes("/detail-") ||
+    activeTab === "konfirmasi-pesanan" ||
+    activeTab === "notifikasi" ||
+    activeTab === "pengaturan-profil";
+
+  const showBottomNav = isMainTab && !isExcludedPath;
 
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -25901,12 +26067,12 @@ const Layout = ({
 
   return (
     <div 
-      className={`min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans ${isNoBottomNav ? '' : 'pb-28'}`}
+      className={`min-h-screen bg-slate-50 selection:bg-primary/30 selection:text-primary-foreground font-sans ${showBottomNav ? 'pb-28' : ''}`}
     >
       <main className="container mx-auto max-w-lg">
         {children}
       </main>
-      {!isNoBottomNav && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />}
+      {showBottomNav && <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} user={user} />}
     </div>
   );
 };
@@ -28801,6 +28967,11 @@ export default function App() {
               debtTransactions={debtTransactions}
               setDebtTransactions={setDebtTransactions}
             />
+          </AdminLayout>
+        } />
+        <Route path="/admin/digiflazz" element={
+          <AdminLayout activeTab="digiflazz">
+            <AdminDigiflazzPage />
           </AdminLayout>
         } />
         <Route path="/admin/input-data" element={

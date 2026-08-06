@@ -2511,11 +2511,17 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                             {d.nama_pelanggan || d.nama || (d as any).Nama || "-"}
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
-                            <span className={`inline-block px-2.5 py-1 rounded-none text-[10px] font-black uppercase ${
-                              d.tipe === "KASBON" ? "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800" : "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
-                            }`}>
-                              {d.tipe || "KASBON"}
-                            </span>
+                            {(() => {
+                              const ket = ((d.keterangan || (d as any).Keterangan) || "").toLowerCase();
+                              const isKasbon = ket.includes("bayar belanja") || ket.includes("metode hutang") || ket.includes("kasbon belanja") || ket.includes("belanja") || d.tipe === "KASBON" || (d as any).Tipe === "TAMBAH";
+                              return (
+                                <span className={`inline-block px-2.5 py-1 rounded-none text-[10px] font-black uppercase ${
+                                  isKasbon ? "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800" : "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800"
+                                }`}>
+                                  {isKasbon ? "KASBON" : "BAYAR"}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="py-3 px-4 text-right font-black tabular-nums text-slate-900 dark:text-white whitespace-nowrap">
                             Rp {(d.jumlah || 0).toLocaleString("id-ID")}
