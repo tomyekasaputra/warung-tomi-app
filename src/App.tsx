@@ -4290,13 +4290,13 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
     const tName = t.Nama.toLowerCase();
     const uName = user?.Nama?.toLowerCase();
     const s = (t.Status || "").toUpperCase().trim();
-    return tName === uName && (s === "BELUM DIAMBIL" || s === "DIPROSES");
+    return tName === uName && (s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING");
   });
   
   const lainnyaBalance = lainnyaTransactions.reduce((acc, curr) => {
     const s = (curr.Status || "").toUpperCase().trim();
-    if (s === "DIPROSES") {
-      return acc + (curr.Pemasukan || 0);
+    if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
+      return acc + (parseCurrency(curr.Pemasukan) || parseCurrency(curr.HargaModal) || 0);
     }
     
     let base = curr.HargaModal;
@@ -6980,7 +6980,7 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
   const userTransactions = transactions.filter(t => {
     const tName = (t.Nama || "").toLowerCase().trim();
     const s = (t.Status || "").toUpperCase().trim();
-    const statusMatch = s === "BELUM DIAMBIL" || s === "DIPROSES";
+    const statusMatch = s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING";
     
     if (isGeneral) {
       const isGeneralName = !tName || tName === "unknown" || tName === "pelanggan umum";
@@ -6990,13 +6990,16 @@ const LainnyaPage = ({ user, transactions, customers }: { user: Customer | null,
     return tName === displayUser?.Nama?.toLowerCase() && statusMatch;
   });
 
-  const diprosesTransactions = userTransactions.filter(t => (t.Status || "").toUpperCase().trim() === "DIPROSES");
+  const diprosesTransactions = userTransactions.filter(t => {
+    const s = (t.Status || "").toUpperCase().trim();
+    return s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING";
+  });
   const belumDiambilTransactions = userTransactions.filter(t => (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL");
 
   const sortedDiproses = [...diprosesTransactions].sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
   const sortedBelumDiambil = [...belumDiambilTransactions].sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
 
-  const totalDiproses = diprosesTransactions.reduce((acc, curr) => acc + (curr.Pemasukan || 0), 0);
+  const totalDiproses = diprosesTransactions.reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || parseCurrency(curr.HargaModal) || 0), 0);
   const totalBelumDiambil = belumDiambilTransactions.reduce((acc, curr) => {
     let base = parseCurrency(curr.HargaModal) || 0;
     if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI") {
@@ -8410,11 +8413,11 @@ const AdminDashboard = ({
   const totalLainnya = transactions
     .filter(t => {
       const s = (t.Status || "").toUpperCase().trim();
-      return s === "BELUM DIAMBIL" || s === "DIPROSES";
+      return s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING";
     })
     .reduce((acc, curr) => {
       const s = (curr.Status || "").toUpperCase().trim();
-      if (s === "DIPROSES") {
+      if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
         const net = (parseCurrency(curr.Pemasukan) || parseCurrency(curr.HargaModal) || 0) - (parseCurrency(curr.Sebagian) || 0);
         return acc + (net > 0 ? net : 0);
       }
@@ -11111,10 +11114,20 @@ const AdminCustomerDetailPage = ({
   const totalInvestment = userInvestments.filter(t => t.Status !== "Selesai").reduce((acc, curr) => acc + curr.Nominal, 0);
 
   const currentOthers = salesTransactions
-    .filter(t => t.Nama.toLowerCase() === localCustomer.Nama.toLowerCase() && (t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL")
+    .filter(t => {
+      const tName = (t.Nama || "").toLowerCase().trim();
+      const uName = (localCustomer.Nama || "").toLowerCase().trim();
+      const s = (t.Status || "").toUpperCase().trim();
+      return tName === uName && (s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING");
+    })
     .reduce((acc, t) => {
+      const s = (t.Status || "").toUpperCase().trim();
+      if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
+        const net = (parseCurrency(t.Pemasukan) || parseCurrency(t.HargaModal) || 0) - (parseCurrency(t.Sebagian) || 0);
+        return acc + Math.max(0, net);
+      }
       let base = parseCurrency(t.HargaModal) || 0;
-      if ((t.Melalui || "").toUpperCase().trim() === "EDC BNI") {
+      if ((t.Melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
         base -= 1500;
       }
       return acc + Math.max(0, base - (parseCurrency(t.Sebagian) || 0));
@@ -13953,7 +13966,7 @@ const AdminOtherManagement = ({
   const pendingWithdrawals = useMemo(() => {
     return salesTransactions.filter(t => {
       const s = (t.Status || "").toUpperCase().trim();
-      return s === "BELUM DIAMBIL" || s === "DIPROSES";
+      return s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING";
     });
   }, [salesTransactions]);
 
@@ -21225,13 +21238,13 @@ const ProfilPage = ({
     const tName = t.Nama.toLowerCase();
     const uName = user?.Nama?.toLowerCase();
     const s = (t.Status || "").toUpperCase().trim();
-    return tName === uName && (s === "BELUM DIAMBIL" || s === "DIPROSES");
+    return tName === uName && (s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING");
   });
   
   const lainnyaBalance = lainnyaTransactions.reduce((acc, curr) => {
     const s = (curr.Status || "").toUpperCase().trim();
-    if (s === "DIPROSES") {
-      return acc + (curr.Pemasukan || 0);
+    if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
+      return acc + (parseCurrency(curr.Pemasukan) || parseCurrency(curr.HargaModal) || 0);
     }
     
     let base = curr.HargaModal;
@@ -26252,9 +26265,17 @@ const HomePage = ({
       .filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && t.Status.toLowerCase() !== "sukses dicairkan")
       .reduce((acc, curr) => acc + calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo).total, 0);
     const lainVal = salesTransactions
-      .filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && ((t.Status || "").toUpperCase().trim() === "BELUM DIAMBIL" || (t.Status || "").toUpperCase().trim() === "DIPROSES"))
+      .filter(t => {
+        const tName = (t.Nama || "").toLowerCase().trim();
+        const uName = (loggedInUser.Nama || "").toLowerCase().trim();
+        const s = (t.Status || "").toUpperCase().trim();
+        return tName === uName && (s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING");
+      })
       .reduce((acc, curr) => {
-        if ((curr.Status || "").toUpperCase().trim() === "DIPROSES") return acc + (curr.Pemasukan || 0);
+        const s = (curr.Status || "").toUpperCase().trim();
+        if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
+          return acc + (parseCurrency(curr.Pemasukan) || parseCurrency(curr.HargaModal) || 0);
+        }
         let base = curr.HargaModal;
         if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI" && (curr.Status || "").toUpperCase().trim() === "BELUM DIAMBIL") {
           base -= 1500;

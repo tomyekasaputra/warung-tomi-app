@@ -43,6 +43,16 @@ interface TransactionLog {
 }
 
 export const AdminDigiflazzPage: React.FC = () => {
+  // Server Info & IP
+  const [serverIp, setServerIp] = useState<string>("34.34.244.38");
+
+  useEffect(() => {
+    fetch("/api/digiflazz/server-info")
+      .then(res => res.json())
+      .then(d => { if (d && d.serverIp) setServerIp(d.serverIp); })
+      .catch(() => {});
+  }, []);
+
   // Saldo state
   const [balance, setBalance] = useState<number | null>(null);
   const [useProd, setUseProd] = useState<boolean>(true);
