@@ -46,6 +46,7 @@ interface TransactionLog {
 export const AdminDigiflazzPage: React.FC = () => {
   // Server Info & IP
   const [serverIp, setServerIp] = useState<string>("34.34.244.38");
+  const [copiedIp, setCopiedIp] = useState<boolean>(false);
 
   useEffect(() => {
     fetch("/api/digiflazz/server-info")
@@ -219,9 +220,11 @@ export const AdminDigiflazzPage: React.FC = () => {
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-teal-500/30 relative overflow-hidden">
+      {/* Header Banner - Pusat Integrasi Digiflazz & IP Whitelist Embedded */}
+      <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-6 rounded-3xl shadow-xl border border-teal-500/30 relative overflow-hidden space-y-5">
         <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+        
+        {/* Top Header Row */}
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -244,175 +247,112 @@ export const AdminDigiflazzPage: React.FC = () => {
             </span>
           </div>
         </div>
-      </div>
 
-      {/* Whitelist IP Information Notice */}
-      <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-5 rounded-3xl border border-teal-500/30 shadow-lg space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-2xl bg-teal-500/20 text-teal-300 border border-teal-500/30 shrink-0">
-              <Server className="w-5 h-5" />
+        {/* Embedded IP Whitelist Section */}
+        <div className="relative z-10 bg-slate-950/80 p-4 rounded-2xl border border-teal-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-teal-500/20 text-teal-300 border border-teal-500/30 shrink-0">
+              <Server className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-black uppercase tracking-wider text-teal-300">
-                  Panduan IP Whitelist Digiflazz
-                </h3>
-                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                  Respon RC 45 / IP Block Solution
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 font-medium mt-1 leading-relaxed">
-                Jika respon API Digiflazz bernilai <code className="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded font-mono font-bold">RC 45 (IP tidak terdaftar)</code>, masukkan IP Server Cloud Run di bawah ke menu <span className="font-bold text-white">Dashboard Member Digiflazz &rarr; Pengaturan &rarr; API &rarr; Whitelist IP</span>.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-slate-800/80 p-3 rounded-2xl border border-teal-500/30 shrink-0 flex items-center justify-between gap-3 min-w-[260px]">
-            <div>
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">
-                IP Public Server Cloud Run
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                IP Publik Server Backend (Whitelist Digiflazz)
               </span>
-              <span className="text-sm font-black font-mono text-teal-300">
+              <span className="text-base sm:text-lg font-black font-mono text-teal-300 tracking-wide">
                 {serverIp}
               </span>
             </div>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(serverIp);
-                alert(`IP Server (${serverIp}) berhasil disalin! Tambahkan IP ini di Whitelist Digiflazz.`);
-              }}
-              className="px-3 py-2 bg-teal-500 hover:bg-teal-400 active:scale-95 text-slate-950 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              <span>Salin IP</span>
-            </button>
           </div>
+
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(serverIp);
+              setCopiedIp(true);
+              setTimeout(() => setCopiedIp(false), 2500);
+            }}
+            className="px-4 py-2 bg-teal-500 hover:bg-teal-400 active:scale-95 text-slate-950 font-black text-xs rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm shrink-0"
+          >
+            {copiedIp ? <Check className="w-3.5 h-3.5 text-slate-950" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedIp ? "IP Berhasil Disalin!" : "Salin IP Server"}</span>
+          </button>
         </div>
       </div>
 
-      {/* Saldo Deposit Widget */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+      {/* Saldo Deposit Widget - Lebih Sederhana */}
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/80 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800 flex items-center justify-center">
-              <Wallet className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950/80 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800 flex items-center justify-center shrink-0">
+              <Wallet className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-black uppercase text-slate-800 dark:text-slate-100">
-                  Saldo Deposit Real-Time Digiflazz
+                  Saldo Deposit Digiflazz
                 </h2>
-                <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full border ${
+                <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border ${
                   useProd 
                     ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300" 
                     : "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300"
                 }`}>
-                  {useProd ? "PRODUCTION MODE" : "DEVELOPMENT MODE"}
+                  {useProd ? "PROD" : "DEV"}
                 </span>
               </div>
-              <p className="text-xs font-bold text-slate-400">
-                Data ditarik langsung via API endpoint `/cek-saldo` Digiflazz.
-              </p>
+              <div className="text-2xl sm:text-3xl font-black font-mono text-teal-600 dark:text-teal-400 flex items-baseline gap-1 mt-0.5">
+                <span className="text-sm text-slate-400 font-sans font-bold">Rp</span>
+                {balance !== null 
+                  ? balance.toLocaleString("id-ID") 
+                  : isBalanceLoading 
+                    ? "..." 
+                    : "0"}
+              </div>
+              {balanceLastUpdated && (
+                <span className="text-[10px] font-semibold text-slate-400 block mt-0.5">
+                  Update: {balanceLastUpdated}
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center gap-2 self-start sm:self-center">
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
               <button
                 onClick={() => setUseProd(false)}
-                className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer ${
                   !useProd 
                     ? "bg-amber-500 text-slate-950 shadow-sm" 
                     : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
                 }`}
               >
-                Dev Key
+                Dev
               </button>
               <button
                 onClick={() => setUseProd(true)}
-                className={`px-3 py-1.5 text-xs font-black rounded-xl transition-all cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer ${
                   useProd 
                     ? "bg-emerald-500 text-slate-950 shadow-sm" 
                     : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"
                 }`}
               >
-                Prod Key
+                Prod
               </button>
             </div>
 
             <button
               onClick={() => loadBalance(useProd)}
               disabled={isBalanceLoading}
-              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-2xl text-xs font-black uppercase transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-black uppercase transition-all shadow-sm active:scale-95 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
             >
-              <RefreshCw className={`w-4 h-4 ${isBalanceLoading ? "animate-spin" : ""}`} />
-              <span>Refresh Saldo</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isBalanceLoading ? "animate-spin" : ""}`} />
+              <span>Refresh</span>
             </button>
           </div>
         </div>
 
-        {/* Balance Display */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">
-              Jumlah Saldo Deposit
-            </span>
-            <div className="text-3xl font-black font-mono text-teal-600 dark:text-teal-400 flex items-baseline gap-1">
-              <span className="text-base text-slate-400">Rp</span>
-              {balance !== null 
-                ? balance.toLocaleString("id-ID") 
-                : isBalanceLoading 
-                  ? "..." 
-                  : "0"}
-            </div>
-            {balanceLastUpdated && (
-              <span className="text-[10px] font-semibold text-slate-400 mt-2 block">
-                Pembaruan Terakhir: {balanceLastUpdated}
-              </span>
-            )}
-          </div>
-
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
-              Konfigurasi API Credential
-            </span>
-            <div className="text-xs space-y-1 font-mono text-slate-700 dark:text-slate-300">
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-sans">Username:</span>
-                <span className="font-bold">hohebuo6jzVo</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-sans">Dev API Key:</span>
-                <span className="font-bold text-amber-600 dark:text-amber-400">dev-692c...6546</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400 font-sans">Prod API Key:</span>
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">1c51...5ee7</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-2">
-            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
-              Status Enkripsi & Server
-            </span>
-            <div className="text-xs space-y-1 text-slate-700 dark:text-slate-300">
-              <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                <ShieldCheck className="w-4 h-4" />
-                <span>MD5 Sign Auto-Hash (Server Node)</span>
-              </div>
-              <p className="text-[11px] text-slate-400 leading-tight">
-                API Key dan Sign MD5 diproses di backend Express server agar aman dari pembacaan browser.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {balanceError && (
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl text-amber-800 dark:text-amber-200 text-xs font-semibold flex items-center gap-2">
+          <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-200 text-xs font-semibold flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-            <span>Pesan API Digiflazz: {balanceError}</span>
+            <span>Respon Digiflazz: {balanceError}</span>
           </div>
         )}
       </div>
@@ -543,7 +483,8 @@ export const AdminDigiflazzPage: React.FC = () => {
                     <th className="py-3 px-3">SKU Code</th>
                     <th className="py-3 px-3">Nama Produk</th>
                     <th className="py-3 px-3">Kategori / Brand</th>
-                    <th className="py-3 px-3 text-right">Harga Modal Digiflazz</th>
+                    <th className="py-3 px-3 text-right">Harga Modal</th>
+                    <th className="py-3 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">Harga Jual (Layanan)</th>
                     <th className="py-3 px-3 text-center">Status</th>
                     <th className="py-3 px-3 text-center">Aksi</th>
                   </tr>
@@ -579,8 +520,11 @@ export const AdminDigiflazzPage: React.FC = () => {
                               {item.category || "General"} • {item.brand}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 dark:text-white">
+                          <td className="py-2.5 px-3 text-right font-mono text-slate-500">
                             Rp {(item.price || 0).toLocaleString("id-ID")}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20">
+                            Rp {(item.selling_price || item.price_sell || (item.price ? Math.ceil((item.price + 1500) / 100) * 100 : 0)).toLocaleString("id-ID")}
                           </td>
                           <td className="py-2.5 px-3 text-center">
                             <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
