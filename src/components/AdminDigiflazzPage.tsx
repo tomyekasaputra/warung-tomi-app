@@ -26,7 +26,8 @@ import {
   Package,
   Layers,
   Check,
-  Tag
+  Tag,
+  Copy
 } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -241,6 +242,51 @@ export const AdminDigiflazzPage: React.FC = () => {
               <Server className="w-3.5 h-3.5 text-emerald-400" />
               Server Proxy Online
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Whitelist IP Information Notice */}
+      <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-5 rounded-3xl border border-teal-500/30 shadow-lg space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-2xl bg-teal-500/20 text-teal-300 border border-teal-500/30 shrink-0">
+              <Server className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-black uppercase tracking-wider text-teal-300">
+                  Panduan IP Whitelist Digiflazz
+                </h3>
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Respon RC 45 / IP Block Solution
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 font-medium mt-1 leading-relaxed">
+                Jika respon API Digiflazz bernilai <code className="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded font-mono font-bold">RC 45 (IP tidak terdaftar)</code>, masukkan IP Server Cloud Run di bawah ke menu <span className="font-bold text-white">Dashboard Member Digiflazz &rarr; Pengaturan &rarr; API &rarr; Whitelist IP</span>.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-800/80 p-3 rounded-2xl border border-teal-500/30 shrink-0 flex items-center justify-between gap-3 min-w-[260px]">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 block">
+                IP Public Server Cloud Run
+              </span>
+              <span className="text-sm font-black font-mono text-teal-300">
+                {serverIp}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(serverIp);
+                alert(`IP Server (${serverIp}) berhasil disalin! Tambahkan IP ini di Whitelist Digiflazz.`);
+              }}
+              className="px-3 py-2 bg-teal-500 hover:bg-teal-400 active:scale-95 text-slate-950 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-md"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>Salin IP</span>
+            </button>
           </div>
         </div>
       </div>

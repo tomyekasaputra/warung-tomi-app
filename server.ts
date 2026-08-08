@@ -112,11 +112,6 @@ async function callDigiflazzApi(endpoint: string, payloadBuilder: (apiKey: strin
         body: JSON.stringify(body)
       });
 
-      if (!response.ok) {
-        console.warn(`Digiflazz API ${endpoint} returned HTTP status ${response.status}`);
-        continue;
-      }
-
       const data = await response.json();
       
       if (endpoint === "price-list") {
@@ -125,7 +120,7 @@ async function callDigiflazzApi(endpoint: string, payloadBuilder: (apiKey: strin
           return { data, items, isProd };
         }
       } else {
-        if (data && (data.data || data.rc || data.status)) {
+        if (data) {
           return { data, isProd };
         }
       }
@@ -177,22 +172,20 @@ app.all(["/api/digiflazz/pricelist"], async (req, res) => {
     if (resObj && resObj.items && resObj.items.length > 0) {
       cachedPricelist = resObj.items;
       lastPricelistFetch = now;
-      return res.json({ status: "success", data: resObj.items, source: "live", mode: resObj.isProd ? "prod" : "dev", serverIp: serverPublicIp });
+      return res.json({ status: "success", data: resObj.items, source: "live", mode: resObj.isProd ? "prod" : "dev", serverIp: serverPublicIp, rawResponse: resObj.data });
     }
 
-    // Fallback to cache or DEFAULT_DIGIFLAZZ_PRODUCTS (never return 400 error for products)
-    const fallbackData = cachedPricelist.length > 0 ? cachedPricelist : DEFAULT_DIGIFLAZZ_PRODUCTS;
+    // Return real response from Digiflazz
     return res.json({ 
-      status: "success", 
-      data: fallbackData, 
-      source: "fallback_cache",
-      serverIp: serverPublicIp,
-      message: resObj?.data?.data?.message || "Menggunakan katalog produk Digiflazz terintegrasi" 
+      status: "response", 
+      data: resObj?.data?.data || DEFAULT_DIGIFLAZZ_PRODUCTS, 
+      rawResponse: resObj?.data,
+      source: "real_api",
+      serverIp: serverPublicIp
     });
   } catch (err: any) {
     console.error("Server Digiflazz Pricelist Error:", err);
-    const fallbackData = cachedPricelist.length > 0 ? cachedPricelist : DEFAULT_DIGIFLAZZ_PRODUCTS;
-    return res.json({ status: "success", data: fallbackData, source: "fallback_cache", serverIp: serverPublicIp });
+    return res.status(500).json({ status: "error", message: err.message || "Gagal mengambil pricelist" });
   }
 });
 
@@ -213,26 +206,11 @@ app.all(["/api/digiflazz/cek-saldo"], async (req, res) => {
       };
     }, isProd);
 
-    const d = resObj?.data?.data || resObj?.data;
-    if (d && typeof d.deposit === "number" && !d.rc) {
-      return res.json({ data: { deposit: d.deposit, message: "Sukses", serverIp: serverPublicIp } });
-    }
-
-    // Handle RC 45 (IP tidak terdaftar)
-    const rc = d?.rc || resObj?.data?.rc;
-    const msg = d?.message || resObj?.data?.message || "Koneksi API Digiflazz periksa IP Whitelist";
-
-    return res.json({ 
-      data: { 
-        deposit: d?.deposit ?? 0, 
-        rc: rc || "45",
-        serverIp: serverPublicIp,
-        message: `Status Digiflazz: ${msg}. IP Server Cloud Run saat ini: ${serverPublicIp}` 
-      } 
-    });
+    // Pass real Digiflazz API response directly
+    return res.json(resObj?.data || { data: { deposit: 0, rc: "99", message: "Gagal terhubung ke API Digiflazz" } });
   } catch (err: any) {
     console.error("Server Digiflazz Cek Saldo Error:", err);
-    return res.json({ data: { deposit: 0, serverIp: serverPublicIp, message: err.message || "Failed to fetch balance" } });
+    return res.status(500).json({ data: { deposit: 0, rc: "99", message: err.message || "Failed to fetch balance" } });
   }
 });
 
@@ -262,49 +240,11 @@ app.all(["/api/digiflazz/pln-inquiry"], async (req, res) => {
       };
     }, isProd);
 
-    const d = resObj?.data?.data || resObj?.data;
-
-    // If Digiflazz returned a real response (success or RC 14 customer not found)
-    if (d && (d.customer_name || d.rc === "14" || d.status === "Sukses")) {
-      return res.json({ data: d });
-    }
-
-    // If Digiflazz blocked IP (RC 45) or failed, return simulated PLN inquiry so app works smoothly
-    return res.json({
-      data: {
-        ref_id: refId,
-        customer_no: String(customerNo),
-        customer_name: "PELANGGAN PLN (DEMO SIMULASI)",
-        buyer_sku_code: "pln",
-        admin: 2750,
-        nominal: 50000,
-        price: 50000,
-        selling_price: 52750,
-        desc: {
-          tarif: "R1M / 900 VA",
-          daya: 900,
-          lembar_tagihan: 1
-        },
-        status: "Sukses",
-        rc: "00",
-        message: `Inquiry Berhasil (Mode Simulasi - Tambahkan IP Server ${serverPublicIp} di Dashboard Whitelist Digiflazz untuk Live)`,
-        isSimulated: true,
-        serverIp: serverPublicIp
-      }
-    });
+    // Return real response directly from Digiflazz
+    return res.json(resObj?.data || { data: { rc: "99", message: "Gagal terhubung ke API Digiflazz" } });
   } catch (err: any) {
     console.error("Server Digiflazz PLN Inquiry Error:", err);
-    return res.json({
-      data: {
-        ref_id: `pln_inq_${Date.now()}`,
-        customer_no: String(req.body?.customerNo || req.query?.customerNo || ""),
-        customer_name: "PELANGGAN PLN (DEMO SIMULASI)",
-        status: "Sukses",
-        rc: "00",
-        message: "Inquiry Berhasil (Mode Simulasi Backup)",
-        isSimulated: true
-      }
-    });
+    return res.status(500).json({ data: { rc: "99", message: err.message || "Gagal melakukan inquiry PLN" } });
   }
 });
 
@@ -333,41 +273,11 @@ app.all(["/api/digiflazz/transaction"], async (req, res) => {
       };
     }, isProd);
 
-    const d = resObj?.data?.data || resObj?.data;
-
-    if (d && (d.sn || d.status === "Sukses" || d.rc === "00" || d.rc === "39")) {
-      return res.json({ data: d });
-    }
-
-    // If Digiflazz returned error RC 45 (IP) or error, return simulated transaction response
-    return res.json({
-      data: {
-        ref_id: transactionRefId,
-        buyer_sku_code: skuCode,
-        customer_no: String(customerNo),
-        price: 10000,
-        status: "Sukses",
-        rc: "00",
-        sn: `DEMO-SN-${Date.now()}`,
-        message: `Transaksi Berhasil (Mode Simulasi - Tambahkan IP Server ${serverPublicIp} di Whitelist Digiflazz)`,
-        isSimulated: true,
-        serverIp: serverPublicIp
-      }
-    });
+    // Return real response directly from Digiflazz
+    return res.json(resObj?.data || { data: { rc: "99", message: "Gagal terhubung ke API Digiflazz" } });
   } catch (err: any) {
     console.error("Server Digiflazz Transaction Error:", err);
-    return res.json({
-      data: {
-        ref_id: `tx_${Date.now()}`,
-        buyer_sku_code: String(req.body?.skuCode || ""),
-        customer_no: String(req.body?.customerNo || ""),
-        status: "Sukses",
-        rc: "00",
-        sn: `DEMO-SN-${Date.now()}`,
-        message: "Transaksi Berhasil (Mode Simulasi Backup)",
-        isSimulated: true
-      }
-    });
+    return res.status(500).json({ data: { rc: "99", message: err.message || "Gagal melakukan transaksi" } });
   }
 });
 

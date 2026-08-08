@@ -227,14 +227,10 @@ export async function fetchDigiflazzBalance(useProd: boolean = true) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ useProd })
     });
-    if (!response.ok) {
-      console.warn("Digiflazz balance response not ok:", response.status);
-      return { data: { deposit: 0, message: "Koneksi ke server proxy gagal" } };
-    }
     return await response.json();
   } catch (error: any) {
     console.error("Digiflazz Balance Error:", error);
-    return { data: { deposit: 0, message: error.message || "Gagal mengambil saldo" } };
+    return { data: { deposit: 0, rc: "99", message: error.message || "Gagal mengambil saldo" } };
   }
 }
 
@@ -248,28 +244,15 @@ export async function sendDigiflazzPLNInquiry(customerNo: string, useProd: boole
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ customerNo, useProd })
     });
-    if (!response.ok) {
-      console.warn("Digiflazz PLN Inquiry response not ok:", response.status);
-      return {
-        data: {
-          customer_no: customerNo,
-          customer_name: "PELANGGAN PLN (SIMULASI)",
-          status: "Sukses",
-          rc: "00",
-          message: "Inquiry Berhasil (Mode Simulasi Backup)"
-        }
-      };
-    }
     return await response.json();
   } catch (error: any) {
     console.error("Digiflazz PLN Inquiry Error:", error);
     return {
       data: {
         customer_no: customerNo,
-        customer_name: "PELANGGAN PLN (SIMULASI)",
-        status: "Sukses",
-        rc: "00",
-        message: error.message || "Inquiry Berhasil (Mode Simulasi Backup)"
+        status: "Gagal",
+        rc: "99",
+        message: error.message || "Gagal menghubungi server inquiry PLN"
       }
     };
   }
@@ -291,19 +274,6 @@ export async function sendDigiflazzTransaction(options: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     });
-    if (!response.ok) {
-      return {
-        data: {
-          ref_id: options.refId,
-          buyer_sku_code: options.skuCode,
-          customer_no: options.customerNo,
-          status: "Sukses",
-          rc: "00",
-          sn: `DEMO-SN-${Date.now()}`,
-          message: "Transaksi Berhasil (Mode Simulasi Backup)"
-        }
-      };
-    }
     return await response.json();
   } catch (error: any) {
     console.error("Digiflazz Transaction Error:", error);
@@ -312,10 +282,9 @@ export async function sendDigiflazzTransaction(options: {
         ref_id: options.refId,
         buyer_sku_code: options.skuCode,
         customer_no: options.customerNo,
-        status: "Sukses",
-        rc: "00",
-        sn: `DEMO-SN-${Date.now()}`,
-        message: error.message || "Transaksi Berhasil (Mode Simulasi Backup)"
+        status: "Gagal",
+        rc: "99",
+        message: error.message || "Gagal menghubungi server transaksi Digiflazz"
       }
     };
   }
@@ -331,12 +300,11 @@ export async function fetchDigiflazzPricelist(useProd: boolean = true, forceRefr
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ useProd, forceRefresh })
     });
-    if (!response.ok) {
-      console.warn("Digiflazz Pricelist response not ok:", response.status);
-      return { status: "success", data: DEFAULT_DIGIFLAZZ_PRODUCTS, source: "fallback_cache" };
-    }
     const res = await response.json();
     if (res && Array.isArray(res.data) && res.data.length > 0) {
+      return res;
+    }
+    if (res && res.data) {
       return res;
     }
     return { status: "success", data: DEFAULT_DIGIFLAZZ_PRODUCTS, source: "fallback_cache" };
