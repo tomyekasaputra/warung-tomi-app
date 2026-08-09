@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { SupabaseCustomerService, SupabaseCustomer } from '../lib/supabase';
 import { isCustomerSavingMatch, isCustomerDebtMatch } from '../App';
+import GoogleSheetsSyncCard from './GoogleSheetsSyncCard';
 
 interface Customer {
   id_pelanggan: string;
@@ -391,38 +392,6 @@ export default function CustomerManagement({
     }));
   }, [customersWithStats]);
 
-  if (!isUrlConfigured) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-xl max-w-md w-full border border-gray-100">
-          <div className="flex justify-center mb-6">
-            <div className="p-4 bg-teal-50 rounded-full">
-              <AlertCircle className="w-10 h-10 text-[#005E6A]" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-black text-center text-gray-900 mb-2 uppercase tracking-tight">System Data</h2>
-          <p className="text-slate-500 text-center text-sm font-bold uppercase tracking-wider mb-8">Hubungkan ke Google Sheets</p>
-          <div className="space-y-4">
-            <input 
-              type="text" 
-              placeholder="G-APPS SCRIPT URL (EXEC)..."
-              className="w-full px-6 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:ring-2 focus:ring-[#005E6A]/20 outline-none transition-all font-mono text-xs"
-              value={scriptUrl}
-              onChange={(e) => setScriptUrl(e.target.value)}
-            />
-            <button 
-              onClick={() => saveUrl(scriptUrl)}
-              disabled={!scriptUrl}
-              className="w-full py-4 bg-[#005E6A] text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[#004b54] shadow-lg shadow-teal-100 transition-all active:scale-95"
-            >
-              Hubungkan Sekarang
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 relative overflow-hidden">
@@ -444,7 +413,11 @@ export default function CustomerManagement({
       </div>
 
       <div className="px-6 -mt-12 relative z-20 max-w-7xl mx-auto space-y-6">
+        {/* Google Sheets Auto Sync Card */}
+        <GoogleSheetsSyncCard customers={customersWithStats} />
+
         <div className="bg-white p-8 rounded-[2.5rem] shadow-lg border border-slate-100">
+
           <div className="flex flex-col gap-8">
             <div className="space-y-4">
               <div className="flex justify-between items-start px-2">

@@ -1,12 +1,318 @@
 import express from "express";
 import path from "path";
 import crypto from "crypto";
+import fs from "fs";
+import { google } from "googleapis";
 import { createServer as createViteServer } from "vite";
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Google OAuth & Sheets State Persistence
+const TOKENS_PATH = path.join(process.cwd(), ".google_tokens.json");
+const SHEET_CONFIG_PATH = path.join(process.cwd(), ".google_sheet_config.json");
+
+let googleOAuthTokens: any = null;
+let connectedGoogleUser: any = null;
+let syncedSpreadsheetId: string | null = null;
+let autoSyncEnabled: boolean = true;
+
+try {
+  if (fs.existsSync(TOKENS_PATH)) {
+    const raw = fs.readFileSync(TOKENS_PATH, "utf-8");
+    const data = JSON.parse(raw);
+    googleOAuthTokens = data.tokens || null;
+    connectedGoogleUser = data.user || null;
+  }
+} catch (e) {
+  console.error("Failed to load stored Google OAuth tokens:", e);
+}
+
+try {
+  if (fs.existsSync(SHEET_CONFIG_PATH)) {
+    const raw = fs.readFileSync(SHEET_CONFIG_PATH, "utf-8");
+    const data = JSON.parse(raw);
+    syncedSpreadsheetId = data.spreadsheetId || null;
+    autoSyncEnabled = data.autoSyncEnabled !== undefined ? data.autoSyncEnabled : true;
+  }
+} catch (e) {
+  console.error("Failed to load stored Google Sheet config:", e);
+}
+
+function saveTokens(tokens: any, user: any) {
+  googleOAuthTokens = tokens;
+  connectedGoogleUser = user;
+  try {
+    fs.writeFileSync(TOKENS_PATH, JSON.stringify({ tokens, user }), "utf-8");
+  } catch (e) {
+    console.error("Error writing Google tokens:", e);
+  }
+}
+
+function saveSheetConfig(spreadsheetId: string | null, autoSync: boolean) {
+  syncedSpreadsheetId = spreadsheetId;
+  autoSyncEnabled = autoSync;
+  try {
+    fs.writeFileSync(SHEET_CONFIG_PATH, JSON.stringify({ spreadsheetId, autoSyncEnabled: autoSync }), "utf-8");
+  } catch (e) {
+    console.error("Error writing Google Sheet config:", e);
+  }
+}
+
+function getOAuth2Client(req?: express.Request) {
+  const clientId = process.env.CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "";
+  const clientSecret = process.env.CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
+  
+  let redirectUri = process.env.REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI || "";
+  if (!redirectUri && req) {
+    const host = req.get("host") || "localhost:3000";
+    const protocol = req.protocol || "http";
+    redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+  }
+  if (!redirectUri) {
+    redirectUri = "http://localhost:3000/api/auth/google/callback";
+  }
+
+  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+}
+
+// 1. Google OAuth URL
+app.get("/api/auth/google/url", (req, res) => {
+  try {
+    const oauth2Client = getOAuth2Client(req);
+    const url = oauth2Client.generateAuthUrl({
+      access_type: "offline",
+      prompt: "consent",
+      scope: [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile"
+      ]
+    });
+    return res.json({ url });
+  } catch (err: any) {
+    console.error("Error generating OAuth URL:", err);
+    return res.status(500).json({ error: err.message || "Failed to generate auth URL" });
+  }
+});
+
+// 2. Google OAuth Callback
+app.get("/api/auth/google/callback", async (req, res) => {
+  const code = req.query.code as string;
+  if (!code) {
+    return res.status(400).send("No code provided");
+  }
+
+  try {
+    const oauth2Client = getOAuth2Client(req);
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
+
+    let userInfo: any = null;
+    try {
+      const oauth2 = google.oauth2({ version: "v2", auth: oauth2Client });
+      const userRes = await oauth2.userinfo.get();
+      userInfo = userRes.data;
+    } catch (e) {
+      console.error("Error getting userinfo:", e);
+    }
+
+    saveTokens(tokens, userInfo);
+
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Google Authentication Success</title>
+        <style>
+          body { font-family: sans-serif; text-align: center; padding: 40px; background: #0f172a; color: white; }
+          .card { background: #1e293b; border-radius: 16px; padding: 30px; display: inline-block; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+          h2 { color: #10b981; margin-bottom: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h2>Google Sheets Connected!</h2>
+          <p>Sistem berhasil terhubung ke akun Google Anda.</p>
+          <p style="font-size: 12px; color: #94a3b8;">Jendela ini akan menutup secara otomatis...</p>
+        </div>
+        <script>
+          if (window.opener) {
+            window.opener.postMessage({ type: 'GOOGLE_AUTH_SUCCESS', user: ${JSON.stringify(userInfo)} }, '*');
+            setTimeout(() => window.close(), 1200);
+          } else {
+            setTimeout(() => { window.location.href = '/'; }, 1500);
+          }
+        </script>
+      </body>
+      </html>
+    `);
+  } catch (err: any) {
+    console.error("OAuth Callback Error:", err);
+    res.status(500).send(`Authentication failed: ${err.message}`);
+  }
+});
+
+// 3. Google OAuth Status
+app.get("/api/auth/google/status", (_req, res) => {
+  return res.json({
+    authenticated: !!(googleOAuthTokens && (googleOAuthTokens.access_token || googleOAuthTokens.refresh_token)),
+    user: connectedGoogleUser,
+    spreadsheetId: syncedSpreadsheetId,
+    spreadsheetUrl: syncedSpreadsheetId ? `https://docs.google.com/spreadsheets/d/${syncedSpreadsheetId}/edit` : null,
+    autoSyncEnabled: autoSyncEnabled
+  });
+});
+
+// 4. Google OAuth Logout
+app.post("/api/auth/google/logout", (_req, res) => {
+  saveTokens(null, null);
+  saveSheetConfig(null, autoSyncEnabled);
+  return res.json({ success: true, message: "Disconnected from Google Account" });
+});
+
+// 5. Update Sheet Config
+app.post("/api/sheets/config", (req, res) => {
+  const { spreadsheetId, autoSync } = req.body;
+  if (spreadsheetId !== undefined) {
+    syncedSpreadsheetId = spreadsheetId;
+  }
+  if (autoSync !== undefined) {
+    autoSyncEnabled = Boolean(autoSync);
+  }
+  saveSheetConfig(syncedSpreadsheetId, autoSyncEnabled);
+  return res.json({
+    success: true,
+    spreadsheetId: syncedSpreadsheetId,
+    autoSyncEnabled: autoSyncEnabled
+  });
+});
+
+// 6. Google Sheets Sync Endpoint for Customer Data
+app.post("/api/sheets/sync-customers", async (req, res) => {
+  try {
+    const { customers, title } = req.body;
+    let targetSpreadsheetId = req.body.spreadsheetId || syncedSpreadsheetId;
+
+    if (!googleOAuthTokens || (!googleOAuthTokens.access_token && !googleOAuthTokens.refresh_token)) {
+      return res.status(401).json({
+        success: false,
+        error: "NOT_AUTHENTICATED",
+        message: "Akun Google belum terhubung. Silakan hubungkan akun Google terlebih dahulu."
+      });
+    }
+
+    const oauth2Client = getOAuth2Client(req);
+    oauth2Client.setCredentials(googleOAuthTokens);
+
+    // Refresh token listener
+    oauth2Client.on("tokens", (newTokens) => {
+      const updated = { ...googleOAuthTokens, ...newTokens };
+      saveTokens(updated, connectedGoogleUser);
+    });
+
+    const sheets = google.sheets({ version: "v4", auth: oauth2Client });
+
+    // Create a new spreadsheet if we don't have one
+    if (!targetSpreadsheetId) {
+      const sheetTitle = title || "Data Pelanggan - Warung Tomi";
+      const createRes = await sheets.spreadsheets.create({
+        requestBody: {
+          properties: { title: sheetTitle },
+          sheets: [
+            {
+              properties: {
+                title: "Data Pelanggan",
+                gridProperties: { frozenRowCount: 1 }
+              }
+            }
+          ]
+        }
+      });
+      targetSpreadsheetId = createRes.data.spreadsheetId || null;
+      if (targetSpreadsheetId) {
+        saveSheetConfig(targetSpreadsheetId, autoSyncEnabled);
+      }
+    }
+
+    if (!targetSpreadsheetId) {
+      return res.status(500).json({ success: false, error: "Gagal membuat/menemukan Google Spreadsheet" });
+    }
+
+    const headers = [
+      "No",
+      "ID Pelanggan",
+      "Nama Pelanggan",
+      "Tabungan (Rp)",
+      "Investasi (Rp)",
+      "Lainnya (Rp)",
+      "Hutang (Rp)",
+      "Level",
+      "Poin",
+      "Terakhir Diperbarui"
+    ];
+
+    const customerRows = Array.isArray(customers) ? customers.map((c: any, index: number) => {
+      const idPel = c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, "0")}`;
+      const nama = c.nama || c.Nama || "Pelanggan";
+      const tabungan = Number(c.tabungan || c.Tabungan || 0);
+      const investasi = Number(c.investasi || c.Investasi || 0);
+      const lainnya = Number(c.lainnya || c.Lainnya || 0);
+      const hutang = Number(c.hutang || c.Hutang || 0);
+      const level = c.level || c.Level || "Bronze";
+      const poin = Number(c.poin || c.Poin || 0);
+      const updatedTime = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
+
+      return [
+        index + 1,
+        idPel,
+        nama,
+        tabungan,
+        investasi,
+        lainnya,
+        hutang,
+        level,
+        poin,
+        updatedTime
+      ];
+    }) : [];
+
+    const values = [headers, ...customerRows];
+
+    // Clear and update the sheet
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: targetSpreadsheetId,
+      range: "'Data Pelanggan'!A1:J1000"
+    }).catch(() => {});
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: targetSpreadsheetId,
+      range: "'Data Pelanggan'!A1",
+      valueInputOption: "USER_ENTERED",
+      requestBody: { values }
+    });
+
+    const nowIso = new Date().toISOString();
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${targetSpreadsheetId}/edit`;
+
+    return res.json({
+      success: true,
+      spreadsheetId: targetSpreadsheetId,
+      spreadsheetUrl: sheetUrl,
+      totalSynced: customerRows.length,
+      lastSynced: nowIso
+    });
+  } catch (err: any) {
+    console.error("Google Sheets Sync Error:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Gagal menyinkronkan data ke Google Sheets"
+    });
+  }
+});
 
 const DIGIFLAZZ_CONFIG = {
   username: process.env.DIGIFLAZZ_USERNAME || "hohebuo6jzVo",
