@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   FileSpreadsheet, RefreshCw, CheckCircle2, AlertCircle, LogOut, 
-  ExternalLink, ShieldCheck, Database, Lock, ArrowRight, Zap, Check
+  ExternalLink, Zap, Check
 } from "lucide-react";
 import { 
   checkGoogleSheetsAuthStatus, 
@@ -12,6 +12,7 @@ import {
   GoogleSheetsAuthStatus,
   CustomerSyncPayload
 } from "../lib/googleSheetsSync";
+import { signInWithGoogle, logoutGoogle, getCachedAccessToken, getCachedUserData } from "../lib/firebaseAuth";
 
 interface GoogleSheetsSyncCardProps {
   customers: CustomerSyncPayload[];
@@ -29,12 +30,36 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
   const [authStatus, setAuthStatus] = useState<GoogleSheetsAuthStatus>({ authenticated: false });
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
+  const [clientAccessToken, setClientAccessToken] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
 
   const fetchStatus = async () => {
     setLoading(true);
-    const status = await checkGoogleSheetsAuthStatus();
+    let status = await checkGoogleSheetsAuthStatus();
+    
+    // Fallback: If server status says unauthenticated, check local cached access token
+    const token = getCachedAccessToken();
+    const cachedUser = getCachedUserData();
+    
+    if (!status.authenticated && token) {
+      status = {
+        authenticated: true,
+        user: cachedUser || { email: "Google Account Connected", name: "", picture: "" },
+        spreadsheetId: status.spreadsheetId,
+        spreadsheetUrl: status.spreadsheetUrl,
+        autoSyncEnabled: status.autoSyncEnabled !== undefined ? status.autoSyncEnabled : true
+      };
+      setClientAccessToken(token);
+
+      // Sync token to server in background
+      fetch("/api/auth/google/save-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accessToken: token, user: cachedUser })
+      }).catch(() => {});
+    }
+
     setAuthStatus(status);
     setLoading(false);
     return status;
@@ -59,14 +84,90 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
-  // Trigger auto-sync when customers change if authenticated and autoSyncEnabled is true
+  // Deep fingerprint of customer data to detect ANY edit, addition, or deletion
+  const customersFingerprint = React.useMemo(() => {
+    return JSON.stringify(
+      customers.map((c) => [
+        c.id_pelanggan || c.id,
+        c.nama || c.Nama,
+        c.tabungan || c.Tabungan,
+        c.investasi || c.Investasi,
+        c.lainnya || c.Lainnya,
+        c.hutang || c.Hutang,
+        c.level || c.Level,
+        c.poin || c.Poin
+      ])
+    );
+  }, [customers]);
+
+  const isInitialMount = React.useRef(true);
+
+  // Trigger debounced auto-sync whenever customers are added, edited, or deleted
   useEffect(() => {
-    if (authStatus.authenticated && authStatus.autoSyncEnabled && customers.length > 0 && autoSyncOnLoad && !syncing) {
-      handleSync(true);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      // Initial sync on mount if enabled
+      if (authStatus.authenticated && authStatus.autoSyncEnabled && customers.length > 0 && autoSyncOnLoad) {
+        handleSync(true);
+      }
+      return;
     }
-  }, [customers.length, authStatus.authenticated, authStatus.autoSyncEnabled]);
+
+    if (authStatus.authenticated && authStatus.autoSyncEnabled && customers.length > 0) {
+      const timer = setTimeout(() => {
+        handleSync(true);
+      }, 1000); // 1-second debounce after typing/editing
+
+      return () => clearTimeout(timer);
+    }
+  }, [customersFingerprint, authStatus.authenticated, authStatus.autoSyncEnabled]);
 
   const handleConnectGoogle = async () => {
+    setSyncing(true);
+    setStatusMsg({ type: "info", text: "Membuka halaman login Google..." });
+
+    // Try Firebase Auth Google popup first
+    const authRes = await signInWithGoogle();
+    
+    if (authRes.success && authRes.user) {
+      setClientAccessToken(authRes.accessToken);
+      setAuthStatus({
+        authenticated: true,
+        user: {
+          email: authRes.user.email || "",
+          name: authRes.user.displayName || "",
+          picture: authRes.user.photoURL || ""
+        },
+        autoSyncEnabled: true
+      });
+
+      setStatusMsg({ type: "success", text: "Berhasil login dengan akun Google! Menyinkronkan data..." });
+
+      // Immediate sync
+      const syncRes = await syncCustomersToGoogleSheets(customers, title, authRes.accessToken);
+      setSyncing(false);
+
+      if (syncRes.success) {
+        const timeStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        setLastSyncTime(timeStr);
+        setAuthStatus(prev => ({
+          ...prev,
+          spreadsheetId: syncRes.spreadsheetId,
+          spreadsheetUrl: syncRes.spreadsheetUrl
+        }));
+        setStatusMsg({
+          type: "success",
+          text: `✓ ${syncRes.totalSynced || customers.length} data pelanggan tersingkron ke Google Sheets (${timeStr})`
+        });
+        if (onSyncSuccess) onSyncSuccess(syncRes);
+        setTimeout(() => setStatusMsg(null), 5000);
+      } else {
+        setStatusMsg({ type: "error", text: syncRes.message || syncRes.error || "Gagal membuat/update Google Sheet" });
+      }
+      return;
+    }
+
+    // Fallback if popup cancelled or failed: try backend OAuth URL
     try {
       const url = await getGoogleOAuthUrl();
       const width = 500;
@@ -80,19 +181,23 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
         `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
       );
 
+      setSyncing(false);
+
       if (!popup || popup.closed || typeof popup.closed === "undefined") {
-        // Fallback to same-window navigation if popup is blocked
         window.location.href = url;
       }
     } catch (err: any) {
-      setStatusMsg({ type: "error", text: err.message || "Gagal membimbing koneksi Google" });
+      setSyncing(false);
+      setStatusMsg({ type: "error", text: err.message || "Gagal menghubungkan akun Google" });
     }
   };
 
   const handleDisconnect = async () => {
     if (!confirm("Apakah Anda yakin ingin memutuskan koneksi Google Sheets?")) return;
     setLoading(true);
+    await logoutGoogle();
     await disconnectGoogleAuth();
+    setClientAccessToken(null);
     await fetchStatus();
     setStatusMsg({ type: "info", text: "Koneksi Google Sheets berhasil diputuskan." });
     setTimeout(() => setStatusMsg(null), 3000);
@@ -122,7 +227,8 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
       setStatusMsg({ type: "info", text: "Mengirim data ke Google Sheets..." });
     }
 
-    const res = await syncCustomersToGoogleSheets(customers, title);
+    const tokenToUse = clientAccessToken || getCachedAccessToken();
+    const res = await syncCustomersToGoogleSheets(customers, title, tokenToUse);
 
     setSyncing(false);
 
@@ -143,10 +249,23 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
       if (onSyncSuccess) onSyncSuccess(res);
       setTimeout(() => setStatusMsg(null), 5000);
     } else {
-      setStatusMsg({
-        type: "error",
-        text: res.message || res.error || "Gagal menyinkronkan data"
-      });
+      if (res.needReauth || res.error === "UNAUTHENTICATED" || res.error === "NOT_AUTHENTICATED") {
+        setAuthStatus({ authenticated: false });
+        setClientAccessToken(null);
+        logoutGoogle().catch(() => {});
+        disconnectGoogleAuth().catch(() => {});
+        if (!isAuto) {
+          setStatusMsg({
+            type: "error",
+            text: "Koneksi Google telah kedaluwarsa. Silakan klik 'Hubungkan Akun Google' untuk menyambungkan kembali."
+          });
+        }
+      } else {
+        setStatusMsg({
+          type: "error",
+          text: res.message || res.error || "Gagal menyinkronkan data"
+        });
+      }
     }
   };
 
@@ -208,10 +327,11 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
           ) : (
             <button
               onClick={handleConnectGoogle}
-              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-black uppercase tracking-wider shadow-md transition-all active:scale-95 flex items-center gap-2"
+              disabled={syncing}
+              className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-black uppercase tracking-wider shadow-md transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>Hubungkan Google Account</span>
+              <span>{syncing ? "Menghubungkan..." : "Hubungkan Google Account"}</span>
             </button>
           )}
         </div>
@@ -254,6 +374,7 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
             "Hutang (Rp)",
             "Level",
             "Poin",
+            "5 Aktivitas Terakhir",
             "Waktu Update"
           ].map((col, idx) => (
             <span key={idx} className="px-2.5 py-1 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1 shadow-2xs">

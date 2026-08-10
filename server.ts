@@ -8,7 +8,21 @@ import { createServer as createViteServer } from "vite";
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
+// Express body parser error handler to ensure JSON response for oversized payloads
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err) {
+    console.error("Express middleware error:", err.message);
+    return res.status(err.status || 500).json({
+      success: false,
+      error: err.code || "PAYLOAD_ERROR",
+      message: err.message || "Gagal memproses request data"
+    });
+  }
+  next();
+});
 
 // Google OAuth & Sheets State Persistence
 const TOKENS_PATH = path.join(process.cwd(), ".google_tokens.json");
@@ -61,9 +75,19 @@ function saveSheetConfig(spreadsheetId: string | null, autoSync: boolean) {
   }
 }
 
+let firebaseAppletConfig: any = null;
+try {
+  const cfgPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(cfgPath)) {
+    firebaseAppletConfig = JSON.parse(fs.readFileSync(cfgPath, "utf-8"));
+  }
+} catch (e) {
+  console.error("Failed to read firebase-applet-config.json:", e);
+}
+
 function getOAuth2Client(req?: express.Request) {
-  const clientId = process.env.CLIENT_ID || process.env.GOOGLE_CLIENT_ID || "";
-  const clientSecret = process.env.CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || "";
+  const clientId = process.env.CLIENT_ID || process.env.GOOGLE_CLIENT_ID || process.env.OAUTH_CLIENT_ID || firebaseAppletConfig?.oAuthClientId || "";
+  const clientSecret = process.env.CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || process.env.OAUTH_CLIENT_SECRET || "";
   
   let redirectUri = process.env.REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI || "";
   if (!redirectUri && req) {
@@ -167,6 +191,21 @@ app.get("/api/auth/google/status", (_req, res) => {
   });
 });
 
+// 3b. Save token endpoint (for client-side Firebase or OAuth token persistence)
+app.post("/api/auth/google/save-token", (req, res) => {
+  const { accessToken, user } = req.body;
+  if (accessToken) {
+    const tokens = { access_token: accessToken, ...(googleOAuthTokens || {}) };
+    const userInfo = user || connectedGoogleUser || { email: "Google Account Connected" };
+    saveTokens(tokens, userInfo);
+  }
+  return res.json({
+    success: true,
+    authenticated: !!(googleOAuthTokens && (googleOAuthTokens.access_token || googleOAuthTokens.refresh_token)),
+    user: connectedGoogleUser
+  });
+});
+
 // 4. Google OAuth Logout
 app.post("/api/auth/google/logout", (_req, res) => {
   saveTokens(null, null);
@@ -197,7 +236,18 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
     const { customers, title } = req.body;
     let targetSpreadsheetId = req.body.spreadsheetId || syncedSpreadsheetId;
 
-    if (!googleOAuthTokens || (!googleOAuthTokens.access_token && !googleOAuthTokens.refresh_token)) {
+    const authHeader = req.headers.authorization;
+    const clientAccessToken = req.body.accessToken || (authHeader && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null);
+
+    const activeTokens = clientAccessToken 
+      ? { access_token: clientAccessToken, ...(googleOAuthTokens || {}) } 
+      : googleOAuthTokens;
+
+    if (clientAccessToken) {
+      saveTokens(activeTokens, connectedGoogleUser || { email: "Google Account Connected" });
+    }
+
+    if (!activeTokens || (!activeTokens.access_token && !activeTokens.refresh_token)) {
       return res.status(401).json({
         success: false,
         error: "NOT_AUTHENTICATED",
@@ -206,7 +256,7 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
     }
 
     const oauth2Client = getOAuth2Client(req);
-    oauth2Client.setCredentials(googleOAuthTokens);
+    oauth2Client.setCredentials(activeTokens);
 
     // Refresh token listener
     oauth2Client.on("tokens", (newTokens) => {
@@ -217,22 +267,43 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
     const sheets = google.sheets({ version: "v4", auth: oauth2Client });
 
     // Create a new spreadsheet if we don't have one
+    // Create or search for existing spreadsheet if we don't have one
     if (!targetSpreadsheetId) {
       const sheetTitle = title || "Data Pelanggan - Warung Tomi";
-      const createRes = await sheets.spreadsheets.create({
-        requestBody: {
-          properties: { title: sheetTitle },
-          sheets: [
-            {
-              properties: {
-                title: "Data Pelanggan",
-                gridProperties: { frozenRowCount: 1 }
-              }
-            }
-          ]
+
+      // 1. Check if a spreadsheet with this name already exists in Google Drive to prevent duplicates
+      try {
+        const drive = google.drive({ version: "v3", auth: oauth2Client });
+        const searchRes = await drive.files.list({
+          q: `name = '${sheetTitle.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`,
+          fields: "files(id, name)",
+          pageSize: 1
+        });
+        if (searchRes.data.files && searchRes.data.files.length > 0) {
+          targetSpreadsheetId = searchRes.data.files[0].id || null;
         }
-      });
-      targetSpreadsheetId = createRes.data.spreadsheetId || null;
+      } catch (driveErr) {
+        console.warn("Could not search Drive for existing spreadsheet:", driveErr);
+      }
+
+      // 2. If still no existing file found, create a new one
+      if (!targetSpreadsheetId) {
+        const createRes = await sheets.spreadsheets.create({
+          requestBody: {
+            properties: { title: sheetTitle },
+            sheets: [
+              {
+                properties: {
+                  title: "Data Pelanggan",
+                  gridProperties: { frozenRowCount: 1 }
+                }
+              }
+            ]
+          }
+        });
+        targetSpreadsheetId = createRes.data.spreadsheetId || null;
+      }
+
       if (targetSpreadsheetId) {
         saveSheetConfig(targetSpreadsheetId, autoSyncEnabled);
       }
@@ -252,6 +323,11 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
       "Hutang (Rp)",
       "Level",
       "Poin",
+      "Total Belanja Bulan Ini (Rp)",
+      "Peringkat",
+      "6 Aktivitas Terakhir",
+      "10 Mutasi Tabungan",
+      "10 Catatan Hutang",
       "Terakhir Diperbarui"
     ];
 
@@ -264,6 +340,11 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
       const hutang = Number(c.hutang || c.Hutang || 0);
       const level = c.level || c.Level || "Bronze";
       const poin = Number(c.poin || c.Poin || 0);
+      const aktivitas = c.aktivitas_terakhir || c.AktivitasTerakhir || c.aktivitas || "Belum ada aktivitas";
+      const mutasiTabungan = c.mutasi_tabungan || c.MutasiTabungan || "Belum ada mutasi tabungan";
+      const catatanHutang = c.catatan_hutang || c.CatatanHutang || "Belum ada catatan hutang";
+      const totalBelanjaBulanIni = Number(c.total_belanja_bulan_ini || c.TotalBelanjaBulanIni || c.belanja_bulan_ini || 0);
+      const peringkat = c.peringkat || c.Peringkat || "Belum ada belanja bulan ini";
       const updatedTime = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
 
       return [
@@ -276,6 +357,11 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
         hutang,
         level,
         poin,
+        totalBelanjaBulanIni,
+        peringkat,
+        aktivitas,
+        mutasiTabungan,
+        catatanHutang,
         updatedTime
       ];
     }) : [];
@@ -285,7 +371,7 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
     // Clear and update the sheet
     await sheets.spreadsheets.values.clear({
       spreadsheetId: targetSpreadsheetId,
-      range: "'Data Pelanggan'!A1:J1000"
+      range: "'Data Pelanggan'!A1:Z1000"
     }).catch(() => {});
 
     await sheets.spreadsheets.values.update({
@@ -306,7 +392,32 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
       lastSynced: nowIso
     });
   } catch (err: any) {
-    console.error("Google Sheets Sync Error:", err);
+    const isAuthError =
+      err?.code === 401 ||
+      err?.status === 401 ||
+      err?.response?.status === 401 ||
+      err?.name === "GaxiosError" ||
+      (typeof err?.message === "string" && (
+        err.message.includes("invalid authentication credentials") ||
+        err.message.includes("invalid_grant") ||
+        err.message.includes("Invalid Credentials") ||
+        err.message.includes("Unauthenticated") ||
+        err.message.includes("OAuth 2 access token")
+      ));
+
+    if (isAuthError) {
+      console.warn("Google Sheets auth expired or invalid. Resetting saved credentials.");
+      saveTokens(null, null);
+      return res.status(401).json({
+        success: false,
+        error: "UNAUTHENTICATED",
+        needReauth: true,
+        message: "Sesi login Google telah kedaluwarsa atau tidak valid. Silakan hubungkan kembali akun Google Anda."
+      });
+    }
+
+    console.error("Google Sheets Sync Error:", err?.message || err);
+
     return res.status(500).json({
       success: false,
       error: err.message || "Gagal menyinkronkan data ke Google Sheets"

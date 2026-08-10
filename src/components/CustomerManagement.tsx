@@ -133,14 +133,39 @@ export default function CustomerManagement({
     });
   };
 
-  const parseDate = (dateStr: string) => {
+  const parseDate = (dateStr: any) => {
     if (!dateStr || dateStr === "-") return new Date(0);
-    const parts = dateStr.split(/[/-]/);
-    if (parts.length === 3) {
-      if (parts[0].length === 4) return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-      return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    if (dateStr instanceof Date) return dateStr;
+    const trimmed = String(dateStr).trim();
+    const normalized = trimmed.replace('T', ' ').replace(',', '');
+    const spaceSplit = normalized.split(/\s+/);
+    const datePart = spaceSplit[0];
+    const timePart = spaceSplit[1];
+
+    let h = 0, m = 0, s = 0;
+    if (timePart) {
+      const tParts = timePart.split(':');
+      h = parseInt(tParts[0], 10) || 0;
+      m = parseInt(tParts[1], 10) || 0;
+      s = parseInt(tParts[2], 10) || 0;
     }
-    const d = new Date(dateStr);
+
+    const parts = datePart.split(/[/-]/);
+    if (parts.length === 3) {
+      const p0 = parseInt(parts[0], 10) || 0;
+      const p1 = parseInt(parts[1], 10) || 0;
+      const p2 = parseInt(parts[2], 10) || 0;
+
+      if (parts[0].length === 4) {
+        return new Date(p0, p1 - 1, p2, h, m, s);
+      }
+      if (parts[2].length === 4) {
+        return new Date(p2, p1 - 1, p0, h, m, s);
+      }
+      const fullYear = p2 < 100 ? 2000 + p2 : p2;
+      return new Date(fullYear, p1 - 1, p0, h, m, s);
+    }
+    const d = new Date(trimmed);
     return isNaN(d.getTime()) ? new Date(0) : d;
   };
 
@@ -148,6 +173,38 @@ export default function CustomerManagement({
     if (typeof val === 'number') return val;
     if (!val) return 0;
     return parseInt(String(val).replace(/[^\d]/g, '')) || 0;
+  };
+
+  const getRelativeTimeString = (dateInput: any) => {
+    if (!dateInput || dateInput === "-") return "Baru-baru ini";
+    let date: Date;
+    if (dateInput instanceof Date) {
+      date = dateInput;
+    } else {
+      date = parseDate(String(dateInput));
+    }
+
+    if (isNaN(date.getTime()) || date.getTime() === 0) return "Baru-baru ini";
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    const diffMs = today.getTime() - targetDay.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) return "Hari ini";
+    if (diffDays === 1) return "Kemarin";
+    if (diffDays < 30) return `${diffDays} Hari lalu`;
+
+    const diffMonths = (now.getFullYear() - date.getFullYear()) * 12 + (now.getMonth() - date.getMonth());
+    if (diffMonths < 12) {
+      const months = Math.max(1, diffMonths);
+      return `${months} Bulan lalu`;
+    }
+
+    const diffYears = Math.max(1, now.getFullYear() - date.getFullYear());
+    return `${diffYears} Tahun lalu`;
   };
 
   const calculateCustomerStats = (customerNama: string, idPelanggan?: string) => {
@@ -198,14 +255,396 @@ export default function CustomerManagement({
 
     const poin = totalEarned - totalExpired - userRedeemed;
 
-    return { tabungan, investasi, hutang, poin, level };
+    // 5. Build 5 Latest Activities for Google Sheets Column
+    interface ActivityItem {
+      date: Date;
+      rel: string;
+      nominal: number;
+      source: 'sales' | 'savings' | 'investment' | 'debt' | 'points';
+      isKasbonOrDebt?: boolean;
+      isTabungan?: boolean;
+      text: string;
+    }
+
+    const rawActivities: ActivityItem[] = [];
+
+    // Helper to format date to DD/MM/YYYY
+    const formatDateDDMMYYYY = (d: Date, rawStr?: string) => {
+      if (d && !isNaN(d.getTime()) && d.getTime() > 0) {
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+      if (rawStr && rawStr !== '-') {
+        const spaceSplit = String(rawStr).trim().split(' ')[0];
+        const parts = spaceSplit.split(/[/-]/);
+        if (parts.length === 3) {
+          if (parts[0].length === 4) {
+            return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+          }
+          return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+        }
+      }
+      return '-';
+    };
+
+    // Sales
+    userSales.forEach(t => {
+      const d = parseDate(t.Tanggal);
+      const rel = getRelativeTimeString(t.Tanggal);
+      const nominal = parseCurrency(t.Pemasukan || t.Total || t.Nominal || 0);
+      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
+
+      // Extract Jenis / Kategori (e.g., PULSA, SEMBAKO, Kategori, or Keterangan)
+      let rawJenis = t.Kategori || t.Jenis || t.Keterangan || t.NamaBarang || t.Produk || t.Barang;
+      if (!rawJenis || rawJenis === 'Umum' || rawJenis === '-') {
+        rawJenis = 'Transaksi';
+      }
+      const jenisClean = String(rawJenis).replace(/^Transaksi\s+/i, '').trim() || 'Transaksi';
+
+      // Payment method & kasbon handling
+      const rawMetode = String(t.MetodePembayaran || t.Metode || t.MetodeBayar || '').trim().toUpperCase();
+      const statusUpper = String(t.Status || '').trim().toUpperCase();
+      const isKasbon = statusUpper.includes('KASBON') || Boolean(t.Kasbon) || Boolean(t.IsKasbon) || rawMetode.includes('KASBON') || rawMetode.includes('HUTANG');
+      const isTabungan = rawMetode.includes('TABUNGAN');
+
+      let metodeTag = '';
+      if (isKasbon) {
+        metodeTag = ' (KASBON)';
+      } else if (isTabungan) {
+        metodeTag = ' (TABUNGAN)';
+      } else if (rawMetode && !rawMetode.includes('TUNAI') && !rawMetode.includes('CASH')) {
+        metodeTag = ` (${rawMetode})`;
+      } else {
+        // Tunai / Cash -> no method tag
+        metodeTag = '';
+      }
+
+      rawActivities.push({
+        date: d,
+        rel,
+        nominal,
+        source: 'sales',
+        isKasbonOrDebt: isKasbon,
+        isTabungan: isTabungan,
+        text: `* ${rel}: ${jenisClean} ${formatNominal}${metodeTag}`.replace(/\s+/g, ' ').trim()
+      });
+    });
+
+    // Savings
+    userSavings.forEach(t => {
+      const d = parseDate(t.Tanggal);
+      const rel = getRelativeTimeString(t.Tanggal);
+      const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
+      const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0);
+      const tipe = isSetor ? 'SETOR' : 'TARIK';
+      const nominal = parseCurrency(t.Nominal || t.Jumlah || t.Setor || t.Tarik || 0);
+      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
+
+      const rawKet = (t.Berita || t.Keterangan || t.Catatan || '').trim();
+      const ketClean = (rawKet && rawKet !== '-' && !rawKet.toLowerCase().includes('tabungan')) ? rawKet : '';
+      const ketTag = ketClean ? ` (${ketClean.toUpperCase()})` : '';
+
+      rawActivities.push({
+        date: d,
+        rel,
+        nominal,
+        source: 'savings',
+        isTabungan: true,
+        text: `* ${rel}: ${tipe} tabungan ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
+      });
+    });
+
+    // Investments
+    userInvestments.forEach(t => {
+      const d = parseDate(t.Tanggal);
+      const rel = getRelativeTimeString(t.Tanggal);
+      const isCair = (t.Jenis || '').toLowerCase().includes('cair') || (t.Jenis || '').toLowerCase().includes('tarik');
+      const actionText = isCair ? 'Pencairan Investasi' : 'Tambah Investasi';
+      const nominal = parseCurrency(t.Nominal || t.Jumlah || 0);
+      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
+      rawActivities.push({
+        date: d,
+        rel,
+        nominal,
+        source: 'investment',
+        text: `* ${rel}: ${actionText} ${formatNominal}`.trim()
+      });
+    });
+
+    // Debts
+    userDebts.forEach(t => {
+      const d = parseDate(t.Tanggal);
+      const rel = getRelativeTimeString(t.Tanggal);
+      const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
+      const isBayar = tipeStr.includes('BAYAR') || tipeStr.includes('KURANG') || (t.Kredit && parseCurrency(t.Kredit) > 0);
+      const tipe = isBayar ? 'Bayar Hutang' : 'Kasbon';
+      const nominal = parseCurrency(t.Jumlah || t.Nominal || t.Kredit || t.Debet || 0);
+      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
+
+      const rawKet = (t.Keterangan || t.Berita || t.Catatan || t.Kategori || t.MetodePembayaran || t.Metode || '').trim();
+      const upperKet = rawKet.toUpperCase();
+
+      let ketTag = '';
+      if (isBayar) {
+        if (upperKet.includes('TABUNGAN')) {
+          ketTag = ' (TABUNGAN)';
+        } else if (upperKet && !upperKet.includes('TUNAI') && !upperKet.includes('CASH') && !upperKet.includes('HUTANG') && !upperKet.includes('KASBON') && rawKet !== '-') {
+          ketTag = ` (${rawKet})`;
+        } else {
+          // Cash/Tunai -> no tag!
+          ketTag = '';
+        }
+      } else {
+        // Kasbon
+        let cleanCat = (rawKet && rawKet !== '-' && !upperKet.includes('HUTANG') && !upperKet.includes('KASBON') && !upperKet.includes('TUNAI') && !upperKet.includes('CASH')) ? rawKet : '';
+        if (!cleanCat) {
+          const matchSale = userSales.find(s => {
+            const sd = parseDate(s.Tanggal);
+            const snom = parseCurrency(s.Pemasukan || s.Total || s.Nominal || 0);
+            return sd.getTime() === d.getTime() && snom === nominal;
+          });
+          if (matchSale) {
+            const sj = (matchSale.Jenis || matchSale.Kategori || matchSale.Produk || matchSale.Keterangan || '').trim();
+            if (sj && sj !== '-' && !sj.toLowerCase().includes('penjualan')) {
+              cleanCat = sj;
+            }
+          }
+        }
+        ketTag = cleanCat ? ` (${cleanCat.toUpperCase()})` : '';
+      }
+
+      rawActivities.push({
+        date: d,
+        rel,
+        nominal,
+        source: 'debt',
+        isKasbonOrDebt: !isBayar,
+        isTabungan: isBayar && upperKet.includes('TABUNGAN'),
+        text: `* ${rel}: ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
+      });
+    });
+
+    // Redeemed Points
+    const userRedeemedList = redeemedPoints.filter(r => (idPelanggan && r.id_pelanggan === idPelanggan) || (r.Nama || "").toLowerCase() === name);
+    userRedeemedList.forEach(r => {
+      const d = parseDate(r.Tanggal);
+      const rel = getRelativeTimeString(r.Tanggal);
+      const poinVal = r.Poin || 0;
+      rawActivities.push({
+        date: d,
+        rel,
+        nominal: 0,
+        source: 'points',
+        text: `* ${rel}: Tukar Poin ${poinVal} Poin`.trim()
+      });
+    });
+
+    // Helper for exact timestamp key to avoid deduplicating different times on the same day!
+    const getTimeKey = (d: Date, nominal: number, rel: string) => {
+      const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0 || d.getSeconds() !== 0;
+      if (hasTime && d.getTime() > 0) {
+        return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}_${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}_${nominal}`;
+      }
+      return `${rel}_${nominal}`;
+    };
+
+    // Deduplication rules:
+    // Only deduplicate across DIFFERENT categories (Sales & Debt, Sales & Savings, Debt & Savings).
+    // NEVER deduplicate within the SAME category (e.g., Sales & Sales).
+    const salesKasbonKeys = new Set<string>();
+    const salesTabunganKeys = new Set<string>();
+    const debtTabunganKeys = new Set<string>();
+
+    rawActivities.forEach(a => {
+      const key = getTimeKey(a.date, a.nominal, a.rel);
+      if (a.source === 'sales') {
+        if (a.isKasbonOrDebt) salesKasbonKeys.add(key);
+        if (a.isTabungan) salesTabunganKeys.add(key);
+      }
+      if (a.source === 'debt' && a.isTabungan) {
+        debtTabunganKeys.add(key);
+      }
+    });
+
+    const filteredActivities: ActivityItem[] = [];
+
+    rawActivities.forEach(act => {
+      const key = getTimeKey(act.date, act.nominal, act.rel);
+      
+      // Belanja & Hutang pair: drop debt if sales already logged kasbon at same timestamp & nominal
+      if (act.source === 'debt' && act.isKasbonOrDebt && salesKasbonKeys.has(key)) {
+        return;
+      }
+      // Belanja & Tabungan pair: drop savings if sales already logged tabungan at same timestamp & nominal
+      if (act.source === 'savings' && act.isTabungan && salesTabunganKeys.has(key)) {
+        return;
+      }
+      // Hutang & Tabungan pair: drop savings if debt already logged tabungan at same timestamp & nominal
+      if (act.source === 'savings' && act.isTabungan && debtTabunganKeys.has(key)) {
+        return;
+      }
+
+      filteredActivities.push(act);
+    });
+
+    // Sort descending by date (newest first)
+    filteredActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    // Take top 6
+    const top6 = filteredActivities.slice(0, 6);
+    const aktivitas_terakhir = top6.length > 0 
+      ? top6.map(a => a.text).join('\n')
+      : 'Belum ada aktivitas';
+
+    // 10 Mutasi Tabungan Terakhir
+    const formattedSavingsList = userSavings.map((t, idx) => {
+      const d = parseDate(t.Tanggal);
+      const dateStr = formatDateDDMMYYYY(d, t.Tanggal);
+      const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
+      const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0);
+      const tipe = isSetor ? 'SETOR' : 'TARIK';
+      const nominal = parseCurrency(t.Nominal || t.Jumlah || t.Setor || t.Tarik || 0);
+      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
+
+      const rawKet = (t.Berita || t.Keterangan || t.Catatan || '').trim();
+      const ketClean = (rawKet && rawKet !== '-' && !rawKet.toLowerCase().includes('tabungan')) ? rawKet : '';
+      const ketTag = ketClean ? ` (${ketClean})` : '';
+
+      return {
+        idx,
+        date: d,
+        text: `* ${dateStr} : ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
+      };
+    });
+    formattedSavingsList.sort((a, b) => {
+      const diff = b.date.getTime() - a.date.getTime();
+      return diff !== 0 ? diff : b.idx - a.idx;
+    });
+    const top10Savings = formattedSavingsList.slice(0, 10);
+    const mutasi_tabungan = top10Savings.length > 0
+      ? top10Savings.map(s => s.text).join('\n')
+      : 'Belum ada mutasi tabungan';
+
+    // 10 Catatan Hutang Terakhir
+    const formattedDebtsList = userDebts.map((t, idx) => {
+      const d = parseDate(t.Tanggal);
+      const dateStr = formatDateDDMMYYYY(d, t.Tanggal);
+      const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
+      const isBayar = tipeStr.includes('BAYAR') || tipeStr.includes('KURANG') || (t.Kredit && parseCurrency(t.Kredit) > 0);
+      const tipe = isBayar ? 'BAYAR' : 'HUTANG';
+      const nominal = parseCurrency(t.Jumlah || t.Nominal || t.Kredit || t.Debet || 0);
+      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
+
+      const rawKet = (t.Keterangan || t.Berita || t.Catatan || t.Kategori || t.MetodePembayaran || t.Metode || '').trim();
+      const upperKet = rawKet.toUpperCase();
+
+      let ketTag = '';
+      if (isBayar) {
+        // Keterangan hanya ditampilkan jika bayar hutang menggunakan tabungan
+        if (upperKet.includes('TABUNGAN')) {
+          ketTag = ' (TABUNGAN)';
+        } else {
+          // Metode tunai / cash -> keterangan tidak ditampilkan
+          ketTag = '';
+        }
+      } else {
+        // Tipe HUTANG: jika terkait transaksi belanja maka keterangan diisi dengan jenis (misal: PULSA)
+        let cleanCat = (rawKet && rawKet !== '-' && !upperKet.includes('HUTANG') && !upperKet.includes('KASBON') && !upperKet.includes('TUNAI') && !upperKet.includes('CASH')) ? rawKet : '';
+        if (!cleanCat) {
+          const matchSale = userSales.find(s => {
+            const sd = parseDate(s.Tanggal);
+            const snom = parseCurrency(s.Pemasukan || s.Total || s.Nominal || 0);
+            return sd.getTime() === d.getTime() && snom === nominal;
+          });
+          if (matchSale) {
+            const sj = (matchSale.Jenis || matchSale.Kategori || matchSale.Produk || matchSale.Keterangan || '').trim();
+            if (sj && sj !== '-' && !sj.toLowerCase().includes('penjualan')) {
+              cleanCat = sj;
+            }
+          }
+        }
+        ketTag = cleanCat ? ` (${cleanCat.toUpperCase()})` : '';
+      }
+
+      return {
+        idx,
+        date: d,
+        text: `* ${dateStr} : ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
+      };
+    });
+    formattedDebtsList.sort((a, b) => {
+      const diff = b.date.getTime() - a.date.getTime();
+      return diff !== 0 ? diff : b.idx - a.idx;
+    });
+    const top10Debts = formattedDebtsList.slice(0, 10);
+    const catatan_hutang = top10Debts.length > 0
+      ? top10Debts.map(d => d.text).join('\n')
+      : 'Belum ada catatan hutang';
+
+    // Total Belanja Bulan Ini
+    const currentDate = new Date();
+    const currYear = currentDate.getFullYear();
+    const currMonth = currentDate.getMonth();
+
+    const userSalesThisMonth = userSales.filter(t => {
+      const d = parseDate(t.Tanggal);
+      return d.getFullYear() === currYear && d.getMonth() === currMonth;
+    });
+
+    const total_belanja_bulan_ini = userSalesThisMonth.reduce(
+      (acc, curr) => acc + (parseCurrency(curr.Pemasukan || curr.Total || curr.Nominal || 0)),
+      0
+    );
+
+    return { tabungan, investasi, hutang, poin, level, aktivitas_terakhir, mutasi_tabungan, catatan_hutang, total_belanja_bulan_ini };
   };
 
   const customersWithStats = useMemo(() => {
-    return customers.map(c => ({
-      ...c,
-      ...calculateCustomerStats(c.nama, c.id_pelanggan)
-    }));
+    // 1. Calculate stats for all customers
+    const list = customers.map(c => {
+      const stats = calculateCustomerStats(c.nama || c.Nama, c.id_pelanggan);
+      return {
+        ...c,
+        ...stats
+      };
+    });
+
+    // 2. Filter active spending customers this month & sort descending
+    const activeList = list
+      .filter(c => (c.total_belanja_bulan_ini || 0) > 0)
+      .sort((a, b) => (b.total_belanja_bulan_ini || 0) - (a.total_belanja_bulan_ini || 0));
+
+    const totalActive = activeList.length;
+
+    // 3. Attach rank (Peringkat) to each customer
+    return list.map(c => {
+      const monthlyTotal = c.total_belanja_bulan_ini || 0;
+      let peringkat = "Belum ada belanja bulan ini";
+      if (monthlyTotal > 0) {
+        const rankIdx = activeList.findIndex(item => 
+          (item.id_pelanggan && c.id_pelanggan && item.id_pelanggan === c.id_pelanggan) ||
+          ((item.nama || item.Nama || '').toLowerCase().trim() === (c.nama || c.Nama || '').toLowerCase().trim())
+        );
+        if (rankIdx !== -1) {
+          peringkat = `Ke ${rankIdx + 1} dari ${totalActive}`;
+        }
+      }
+      return {
+        ...c,
+        peringkat,
+        Peringkat: peringkat,
+        total_belanja_bulan_ini: monthlyTotal,
+        TotalBelanjaBulanIni: monthlyTotal,
+        aktivitas_terakhir: c.aktivitas_terakhir,
+        AktivitasTerakhir: c.aktivitas_terakhir,
+        mutasi_tabungan: c.mutasi_tabungan,
+        MutasiTabungan: c.mutasi_tabungan,
+        catatan_hutang: c.catatan_hutang,
+        CatatanHutang: c.catatan_hutang
+      };
+    });
   }, [customers, salesTransactions, savingsTransactions, investmentTransactions, debtTransactions, redeemedPoints]);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
