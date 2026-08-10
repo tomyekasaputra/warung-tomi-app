@@ -28,7 +28,6 @@ const SUPABASE_CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS public.customers (
 
 ALTER TABLE public.customers DISABLE ROW LEVEL SECURITY;`;
 import { motion, AnimatePresence } from 'motion/react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { SupabaseCustomerService, SupabaseCustomer } from '../lib/supabase';
 import { isCustomerSavingMatch, isCustomerDebtMatch } from '../App';
 import GoogleSheetsSyncCard from './GoogleSheetsSyncCard';
@@ -207,8 +206,10 @@ export default function CustomerManagement({
     return `${diffYears} Tahun lalu`;
   };
 
+  const isGenericId = (id?: string) => !id || id === 'cust-0000' || id === 'cust-xxxx' || id === 'cust' || id === '0000';
+
   const calculateCustomerStats = (customerNama: string, idPelanggan?: string) => {
-    const name = (customerNama || "").toLowerCase();
+    const name = (customerNama || "").toLowerCase().trim();
     const targetCustObj = { id_pelanggan: idPelanggan, Nama: customerNama };
     
     // 1. Savings
@@ -216,19 +217,52 @@ export default function CustomerManagement({
     const tabungan = userSavings.length > 0 ? userSavings[userSavings.length - 1].SaldoAkhir : 0;
 
     // 2. Investment
-    const userInvestments = investmentTransactions.filter(t => (idPelanggan && t.id_pelanggan === idPelanggan) || (t.Nama || "").toLowerCase() === name);
+    const userInvestments = investmentTransactions.filter(t => 
+      (!isGenericId(idPelanggan) && !isGenericId(t.id_pelanggan) && t.id_pelanggan === idPelanggan) || 
+      (name && (t.Nama || "").toLowerCase().trim() === name)
+    );
     const investasi = userInvestments.filter(t => t.Status !== "Selesai").reduce((acc, curr) => acc + (curr.Nominal || 0), 0);
 
     // 3. Debt
     const userDebts = debtTransactions.filter(t => isCustomerDebtMatch(t, targetCustObj));
-    const targetCust = customers.find(c => (idPelanggan && c.id_pelanggan === idPelanggan) || (c.nama || c.Nama || "").toLowerCase() === name);
+    const targetCust = customers.find(c => 
+      (!isGenericId(idPelanggan) && !isGenericId(c.id_pelanggan) && c.id_pelanggan === idPelanggan) || 
+      (name && (c.nama || c.Nama || "").toLowerCase().trim() === name)
+    );
     const hutang = userDebts.length > 0 ? userDebts[userDebts.length - 1].SaldoAkhir : parseCurrency(targetCust?.Hutang || targetCust?.hutang || 0);
 
     // 4. Points & Level
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    const userSales = salesTransactions.filter(t => (idPelanggan && t.id_pelanggan === idPelanggan) || (t.Nama || "").toLowerCase() === name);
+    const userSales = salesTransactions.filter(t => 
+      (!isGenericId(idPelanggan) && !isGenericId(t.id_pelanggan) && t.id_pelanggan === idPelanggan) || 
+      (name && (t.Nama || "").toLowerCase().trim() === name)
+    );
+
+    // 5. Lainnya (Balance from transactions with status BELUM DIAMBIL, DIPROSES, PENDING, or static Lainnya field)
+    const userLainnyaTransactions = userSales.filter(t => {
+      const s = (t.Status || "").toUpperCase().trim();
+      return s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING";
+    });
+
+    const lainnyaFromTransactions = userLainnyaTransactions.reduce((acc, curr) => {
+      const s = (curr.Status || "").toUpperCase().trim();
+      if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
+        return acc + (parseCurrency(curr.Pemasukan || curr.Total || curr.Nominal) || parseCurrency(curr.HargaModal) || 0);
+      }
+      
+      let base = parseCurrency(curr.HargaModal || curr.Pemasukan || curr.Total || curr.Nominal || 0);
+      if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
+        base -= 1500;
+      }
+      const net = base - (parseCurrency(curr.Sebagian) || 0);
+      return acc + (net > 0 ? net : 0);
+    }, 0);
+
+    const staticLainnya = parseCurrency(targetCust?.Lainnya || targetCust?.lainnya || 0);
+    const lainnya = lainnyaFromTransactions > 0 ? lainnyaFromTransactions : staticLainnya;
+
     const salesLast3Months = userSales.filter(t => parseDate(t.Tanggal) >= threeMonthsAgo);
     const totalVolume = salesLast3Months.reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
 
@@ -338,7 +372,7 @@ export default function CustomerManagement({
       const rel = getRelativeTimeString(t.Tanggal);
       const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
       const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0);
-      const tipe = isSetor ? 'SETOR' : 'TARIK';
+      const tipe = isSetor ? 'Setor Tabungan' : 'Tarik Tabungan';
       const nominal = parseCurrency(t.Nominal || t.Jumlah || t.Setor || t.Tarik || 0);
       const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
 
@@ -352,7 +386,7 @@ export default function CustomerManagement({
         nominal,
         source: 'savings',
         isTabungan: true,
-        text: `* ${rel}: ${tipe} tabungan ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
+        text: `* ${rel}: ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
       });
     });
 
@@ -504,7 +538,7 @@ export default function CustomerManagement({
       const dateStr = formatDateDDMMYYYY(d, t.Tanggal);
       const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
       const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0);
-      const tipe = isSetor ? 'SETOR' : 'TARIK';
+      const tipe = isSetor ? 'Setor Tabungan' : 'Tarik Tabungan';
       const nominal = parseCurrency(t.Nominal || t.Jumlah || t.Setor || t.Tarik || 0);
       const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
 
@@ -598,7 +632,7 @@ export default function CustomerManagement({
       0
     );
 
-    return { tabungan, investasi, hutang, poin, level, aktivitas_terakhir, mutasi_tabungan, catatan_hutang, total_belanja_bulan_ini };
+    return { tabungan, investasi, lainnya, hutang, poin, level, aktivitas_terakhir, mutasi_tabungan, catatan_hutang, total_belanja_bulan_ini };
   };
 
   const customersWithStats = useMemo(() => {
@@ -633,6 +667,8 @@ export default function CustomerManagement({
       }
       return {
         ...c,
+        lainnya: c.lainnya || c.Lainnya,
+        Lainnya: c.lainnya || c.Lainnya,
         peringkat,
         Peringkat: peringkat,
         total_belanja_bulan_ini: monthlyTotal,
@@ -653,6 +689,7 @@ export default function CustomerManagement({
   const [successMessage, setSuccessMessage] = useState('');
 
   const fetchCustomers = async () => {
+    if (customers && customers.length > 0) return;
     setLoading(true);
     try {
       if (SupabaseCustomerService.isConnected()) {
@@ -817,20 +854,6 @@ export default function CustomerManagement({
     return filteredCustomers.slice(0, displayLimit);
   }, [filteredCustomers, displayLimit]);
 
-  const levelStats = useMemo(() => {
-    const counts = customersWithStats.reduce((acc: any, c) => {
-      const lvl = c.level || 'Bronze';
-      acc[lvl] = (acc[lvl] || 0) + 1;
-      return acc;
-    }, {});
-
-    return ['Bronze', 'Silver', 'Gold', 'Platinum'].map(level => ({
-      name: level,
-      value: counts[level] || 0,
-      color: (LEVEL_METADATA[level] || LEVEL_METADATA['Bronze']).color
-    }));
-  }, [customersWithStats]);
-
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 relative overflow-hidden">
@@ -855,74 +878,17 @@ export default function CustomerManagement({
         {/* Google Sheets Auto Sync Card */}
         <GoogleSheetsSyncCard customers={customersWithStats} />
 
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-lg border border-slate-100">
-
-          <div className="flex flex-col gap-8">
-            <div className="space-y-4">
-              <div className="flex justify-between items-start px-2">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total Pelanggan</p>
-                  <h3 className="text-xl font-black text-[#005E6A]">{customers.length} Orang</h3>
-                </div>
-                <div className="text-right space-y-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Status Sistem</p>
-                  <div className="flex items-center gap-2 justify-end">
-                    <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-                    <h3 className="text-[10px] font-black text-teal-600 uppercase">Terhubung</h3>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-row items-center gap-2 sm:gap-6">
-              <div className="h-44 sm:h-56 w-1/2 relative shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={levelStats}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={70}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {levelStats.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0].payload;
-                          return (
-                            <div className="bg-white p-2 sm:p-3 rounded-xl shadow-xl border border-slate-50">
-                              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{data.name}</p>
-                              <p className="text-[10px] font-black text-[#005E6A]">{data.value}</p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              {levelStats.length > 0 && (
-                <div className="w-1/2 flex flex-col gap-2 border-l border-slate-100 pl-3 sm:pl-6">
-                  <p className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Keterangan Level</p>
-                  {levelStats.map((s, idx) => (
-                    <div key={idx} className="flex items-center justify-between py-0.5">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                        <span className="text-[9px] sm:text-[10px] font-black text-slate-600 uppercase tracking-wider truncate">{s.name}</span>
-                      </div>
-                      <p className="text-[11px] sm:text-xs font-black text-[#005E6A] shrink-0 ml-1">{s.value}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* Ringkasan Ringan Total Pelanggan */}
+        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Pelanggan Terdaftar</p>
+            <h3 className="text-lg font-black text-[#005E6A]">{customers.length} Orang</h3>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Status Database</p>
+            <div className="flex items-center gap-1.5 justify-end">
+              <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+              <span className="text-xs font-black text-teal-600 uppercase">Terhubung</span>
             </div>
           </div>
         </div>

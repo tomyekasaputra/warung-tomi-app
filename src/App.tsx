@@ -349,19 +349,31 @@ export const generateNextHutangId = (
   return `HUT-${custDigits}/${nextSeq}`;
 };
 
+const isGenericId = (id: string) => !id || id === 'cust-0000' || id === 'cust-xxxx' || id === 'cust' || id === '0000';
+
 export const isCustomerSavingMatch = (t: any, customer: { id_pelanggan?: string; id?: string; Nama?: string; nama?: string } | null) => {
   if (!customer || !t) return false;
   const custName = (customer.Nama || customer.nama || '').toLowerCase().trim();
   const custId = (customer.id_pelanggan || customer.id || '').toLowerCase().trim();
-  const cust4Digits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
 
   const tName = (t.Nama || t.nama || t.nama_nasabah || '').toLowerCase().trim();
   const tIdPel = (t.id_pelanggan || '').toLowerCase().trim();
-  const tIdTab = (t.id_tabungan || t.id || '').toUpperCase();
 
+  // If names exist and are different, they MUST NOT match
+  if (custName && tName && custName !== tName) return false;
+
+  // 1. Strict name equality
   if (custName && tName && custName === tName) return true;
-  if (custId && tIdPel && (custId === tIdPel || custId.endsWith(tIdPel) || tIdPel.endsWith(custId))) return true;
-  if (cust4Digits && cust4Digits !== "0000" && tIdTab.includes(`TAB-${cust4Digits}/`)) return true;
+
+  // 2. Non-generic ID match
+  if (!isGenericId(custId) && !isGenericId(tIdPel) && custId === tIdPel) return true;
+
+  // 3. Check transaction ID format TAB-XXXX/
+  const cust4Digits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
+  const tIdTab = (t.id_tabungan || t.id || '').toUpperCase();
+  if (cust4Digits && cust4Digits !== "0000" && tIdTab.includes(`TAB-${cust4Digits}/`)) {
+    if (!tName || tName === custName) return true;
+  }
 
   return false;
 };
@@ -370,15 +382,25 @@ export const isCustomerDebtMatch = (t: any, customer: { id_pelanggan?: string; i
   if (!customer || !t) return false;
   const custName = (customer.Nama || customer.nama || '').toLowerCase().trim();
   const custId = (customer.id_pelanggan || customer.id || '').toLowerCase().trim();
-  const cust4Digits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
 
   const tName = (t.Nama || t.nama || t.nama_pelanggan || '').toLowerCase().trim();
   const tIdPel = (t.id_pelanggan || '').toLowerCase().trim();
-  const tIdHut = (t.id_hutang || t.id || '').toUpperCase();
 
+  // If names exist and are different, they MUST NOT match
+  if (custName && tName && custName !== tName) return false;
+
+  // 1. Strict name equality
   if (custName && tName && custName === tName) return true;
-  if (custId && tIdPel && (custId === tIdPel || custId.endsWith(tIdPel) || tIdPel.endsWith(custId))) return true;
-  if (cust4Digits && cust4Digits !== "0000" && tIdHut.includes(`HUT-${cust4Digits}/`)) return true;
+
+  // 2. Non-generic ID match
+  if (!isGenericId(custId) && !isGenericId(tIdPel) && custId === tIdPel) return true;
+
+  // 3. Check transaction ID format HUT-XXXX/
+  const cust4Digits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
+  const tIdHut = (t.id_hutang || t.id || '').toUpperCase();
+  if (cust4Digits && cust4Digits !== "0000" && tIdHut.includes(`HUT-${cust4Digits}/`)) {
+    if (!tName || tName === custName) return true;
+  }
 
   return false;
 };
@@ -11093,6 +11115,7 @@ const AdminInvestmentManagement = ({ customers, investmentTransactions }: { cust
 
 const AdminCustomerDetailPage = ({ 
   customers, 
+  setCustomers,
   salesTransactions, 
   savingsTransactions, 
   investmentTransactions, 
@@ -11100,6 +11123,7 @@ const AdminCustomerDetailPage = ({
   redeemedPoints 
 }: { 
   customers: Customer[], 
+  setCustomers?: React.Dispatch<React.SetStateAction<Customer[]>>,
   salesTransactions: SalesTransaction[], 
   savingsTransactions: SavingTransaction[],
   investmentTransactions: InvestmentTransaction[],
@@ -11121,6 +11145,59 @@ const AdminCustomerDetailPage = ({
   const [localCustomer, setLocalCustomer] = useState<Customer | null>(customer || null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  // Deletion states
+  const [isConfirmDeleteModalOpen, setIsConfirmDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState(0);
+  const [deleteProgressStep, setDeleteProgressStep] = useState("");
+
+  const handleDeleteCustomer = async () => {
+    if (!localCustomer) return;
+    setIsConfirmDeleteModalOpen(false);
+    setIsDeleting(true);
+    setDeleteProgress(20);
+    setDeleteProgressStep("Menyiapkan penghapusan data pelanggan...");
+
+    try {
+      await new Promise(r => setTimeout(r, 400));
+      setDeleteProgress(50);
+      setDeleteProgressStep("Menghapus profil dari Supabase database...");
+
+      const targetId = localCustomer.id_pelanggan || (localCustomer as any).id || "";
+      const targetNama = localCustomer.Nama || "";
+
+      if (SupabaseCustomerService.isConnected()) {
+        try {
+          await SupabaseCustomerService.deleteCustomer(targetId, targetNama);
+        } catch (dbErr) {
+          console.error("Gagal menghapus pelanggan dari Supabase:", dbErr);
+        }
+      }
+
+      setDeleteProgress(80);
+      setDeleteProgressStep("Memperbarui daftar pelanggan lokal...");
+      await new Promise(r => setTimeout(r, 400));
+
+      if (setCustomers) {
+        setCustomers(prev => prev.filter(c => {
+          if (targetId && c.id_pelanggan === targetId) return false;
+          return c.Nama.toLowerCase() !== targetNama.toLowerCase();
+        }));
+      }
+
+      setDeleteProgress(100);
+      setDeleteProgressStep("Pelanggan berhasil dihapus!");
+      await new Promise(r => setTimeout(r, 600));
+
+      navigate("/admin/customers", { replace: true });
+    } catch (err: any) {
+      console.error("Gagal menghapus pelanggan:", err);
+      alert("Terjadi kesalahan saat menghapus data pelanggan.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (customer) {
@@ -11471,13 +11548,23 @@ const AdminCustomerDetailPage = ({
               <p className="text-[10px] font-medium text-white/70 uppercase tracking-[0.2em]">{localCustomer.Nama}</p>
             </div>
           </div>
-          <button
-            onClick={() => setActiveEditField('field_menu')}
-            className="flex items-center gap-2 bg-white text-[#005E6A] px-4 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md hover:bg-teal-50 transition-all active:scale-95"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-            <span>Edit Profil</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveEditField('field_menu')}
+              className="flex items-center gap-2 bg-white text-[#005E6A] px-3.5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md hover:bg-teal-50 transition-all active:scale-95"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Edit Profil</span>
+            </button>
+            <button
+              onClick={() => setIsConfirmDeleteModalOpen(true)}
+              className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-3.5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider shadow-md transition-all active:scale-95"
+              title="Hapus Pelanggan"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Hapus</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -12124,6 +12211,85 @@ const AdminCustomerDetailPage = ({
           </div>
         )}
       </AnimatePresence>
+
+      {/* MODAL KONFIRMASI HAPUS PELANGGAN */}
+      {isConfirmDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 dark:border-slate-800 text-center"
+          >
+            <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-950/50 text-red-500 mx-auto mb-4 flex items-center justify-center shadow-inner">
+              <AlertTriangle className="w-8 h-8 animate-bounce" />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight mb-2">
+              Hapus Pelanggan?
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+              Apakah Anda yakin ingin menghapus data pelanggan <strong className="text-slate-800 dark:text-slate-200">{localCustomer?.Nama}</strong>? Seluruh data profil ini akan dihapus dari Supabase secara permanen.
+            </p>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsConfirmDeleteModalOpen(false)}
+                className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-black text-xs uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteCustomer}
+                className="flex-1 py-3 px-4 rounded-xl bg-red-500 hover:bg-red-600 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-red-500/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Ya, Hapus</span>
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* OVERLAY ANIMASI PROGRES PENGHAPUSAN PELANGGAN */}
+      {isDeleting && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-slate-100 dark:border-slate-800 text-center"
+          >
+            <div className="relative w-20 h-20 mx-auto mb-5 flex items-center justify-center">
+              <div className="absolute inset-0 rounded-full border-4 border-red-200 dark:border-red-900 animate-ping opacity-30" />
+              <div className="w-20 h-20 rounded-2xl bg-red-50 dark:bg-red-950/50 text-red-500 flex items-center justify-center shadow-inner">
+                <Trash2 className="w-10 h-10 animate-bounce" />
+              </div>
+            </div>
+
+            <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight mb-1">
+              Menghapus Pelanggan
+            </h3>
+            <p className="text-[11px] font-bold text-red-500 dark:text-red-400 uppercase tracking-wider mb-4 animate-pulse">
+              {deleteProgressStep}
+            </p>
+
+            {/* Progress Bar Container */}
+            <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700/60 mb-3">
+              <motion.div 
+                className="bg-gradient-to-r from-red-500 to-rose-600 h-full rounded-full shadow-sm"
+                initial={{ width: "0%" }}
+                animate={{ width: `${deleteProgress}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+
+            <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+              Progres: {deleteProgress}%
+            </span>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 };
@@ -18790,20 +18956,41 @@ const NotificationPage = ({
     }
   ];
 
-  const getFormattedTime = (dateStr: string, id: string) => {
-    const timeMatch = dateStr.match(/\b\d{2}:\d{2}(:\d{2})?\b/);
-    if (timeMatch) {
-      return timeMatch[0].substring(0, 5);
+  const getFormattedTime = (dateStr: string, id: string, rawItem?: any) => {
+    // 1. First priority: Check exact created_at timestamp from Supabase or raw item time property
+    const createdAt = rawItem?.created_at || rawItem?.created_at_time || rawItem?.waktu || rawItem?.time || rawItem?.Waktu;
+    if (createdAt) {
+      const d = new Date(createdAt);
+      if (!isNaN(d.getTime()) && d.getTime() > 0) {
+        const hours = d.getHours().toString().padStart(2, '0');
+        const minutes = d.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+      }
+      if (typeof createdAt === 'string') {
+        const tm = createdAt.match(/\b\d{2}:\d{2}\b/);
+        if (tm) return tm[0];
+      }
     }
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) {
-      hash = id.charCodeAt(i) + ((hash << 5) - hash);
+
+    // 2. Second priority: Extract time from dateStr if present
+    if (dateStr) {
+      const timeMatch = dateStr.match(/\b\d{2}:\d{2}(:\d{2})?\b/);
+      if (timeMatch) {
+        return timeMatch[0].substring(0, 5);
+      }
+
+      if (dateStr.includes("T") || dateStr.includes("Z")) {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          const hours = d.getHours().toString().padStart(2, '0');
+          const minutes = d.getMinutes().toString().padStart(2, '0');
+          return `${hours}:${minutes}`;
+        }
+      }
     }
-    const hour = Math.abs(hash % 12) + 8;
-    const minute = Math.abs((hash >> 4) % 60);
-    const hourStr = hour.toString().padStart(2, '0');
-    const minuteStr = minute.toString().padStart(2, '0');
-    return `${hourStr}:${minuteStr}`;
+
+    // 3. Fallback if no timestamp was recorded
+    return "--:--";
   };
 
   // Group notifications by date
@@ -18957,7 +19144,7 @@ const NotificationPage = ({
                     <div className="divide-y divide-slate-100/70 dark:divide-slate-800/70 -mx-6 bg-white dark:bg-slate-900 overflow-hidden border-b border-slate-100/70 dark:border-slate-800/70">
                       {group.items.map((notif) => {
                         const isUnread = !readNotificationIds.includes(notif.id);
-                        const notificationTime = getFormattedTime(notif.tanggal, notif.id);
+                        const notificationTime = getFormattedTime(notif.tanggal, notif.id, notif.rawItem);
                         return (
                           <motion.div
                             key={notif.id}
@@ -19003,7 +19190,7 @@ const NotificationPage = ({
                                   {notif.description}
                                 </p>
                                 <span className="text-[9px] text-slate-400 dark:text-slate-200 font-medium block">
-                                  Pukul {notificationTime} WIB
+                                  {notificationTime !== "--:--" ? `Pukul ${notificationTime} WIB` : `Tanggal ${notif.tanggal}`}
                                 </span>
                               </div>
                             </div>
@@ -29113,6 +29300,7 @@ export default function App() {
           <AdminLayout activeTab="customers">
             <AdminCustomerDetailPage 
               customers={customers} 
+              setCustomers={setCustomers}
               salesTransactions={salesTransactions} 
               savingsTransactions={savingsTransactions}
               investmentTransactions={investmentTransactions}

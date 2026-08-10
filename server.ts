@@ -6,6 +6,7 @@ import { google } from "googleapis";
 import { createServer as createViteServer } from "vite";
 
 const app = express();
+app.set("trust proxy", true);
 const PORT = 3000;
 
 app.use(express.json({ limit: "50mb" }));
@@ -92,8 +93,8 @@ function getOAuth2Client(req?: express.Request) {
   let redirectUri = process.env.REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI || "";
   if (!redirectUri && req) {
     const host = req.get("host") || "localhost:3000";
-    const protocol = req.protocol || "http";
-    redirectUri = `${protocol}://${host}/api/auth/google/callback`;
+    const proto = req.get("x-forwarded-proto") || req.protocol || "http";
+    redirectUri = `${proto}://${host}/api/auth/google/callback`;
   }
   if (!redirectUri) {
     redirectUri = "http://localhost:3000/api/auth/google/callback";
@@ -112,6 +113,7 @@ app.get("/api/auth/google/url", (req, res) => {
       scope: [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive.readonly",
         "https://www.googleapis.com/auth/userinfo.email",
         "https://www.googleapis.com/auth/userinfo.profile"
       ]
@@ -282,8 +284,8 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
         if (searchRes.data.files && searchRes.data.files.length > 0) {
           targetSpreadsheetId = searchRes.data.files[0].id || null;
         }
-      } catch (driveErr) {
-        console.warn("Could not search Drive for existing spreadsheet:", driveErr);
+      } catch (driveErr: any) {
+        console.warn("Could not search Drive for existing spreadsheet:", driveErr?.message || "Permission/Network Error");
       }
 
       // 2. If still no existing file found, create a new one
@@ -332,8 +334,17 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
     ];
 
     const customerRows = Array.isArray(customers) ? customers.map((c: any, index: number) => {
-      const idPel = c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, "0")}`;
       const nama = c.nama || c.Nama || "Pelanggan";
+      let idPel = c.id_pelanggan || c.id;
+      if (!idPel || idPel === 'CUST-0000' || idPel === 'CUST-XXXX' || idPel === '0000') {
+        let hash = 0;
+        for (let i = 0; i < nama.length; i++) {
+          hash = (hash << 5) - hash + nama.charCodeAt(i);
+          hash |= 0;
+        }
+        const positiveHash = Math.abs(hash).toString(36).toUpperCase().padStart(4, "0").slice(-4);
+        idPel = `CUST-${positiveHash}-${index + 1}`;
+      }
       const tabungan = Number(c.tabungan || c.Tabungan || 0);
       const investasi = Number(c.investasi || c.Investasi || 0);
       const lainnya = Number(c.lainnya || c.Lainnya || 0);
@@ -696,6 +707,15 @@ app.all(["/api/digiflazz/transaction"], async (req, res) => {
     console.error("Server Digiflazz Transaction Error:", err);
     return res.status(500).json({ data: { rc: "99", message: err.message || "Gagal melakukan transaksi" } });
   }
+});
+
+// Fallback JSON response for unhandled API routes to prevent HTML response
+app.all("/api/*", (_req, res) => {
+  return res.status(404).json({
+    success: false,
+    error: "API_NOT_FOUND",
+    message: "Endpoint API tidak ditemukan"
+  });
 });
 
 async function startServer() {

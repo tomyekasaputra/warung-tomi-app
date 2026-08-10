@@ -91,9 +91,23 @@ export const signInWithGoogle = async () => {
       accessToken: cachedAccessToken
     };
   } catch (error: any) {
+    const errorCode = error?.code || "";
+    if (
+      errorCode === "auth/popup-closed-by-user" ||
+      errorCode === "auth/cancelled-popup-request" ||
+      errorCode === "auth/user-cancelled"
+    ) {
+      console.warn("Google login popup closed by user.");
+      return {
+        success: false,
+        cancelled: true,
+        error: "Proses login Google dibatalkan."
+      };
+    }
     console.error("Firebase Google Auth Error:", error);
     return {
       success: false,
+      cancelled: false,
       error: error.message || "Gagal login dengan Google"
     };
   }

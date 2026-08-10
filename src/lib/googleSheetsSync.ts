@@ -33,7 +33,10 @@ export interface CustomerSyncPayload {
 export const checkGoogleSheetsAuthStatus = async (): Promise<GoogleSheetsAuthStatus> => {
   try {
     const res = await fetch("/api/auth/google/status");
-    if (!res.ok) throw new Error("Failed to check auth status");
+    const ct = res.headers.get("content-type");
+    if (!res.ok || !ct || !ct.includes("application/json")) {
+      return { authenticated: false };
+    }
     return await res.json();
   } catch (err) {
     console.error("Error checking Google Sheets auth status:", err);
@@ -43,6 +46,10 @@ export const checkGoogleSheetsAuthStatus = async (): Promise<GoogleSheetsAuthSta
 
 export const getGoogleOAuthUrl = async (): Promise<string> => {
   const res = await fetch("/api/auth/google/url");
+  const ct = res.headers.get("content-type");
+  if (!ct || !ct.includes("application/json")) {
+    throw new Error("Server backend tidak merespon format JSON. Silakan coba beberapa saat lagi.");
+  }
   const data = await res.json();
   if (!res.ok || !data.url) throw new Error(data.error || "Gagal mendapatkan URL Login Google");
   return data.url;
@@ -65,6 +72,10 @@ export const updateGoogleSheetsConfig = async (config: { spreadsheetId?: string;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config)
     });
+    const ct = res.headers.get("content-type");
+    if (!ct || !ct.includes("application/json")) {
+      return { success: false, error: "Server mengembalikan respon tidak valid (HTML error)" };
+    }
     return await res.json();
   } catch (err) {
     console.error("Error updating sheet config:", err);

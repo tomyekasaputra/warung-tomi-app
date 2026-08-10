@@ -550,11 +550,22 @@ export const SupabaseCustomerService = {
     return { data, error };
   },
 
-  async deleteCustomer(idPelanggan: string): Promise<{ data: any; error: any }> {
+  async deleteCustomer(idPelanggan: string, nama?: string): Promise<{ data: any; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi") };
-    const { data, error } = await client.from('customers').delete().eq('id_pelanggan', idPelanggan);
-    return { data, error };
+    if (idPelanggan) {
+      const { data, error } = await client.from('customers').delete().eq('id_pelanggan', idPelanggan);
+      if (!error && data && data.length > 0) return { data, error: null };
+    }
+    if (nama) {
+      const { data, error } = await client.from('customers').delete().ilike('nama', nama);
+      if (!error) return { data, error: null };
+    }
+    if (idPelanggan) {
+      const { data, error } = await client.from('customers').delete().eq('id_pelanggan', idPelanggan);
+      return { data, error };
+    }
+    return { data: null, error: new Error("ID/Nama pelanggan tidak valid") };
   },
 
   async uploadCustomerPhoto(
