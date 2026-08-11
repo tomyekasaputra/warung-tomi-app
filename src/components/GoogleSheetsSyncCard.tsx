@@ -19,20 +19,24 @@ interface GoogleSheetsSyncCardProps {
   title?: string;
   onSyncSuccess?: (result: any) => void;
   autoSyncOnLoad?: boolean;
+  variant?: "card" | "embedded";
 }
 
 export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
   customers,
   title = "Data Pelanggan - Warung Tomi",
   onSyncSuccess,
-  autoSyncOnLoad = true
+  autoSyncOnLoad = true,
+  variant = "card"
 }) => {
   const [authStatus, setAuthStatus] = useState<GoogleSheetsAuthStatus>({ authenticated: false });
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [clientAccessToken, setClientAccessToken] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
-  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => {
+    return localStorage.getItem("LAST_SHEETS_SYNC") || null;
+  });
 
   const fetchStatus = async () => {
     setLoading(true);
@@ -239,6 +243,7 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
 
     if (res.success) {
       const timeStr = new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      try { localStorage.setItem("LAST_SHEETS_SYNC", timeStr); } catch (e) {}
       setLastSyncTime(timeStr);
       setAuthStatus(prev => ({
         ...prev,
@@ -275,7 +280,11 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
   };
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 shadow-xl border border-teal-100 dark:border-teal-900/40 space-y-5">
+    <div className={`space-y-5 ${
+      variant === "card" 
+        ? "bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 shadow-xl border border-teal-100 dark:border-teal-900/40" 
+        : ""
+    }`}>
       {/* Card Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-3">

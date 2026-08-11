@@ -555,7 +555,7 @@ export const SupabaseCustomerService = {
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi") };
     if (idPelanggan) {
       const { data, error } = await client.from('customers').delete().eq('id_pelanggan', idPelanggan);
-      if (!error && data && data.length > 0) return { data, error: null };
+      if (!error && data && (data as any).length > 0) return { data, error: null };
     }
     if (nama) {
       const { data, error } = await client.from('customers').delete().ilike('nama', nama);

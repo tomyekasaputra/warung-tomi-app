@@ -74,6 +74,10 @@ export default function CustomerManagement({
   const [search, setSearch] = useState('');
   const [filterLevel, setFilterLevel] = useState('Semua');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
+    return localStorage.getItem('LAST_SHEETS_SYNC') || 'Belum Sync';
+  });
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [scriptUrl, setScriptUrl] = useState(() => {
     return localStorage.getItem('APPS_SCRIPT_URL') || APPS_SCRIPT_URL;
@@ -874,63 +878,57 @@ export default function CustomerManagement({
         </div>
       </div>
 
-      <div className="px-6 -mt-12 relative z-20 max-w-7xl mx-auto space-y-6">
-        {/* Google Sheets Auto Sync Card */}
-        <GoogleSheetsSyncCard customers={customersWithStats} />
-
-        {/* Ringkasan Ringan Total Pelanggan */}
-        <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Pelanggan Terdaftar</p>
-            <h3 className="text-lg font-black text-[#005E6A]">{customers.length} Orang</h3>
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Status Database</p>
-            <div className="flex items-center gap-1.5 justify-end">
-              <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-              <span className="text-xs font-black text-teal-600 uppercase">Terhubung</span>
-            </div>
+      <div className="px-6 -mt-12 relative z-20 max-w-7xl mx-auto space-y-4">
+        {/* 1. Kolom Cari Paling Atas */}
+        <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm">
+          <div className="relative w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+            <input 
+              type="text"
+              placeholder="CARI NAMA / ID PELANGGAN..."
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-[#005E6A] placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#005E6A]/5 transition-all"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
         </div>
 
-        <div className="space-y-4">
+        {/* 2. Dua Kartu Sejajar: Singkronisasi (Kiri) & Tambah Pelanggan (Kanan) */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          {/* Kartu Singkronisasi */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setIsSyncModalOpen(true)}
+            className="bg-white p-4 sm:p-5 rounded-[2rem] border border-emerald-100 shadow-sm flex items-center gap-3.5 text-left transition-all hover:shadow-md group"
+          >
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-emerald-200 shadow-md shrink-0">
+              <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs sm:text-sm font-black text-emerald-900 uppercase tracking-tight truncate">Singkronisasi</span>
+              <span className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Auto Sync Sheets</span>
+              <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider truncate mt-0.5">
+                Terakhir update: {lastSyncTime}
+              </span>
+            </div>
+          </motion.button>
+
+          {/* Kartu Tambah Pelanggan */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => { resetForm(); setEditingCustomer(null); setIsModalOpen(true); }}
-            className="w-full relative overflow-hidden group bg-white p-5 rounded-[2rem] border border-teal-100 shadow-sm flex items-center gap-4 text-left transition-all hover:shadow-md"
+            className="bg-white p-4 sm:p-5 rounded-[2rem] border border-teal-100 shadow-sm flex items-center gap-3.5 text-left transition-all hover:shadow-md group"
           >
-            <div className="w-12 h-12 bg-[#005E6A] rounded-2xl flex items-center justify-center text-white shadow-teal-100 shadow-lg shrink-0">
-              <PlusCircle className="w-6 h-6" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#005E6A] rounded-2xl flex items-center justify-center text-white shadow-teal-200 shadow-md shrink-0">
+              <PlusCircle className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-black text-[#005E6A] uppercase tracking-widest leading-none mb-1">Tambah Pelanggan</span>
-              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Register Pelanggan</span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs sm:text-sm font-black text-[#005E6A] uppercase tracking-tight truncate">Tambah Pelanggan</span>
+              <span className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Register Pelanggan Baru</span>
             </div>
           </motion.button>
-
-          <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-              <input 
-                type="text"
-                placeholder="CARI NAMA / ID PELANGGAN..."
-                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-[#005E6A] placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#005E6A]/5 transition-all"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <select
-              className="bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3 text-[10px] font-black text-[#005E6A] outline-none focus:ring-2 focus:ring-[#005E6A]/5 transition-all appearance-none cursor-pointer"
-              value={filterLevel}
-              onChange={(e) => setFilterLevel(e.target.value)}
-            >
-              <option value="Semua">SEMUA LEVEL</option>
-              {['Bronze', 'Silver', 'Gold', 'Platinum'].map(lvl => (
-                <option key={lvl} value={lvl}>{lvl.toUpperCase()}</option>
-              ))}
-            </select>
-          </div>
         </div>
 
         <div className="space-y-4">
@@ -1018,7 +1016,7 @@ export default function CustomerManagement({
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16 blur-2xl" />
                 <div className="relative z-10">
                   <h2 className="text-2xl font-black uppercase tracking-tighter">
-                    {editingCustomer ? 'Edit Nasabah' : 'Nasabah Baru'}
+                    {editingCustomer ? 'Edit Pelanggan' : 'Tambah Pelanggan'}
                   </h2>
                   <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">
                     {editingCustomer ? `MENGUBAH DATA ${editingCustomer.id_pelanggan}` : 'PENDAFTARAN PELANGGAN BARU'}
@@ -1032,111 +1030,61 @@ export default function CustomerManagement({
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-10">
-                <div className="space-y-8">
-                  <div className="space-y-6">
-                    <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] border-b border-teal-50 pb-2 flex items-center gap-2">
-                       <User className="w-4 h-4" /> Informasi Identitas
-                    </h3>
-                    
-                    <div className="grid grid-cols-2 gap-3 sm:gap-6">
-                      <div>
-                        <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Identity ID</label>
-                        <input 
-                          type="text" 
-                          disabled 
-                          value={editingCustomer?.id_pelanggan || 'OTOMATIS'} 
-                          className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 font-mono text-xs font-bold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Nama Lengkap</label>
-                        <input 
-                          required
-                          type="text" 
-                          placeholder="NAMA LENGKAP"
-                          className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#005E6A]/10 outline-none transition-all text-xs font-black text-[#005E6A] placeholder:text-slate-200"
-                          value={formData.nama}
-                          onChange={(e) => setFormData({...formData, nama: e.target.value.toUpperCase()})}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">PIN AKUN</label>
-                        <input 
-                          required
-                          type="password" 
-                          maxLength={6}
-                          placeholder="6 DIGIT PIN"
-                          className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#005E6A]/10 outline-none transition-all text-xs font-black text-[#005E6A] placeholder:text-slate-200"
-                          value={formData.pin}
-                          onChange={(e) => setFormData({...formData, pin: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">NO. TELEPON</label>
-                        <input 
-                          type="text" 
-                          placeholder="08123456789"
-                          className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#005E6A]/10 outline-none transition-all text-xs font-bold text-[#005E6A] placeholder:text-slate-200"
-                          value={formData.telepon || ''}
-                          onChange={(e) => setFormData({...formData, telepon: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">ALAMAT</label>
-                        <input 
-                          type="text" 
-                          placeholder="ALAMAT LENGKAP"
-                          className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#005E6A]/10 outline-none transition-all text-xs font-bold text-[#005E6A] placeholder:text-slate-200"
-                          value={formData.alamat || ''}
-                          onChange={(e) => setFormData({...formData, alamat: e.target.value})}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Link Foto Profil</label>
-                        <div className="relative">
-                          <ImageIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-200" />
-                          <input 
-                            type="text" 
-                            placeholder="HTTPS://..."
-                            className="w-full pl-12 pr-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#005E6A]/10 outline-none transition-all text-xs font-bold text-teal-600 placeholder:text-slate-200"
-                            value={formData.foto}
-                            onChange={(e) => setFormData({...formData, foto: e.target.value})}
-                          />
-                        </div>
-                      </div>
+              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 sm:p-10">
+                <div className="space-y-6">
+                  <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-[0.2em] border-b border-teal-50 pb-2 flex items-center gap-2">
+                     <User className="w-4 h-4" /> Data Pelanggan
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Nama Lengkap *</label>
+                      <input 
+                        required
+                        type="text" 
+                        placeholder="NAMA LENGKAP PELANGGAN"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#005E6A]/10 outline-none transition-all text-xs font-black text-[#005E6A] placeholder:text-slate-300"
+                        value={formData.nama || ''}
+                        onChange={(e) => setFormData({...formData, nama: e.target.value.toUpperCase()})}
+                      />
                     </div>
-                    
-                    <div className="bg-teal-50/20 p-6 rounded-[2rem] border border-teal-50">
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0">
-                          <Calculator className="w-5 h-5 text-teal-600" />
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest mb-1">Perhitungan Otomatis Aktif</p>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed tracking-wider">
-                            Data Tabungan, Investasi, Hutang, Poin, dan Level akan dihitung otomatis oleh sistem berdasarkan riwayat transaksi yang bersangkutan.
-                          </p>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">No. Telepon / WhatsApp</label>
+                      <input 
+                        type="text" 
+                        placeholder="08123456789"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#005E6A]/10 outline-none transition-all text-xs font-bold text-[#005E6A] placeholder:text-slate-300"
+                        value={formData.telepon || ''}
+                        onChange={(e) => setFormData({...formData, telepon: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Alamat Lengkap</label>
+                      <textarea 
+                        rows={3}
+                        placeholder="ALAMAT LENGKAP PELANGGAN..."
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#005E6A]/10 outline-none transition-all text-xs font-bold text-[#005E6A] placeholder:text-slate-300 resize-none"
+                        value={formData.alamat || ''}
+                        onChange={(e) => setFormData({...formData, alamat: e.target.value})}
+                      />
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-12 flex gap-4">
+                <div className="mt-8 flex gap-4">
                   <button 
                     type="button" 
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 py-5 bg-slate-50 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-colors"
+                    className="flex-1 py-4 bg-slate-50 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-colors"
                   >
                     Batal
                   </button>
                   <button 
                     type="submit"
-                    className="flex-[2] py-5 bg-[#005E6A] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#004b54] transition-all shadow-xl shadow-teal-100 active:scale-95"
+                    className="flex-[2] py-4 bg-[#005E6A] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#004b54] transition-all shadow-xl shadow-teal-100 active:scale-95"
                   >
                     <Save className="w-4 h-4" />
-                    Simpan Member
+                    Simpan Pelanggan
                   </button>
                 </div>
               </form>
@@ -1299,6 +1247,55 @@ export default function CustomerManagement({
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Popup Modal Singkronisasi Google Sheets */}
+      <AnimatePresence>
+        {isSyncModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 sm:p-8 max-w-2xl w-full border border-slate-100 dark:border-slate-800 shadow-2xl relative my-8"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-500/10 text-emerald-600 rounded-2xl flex items-center justify-center">
+                    <RefreshCw className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">Auto Sync Google Sheets</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kelola Sinkronisasi Data Pelanggan</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsSyncModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center text-slate-500 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <GoogleSheetsSyncCard 
+                customers={customersWithStats} 
+                variant="embedded"
+                onSyncSuccess={() => {
+                  setLastSyncTime(localStorage.getItem('LAST_SHEETS_SYNC') || 'Baru Saja');
+                }}
+              />
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => setIsSyncModalOpen(false)}
+                  className="px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-slate-200 transition-colors"
+                >
+                  Tutup
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
