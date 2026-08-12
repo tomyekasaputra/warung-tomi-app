@@ -2840,6 +2840,26 @@ const BottomNav = ({ activeTab, setActiveTab, user }: { activeTab: string, setAc
   );
 };
 
+const PageDataSync: React.FC<{
+  fetchData: (showLoading?: boolean, collectionName?: string | string[]) => Promise<void>;
+  activeTab: string;
+  loadedCollectionsRef: React.MutableRefObject<Set<string>>;
+  getCollectionsForPath: (pathname: string, activeTab?: string) => string[];
+  userFilterKey?: string;
+}> = ({ fetchData, activeTab, loadedCollectionsRef, getCollectionsForPath, userFilterKey }) => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const required = getCollectionsForPath(location.pathname, activeTab);
+    const missing = required.filter(col => !loadedCollectionsRef.current.has(col));
+    if (missing.length > 0) {
+      fetchData(false, missing);
+    }
+  }, [location.pathname, activeTab, userFilterKey]);
+
+  return null;
+};
+
 const ScrollToTop = () => {
   const { pathname } = useLocation();
 
@@ -8398,7 +8418,9 @@ const AdminDashboard = ({
   savingsTransactions,
   debtTransactions,
   redeemedPoints,
-  stock
+  stock,
+  timeFilter: externalTimeFilter,
+  setTimeFilter: setExternalTimeFilter
 }: { 
   transactions: SalesTransaction[], 
   user: Customer | null, 
@@ -8407,10 +8429,17 @@ const AdminDashboard = ({
   savingsTransactions: SavingTransaction[],
   debtTransactions: DebtTransaction[],
   redeemedPoints: RedeemedPoint[],
-  stock: StockItem[]
+  stock: StockItem[],
+  timeFilter?: string,
+  setTimeFilter?: (val: string) => void
 }) => {
   const navigate = useNavigate();
-  const [timeFilter, setTimeFilter] = useState("Bulan ini");
+  const [internalTimeFilter, setInternalTimeFilter] = useState("Bulan ini");
+  const timeFilter = externalTimeFilter !== undefined ? externalTimeFilter : internalTimeFilter;
+  const setTimeFilter = (val: string) => {
+    if (setExternalTimeFilter) setExternalTimeFilter(val);
+    setInternalTimeFilter(val);
+  };
   const [chartTab, setChartTab] = useState<"semua" | "penjualan" | "keuntungan" | "transaksi">("semua");
 
   const customerAnalytics = useMemo(() => {
@@ -9058,15 +9087,50 @@ const AdminDashboard = ({
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
         
-        <div className="relative z-10">
+        <div className="relative z-10 space-y-3">
           <div 
             onClick={() => navigate("/admin")}
-            className="flex items-center gap-3 mb-2 cursor-pointer group hover:opacity-90 transition-opacity"
+            className="flex items-center gap-3 cursor-pointer group hover:opacity-90 transition-opacity"
           >
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-black tracking-tight uppercase">Dashboard Admin</h1>
+          </div>
+
+          {/* Periode Laporan & Transaksi Filter Dropdown */}
+          <div className="pt-1 max-w-xs" onClick={(e) => e.stopPropagation()}>
+            <label className="text-[10px] font-extrabold uppercase tracking-widest text-teal-100 mb-1 block">
+              Periode Laporan & Transaksi:
+            </label>
+            <div className="relative">
+              <select 
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value)}
+                className="w-full bg-white/10 backdrop-blur-md border border-white/25 text-white text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-white/40 cursor-pointer hover:bg-white/20 transition-colors [&>optgroup]:text-slate-900 [&>optgroup]:bg-white [&>option]:text-slate-900 [&>option]:bg-white"
+              >
+                <optgroup label="Cepat">
+                  <option value="Hari ini">Hari ini</option>
+                  <option value="Minggu ini">Minggu ini</option>
+                  <option value="Bulan ini">Bulan ini</option>
+                  <option value="Tahun ini">Tahun ini</option>
+                  <option value="Semua">Semua Waktu</option>
+                </optgroup>
+                <optgroup label="Bulan">
+                  {filterOptions.months.map(m => {
+                    const [y, mon] = m.split("-");
+                    const date = new Date(parseInt(y), parseInt(mon) - 1);
+                    const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                    return <option key={m} value={`month:${m}`}>{label}</option>;
+                  })}
+                </optgroup>
+                <optgroup label="Tahun">
+                  {filterOptions.years.map(y => (
+                    <option key={y} value={`year:${y}`}>{y}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -9470,36 +9534,6 @@ const AdminDashboard = ({
               <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center group-hover/card:scale-110 transition-transform shrink-0">
                 <TrendingUp className="w-4 h-4 text-[#F15A24]" />
               </div>
-            </div>
-
-            {/* Full-width select dropdown */}
-            <div className="w-full" onClick={(e) => e.stopPropagation()}>
-              <select 
-                value={timeFilter}
-                onChange={(e) => setTimeFilter(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-[11px] font-black uppercase tracking-widest rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-[#005E6A]/20 cursor-pointer hover:bg-slate-100 transition-colors"
-              >
-                <optgroup label="Cepat">
-                  <option value="Hari ini">Hari ini</option>
-                  <option value="Minggu ini">Minggu ini</option>
-                  <option value="Bulan ini">Bulan ini</option>
-                  <option value="Tahun ini">Tahun ini</option>
-                  <option value="Semua">Semua Waktu</option>
-                </optgroup>
-                <optgroup label="Bulan">
-                  {filterOptions.months.map(m => {
-                    const [y, mon] = m.split("-");
-                    const date = new Date(parseInt(y), parseInt(mon) - 1);
-                    const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-                    return <option key={m} value={`month:${m}`}>{label}</option>;
-                  })}
-                </optgroup>
-                <optgroup label="Tahun">
-                  {filterOptions.years.map(y => (
-                    <option key={y} value={`year:${y}`}>{y}</option>
-                  ))}
-                </optgroup>
-              </select>
             </div>
 
             {/* 4 Tabs to filter charts */}
@@ -27924,9 +27958,15 @@ Mohon bantuan dan panduannya untuk memproses pengajuan investasi saya ini. Terim
 );
 };
 
-const SplashScreen: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+const SplashScreen: React.FC<{ onComplete: () => void; isLoaded?: boolean }> = ({ onComplete, isLoaded }) => {
   useEffect(() => {
-    const timer = setTimeout(() => onComplete(), 2000); // Shortened from 3200ms
+    if (isLoaded) {
+      onComplete();
+    }
+  }, [isLoaded, onComplete]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => onComplete(), 1500);
     return () => clearTimeout(timer);
   }, [onComplete]);
 
@@ -28463,7 +28503,11 @@ export default function App() {
     const saved = localStorage.getItem("warung_tomi_photos");
     return saved ? JSON.parse(saved) : {};
   });
-  const [loggedInUser, setLoggedInUser] = useState<Customer | null>(null);
+  const [loggedInUser, setLoggedInUser] = useState<Customer | null>(() => {
+    const saved = localStorage.getItem("warung_tomi_user");
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [adminSalesTimeFilter, setAdminSalesTimeFilter] = useState("Bulan ini");
   const [isLoading, setIsLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -28735,13 +28779,58 @@ export default function App() {
 
   const isFetching = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const loadedCollectionsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("warung_tomi_user");
-    if (savedUser) setLoggedInUser(JSON.parse(savedUser));
-  }, []);
+    loadedCollectionsRef.current.clear();
+    fetchData(false);
+  }, [loggedInUser?.Nama]);
 
-  const fetchData = async (showLoading = true, collectionName?: string) => {
+  const getCollectionsForPath = (pathname: string, tab?: string): string[] => {
+    const p = pathname.toLowerCase();
+    
+    if (p === '/' || p.startsWith('/home')) {
+      if (tab === 'belanja') return ['stockItems', 'salesTransactions', 'customers'];
+      if (tab === 'riwayat') return ['salesTransactions', 'customers'];
+      return ['stockItems', 'salesTransactions', 'customers'];
+    }
+    if (p.startsWith('/pulsa') || p.startsWith('/paket-data') || p.startsWith('/listrik') || p.startsWith('/bantuan') || p.startsWith('/login') || p.startsWith('/qris') || p.startsWith('/tariktunai')) {
+      return ['customers'];
+    }
+    if (p.startsWith('/tabungan') || p.startsWith('/detail-tabungan')) {
+      return ['savingTransactions', 'customers'];
+    }
+    if (p.startsWith('/hutang') || p.startsWith('/detail-hutang')) {
+      return ['debtTransactions', 'salesTransactions', 'customers'];
+    }
+    if (p.startsWith('/investasi')) {
+      return ['investmentTransactions', 'customers'];
+    }
+    if (p.startsWith('/poin') || p.startsWith('/tukar-poin')) {
+      return ['redeemedPoints', 'salesTransactions', 'customers'];
+    }
+    if (p.startsWith('/detail-belanja')) {
+      return ['salesTransactions', 'customers'];
+    }
+    if (p.startsWith('/kasir')) {
+      return ['stockItems', 'salesTransactions', 'customers'];
+    }
+    if (p.startsWith('/admin')) {
+      if (p.includes('/stock')) return ['stockItems'];
+      if (p.includes('/customers')) return ['customers', 'salesTransactions'];
+      if (p.includes('/savings')) return ['savingTransactions', 'customers'];
+      if (p.includes('/debt')) return ['debtTransactions', 'customers'];
+      if (p.includes('/investment')) return ['investmentTransactions', 'customers'];
+      if (p.includes('/cashflow') || p.includes('/report')) return ['salesTransactions', 'customers'];
+      if (p.includes('/database') || p.includes('/input-data')) {
+        return ['stockItems', 'salesTransactions', 'customers', 'savingTransactions', 'debtTransactions', 'investmentTransactions', 'redeemedPoints'];
+      }
+      return ['stockItems', 'salesTransactions', 'customers', 'savingTransactions', 'debtTransactions', 'investmentTransactions', 'redeemedPoints'];
+    }
+    return ['stockItems', 'salesTransactions', 'customers'];
+  };
+
+  const fetchData = async (showLoading = true, collectionName?: string | string[]) => {
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -28764,11 +28853,27 @@ export default function App() {
         return rawDate;
       };
 
+      let targets: string[] = [];
+      if (Array.isArray(collectionName)) {
+        targets = collectionName;
+      } else if (typeof collectionName === 'string' && collectionName.trim() !== '') {
+        targets = [collectionName];
+      } else {
+        targets = getCollectionsForPath(window.location.pathname, activeTab);
+      }
+
+      const shouldFetch = (col: string) => targets.includes(col);
+
+      const isAdminOrKasir = window.location.pathname.toLowerCase().startsWith('/admin') || window.location.pathname.toLowerCase().startsWith('/kasir');
+      const userFilterName = (!isAdminOrKasir && loggedInUser?.Nama) ? loggedInUser.Nama : undefined;
+      const isHomePage = window.location.pathname === '/' || window.location.pathname.toLowerCase().startsWith('/home');
+
       let supaStockData: StockItem[] = [];
       const fetchStock = async () => {
-        if ((!collectionName || collectionName === "stockItems") && SupabaseStockService.isConnected()) {
+        if (shouldFetch("stockItems") && SupabaseStockService.isConnected()) {
           try {
-            const { data: supaProducts } = await SupabaseStockService.getProducts();
+            const stockLimit = (isHomePage && activeTab !== 'belanja' && !isAdminOrKasir) ? 15 : undefined;
+            const { data: supaProducts } = await SupabaseStockService.getProducts(stockLimit ? { limit: stockLimit } : undefined);
             if (supaProducts) {
               supaStockData = supaProducts.map(p => ({
                 id: p.id_barang,
@@ -28784,6 +28889,7 @@ export default function App() {
                 Image: p.gambar && p.gambar.trim() !== '' ? p.gambar : undefined
               }));
               setStock(supaStockData);
+              loadedCollectionsRef.current.add("stockItems");
             }
           } catch (err) {
             console.error("Gagal membaca stok Supabase:", err);
@@ -28793,9 +28899,9 @@ export default function App() {
 
       let processedRedeemedPoints: RedeemedPoint[] = [];
       const fetchPoints = async () => {
-        if ((!collectionName || collectionName === "redeemedPoints" || collectionName === "customers") && SupabasePointsService.isConnected()) {
+        if (shouldFetch("redeemedPoints") && SupabasePointsService.isConnected()) {
           try {
-            const { data: supaPoints } = await SupabasePointsService.getPoints();
+            const { data: supaPoints } = await SupabasePointsService.getPoints(userFilterName ? { name: userFilterName } : undefined);
             if (supaPoints) {
               processedRedeemedPoints = supaPoints.map((item) => ({
                 id: item.id_tukar || item.id,
@@ -28807,6 +28913,7 @@ export default function App() {
                 Hadiah: item.hadiah || '-'
               }));
               setRedeemedPoints(processedRedeemedPoints);
+              loadedCollectionsRef.current.add("redeemedPoints");
             }
           } catch (err) {
             console.error("Gagal membaca tukar poin dari Supabase:", err);
@@ -28816,9 +28923,9 @@ export default function App() {
 
       let cData: Customer[] = [];
       const fetchCustomers = async () => {
-        if ((!collectionName || collectionName === "customers") && SupabaseCustomerService.isConnected()) {
+        if (shouldFetch("customers") && SupabaseCustomerService.isConnected()) {
           try {
-            const { data: supaCust } = await SupabaseCustomerService.getCustomers();
+            const { data: supaCust } = await SupabaseCustomerService.getCustomers(userFilterName ? { name: userFilterName } : undefined);
             if (supaCust) {
               cData = supaCust.map((c, index) => ({
                 id: c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, '0')}`,
@@ -28835,6 +28942,7 @@ export default function App() {
                 Level: c.level || 'Bronze',
                 Foto: c.foto || ''
               }));
+              loadedCollectionsRef.current.add("customers");
             }
           } catch (err) {
             console.error("Gagal membaca pelanggan dari Supabase:", err);
@@ -28844,9 +28952,13 @@ export default function App() {
 
       let processedSales: SalesTransaction[] = [];
       const fetchSales = async () => {
-        if ((!collectionName || collectionName === "salesTransactions" || collectionName === "customers") && SupabaseSalesService.isConnected()) {
+        if (shouldFetch("salesTransactions") && SupabaseSalesService.isConnected()) {
           try {
-            const { data: supaSales } = await SupabaseSalesService.getSales();
+            const salesFilter = (isAdminOrKasir && !userFilterName) ? adminSalesTimeFilter : undefined;
+            const { data: supaSales } = await SupabaseSalesService.getSales({
+              name: userFilterName,
+              timeFilter: salesFilter
+            });
             if (supaSales) {
               const salesData = supaSales.map(item => ({
                 id: item.id_transaksi || item.id,
@@ -28874,6 +28986,7 @@ export default function App() {
 
               processedSales = [...salesData].reverse();
               setSalesTransactions(processedSales);
+              loadedCollectionsRef.current.add("salesTransactions");
             }
           } catch (err) {
             console.error("Gagal membaca penjualan dari Supabase:", err);
@@ -28883,9 +28996,9 @@ export default function App() {
 
       let allSavingsTransactions: SavingTransaction[] = [];
       const fetchSavings = async () => {
-        if ((!collectionName || collectionName === "savingTransactions" || collectionName === "customers") && SupabaseSavingsService.isConnected()) {
+        if (shouldFetch("savingTransactions") && SupabaseSavingsService.isConnected()) {
           try {
-            const { data: supaSavings } = await SupabaseSavingsService.getSavings();
+            const { data: supaSavings } = await SupabaseSavingsService.getSavings(userFilterName ? { name: userFilterName } : undefined);
             if (supaSavings) {
               allSavingsTransactions = supaSavings.map(item => ({
                 id: item.id_tabungan || item.id,
@@ -28899,6 +29012,7 @@ export default function App() {
                 Berita: item.berita || '-'
               }));
               setSavingsTransactions(allSavingsTransactions);
+              loadedCollectionsRef.current.add("savingTransactions");
             }
           } catch (err) {
             console.error("Gagal membaca tabungan dari Supabase:", err);
@@ -28908,9 +29022,9 @@ export default function App() {
 
       let allInvestmentTransactions: InvestmentTransaction[] = [];
       const fetchInvestments = async () => {
-        if ((!collectionName || collectionName === "investmentTransactions" || collectionName === "customers") && SupabaseInvestmentService.isConnected()) {
+        if (shouldFetch("investmentTransactions") && SupabaseInvestmentService.isConnected()) {
           try {
-            const { data: supaInvest } = await SupabaseInvestmentService.getInvestments();
+            const { data: supaInvest } = await SupabaseInvestmentService.getInvestments(userFilterName ? { name: userFilterName } : undefined);
             if (supaInvest) {
               allInvestmentTransactions = supaInvest.map(item => ({
                 id: item.id_investasi || item.id,
@@ -28926,6 +29040,7 @@ export default function App() {
                 Keterangan: item.keterangan || '-'
               }));
               setInvestmentTransactions(allInvestmentTransactions);
+              loadedCollectionsRef.current.add("investmentTransactions");
             }
           } catch (err) {
             console.error("Gagal membaca investasi dari Supabase:", err);
@@ -28935,9 +29050,9 @@ export default function App() {
 
       let allDebtTransactions: DebtTransaction[] = [];
       const fetchDebts = async () => {
-        if ((!collectionName || collectionName === "debtTransactions" || collectionName === "customers") && SupabaseDebtService.isConnected()) {
+        if (shouldFetch("debtTransactions") && SupabaseDebtService.isConnected()) {
           try {
-            const { data: supaDebt } = await SupabaseDebtService.getDebts();
+            const { data: supaDebt } = await SupabaseDebtService.getDebts(userFilterName ? { name: userFilterName } : undefined);
             if (supaDebt) {
               allDebtTransactions = supaDebt.map(item => ({
                 id: item.id_hutang || item.id,
@@ -28951,6 +29066,7 @@ export default function App() {
                 SaldoAkhir: Number(item.saldo_akhir) || 0
               }));
               setDebtTransactions(allDebtTransactions);
+              loadedCollectionsRef.current.add("debtTransactions");
             }
           } catch (err) {
             console.error("Gagal membaca hutang dari Supabase:", err);
@@ -28969,21 +29085,27 @@ export default function App() {
       ]);
 
       if (cData && cData.length > 0) {
+        const currentSales = processedSales.length > 0 ? processedSales : salesTransactions;
+        const currentRedeemed = processedRedeemedPoints.length > 0 ? processedRedeemedPoints : redeemedPoints;
+        const currentSavings = allSavingsTransactions.length > 0 ? allSavingsTransactions : savingsTransactions;
+        const currentDebts = allDebtTransactions.length > 0 ? allDebtTransactions : debtTransactions;
+        const currentInvestments = allInvestmentTransactions.length > 0 ? allInvestmentTransactions : investmentTransactions;
+
         const updatedCustomers = cData.map(c => {
           const name = c.Nama || c.nama || '';
-          const levelInfo = calculateCustomerLevel(processedSales, name);
-          const activePoints = calculateActivePoints(name, processedSales, processedRedeemedPoints);
+          const levelInfo = calculateCustomerLevel(currentSales, name);
+          const activePoints = calculateActivePoints(name, currentSales, currentRedeemed);
           const nameLower = (name || "").toLowerCase();
 
-          const userSavings = allSavingsTransactions.filter(s => (s.Nama || (s as any).nama || "").toLowerCase() === nameLower);
+          const userSavings = currentSavings.filter(s => (s.Nama || (s as any).nama || "").toLowerCase() === nameLower);
           const lastSaving = userSavings[userSavings.length - 1];
           const savingBal = lastSaving ? lastSaving.SaldoAkhir : c.Tabungan;
 
-          const userDebts = allDebtTransactions.filter(d => (d.Nama || (d as any).nama || "").toLowerCase() === nameLower);
+          const userDebts = currentDebts.filter(d => (d.Nama || (d as any).nama || "").toLowerCase() === nameLower);
           const lastDebt = userDebts[userDebts.length - 1];
           const debtBal = lastDebt ? lastDebt.SaldoAkhir : c.Hutang;
 
-          const userInvests = allInvestmentTransactions.filter(i => (i.Nama || (i as any).nama || "").toLowerCase() === nameLower && (i.Status || (i as any).status || "").toLowerCase() !== "sukses dicairkan");
+          const userInvests = currentInvestments.filter(i => (i.Nama || (i as any).nama || "").toLowerCase() === nameLower && (i.Status || (i as any).status || "").toLowerCase() !== "sukses dicairkan");
           const investBal = userInvests.length > 0 ? userInvests.reduce((acc, curr) => acc + (curr.Nominal || 0), 0) : c.Investasi;
 
           return {
@@ -29007,15 +29129,12 @@ export default function App() {
         });
       }
 
-      // The simplest way to handle on-demand is if collectionName is present, we just fetch that one and update it
-      // But because Tabungan, Investasi, etc. are processed from a single big block in existing code,
-      // I'll keep the big block for initial load and add specialized paths for single items.
-      
     } catch (e: any) {
       if (e.name === 'AbortError') return;
       console.error("Fetch Data General Error:", e);
     } finally {
       setIsLoading(false);
+      setShowSplash(false);
       isFetching.current = false;
     }
   };
@@ -29028,6 +29147,12 @@ export default function App() {
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
   }, [dataSource, isAuthReady]);
+
+  useEffect(() => {
+    if (window.location.pathname.toLowerCase().startsWith('/admin')) {
+      fetchData(true, "salesTransactions");
+    }
+  }, [adminSalesTimeFilter]);
 
   const handleUpdatePhoto = async (nama: string, base64: string, file?: File | null) => {
     const customerId = loggedInUser?.id_pelanggan || loggedInUser?.id || "";
@@ -29076,11 +29201,18 @@ export default function App() {
   return (
     <LanguageContext.Provider value={{ language, setLanguage: handleLanguageChange, t }}>
       <BrowserRouter>
+      <PageDataSync 
+        fetchData={fetchData} 
+        activeTab={activeTab} 
+        loadedCollectionsRef={loadedCollectionsRef} 
+        getCollectionsForPath={getCollectionsForPath} 
+        userFilterKey={loggedInUser?.Nama || ""}
+      />
       <ScrollToTop />
       <ThemeHandler />
       <AnimatePresence mode="wait">
         {showSplash ? (
-          <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
+          <SplashScreen key="splash" isLoaded={!isLoading} onComplete={() => setShowSplash(false)} />
         ) : (
           <motion.div
             key="app-content"
@@ -29402,6 +29534,8 @@ export default function App() {
               debtTransactions={debtTransactions}
               redeemedPoints={redeemedPoints}
               stock={stock}
+              timeFilter={adminSalesTimeFilter}
+              setTimeFilter={setAdminSalesTimeFilter}
             />
           </AdminLayout>
         } />
