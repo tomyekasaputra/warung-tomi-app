@@ -8418,9 +8418,7 @@ const AdminDashboard = ({
   savingsTransactions,
   debtTransactions,
   redeemedPoints,
-  stock,
-  timeFilter: externalTimeFilter,
-  setTimeFilter: setExternalTimeFilter
+  stock
 }: { 
   transactions: SalesTransaction[], 
   user: Customer | null, 
@@ -8429,17 +8427,10 @@ const AdminDashboard = ({
   savingsTransactions: SavingTransaction[],
   debtTransactions: DebtTransaction[],
   redeemedPoints: RedeemedPoint[],
-  stock: StockItem[],
-  timeFilter?: string,
-  setTimeFilter?: (val: string) => void
+  stock: StockItem[]
 }) => {
   const navigate = useNavigate();
-  const [internalTimeFilter, setInternalTimeFilter] = useState("Bulan ini");
-  const timeFilter = externalTimeFilter !== undefined ? externalTimeFilter : internalTimeFilter;
-  const setTimeFilter = (val: string) => {
-    if (setExternalTimeFilter) setExternalTimeFilter(val);
-    setInternalTimeFilter(val);
-  };
+  const [timeFilter, setTimeFilter] = useState("Bulan ini");
   const [chartTab, setChartTab] = useState<"semua" | "penjualan" | "keuntungan" | "transaksi">("semua");
 
   const customerAnalytics = useMemo(() => {
@@ -9087,50 +9078,15 @@ const AdminDashboard = ({
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
         
-        <div className="relative z-10 space-y-3">
+        <div className="relative z-10">
           <div 
             onClick={() => navigate("/admin")}
-            className="flex items-center gap-3 cursor-pointer group hover:opacity-90 transition-opacity"
+            className="flex items-center gap-3 mb-2 cursor-pointer group hover:opacity-90 transition-opacity"
           >
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-black tracking-tight uppercase">Dashboard Admin</h1>
-          </div>
-
-          {/* Periode Laporan & Transaksi Filter Dropdown */}
-          <div className="pt-1 max-w-xs" onClick={(e) => e.stopPropagation()}>
-            <label className="text-[10px] font-extrabold uppercase tracking-widest text-teal-100 mb-1 block">
-              Periode Laporan & Transaksi:
-            </label>
-            <div className="relative">
-              <select 
-                value={timeFilter}
-                onChange={(e) => setTimeFilter(e.target.value)}
-                className="w-full bg-white/10 backdrop-blur-md border border-white/25 text-white text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-white/40 cursor-pointer hover:bg-white/20 transition-colors [&>optgroup]:text-slate-900 [&>optgroup]:bg-white [&>option]:text-slate-900 [&>option]:bg-white"
-              >
-                <optgroup label="Cepat">
-                  <option value="Hari ini">Hari ini</option>
-                  <option value="Minggu ini">Minggu ini</option>
-                  <option value="Bulan ini">Bulan ini</option>
-                  <option value="Tahun ini">Tahun ini</option>
-                  <option value="Semua">Semua Waktu</option>
-                </optgroup>
-                <optgroup label="Bulan">
-                  {filterOptions.months.map(m => {
-                    const [y, mon] = m.split("-");
-                    const date = new Date(parseInt(y), parseInt(mon) - 1);
-                    const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-                    return <option key={m} value={`month:${m}`}>{label}</option>;
-                  })}
-                </optgroup>
-                <optgroup label="Tahun">
-                  {filterOptions.years.map(y => (
-                    <option key={y} value={`year:${y}`}>{y}</option>
-                  ))}
-                </optgroup>
-              </select>
-            </div>
           </div>
         </div>
       </div>
@@ -9534,6 +9490,36 @@ const AdminDashboard = ({
               <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center group-hover/card:scale-110 transition-transform shrink-0">
                 <TrendingUp className="w-4 h-4 text-[#F15A24]" />
               </div>
+            </div>
+
+            {/* Full-width select dropdown */}
+            <div className="w-full" onClick={(e) => e.stopPropagation()}>
+              <select 
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-[11px] font-black uppercase tracking-widest rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-[#005E6A]/20 cursor-pointer hover:bg-slate-100 transition-colors"
+              >
+                <optgroup label="Cepat">
+                  <option value="Hari ini">Hari ini</option>
+                  <option value="Minggu ini">Minggu ini</option>
+                  <option value="Bulan ini">Bulan ini</option>
+                  <option value="Tahun ini">Tahun ini</option>
+                  <option value="Semua">Semua Waktu</option>
+                </optgroup>
+                <optgroup label="Bulan">
+                  {filterOptions.months.map(m => {
+                    const [y, mon] = m.split("-");
+                    const date = new Date(parseInt(y), parseInt(mon) - 1);
+                    const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                    return <option key={m} value={`month:${m}`}>{label}</option>;
+                  })}
+                </optgroup>
+                <optgroup label="Tahun">
+                  {filterOptions.years.map(y => (
+                    <option key={y} value={`year:${y}`}>{y}</option>
+                  ))}
+                </optgroup>
+              </select>
             </div>
 
             {/* 4 Tabs to filter charts */}
@@ -28507,7 +28493,6 @@ export default function App() {
     const saved = localStorage.getItem("warung_tomi_user");
     return saved ? JSON.parse(saved) : null;
   });
-  const [adminSalesTimeFilter, setAdminSalesTimeFilter] = useState("Bulan ini");
   const [isLoading, setIsLoading] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -28954,11 +28939,7 @@ export default function App() {
       const fetchSales = async () => {
         if (shouldFetch("salesTransactions") && SupabaseSalesService.isConnected()) {
           try {
-            const salesFilter = (isAdminOrKasir && !userFilterName) ? adminSalesTimeFilter : undefined;
-            const { data: supaSales } = await SupabaseSalesService.getSales({
-              name: userFilterName,
-              timeFilter: salesFilter
-            });
+            const { data: supaSales } = await SupabaseSalesService.getSales(userFilterName ? { name: userFilterName } : undefined);
             if (supaSales) {
               const salesData = supaSales.map(item => ({
                 id: item.id_transaksi || item.id,
@@ -29147,12 +29128,6 @@ export default function App() {
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
   }, [dataSource, isAuthReady]);
-
-  useEffect(() => {
-    if (window.location.pathname.toLowerCase().startsWith('/admin')) {
-      fetchData(true, "salesTransactions");
-    }
-  }, [adminSalesTimeFilter]);
 
   const handleUpdatePhoto = async (nama: string, base64: string, file?: File | null) => {
     const customerId = loggedInUser?.id_pelanggan || loggedInUser?.id || "";
@@ -29534,8 +29509,6 @@ export default function App() {
               debtTransactions={debtTransactions}
               redeemedPoints={redeemedPoints}
               stock={stock}
-              timeFilter={adminSalesTimeFilter}
-              setTimeFilter={setAdminSalesTimeFilter}
             />
           </AdminLayout>
         } />

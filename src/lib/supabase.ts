@@ -1503,67 +1503,21 @@ export const SupabaseSalesService = {
     return !!getSupabaseClient();
   },
 
-  async getSales(options?: { name?: string; limit?: number; timeFilter?: string }): Promise<{ data: SupabaseSalesTransaction[] | null; error: any }> {
+  async getSales(options?: { name?: string; limit?: number }): Promise<{ data: SupabaseSalesTransaction[] | null; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    let baseQuery = client.from('sales_transactions').select('*');
-
     if (options?.name && options.name.trim() !== '') {
-      baseQuery = baseQuery.ilike('nama', options.name.trim());
-    }
-
-    if (options?.timeFilter && options.timeFilter !== "Semua" && options.timeFilter !== "Semua Waktu") {
-      const now = new Date();
-      let startIso: string | null = null;
-      let endIso: string | null = null;
-
-      if (options.timeFilter === "Hari ini") {
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-        startIso = today.toISOString();
-      } else if (options.timeFilter === "Minggu ini") {
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const day = today.getDay();
-        const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), diff, 0, 0, 0);
-        startIso = startOfWeek.toISOString();
-      } else if (options.timeFilter === "Bulan ini") {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-        startIso = startOfMonth.toISOString();
-      } else if (options.timeFilter === "Tahun ini") {
-        const startOfYear = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
-        startIso = startOfYear.toISOString();
-      } else if (options.timeFilter.startsWith("month:")) {
-        const parts = options.timeFilter.split(":")[1].split("-").map(Number);
-        if (parts.length === 2) {
-          const [y, m] = parts;
-          startIso = new Date(y, m - 1, 1, 0, 0, 0).toISOString();
-          endIso = new Date(y, m, 0, 23, 59, 59, 999).toISOString();
-        }
-      } else if (options.timeFilter.startsWith("year:")) {
-        const y = parseInt(options.timeFilter.split(":")[1]);
-        if (!isNaN(y)) {
-          startIso = new Date(y, 0, 1, 0, 0, 0).toISOString();
-          endIso = new Date(y, 11, 31, 23, 59, 59, 999).toISOString();
-        }
-      } else if (options.timeFilter.startsWith("day:")) {
-        const parts = options.timeFilter.split(":")[1].split("-").map(Number);
-        if (parts.length === 3) {
-          const [y, m, dt] = parts;
-          startIso = new Date(y, m - 1, dt, 0, 0, 0).toISOString();
-          endIso = new Date(y, m - 1, dt, 23, 59, 59, 999).toISOString();
-        }
-      }
-
-      if (startIso) baseQuery = baseQuery.gte('created_at', startIso);
-      if (endIso) baseQuery = baseQuery.lte('created_at', endIso);
-    }
-
-    if (options?.limit && options.limit > 0) {
-      const { data, error } = await baseQuery.order('created_at', { ascending: true }).limit(options.limit);
+      let query = client.from('sales_transactions').select('*').ilike('nama', options.name.trim()).order('created_at', { ascending: true });
+      if (options?.limit && options.limit > 0) query = query.limit(options.limit);
+      const { data, error } = await query;
       return { data, error };
     }
 
+    if (options?.limit && options.limit > 0) {
+      const { data, error } = await client.from('sales_transactions').select('*').order('created_at', { ascending: true }).limit(options.limit);
+      return { data, error };
+    }
     let allData: SupabaseSalesTransaction[] = [];
     let page = 0;
     const pageSize = 1000;
@@ -1571,7 +1525,9 @@ export const SupabaseSalesService = {
     let lastError: any = null;
 
     while (hasMore) {
-      const { data, error } = await baseQuery
+      const { data, error } = await client
+        .from('sales_transactions')
+        .select('*')
         .order('created_at', { ascending: true })
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
