@@ -611,6 +611,7 @@ export interface SalesTransaction {
   Melalui: string;
   HargaModal: number;
   Sebagian: number;
+  created_at?: string;
 }
 
 interface RedeemedPoint {
@@ -878,7 +879,7 @@ const calculateUserCollectability = (userTransactions: DebtTransaction[]) => {
   const avgDuration = periods.length > 0 ? Math.round(periods.reduce((acc, p) => acc + p.durationDays, 0) / periods.length) : 0;
   
   if (periods.length === 0) {
-    return { label: "-", color: "text-white", avgDuration: 0, badgeColor: "bg-slate-50 text-slate-400", sortOrder: 3 };
+    return { label: "Lancar", color: "text-green-300", avgDuration: 0, badgeColor: "bg-teal-50 text-teal-600", sortOrder: 0 };
   }
   
   if (avgDuration <= 30) {
@@ -4793,7 +4794,7 @@ const SavingsPromotionPage = () => {
   );
 };
 
-const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer | null, transactions: SavingTransaction[], customers?: Customer[] }) => {
+const SavingsDetailPage = ({ user, transactions, customers, fetchData }: { user: Customer | null, transactions: SavingTransaction[], customers?: Customer[], fetchData?: (showLoading?: boolean, collectionName?: string | string[], extraOptions?: any) => Promise<void> }) => {
   const navigate = useNavigate();
   const { customerName } = useParams();
   const paramVal = customerName ? decodeURIComponent(customerName).toLowerCase() : "";
@@ -4811,38 +4812,19 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
   }, [transactions, displayUser]);
 
   const allMonths = useMemo(() => {
-    if (userTransactions.length === 0) {
-      const now = new Date();
-      return [{
-        label: now.toLocaleString('id-ID', { month: 'long' }),
-        value: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
-        month: now.getMonth(),
-        year: now.getFullYear()
-      }];
-    }
-
-    const earliestTransaction = userTransactions.reduce((earliest, t) => {
-      const tDate = parseDate(t.Tanggal);
-      return tDate < earliest ? tDate : earliest;
-    }, new Date());
-
-    const startMonth = earliestTransaction.getMonth();
-    const startYear = earliestTransaction.getFullYear();
     const now = new Date();
-    
     const result = [];
-    let tempDate = new Date(startYear, startMonth, 1);
-    while (tempDate <= now) {
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       result.push({
-        label: tempDate.toLocaleString('id-ID', { month: 'long' }),
-        value: `${tempDate.getFullYear()}-${String(tempDate.getMonth() + 1).padStart(2, '0')}`,
-        month: tempDate.getMonth(),
-        year: tempDate.getFullYear()
+        label: d.toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
+        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        month: d.getMonth(),
+        year: d.getFullYear()
       });
-      tempDate.setMonth(tempDate.getMonth() + 1);
     }
     return result;
-  }, [userTransactions]);
+  }, []);
 
   const months = useMemo(() => [...allMonths].reverse(), [allMonths]);
 
@@ -4857,6 +4839,12 @@ const SavingsDetailPage = ({ user, transactions, customers }: { user: Customer |
       setSelectedMonth(allMonths[allMonths.length - 1].value);
     }
   }, [allMonths, initialMonth]);
+
+  useEffect(() => {
+    if (selectedMonth && fetchData) {
+      fetchData(false, 'savingTransactions', { monthFilter: selectedMonth, userFilterKey: displayUser?.Nama });
+    }
+  }, [selectedMonth, displayUser?.Nama]);
 
   const selectedMonthLabel = months.find(m => m.value === selectedMonth)?.label.split(' ')[0] || "";
   const [activeTab, setActiveTab] = useState<'riwayat' | 'statistik'>('riwayat');
@@ -5493,7 +5481,7 @@ const DebtDetailPage = ({
   user: Customer | null, 
   transactions: DebtTransaction[], 
   customers?: Customer[],
-  fetchData?: (showLoading?: boolean) => void,
+  fetchData?: (showLoading?: boolean, collectionName?: string | string[], extraOptions?: any) => Promise<void> | void,
   dataSource?: string,
   salesTransactions?: SalesTransaction[]
 }) => {
@@ -5695,6 +5683,23 @@ const DebtDetailPage = ({
     }
   }, [debtPeriods]);
 
+  const handlePeriodSelect = (val: string) => {
+    setSelectedPeriodIndex(val);
+    if (fetchData && displayUser?.Nama) {
+      if (val === 'all') {
+        fetchData(false, 'debtTransactions', { userFilterKey: displayUser.Nama, allHistory: true });
+      } else {
+        const idx = parseInt(val, 10);
+        if (!isNaN(idx) && debtPeriods[idx]) {
+          const p = debtPeriods[idx];
+          if (p.status === 'Lunas') {
+            fetchData(false, 'debtTransactions', { userFilterKey: displayUser.Nama, allHistory: true });
+          }
+        }
+      }
+    }
+  };
+
   const filteredTransactions = useMemo(() => {
     if (selectedPeriodIndex === 'all') return userTransactions;
     const idx = parseInt(selectedPeriodIndex);
@@ -5861,7 +5866,7 @@ const DebtDetailPage = ({
               <div className="relative">
                 <select 
                   value={selectedPeriodIndex}
-                  onChange={(e) => setSelectedPeriodIndex(e.target.value)}
+                  onChange={(e) => handlePeriodSelect(e.target.value)}
                   className="appearance-none bg-red-50/50 border border-red-100 rounded-lg pl-3 pr-8 py-1 text-[9px] font-black text-red-600 focus:outline-none focus:ring-1 focus:ring-red-500/20 uppercase tracking-widest"
                 >
                   <option value="all">Semua Riwayat</option>
@@ -7394,6 +7399,7 @@ const AdminReportPage = ({
   setSavingsTransactions,
   debtTransactions = [],
   setDebtTransactions,
+  fetchData
 }: { 
   transactions: SalesTransaction[];
   customers?: Customer[];
@@ -7402,9 +7408,16 @@ const AdminReportPage = ({
   setSavingsTransactions?: React.Dispatch<React.SetStateAction<SavingTransaction[]>>;
   debtTransactions?: DebtTransaction[];
   setDebtTransactions?: React.Dispatch<React.SetStateAction<DebtTransaction[]>>;
+  fetchData?: (showLoading?: boolean, collectionName?: string | string[], extraOptions?: any) => Promise<void>;
 }) => {
   const navigate = useNavigate();
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    if (filterDate && fetchData) {
+      fetchData(false, 'salesTransactions', { dateFilter: filterDate });
+    }
+  }, [filterDate]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSummary, setShowSummary] = useState(false);
   const [listDirection, setListDirection] = useState<'left' | 'right'>('right');
@@ -14731,7 +14744,7 @@ const AdminOtherManagement = ({
 }: { 
   salesTransactions: SalesTransaction[];
   setSalesTransactions?: React.Dispatch<React.SetStateAction<SalesTransaction[]>>;
-  fetchData?: (showLoading?: boolean, collectionName?: string) => void;
+  fetchData?: (showLoading?: boolean, collectionName?: string | string[], extraOptions?: any) => Promise<void>;
 }) => {
   const navigate = useNavigate();
 
@@ -14747,6 +14760,12 @@ const AdminOtherManagement = ({
       navigate("/");
     }
   }, [navigate]);
+
+  useEffect(() => {
+    if (fetchData) {
+      fetchData(false, "salesTransactions", { pendingOnly: true });
+    }
+  }, []);
 
   const pendingWithdrawals = useMemo(() => {
     return salesTransactions.filter(t => {
@@ -14942,7 +14961,7 @@ const AdminOtherManagement = ({
     }
 
     if (fetchData) {
-      fetchData(false, "salesTransactions");
+      fetchData(false, "salesTransactions", { pendingOnly: true });
     }
 
     setIsSaving(false);
@@ -16959,13 +16978,15 @@ const AdminDebtManagement = ({
   setCustomers,
   transactions, 
   setTransactions,
-  dataSource 
+  dataSource,
+  fetchData
 }: { 
   customers: Customer[], 
   setCustomers?: React.Dispatch<React.SetStateAction<Customer[]>>,
   transactions: DebtTransaction[], 
   setTransactions: (txs: DebtTransaction[]) => void,
-  dataSource: "sheets" | "firebase"
+  dataSource: "sheets" | "firebase",
+  fetchData?: (showLoading?: boolean, collectionName?: string | string[], extraOptions?: any) => Promise<void> | void
 }) => {
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("Semua");
@@ -16981,8 +17002,10 @@ const AdminDebtManagement = ({
     const isAdmin = localStorage.getItem("admin_session") === "true";
     if (!isAdmin) {
       navigate("/");
+    } else if (fetchData) {
+      fetchData(false, "debtTransactions", { allHistory: true });
     }
-  }, [navigate]);
+  }, [navigate, fetchData]);
 
   const handleSaveTransaction = async (
     customer: Customer, 
@@ -19835,7 +19858,7 @@ const NotificationPage = ({
   );
 };
 
-const RiwayatPage = ({ user, transactions }: { user: Customer | null, transactions: SalesTransaction[] }) => {
+const RiwayatPage = ({ user, transactions, fetchData }: { user: Customer | null, transactions: SalesTransaction[], fetchData?: (showLoading?: boolean, collectionName?: string | string[], extraOptions?: any) => Promise<void> }) => {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -20012,6 +20035,13 @@ Terima kasih telah berbelanja di Warung Tomi!`;
     month: now.getMonth(), 
     year: now.getFullYear() 
   });
+
+  useEffect(() => {
+    if (fetchData && selectedMonth) {
+      const monthStr = `${selectedMonth.year}-${String(selectedMonth.month + 1).padStart(2, '0')}`;
+      fetchData(false, 'salesTransactions', { monthFilter: monthStr, userFilterKey: user?.Nama });
+    }
+  }, [selectedMonth, user?.Nama]);
 
   const tabContainerRef1 = React.useCallback((node: HTMLDivElement | null) => {
     if (node) {
@@ -27416,7 +27446,7 @@ const HomePage = ({
                 ref={bestSellersScrollRef}
                 className="flex overflow-x-auto gap-4 snap-x snap-mandatory scrollbar-hide pb-2 pt-1 w-full scroll-smooth cursor-grab active:cursor-grabbing"
               >
-                {stock.slice(0, 10).map((item, idx) => {
+                {stock.slice(0, 7).map((item, idx) => {
                   const inCart = cart.find(c => c.product.id === item.id);
                   return (
                     <motion.div
@@ -28775,9 +28805,15 @@ export default function App() {
     const p = pathname.toLowerCase();
     
     if (p === '/' || p.startsWith('/home')) {
+      if (!loggedInUser && tab !== 'belanja' && tab !== 'riwayat') {
+        return ['stockItems'];
+      }
       if (tab === 'belanja') return ['stockItems', 'salesTransactions', 'customers'];
       if (tab === 'riwayat') return ['salesTransactions', 'customers'];
       return ['stockItems', 'salesTransactions', 'customers'];
+    }
+    if (p.startsWith('/bansos')) {
+      return ['salesTransactions'];
     }
     if (p.startsWith('/pulsa') || p.startsWith('/paket-data') || p.startsWith('/listrik') || p.startsWith('/bantuan') || p.startsWith('/login') || p.startsWith('/qris') || p.startsWith('/tariktunai')) {
       return ['customers'];
@@ -28815,7 +28851,11 @@ export default function App() {
     return ['stockItems', 'salesTransactions', 'customers'];
   };
 
-  const fetchData = async (showLoading = true, collectionName?: string | string[]) => {
+  const fetchData = async (
+    showLoading = true,
+    collectionName?: string | string[],
+    extraOptions?: { monthFilter?: string; dateFilter?: string; userFilterKey?: string; withBalanceOnly?: boolean; currentMonthOnly?: boolean; pendingOnly?: boolean; includePending?: boolean; debtOnly?: boolean; allHistory?: boolean }
+  ) => {
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -28849,21 +28889,28 @@ export default function App() {
 
       const shouldFetch = (col: string) => targets.includes(col);
 
-      const isAdminOrKasir = window.location.pathname.toLowerCase().startsWith('/admin') || window.location.pathname.toLowerCase().startsWith('/kasir');
+      const p = window.location.pathname.toLowerCase();
+      const isAdminDashboard = p === '/admin' || p === '/admin/' || p.startsWith('/admin/dashboard');
+      const isAdminOrKasir = p.startsWith('/admin') || p.startsWith('/kasir');
+      const isBansosPage = p.startsWith('/bansos');
       const userFilterName = (!isAdminOrKasir && loggedInUser?.Nama) ? loggedInUser.Nama : undefined;
-      const isHomePage = window.location.pathname === '/' || window.location.pathname.toLowerCase().startsWith('/home');
+      const isHomePage = p === '/' || p.startsWith('/home');
+      const isHomeGuest = (isHomePage && !loggedInUser && activeTab !== 'belanja');
 
       let supaStockData: StockItem[] = [];
       const fetchStock = async () => {
         if (shouldFetch("stockItems") && SupabaseStockService.isConnected()) {
           try {
-            const stockLimit = (isHomePage && activeTab !== 'belanja' && !isAdminOrKasir) ? 15 : undefined;
-            const { data: supaProducts } = await SupabaseStockService.getProducts(stockLimit ? { limit: stockLimit } : undefined);
+            const stockOptions = isHomeGuest
+              ? { limit: 7, select: 'id, id_barang, nama, gambar, harga_jual, kategori' }
+              : (isHomePage && activeTab !== 'belanja' && !isAdminOrKasir ? { limit: 15 } : undefined);
+
+            const { data: supaProducts } = await SupabaseStockService.getProducts(stockOptions);
             if (supaProducts) {
               supaStockData = supaProducts.map(p => ({
-                id: p.id_barang,
-                id_barang: p.id_barang,
-                Nama: p.nama,
+                id: p.id_barang || p.id || '',
+                id_barang: p.id_barang || p.id || '',
+                Nama: p.nama || 'Produk',
                 Kategori: p.kategori || 'Sembako',
                 Stok: Number(p.stok) || 0,
                 Satuan: p.satuan || 'pcs',
@@ -28910,7 +28957,19 @@ export default function App() {
       const fetchCustomers = async () => {
         if (shouldFetch("customers") && SupabaseCustomerService.isConnected()) {
           try {
-            const { data: supaCust } = await SupabaseCustomerService.getCustomers(userFilterName ? { name: userFilterName } : undefined);
+            const custOptions: any = {};
+            const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
+            if (userFilterName) custOptions.name = userFilterName;
+
+            if (p.startsWith('/admin/debt') || p.startsWith('/hutang') || extraOptions?.debtOnly) {
+              custOptions.debtOnly = true;
+              custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, foto, level, point';
+            } else if (isAdminDashboard || extraOptions?.withBalanceOnly) {
+              custOptions.withBalanceOnly = true;
+              custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, foto, level, point';
+            }
+
+            const { data: supaCust } = await SupabaseCustomerService.getCustomers(custOptions);
             if (supaCust) {
               cData = supaCust.map((c, index) => ({
                 id: c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, '0')}`,
@@ -28927,6 +28986,7 @@ export default function App() {
                 Level: c.level || 'Bronze',
                 Foto: c.foto || ''
               }));
+              setCustomers(cData);
               loadedCollectionsRef.current.add("customers");
             }
           } catch (err) {
@@ -28939,10 +28999,40 @@ export default function App() {
       const fetchSales = async () => {
         if (shouldFetch("salesTransactions") && SupabaseSalesService.isConnected()) {
           try {
-            const { data: supaSales } = await SupabaseSalesService.getSales(userFilterName ? { name: userFilterName } : undefined);
+            const salesOptions: any = {};
+            const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
+            if (userFilterName) salesOptions.name = userFilterName;
+
+            const isManagementLainnya = p.startsWith('/admin/management-lainnya');
+            const isAdminReportPage = p.startsWith('/admin/report');
+            const isRiwayatPage = p.startsWith('/riwayat');
+
+            if (extraOptions?.pendingOnly) salesOptions.pendingOnly = true;
+            if (extraOptions?.includePending) salesOptions.includePending = true;
+
+            if (isBansosPage) {
+              salesOptions.bansosOnly = true;
+              salesOptions.select = 'id, id_transaksi, nama, jenis, pemasukan, status, tanggal, created_at';
+            } else if (isManagementLainnya || extraOptions?.pendingOnly) {
+              salesOptions.pendingOnly = true;
+              salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
+            } else if (isAdminReportPage || extraOptions?.dateFilter) {
+              salesOptions.date = extraOptions?.dateFilter || new Date().toISOString().split('T')[0];
+              salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
+            } else if (isRiwayatPage || extraOptions?.monthFilter || extraOptions?.currentMonthOnly) {
+              salesOptions.month = extraOptions?.monthFilter;
+              if (!salesOptions.month) salesOptions.currentMonthOnly = true;
+              salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
+            } else if (isAdminDashboard) {
+              salesOptions.currentMonthOnly = true;
+              salesOptions.includePending = true;
+              salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
+            }
+
+            const { data: supaSales } = await SupabaseSalesService.getSales(salesOptions);
             if (supaSales) {
               const salesData = supaSales.map(item => ({
-                id: item.id_transaksi || item.id,
+                id: item.id_transaksi || item.id || '',
                 id_transaksi: item.id_transaksi,
                 id_pelanggan: item.id_pelanggan || 'CUST-0000',
                 Tanggal: cleanDate(item.tanggal || ''),
@@ -28962,11 +29052,26 @@ export default function App() {
                 if (a.created_at && b.created_at) {
                   return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
                 }
-                return parseDate(a.Tanggal).getTime() - parseDate(b.Tanggal).getTime();
+                return parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime();
               });
 
-              processedSales = [...salesData].reverse();
-              setSalesTransactions(processedSales);
+              if (extraOptions?.dateFilter || extraOptions?.monthFilter) {
+                setSalesTransactions(prev => {
+                  const existingMap = new Map<string, SalesTransaction>(prev.map(item => [item.id || item.id_transaksi, item]));
+                  salesData.forEach(item => existingMap.set(item.id || item.id_transaksi, item));
+                  const merged = Array.from(existingMap.values());
+                  merged.sort((a, b) => {
+                    if (a.created_at && b.created_at) {
+                      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    }
+                    return parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime();
+                  });
+                  return merged;
+                });
+              } else {
+                processedSales = [...salesData].reverse();
+                setSalesTransactions(processedSales);
+              }
               loadedCollectionsRef.current.add("salesTransactions");
             }
           } catch (err) {
@@ -28979,9 +29084,20 @@ export default function App() {
       const fetchSavings = async () => {
         if (shouldFetch("savingTransactions") && SupabaseSavingsService.isConnected()) {
           try {
-            const { data: supaSavings } = await SupabaseSavingsService.getSavings(userFilterName ? { name: userFilterName } : undefined);
+            const isSavingsPage = p.startsWith('/tabungan') || p.startsWith('/detail-tabungan');
+            const monthToFetch = extraOptions?.monthFilter || (isSavingsPage || isAdminDashboard ? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` : undefined);
+            const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
+
+            const savingsOptions: any = {};
+            if (userFilterName) savingsOptions.name = userFilterName;
+            if (monthToFetch) savingsOptions.month = monthToFetch;
+            if (isSavingsPage || isAdminDashboard) {
+              savingsOptions.select = 'id, id_tabungan, id_pelanggan, tanggal, nama, tipe, nominal, saldo_akhir, berita, created_at';
+            }
+
+            const { data: supaSavings } = await SupabaseSavingsService.getSavings(savingsOptions);
             if (supaSavings) {
-              allSavingsTransactions = supaSavings.map(item => ({
+              const mappedSavings = supaSavings.map(item => ({
                 id: item.id_tabungan || item.id,
                 id_tabungan: item.id_tabungan,
                 id_pelanggan: item.id_pelanggan || 'CUST-0000',
@@ -28992,7 +29108,13 @@ export default function App() {
                 SaldoAkhir: Number(item.saldo_akhir) || 0,
                 Berita: item.berita || '-'
               }));
-              setSavingsTransactions(allSavingsTransactions);
+
+              setSavingsTransactions(prev => {
+                if (!extraOptions?.monthFilter) return mappedSavings;
+                const existingMap = new Map(prev.map(item => [item.id || item.id_tabungan, item]));
+                mappedSavings.forEach(item => existingMap.set(item.id || item.id_tabungan, item));
+                return Array.from(existingMap.values());
+              });
               loadedCollectionsRef.current.add("savingTransactions");
             }
           } catch (err) {
@@ -29005,7 +29127,15 @@ export default function App() {
       const fetchInvestments = async () => {
         if (shouldFetch("investmentTransactions") && SupabaseInvestmentService.isConnected()) {
           try {
-            const { data: supaInvest } = await SupabaseInvestmentService.getInvestments(userFilterName ? { name: userFilterName } : undefined);
+            const investOptions: any = {};
+            const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
+            if (userFilterName) investOptions.name = userFilterName;
+            if (isAdminDashboard || p.startsWith('/investasi')) {
+              investOptions.activeOnly = true;
+              investOptions.select = 'id, id_investasi, id_pelanggan, tanggal, nama, nominal, tenor, jatuh_tempo, status, nisbah, keterangan';
+            }
+
+            const { data: supaInvest } = await SupabaseInvestmentService.getInvestments(investOptions);
             if (supaInvest) {
               allInvestmentTransactions = supaInvest.map(item => ({
                 id: item.id_investasi || item.id,
@@ -29033,7 +29163,24 @@ export default function App() {
       const fetchDebts = async () => {
         if (shouldFetch("debtTransactions") && SupabaseDebtService.isConnected()) {
           try {
-            const { data: supaDebt } = await SupabaseDebtService.getDebts(userFilterName ? { name: userFilterName } : undefined);
+            const debtOptions: any = {};
+            const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
+            if (userFilterName) debtOptions.name = userFilterName;
+            if (extraOptions?.allHistory) {
+              debtOptions.allHistory = true;
+              debtOptions.select = 'id, id_hutang, id_pelanggan, tanggal, nama, tipe, jumlah, keterangan, saldo_akhir, created_at';
+            } else if (extraOptions?.monthFilter) {
+              debtOptions.month = extraOptions.monthFilter;
+              debtOptions.select = 'id, id_hutang, id_pelanggan, tanggal, nama, tipe, jumlah, keterangan, saldo_akhir, created_at';
+            } else if (p.startsWith('/admin/debt')) {
+              debtOptions.allHistory = true;
+              debtOptions.select = 'id, id_hutang, id_pelanggan, tanggal, nama, tipe, jumlah, keterangan, saldo_akhir, created_at';
+            } else if (isAdminDashboard || p.startsWith('/hutang')) {
+              debtOptions.currentMonthOnly = true;
+              debtOptions.select = 'id, id_hutang, id_pelanggan, tanggal, nama, tipe, jumlah, keterangan, saldo_akhir, created_at';
+            }
+
+            const { data: supaDebt } = await SupabaseDebtService.getDebts(debtOptions);
             if (supaDebt) {
               allDebtTransactions = supaDebt.map(item => ({
                 id: item.id_hutang || item.id,
@@ -29122,7 +29269,11 @@ export default function App() {
 
   useEffect(() => {
     fetchData(true);
-    const interval = setInterval(() => fetchData(false, "customers"), 300000); 
+    const interval = setInterval(() => {
+      if (loggedInUser || window.location.pathname.toLowerCase().startsWith('/admin')) {
+        fetchData(false, "customers");
+      }
+    }, 300000); 
     return () => {
       clearInterval(interval);
       if (abortControllerRef.current) abortControllerRef.current.abort();
@@ -29338,7 +29489,7 @@ export default function App() {
         } />
         <Route path="/tabungan" element={<SavingsPromotionPage />} />
         <Route path="/tabungan/:customerName" element={
-          <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} customers={customers} />
+          <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} customers={customers} fetchData={fetchData} />
         } />
         <Route path="/hutang" element={
           <DebtDetailPage user={loggedInUser} transactions={debtTransactions} salesTransactions={salesTransactions} />
@@ -29586,7 +29737,7 @@ export default function App() {
         } />
         <Route path="/admin/debt" element={
           <AdminLayout activeTab="debt">
-            <AdminDebtManagement customers={customers} setCustomers={setCustomers} transactions={debtTransactions} setTransactions={setDebtTransactions} dataSource={dataSource} />
+            <AdminDebtManagement customers={customers} setCustomers={setCustomers} transactions={debtTransactions} setTransactions={setDebtTransactions} dataSource={dataSource} fetchData={fetchData} />
           </AdminLayout>
         } />
         <Route path="/admin/management-lainnya" element={
