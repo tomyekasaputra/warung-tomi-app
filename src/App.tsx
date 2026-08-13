@@ -7431,17 +7431,89 @@ const AdminReportPage = ({
   const [customerList, setCustomerList] = useState<Customer[]>(customers);
   const [toastMsg, setToastMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  useEffect(() => {
-    if (customers && customers.length > 0) {
-      setCustomerList(customers);
-    } else {
-      SupabaseCustomerService.getCustomers().then((res) => {
-        if (res.data && res.data.length > 0) {
-          setCustomerList(res.data);
+  // Customer Autocomplete & On-Demand States
+  const [customerInputText, setCustomerInputText] = useState("Pelanggan Umum");
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [selectedCustDetails, setSelectedCustDetails] = useState<{
+    id_pelanggan: string;
+    Nama: string;
+    lastTxId: string;
+    lastHutangId: string;
+    lastTabunganId: string;
+    hutang: number;
+    tabungan: number;
+  }>({
+    id_pelanggan: "CUST-0000",
+    Nama: "Pelanggan Umum",
+    lastTxId: "TRX-0000/1",
+    lastHutangId: "HUT-0000/1",
+    lastTabunganId: "TAB-0000/1",
+    hutang: 0,
+    tabungan: 0
+  });
+
+  const CUSTOMER_CACHE_KEY = "app_customer_cache_v3";
+  const CUSTOMER_CACHE_TS_KEY = "app_customer_cache_ts_v3";
+
+  const loadAllCustomers = async (forceRemoteCheck = false) => {
+    // 1. Instantly populate from browser localStorage cache if available
+    try {
+      const cachedStr = localStorage.getItem(CUSTOMER_CACHE_KEY);
+      if (cachedStr) {
+        const parsed = JSON.parse(cachedStr);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCustomerList(parsed);
         }
-      });
+      }
+    } catch (e) {
+      console.warn("Gagal membaca cache pelanggan lokal:", e);
     }
-  }, [customers]);
+
+    // 2. Check cache timestamp to minimize unnecessary bandwidth
+    const lastFetch = Number(localStorage.getItem(CUSTOMER_CACHE_TS_KEY) || 0);
+    const now = Date.now();
+    const isExpired = now - lastFetch > 3 * 60 * 1000; // 3 minutes
+
+    if (!forceRemoteCheck && !isExpired && localStorage.getItem(CUSTOMER_CACHE_KEY)) {
+      return;
+    }
+
+    if (SupabaseCustomerService.isConnected()) {
+      try {
+        const res = await SupabaseCustomerService.getCustomers({
+          select: 'id, id_pelanggan, nama, tabungan, hutang, foto, level, point'
+        });
+        if (res.data && res.data.length > 0) {
+          const list = res.data.map((c, index) => ({
+            id: c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, '0')}`,
+            id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
+            Nama: c.nama || 'Pelanggan',
+            nama: c.nama || 'Pelanggan',
+            Hutang: Number(c.hutang) || 0,
+            hutang: Number(c.hutang) || 0,
+            Tabungan: Number(c.tabungan) || 0,
+            tabungan: Number(c.tabungan) || 0,
+          }));
+
+          const newListStr = JSON.stringify(list);
+          const oldListStr = localStorage.getItem(CUSTOMER_CACHE_KEY);
+          if (newListStr !== oldListStr) {
+            localStorage.setItem(CUSTOMER_CACHE_KEY, newListStr);
+            setCustomerList(list as any);
+          }
+          localStorage.setItem(CUSTOMER_CACHE_TS_KEY, String(now));
+        }
+      } catch (err) {
+        console.error("Gagal memuat seluruh data pelanggan:", err);
+      }
+    } else if (customers && customers.length > 0) {
+      setCustomerList(customers);
+    }
+  };
+
+  useEffect(() => {
+    loadAllCustomers();
+  }, []);
 
   const showToast = (text: string, type: "success" | "error" = "success") => {
     setToastMsg({ type, text });
@@ -7497,6 +7569,67 @@ const AdminReportPage = ({
     return `TRX-${custDigits}/${nextSeq}`;
   };
 
+  const handleSelectCustomerSuggestion = (cust: { id_pelanggan?: string; id?: string; Nama?: string; nama?: string; hutang?: number; tabungan?: number }) => {
+    const name = cust.Nama || cust.nama || "Pelanggan Umum";
+    const id = cust.id_pelanggan || cust.id || "CUST-0000";
+
+    setCustomerInputText(name);
+    setShowCustomerSuggestions(false);
+
+    // On-demand generation when a customer recommendation is clicked
+    const newTxId = calculateAutoTxId(id, name, transactions);
+    const newHutangId = generateNextHutangId({ id_pelanggan: id, Nama: name }, debtTransactions, customerList);
+    const newTabunganId = generateNextTabunganId({ id_pelanggan: id, Nama: name }, savingsTransactions, customerList);
+
+    const hutangBal = parseCurrency(cust.hutang || (cust as any).Hutang || 0);
+    const tabunganBal = parseCurrency(cust.tabungan || (cust as any).Tabungan || 0);
+
+    setSelectedCustDetails({
+      id_pelanggan: id,
+      Nama: name,
+      lastTxId: newTxId,
+      lastHutangId: newHutangId,
+      lastTabunganId: newTabunganId,
+      hutang: hutangBal,
+      tabungan: tabunganBal
+    });
+
+    setAddFormData((prev) => ({
+      ...prev,
+      Nama: name,
+      id_pelanggan: id,
+      id_transaksi: newTxId
+    }));
+  };
+
+  const filteredSuggestions = useMemo(() => {
+    const q = (customerInputText || "").toLowerCase().trim();
+    const generalOption = {
+      id_pelanggan: "CUST-0000",
+      id: "CUST-0000",
+      Nama: "Pelanggan Umum",
+      nama: "Pelanggan Umum",
+      hutang: 0,
+      tabungan: 0
+    };
+
+    if (!q) {
+      return [generalOption, ...customerList.slice(0, 10)];
+    }
+
+    const matches = customerList.filter((c) => {
+      const name = (c.nama || c.Nama || "").toLowerCase();
+      const id = (c.id_pelanggan || c.id || "").toLowerCase();
+      return name.includes(q) || id.includes(q);
+    });
+
+    if ("pelanggan umum".includes(q) || "cust-0000".includes(q)) {
+      return [generalOption, ...matches.filter(c => (c.nama || c.Nama) !== "Pelanggan Umum").slice(0, 10)];
+    }
+
+    return matches.slice(0, 12);
+  }, [customerInputText, customerList]);
+
   const calculateWarungTomiFee = (amount: number) => {
     if (amount <= 0) return 0;
     if (amount <= 103000) return 3000;
@@ -7532,6 +7665,9 @@ const AdminReportPage = ({
   };
 
   const handleOpenAdd = () => {
+    // Non-blocking background sync from local browser storage / database
+    loadAllCustomers();
+
     const today = new Date();
     const dd = String(today.getDate()).padStart(2, "0");
     const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -7541,6 +7677,21 @@ const AdminReportPage = ({
     const defaultCustId = "CUST-0000";
     const defaultName = "Pelanggan Umum";
     const autoId = calculateAutoTxId(defaultCustId, defaultName, transactions);
+    const autoHutangId = generateNextHutangId({ id_pelanggan: defaultCustId, Nama: defaultName }, debtTransactions, customerList);
+    const autoTabunganId = generateNextTabunganId({ id_pelanggan: defaultCustId, Nama: defaultName }, savingsTransactions, customerList);
+
+    setCustomerInputText(defaultName);
+    setShowCustomerSuggestions(false);
+
+    setSelectedCustDetails({
+      id_pelanggan: defaultCustId,
+      Nama: defaultName,
+      lastTxId: autoId,
+      lastHutangId: autoHutangId,
+      lastTabunganId: autoTabunganId,
+      hutang: 0,
+      tabungan: 0
+    });
 
     setAddFormData({
       id_transaksi: autoId,
@@ -8183,7 +8334,7 @@ const AdminReportPage = ({
                   </div>
                 </div>
 
-                {/* ID Pelanggan & Nama Pelanggan (Dropdown) */}
+                {/* ID Pelanggan & Nama Pelanggan (Autocomplete Input) */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
@@ -8197,44 +8348,97 @@ const AdminReportPage = ({
                     />
                   </div>
 
-                  <div>
+                  <div className="relative">
                     <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">
-                      Nama Pelanggan *
+                      Nama Pelanggan (Ketik / Pilih) *
                     </label>
-                    <select
-                      value={addFormData.Nama || "Pelanggan Umum"}
-                      onChange={(e) => {
-                        const selectedName = e.target.value;
-                        let selectedId = "CUST-0000";
-                        if (selectedName !== "Pelanggan Umum") {
-                          const found = customerList.find(c => (c.nama || c.Nama) === selectedName);
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Ketik nama pelanggan..."
+                        value={customerInputText}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomerInputText(val);
+                          setShowCustomerSuggestions(true);
+
+                          const found = customerList.find(c => (c.nama || c.Nama || "").toLowerCase() === val.toLowerCase());
                           if (found) {
-                            selectedId = found.id_pelanggan || found.id || "CUST-0000";
+                            handleSelectCustomerSuggestion(found);
+                          } else {
+                            const newTxId = calculateAutoTxId(addFormData.id_pelanggan || "CUST-0000", val, transactions);
+                            setAddFormData(prev => ({
+                              ...prev,
+                              Nama: val,
+                              id_transaksi: newTxId
+                            }));
                           }
-                        }
-                        const newTxId = calculateAutoTxId(selectedId, selectedName, transactions);
-                        setAddFormData((prev) => ({
-                          ...prev,
-                          Nama: selectedName,
-                          id_pelanggan: selectedId,
-                          id_transaksi: newTxId
-                        }));
-                      }}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
-                    >
-                      <option value="Pelanggan Umum">Pelanggan Umum</option>
-                      {customerList
-                        .filter((c) => (c.nama || c.Nama) && (c.nama || c.Nama) !== "Pelanggan Umum")
-                        .map((c, idx) => {
-                          const cName = c.nama || c.Nama;
-                          const cId = c.id_pelanggan || c.id || `CUST-${String(idx + 1).padStart(4, "0")}`;
-                          return (
-                            <option key={`report_cust_opt_${cId}_${idx}`} value={cName}>
-                              {cName}
-                            </option>
-                          );
-                        })}
-                    </select>
+                        }}
+                        onFocus={() => setShowCustomerSuggestions(true)}
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+                      />
+                      {customerInputText && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSelectCustomerSuggestion({
+                              id_pelanggan: "CUST-0000",
+                              Nama: "Pelanggan Umum",
+                              hutang: 0,
+                              tabungan: 0
+                            });
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs px-1 font-bold"
+                          title="Reset ke Pelanggan Umum"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Floating Autocomplete Recommendation Suggestions */}
+                    {showCustomerSuggestions && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-none z-[110] max-h-52 overflow-y-auto">
+                        <div className="p-1.5 text-[10px] font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                          <span>Rekomendasi Pelanggan</span>
+                          <span className="text-[9px] font-normal text-slate-400">Pilih untuk ambil ID</span>
+                        </div>
+                        {filteredSuggestions.length > 0 ? (
+                          filteredSuggestions.map((c, idx) => {
+                            const cName = c.nama || c.Nama || "Pelanggan";
+                            const cId = c.id_pelanggan || c.id || "CUST-0000";
+                            const isSelected = (addFormData.id_pelanggan === cId) || (customerInputText.toLowerCase() === cName.toLowerCase());
+                            return (
+                              <div
+                                key={`cust_sugg_${cId}_${idx}`}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  handleSelectCustomerSuggestion(c);
+                                }}
+                                className={`px-3 py-2 cursor-pointer text-xs flex justify-between items-center border-b border-slate-50 dark:border-slate-800/50 hover:bg-[#005E6A]/10 dark:hover:bg-teal-900/40 transition-colors ${
+                                  isSelected ? "bg-[#005E6A]/15 font-black text-[#005E6A] dark:text-teal-300" : "text-slate-700 dark:text-slate-200"
+                                }`}
+                              >
+                                <div className="truncate max-w-[170px]">
+                                  <span className="font-bold">{cName}</span>
+                                  <span className="ml-1.5 font-mono text-[10px] text-slate-400">({cId})</span>
+                                </div>
+                                {(Number(c.hutang || 0) > 0 || Number(c.tabungan || 0) > 0) && (
+                                  <div className="text-[10px] text-right font-mono shrink-0 ml-1">
+                                    {Number(c.hutang || 0) > 0 && <span className="text-red-500 font-bold block">Hutang: Rp {Number(c.hutang).toLocaleString('id-ID')}</span>}
+                                    {Number(c.tabungan || 0) > 0 && <span className="text-teal-600 dark:text-teal-400 font-bold block">Tab: Rp {Number(c.tabungan).toLocaleString('id-ID')}</span>}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="p-3 text-center text-xs text-slate-400 italic">
+                            Pelanggan tidak ditemukan. Masukkan nama baru...
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -8310,6 +8514,33 @@ const AdminReportPage = ({
                     </select>
                   </div>
                 </div>
+
+                {/* Information Banner for Kasbon / Tabungan IDs */}
+                {addFormData.Metode === "KASBON" && (
+                  <div className="p-3 bg-red-50/80 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50 rounded-lg space-y-1 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-red-700 dark:text-red-300">ID Hutang Otomatis:</span>
+                      <span className="font-mono font-black text-red-800 dark:text-red-200">{selectedCustDetails.lastHutangId}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-600 dark:text-slate-400">Saldo Hutang ({selectedCustDetails.Nama}):</span>
+                      <span className="font-black text-red-600 dark:text-red-400">Rp {selectedCustDetails.hutang.toLocaleString("id-ID")}</span>
+                    </div>
+                  </div>
+                )}
+
+                {addFormData.Metode === "TABUNGAN" && (
+                  <div className="p-3 bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/50 rounded-lg space-y-1 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-[#005E6A] dark:text-teal-300">ID Tabungan Otomatis:</span>
+                      <span className="font-mono font-black text-[#005E6A] dark:text-teal-200">{selectedCustDetails.lastTabunganId}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="text-slate-600 dark:text-slate-400">Saldo Tabungan ({selectedCustDetails.Nama}):</span>
+                      <span className="font-black text-teal-600 dark:text-teal-400">Rp {selectedCustDetails.tabungan.toLocaleString("id-ID")}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Pemasukan & Harga Modal (Otomatis Dikurangi Admin Warung Tomi di Belakang Layar) */}
                 <div className="grid grid-cols-2 gap-3">
@@ -28964,8 +29195,10 @@ export default function App() {
             if (p.startsWith('/admin/debt') || p.startsWith('/hutang') || extraOptions?.debtOnly) {
               custOptions.debtOnly = true;
               custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, foto, level, point';
-            } else if (isAdminDashboard || extraOptions?.withBalanceOnly) {
+            } else if ((isAdminDashboard && !p.includes('/report') && !p.includes('/cashflow') && !p.includes('/database') && !p.includes('/input-data')) || extraOptions?.withBalanceOnly) {
               custOptions.withBalanceOnly = true;
+              custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, foto, level, point';
+            } else {
               custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, foto, level, point';
             }
 
