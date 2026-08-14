@@ -45,7 +45,7 @@ import { AdminDatabasePage, JENIS_OPTIONS, MELALUI_OPTIONS, STATUS_OPTIONS, form
 import { AdminInputDataPage } from "./components/AdminInputDataPage";
 import { AdminCashFlowPage } from "./components/AdminCashFlowPage";
 import { DatabaseSuccessModal, SuccessModalData } from "./components/DatabaseSuccessModal";
-import { DeltaCache } from "./lib/deltaSync";
+import { DeltaCache, formatImageUrl } from "./lib/deltaSync";
 import { SupabaseStockService, SupabaseCustomerService, SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseInvestmentService, SupabasePointsService, SUPABASE_CREATE_PRODUCTS_TABLE_SQL, SupabaseProduct, SupabaseSalesTransaction, formatDateDDMMYYYY } from "./lib/supabase";
 import { 
   ShoppingBag, 
@@ -2885,6 +2885,12 @@ const PageDataSync: React.FC<{
   const location = useLocation();
 
   useEffect(() => {
+    // Ketika user pindah ke tab belanja dan belum memuat katalog lengkap, trigger fetch stockItems
+    if (activeTab === 'belanja' && !loadedCollectionsRef.current.has('stockItems_catalog')) {
+      loadedCollectionsRef.current.add('stockItems_catalog');
+      fetchData(false, 'stockItems');
+      return;
+    }
     const required = getCollectionsForPath(location.pathname, activeTab);
     const missing = required.filter(col => !loadedCollectionsRef.current.has(col));
     if (missing.length > 0) {
@@ -3045,9 +3051,9 @@ const LoginPage = ({
   const [localCustomers, setLocalCustomers] = useState<Customer[]>([]);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // Fetch customer list for login suggestions (only name, pin, foto needed)
+  // Fetch customer list for login suggestions (only name, pin, foto needed - no address, no phone)
   useEffect(() => {
-    if ((!customers || customers.length === 0) && SupabaseCustomerService.isConnected()) {
+    if (SupabaseCustomerService.isConnected()) {
       SupabaseCustomerService.getCustomers({ select: 'id, id_pelanggan, nama, pin, foto' })
         .then(res => {
           if (res.data && res.data.length > 0) {
@@ -3063,11 +3069,12 @@ const LoginPage = ({
         })
         .catch(err => console.error("Gagal memuat pelanggan di LoginPage:", err));
     }
-  }, [customers]);
+  }, []);
 
   const activeCustomerList = useMemo(() => {
+    if (localCustomers && localCustomers.length > 0) return localCustomers;
     if (customers && customers.length > 0) return customers;
-    return localCustomers;
+    return [];
   }, [customers, localCustomers]);
 
   const savedPhotos: Record<string, string> = (() => {
@@ -3081,7 +3088,8 @@ const LoginPage = ({
 
   const getCustomerPhoto = (c: Customer | null | undefined): string => {
     if (!c) return "";
-    return savedPhotos[c.Nama] || c.Foto || (c as any).foto || (c as any).FotoProfil || "";
+    const raw = savedPhotos[c.Nama] || c.Foto || (c as any).foto || (c as any).FotoProfil || "";
+    return formatImageUrl(raw);
   };
 
   const getCustomerPin = (c: Customer | null | undefined): string => {
@@ -16363,6 +16371,41 @@ const getCategoryIcon = (category: string) => {
   return <Package className="w-3.5 h-3.5" />;
 };
 
+export const ProductImage: React.FC<{ 
+  src?: string | null; 
+  alt?: string; 
+  className?: string; 
+  iconClassName?: string;
+}> = ({ 
+  src, 
+  alt = "Produk", 
+  className = "w-full h-full object-cover", 
+  iconClassName = "w-10 h-10 text-slate-300 dark:text-slate-600" 
+}) => {
+  const [hasError, setHasError] = useState(false);
+  const formattedUrl = useMemo(() => formatImageUrl(src), [src]);
+
+  if (!formattedUrl || hasError) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-slate-50 dark:bg-slate-800/80">
+        <Package className={iconClassName} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={formattedUrl}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setHasError(true)}
+    />
+  );
+};
+
 const CatalogPage = ({ 
   stock, 
   user, 
@@ -16731,13 +16774,11 @@ const CatalogPage = ({
                         className="bg-white border border-slate-100 dark:border-slate-800 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow group flex flex-col"
                       >
                         <div className="aspect-square rounded-md bg-slate-50 overflow-hidden mb-3 relative shrink-0">
-                          {item.Image ? (
-                            <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-200">
-                              <Package className="w-10 h-10" />
-                            </div>
-                          )}
+                          <ProductImage 
+                            src={item.Image} 
+                            alt={item.Nama} 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                          />
                           <div className="absolute top-2 left-2">
                             <Badge className="bg-white/90 backdrop-blur-sm text-[#005E6A] text-[7px] font-black uppercase border-none">
                               {item.Kategori}
@@ -16853,13 +16894,12 @@ const CatalogPage = ({
                     {cart.map((item) => (
                       <div key={item.product.id} className="flex items-center justify-between gap-3 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
                         <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 overflow-hidden shrink-0 border border-slate-100 dark:border-slate-700">
-                          {item.product.Image ? (
-                            <img src={item.product.Image} alt={item.product.Nama} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-300">
-                              <Package className="w-5 h-5" />
-                            </div>
-                          )}
+                          <ProductImage 
+                            src={item.product.Image} 
+                            alt={item.product.Nama} 
+                            className="w-full h-full object-cover" 
+                            iconClassName="w-5 h-5 text-slate-300"
+                          />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[10px] font-black text-slate-800 dark:text-slate-200 uppercase truncate">{item.product.Nama}</p>
@@ -22696,7 +22736,7 @@ const ProfilPage = ({
         >
           {user?.Foto ? (
             <img 
-              src={user.Foto} 
+              src={formatImageUrl(user.Foto)} 
               alt={user?.Nama || "Profile"} 
               className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300" 
               referrerPolicy="no-referrer" 
@@ -27910,18 +27950,11 @@ const HomePage = ({
                       <div>
                         {/* Image Container */}
                         <div className="aspect-square rounded-md bg-slate-50 overflow-hidden mb-3 relative shrink-0 flex items-center justify-center">
-                          {item.Image ? (
-                            <img 
-                              src={item.Image} 
-                              alt={item.Nama} 
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                              referrerPolicy="no-referrer" 
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-slate-200">
-                              <Package className="w-10 h-10" />
-                            </div>
-                          )}
+                          <ProductImage 
+                            src={item.Image} 
+                            alt={item.Nama} 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                          />
                           <div className="absolute top-2 left-2">
                             <Badge className="bg-white/90 backdrop-blur-sm text-[#005E6A] text-[7px] font-black uppercase border-none shadow-xs">
                               {item.Kategori || "Umum"}
@@ -29256,15 +29289,22 @@ export default function App() {
     const p = pathname.toLowerCase();
     
     if (p === '/' || p.startsWith('/home')) {
-      if (tab === 'belanja') return ['stockItems', 'salesTransactions', 'customers'];
-      if (tab === 'riwayat') return ['salesTransactions', 'customers'];
-      return ['stockItems', 'customers', 'salesTransactions'];
+      if (tab === 'belanja') return ['stockItems'];
+      if (tab === 'riwayat') return loggedInUser ? ['salesTransactions'] : [];
+      // Beranda tab: Guests only need stock/products if any, no customer accounts or store-wide sales history
+      if (loggedInUser) {
+        return ['stockItems', 'salesTransactions'];
+      }
+      return ['stockItems'];
     }
     if (p.startsWith('/bansos')) {
       return ['salesTransactions'];
     }
-    if (p.startsWith('/pulsa') || p.startsWith('/paket-data') || p.startsWith('/listrik') || p.startsWith('/bantuan') || p.startsWith('/login') || p.startsWith('/qris') || p.startsWith('/tariktunai')) {
+    if (p.startsWith('/login')) {
       return ['customers'];
+    }
+    if (p.startsWith('/pulsa') || p.startsWith('/paket-data') || p.startsWith('/listrik') || p.startsWith('/bantuan') || p.startsWith('/qris') || p.startsWith('/tariktunai')) {
+      return loggedInUser ? ['customers'] : [];
     }
     if (p.startsWith('/tabungan') || p.startsWith('/detail-tabungan')) {
       return ['savingTransactions', 'customers'];
@@ -29304,7 +29344,7 @@ export default function App() {
       }
       return ['customers', 'salesTransactions', 'stockItems'];
     }
-    return ['stockItems', 'salesTransactions', 'customers'];
+    return ['stockItems'];
   };
 
   const fetchData = async (
@@ -29360,11 +29400,20 @@ export default function App() {
             const cached = DeltaCache.get<StockItem>('stockItems');
             const lastSync = extraOptions?.forceFullRefresh ? null : DeltaCache.getLastSync('stockItems');
 
-            const stockOptions: any = isAdminDashboard 
-              ? { select: 'id, id_barang, nama, kategori, stok, satuan, min_stok, harga_modal, harga_jual, update_terakhir' } 
-              : {};
+            const stockOptions: any = {};
+            if (isHomeGuest) {
+              // Beranda tanpa login: panggil hanya produk terlaris/unggulan (limit 10, kolom esensial)
+              stockOptions.select = 'id, id_barang, nama, kategori, stok, satuan, harga_jual, gambar';
+              stockOptions.limit = 10;
+            } else if (activeTab === 'belanja' || (!isAdminOrKasir && !isAdminDashboard)) {
+              // Halaman belanja / katalog: semua produk tapi cukup kolom ringan (foto, nama, harga, stok, satuan, kategori)
+              stockOptions.select = 'id, id_barang, nama, kategori, stok, satuan, harga_jual, gambar';
+            } else {
+              // Admin dashboard & kasir: kolom lengkap untuk manajemen toko
+              stockOptions.select = 'id, id_barang, nama, kategori, stok, satuan, min_stok, harga_modal, harga_jual, update_terakhir, gambar';
+            }
 
-            if (lastSync && cached.length > 0) {
+            if (lastSync && cached.length > 0 && !isHomeGuest) {
               stockOptions.since = lastSync;
             }
 
@@ -29382,7 +29431,7 @@ export default function App() {
                 HargaModal: Number(p.harga_modal) || 0,
                 HargaJual: Number(p.harga_jual) || 0,
                 UpdateTerakhir: p.update_terakhir || '-',
-                Image: p.gambar && p.gambar.trim() !== '' ? p.gambar : undefined
+                Image: formatImageUrl(p.gambar) || undefined
               }));
 
               if (lastSync && cached.length > 0) {
@@ -29391,9 +29440,14 @@ export default function App() {
                 supaStockData = merged;
                 setStock(merged);
               } else {
-                DeltaCache.set('stockItems', mapped, fetchTime);
+                if (!isHomeGuest) {
+                  DeltaCache.set('stockItems', mapped, fetchTime);
+                }
                 supaStockData = mapped;
-                setStock(mapped);
+                setStock(prev => {
+                  if (isHomeGuest && prev.length > mapped.length) return prev;
+                  return mapped;
+                });
               }
               loadedCollectionsRef.current.add("stockItems");
             }
@@ -29456,7 +29510,9 @@ export default function App() {
             const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
             if (userFilterName) custOptions.name = userFilterName;
 
-            if (p.startsWith('/admin/debt') || p.startsWith('/hutang') || extraOptions?.debtOnly) {
+            if (p.startsWith('/login')) {
+              custOptions.select = 'id, id_pelanggan, nama, pin, foto';
+            } else if (p.startsWith('/admin/debt') || p.startsWith('/hutang') || extraOptions?.debtOnly) {
               custOptions.debtOnly = true;
               custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, level, point, foto, telepon, alamat, pin';
             } else if (extraOptions?.withBalanceOnly) {

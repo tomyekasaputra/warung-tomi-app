@@ -323,6 +323,241 @@ export function getSupabaseClient(): SupabaseClient | null {
 }
 
 /**
+ * -----------------------------------------------------------------
+ * Logging & Profiling Database Query & Bandwidth Tracker
+ * -----------------------------------------------------------------
+ */
+export interface SupabaseQueryLog {
+  id: string;
+  timestamp: string;
+  table: string;
+  operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'UPSERT' | 'DELETE' | 'STORAGE' | 'BATCH';
+  durationMs: number;
+  rowCount: number;
+  estimatedBytes: number;
+  formattedSize: string;
+  filterSummary: string;
+  status: 'SUCCESS' | 'ERROR';
+  error?: string;
+}
+
+export interface SupabaseTableStats {
+  count: number;
+  totalMs: number;
+  avgMs: number;
+  totalBytes: number;
+  formattedSize: string;
+  rowCount: number;
+  errorCount: number;
+}
+
+export interface SupabaseQueryStats {
+  totalQueries: number;
+  totalDurationMs: number;
+  totalBytes: number;
+  formattedTotalSize: string;
+  avgDurationMs: number;
+  errorCount: number;
+  byTable: Record<string, SupabaseTableStats>;
+}
+
+export function formatByteSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+export function estimateObjectSize(data: any): number {
+  if (data === null || data === undefined) return 0;
+  try {
+    const json = JSON.stringify(data);
+    return json.length;
+  } catch {
+    return 0;
+  }
+}
+
+class SupabaseQueryLoggerClass {
+  private logs: SupabaseQueryLog[] = [];
+  private maxLogs = 200;
+  private stats: SupabaseQueryStats = {
+    totalQueries: 0,
+    totalDurationMs: 0,
+    totalBytes: 0,
+    formattedTotalSize: '0 B',
+    avgDurationMs: 0,
+    errorCount: 0,
+    byTable: {}
+  };
+
+  public async track<T>(
+    table: string,
+    operation: SupabaseQueryLog['operation'],
+    filterInfo: any,
+    queryFn: () => Promise<{ data: T | null; error: any }>
+  ): Promise<{ data: T | null; error: any }> {
+    const startTime = performance.now();
+    const filterSummary = typeof filterInfo === 'string'
+      ? filterInfo
+      : JSON.stringify(filterInfo || {});
+
+    try {
+      const res = await queryFn();
+      const endTime = performance.now();
+      const durationMs = Math.round((endTime - startTime) * 100) / 100;
+
+      const isArray = Array.isArray(res.data);
+      const rowCount = isArray ? (res.data as any).length : (res.data ? 1 : 0);
+      const estimatedBytes = estimateObjectSize(res.data);
+      const formattedSize = formatByteSize(estimatedBytes);
+      const status: 'SUCCESS' | 'ERROR' = res.error ? 'ERROR' : 'SUCCESS';
+
+      this.recordLog({
+        id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        timestamp: new Date().toISOString(),
+        table,
+        operation,
+        durationMs,
+        rowCount,
+        estimatedBytes,
+        formattedSize,
+        filterSummary,
+        status,
+        error: res.error ? (res.error.message || String(res.error)) : undefined
+      });
+
+      return res;
+    } catch (err: any) {
+      const endTime = performance.now();
+      const durationMs = Math.round((endTime - startTime) * 100) / 100;
+      this.recordLog({
+        id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        timestamp: new Date().toISOString(),
+        table,
+        operation,
+        durationMs,
+        rowCount: 0,
+        estimatedBytes: 0,
+        formattedSize: '0 B',
+        filterSummary,
+        status: 'ERROR',
+        error: err?.message || String(err)
+      });
+      return { data: null, error: err };
+    }
+  }
+
+  private recordLog(log: SupabaseQueryLog) {
+    this.logs.unshift(log);
+    if (this.logs.length > this.maxLogs) {
+      this.logs.pop();
+    }
+
+    // Update stats
+    this.stats.totalQueries++;
+    this.stats.totalDurationMs += log.durationMs;
+    this.stats.totalBytes += log.estimatedBytes;
+    this.stats.formattedTotalSize = formatByteSize(this.stats.totalBytes);
+    this.stats.avgDurationMs = Math.round((this.stats.totalDurationMs / this.stats.totalQueries) * 100) / 100;
+    if (log.status === 'ERROR') this.stats.errorCount++;
+
+    if (!this.stats.byTable[log.table]) {
+      this.stats.byTable[log.table] = {
+        count: 0,
+        totalMs: 0,
+        avgMs: 0,
+        totalBytes: 0,
+        formattedSize: '0 B',
+        rowCount: 0,
+        errorCount: 0
+      };
+    }
+    const tbl = this.stats.byTable[log.table];
+    tbl.count++;
+    tbl.totalMs += log.durationMs;
+    tbl.avgMs = Math.round((tbl.totalMs / tbl.count) * 100) / 100;
+    tbl.totalBytes += log.estimatedBytes;
+    tbl.formattedSize = formatByteSize(tbl.totalBytes);
+    tbl.rowCount += log.rowCount;
+    if (log.status === 'ERROR') tbl.errorCount++;
+
+    // Pretty Console Output with badges
+    const speedBadge = log.durationMs > 1000 ? '🔴 SLOW' : log.durationMs > 300 ? '🟡 MED' : '🟢 FAST';
+    const speedColor = log.durationMs > 1000 ? '#ef4444' : log.durationMs > 300 ? '#f59e0b' : '#10b981';
+    const sizeColor = log.estimatedBytes > 500000 ? '#ef4444' : log.estimatedBytes > 100000 ? '#f59e0b' : '#3b82f6';
+
+    if (log.status === 'ERROR') {
+      console.error(
+        `%c[Supabase Query ERROR]%c ${log.table}.${log.operation} ⚡ ${log.durationMs}ms | Error: ${log.error}`,
+        'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold;',
+        'color: #ef4444; font-weight: bold;'
+      );
+    } else {
+      console.log(
+        `%c[Supabase]%c %c${log.table}%c %c${log.operation}%c ⚡ %c${log.durationMs}ms (${speedBadge})%c | 📦 %c${log.rowCount} rows%c | 🌐 %c${log.formattedSize}%c | Filter: %c${log.filterSummary.length > 80 ? log.filterSummary.slice(0, 80) + '...' : log.filterSummary}`,
+        'background: #005E6A; color: white; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 10px;',
+        '',
+        'color: #0284c7; font-weight: bold;',
+        '',
+        'color: #d97706; font-weight: bold;',
+        '',
+        `color: ${speedColor}; font-weight: bold;`,
+        '',
+        'color: #059669; font-weight: bold;',
+        '',
+        `color: ${sizeColor}; font-weight: bold;`,
+        '',
+        'color: #64748b; font-style: italic;'
+      );
+    }
+  }
+
+  public getLogs(): SupabaseQueryLog[] {
+    return [...this.logs];
+  }
+
+  public getStats(): SupabaseQueryStats {
+    return JSON.parse(JSON.stringify(this.stats));
+  }
+
+  public clearLogs() {
+    this.logs = [];
+    this.stats = {
+      totalQueries: 0,
+      totalDurationMs: 0,
+      totalBytes: 0,
+      formattedTotalSize: '0 B',
+      avgDurationMs: 0,
+      errorCount: 0,
+      byTable: {}
+    };
+  }
+
+  public printSummary() {
+    console.group(`📊 Supabase Performance & Bandwidth Summary (Total: ${this.stats.totalQueries} queries, ${this.stats.formattedTotalSize}, ${this.stats.avgDurationMs}ms avg)`);
+    console.table(
+      Object.entries(this.stats.byTable).map(([table, s]) => ({
+        Table: table,
+        'Queries': s.count,
+        'Total Duration (ms)': Math.round(s.totalMs),
+        'Avg Duration (ms)': s.avgMs,
+        'Rows Transferred': s.rowCount,
+        'Bandwidth Transferred': s.formattedSize,
+        'Errors': s.errorCount
+      }))
+    );
+    console.groupEnd();
+  }
+}
+
+export const SupabaseQueryLogger = new SupabaseQueryLoggerClass();
+
+if (typeof window !== 'undefined') {
+  (window as any).__SUPABASE_LOGGER__ = SupabaseQueryLogger;
+  (window as any).printSupabaseStats = () => SupabaseQueryLogger.printSummary();
+}
+
+/**
  * Helper untuk mengambil set ID yang sudah ada di Supabase secara cepat
  */
 export async function getExistingIdsSet(tableName: string, column: string): Promise<Set<string>> {
@@ -467,155 +702,163 @@ export const SupabaseCustomerService = {
   },
 
   async getCustomers(options?: { name?: string; limit?: number; select?: string; withBalanceOnly?: boolean; debtOnly?: boolean; since?: string }): Promise<{ data: SupabaseCustomer[] | null; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('customers', 'SELECT', options, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const selectCols = options?.select || '*';
-    let baseQuery = client.from('customers').select(selectCols);
+      const selectCols = options?.select || '*';
+      let baseQuery = client.from('customers').select(selectCols);
 
-    if (options?.since) {
-      baseQuery = baseQuery.gt('created_at', options.since);
-    }
-
-    if (options?.debtOnly) {
-      baseQuery = baseQuery.gt('hutang', 0);
-    } else if (options?.withBalanceOnly) {
-      baseQuery = baseQuery.or('tabungan.gt.0,investasi.gt.0,lainnya.gt.0,hutang.gt.0');
-    }
-
-    if (options?.name && options.name.trim() !== '') {
-      baseQuery = baseQuery.ilike('nama', options.name.trim()).order('nama', { ascending: true });
-      if (options?.limit && options.limit > 0) baseQuery = baseQuery.limit(options.limit);
-      const { data, error } = await baseQuery;
-      return { data: data as any, error };
-    }
-
-    if (options?.limit && options.limit > 0) {
-      const { data, error } = await baseQuery.order('nama', { ascending: true }).limit(options.limit);
-      return { data: data as any, error };
-    }
-
-    let allData: SupabaseCustomer[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-    let lastError: any = null;
-
-    while (hasMore) {
-      let pageQuery = client.from('customers').select(selectCols);
       if (options?.since) {
-        pageQuery = pageQuery.gt('created_at', options.since);
+        baseQuery = baseQuery.gt('created_at', options.since);
       }
+
       if (options?.debtOnly) {
-        pageQuery = pageQuery.gt('hutang', 0);
+        baseQuery = baseQuery.gt('hutang', 0);
       } else if (options?.withBalanceOnly) {
-        pageQuery = pageQuery.or('tabungan.gt.0,investasi.gt.0,lainnya.gt.0,hutang.gt.0');
+        baseQuery = baseQuery.or('tabungan.gt.0,investasi.gt.0,lainnya.gt.0,hutang.gt.0');
       }
-      const { data, error } = await pageQuery
-        .order('nama', { ascending: true })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
 
-      if (error) {
-        lastError = error;
-        hasMore = false;
-      } else if (!data || data.length === 0) {
-        hasMore = false;
-      } else {
-        allData = allData.concat(data as any);
-        if (data.length < pageSize) hasMore = false;
-        else page++;
+      if (options?.name && options.name.trim() !== '') {
+        baseQuery = baseQuery.ilike('nama', options.name.trim()).order('nama', { ascending: true });
+        if (options?.limit && options.limit > 0) baseQuery = baseQuery.limit(options.limit);
+        const { data, error } = await baseQuery;
+        return { data: data as any, error };
       }
-    }
 
-    if (allData.length === 0 && lastError) return { data: null, error: lastError };
-    return { data: allData, error: null };
+      if (options?.limit && options.limit > 0) {
+        const { data, error } = await baseQuery.order('nama', { ascending: true }).limit(options.limit);
+        return { data: data as any, error };
+      }
+
+      let allData: SupabaseCustomer[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      let lastError: any = null;
+
+      while (hasMore) {
+        let pageQuery = client.from('customers').select(selectCols);
+        if (options?.since) {
+          pageQuery = pageQuery.gt('created_at', options.since);
+        }
+        if (options?.debtOnly) {
+          pageQuery = pageQuery.gt('hutang', 0);
+        } else if (options?.withBalanceOnly) {
+          pageQuery = pageQuery.or('tabungan.gt.0,investasi.gt.0,lainnya.gt.0,hutang.gt.0');
+        }
+        const { data, error } = await pageQuery
+          .order('nama', { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) {
+          lastError = error;
+          hasMore = false;
+        } else if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allData = allData.concat(data as any);
+          if (data.length < pageSize) hasMore = false;
+          else page++;
+        }
+      }
+
+      if (allData.length === 0 && lastError) return { data: null, error: lastError };
+      return { data: allData, error: null };
+    });
   },
 
   async getCustomersMinimal(): Promise<{ data: Partial<SupabaseCustomer>[] | null; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
-    const { data, error } = await client
-      .from('customers')
-      .select('id_pelanggan, nama, foto')
-      .order('nama', { ascending: true });
-    return { data, error };
+    return SupabaseQueryLogger.track('customers', 'SELECT', { type: 'minimal' }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      const { data, error } = await client
+        .from('customers')
+        .select('id_pelanggan, nama, foto')
+        .order('nama', { ascending: true });
+      return { data, error };
+    });
   },
 
   async upsertCustomer(customer: SupabaseCustomer | any): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi") };
+    return SupabaseQueryLogger.track('customers', 'UPSERT', { name: customer.nama || customer.Nama }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi") };
 
-    const cleanPayload: any = {};
-    const idPel = customer.id_pelanggan || customer.id || customer.ID || `CUST-${Date.now()}`;
-    cleanPayload.id_pelanggan = String(idPel).trim();
-    cleanPayload.nama = String(customer.nama || customer.Nama || customer.nama_pelanggan || 'Pelanggan').trim();
+      const cleanPayload: any = {};
+      const idPel = customer.id_pelanggan || customer.id || customer.ID || `CUST-${Date.now()}`;
+      cleanPayload.id_pelanggan = String(idPel).trim();
+      cleanPayload.nama = String(customer.nama || customer.Nama || customer.nama_pelanggan || 'Pelanggan').trim();
 
-    if (customer.pin !== undefined || customer.PIN !== undefined) cleanPayload.pin = String(customer.pin ?? customer.PIN ?? '');
-    if (customer.telepon !== undefined || customer.Telepon !== undefined) cleanPayload.telepon = String(customer.telepon ?? customer.Telepon ?? '');
-    if (customer.alamat !== undefined || customer.Alamat !== undefined) cleanPayload.alamat = String(customer.alamat ?? customer.Alamat ?? '');
-    if (customer.tabungan !== undefined || customer.Tabungan !== undefined) cleanPayload.tabungan = Number(customer.tabungan ?? customer.Tabungan) || 0;
-    if (customer.investasi !== undefined || customer.Investasi !== undefined) cleanPayload.investasi = Number(customer.investasi ?? customer.Investasi) || 0;
-    if (customer.lainnya !== undefined || customer.Lainnya !== undefined) cleanPayload.lainnya = Number(customer.lainnya ?? customer.Lainnya) || 0;
-    if (customer.hutang !== undefined || customer.Hutang !== undefined) cleanPayload.hutang = Number(customer.hutang ?? customer.Hutang) || 0;
-    if (customer.point !== undefined || customer.Poin !== undefined || customer.poin !== undefined) cleanPayload.point = Number(customer.point ?? customer.Poin ?? customer.poin) || 0;
-    if (customer.level !== undefined || customer.Level !== undefined) cleanPayload.level = String(customer.level ?? customer.Level ?? 'Bronze');
-    if (customer.foto !== undefined || customer.Foto !== undefined) cleanPayload.foto = String(customer.foto ?? customer.Foto ?? '');
-    cleanPayload.created_at = new Date().toISOString();
+      if (customer.pin !== undefined || customer.PIN !== undefined) cleanPayload.pin = String(customer.pin ?? customer.PIN ?? '');
+      if (customer.telepon !== undefined || customer.Telepon !== undefined) cleanPayload.telepon = String(customer.telepon ?? customer.Telepon ?? '');
+      if (customer.alamat !== undefined || customer.Alamat !== undefined) cleanPayload.alamat = String(customer.alamat ?? customer.Alamat ?? '');
+      if (customer.tabungan !== undefined || customer.Tabungan !== undefined) cleanPayload.tabungan = Number(customer.tabungan ?? customer.Tabungan) || 0;
+      if (customer.investasi !== undefined || customer.Investasi !== undefined) cleanPayload.investasi = Number(customer.investasi ?? customer.Investasi) || 0;
+      if (customer.lainnya !== undefined || customer.Lainnya !== undefined) cleanPayload.lainnya = Number(customer.lainnya ?? customer.Lainnya) || 0;
+      if (customer.hutang !== undefined || customer.Hutang !== undefined) cleanPayload.hutang = Number(customer.hutang ?? customer.Hutang) || 0;
+      if (customer.point !== undefined || customer.Poin !== undefined || customer.poin !== undefined) cleanPayload.point = Number(customer.point ?? customer.Poin ?? customer.poin) || 0;
+      if (customer.level !== undefined || customer.Level !== undefined) cleanPayload.level = String(customer.level ?? customer.Level ?? 'Bronze');
+      if (customer.foto !== undefined || customer.Foto !== undefined) cleanPayload.foto = String(customer.foto ?? customer.Foto ?? '');
+      cleanPayload.created_at = new Date().toISOString();
 
-    if (isValidUUID(customer.id)) {
-      cleanPayload.id = customer.id;
-    }
-
-    if (cleanPayload.id) {
-      const { data: updateData, error: updateErr } = await client
-        .from('customers')
-        .update(cleanPayload)
-        .eq('id', cleanPayload.id)
-        .select();
-
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+      if (isValidUUID(customer.id)) {
+        cleanPayload.id = customer.id;
       }
-    }
 
-    if (cleanPayload.id_pelanggan) {
-      const { data: updateData, error: updateErr } = await client
-        .from('customers')
-        .update(cleanPayload)
-        .eq('id_pelanggan', cleanPayload.id_pelanggan)
-        .select();
+      if (cleanPayload.id) {
+        const { data: updateData, error: updateErr } = await client
+          .from('customers')
+          .update(cleanPayload)
+          .eq('id', cleanPayload.id)
+          .select();
 
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
       }
-    }
 
-    let { data, error } = await client.from('customers').upsert(cleanPayload, { onConflict: 'id_pelanggan' }).select();
-    if (error) {
-      const insertPayload = { ...cleanPayload };
-      delete insertPayload.id;
-      const { data: insData, error: insErr } = await client.from('customers').insert(insertPayload).select();
-      if (!insErr && insData) return { data: insData, error: null };
-    }
-    return { data, error };
+      if (cleanPayload.id_pelanggan) {
+        const { data: updateData, error: updateErr } = await client
+          .from('customers')
+          .update(cleanPayload)
+          .eq('id_pelanggan', cleanPayload.id_pelanggan)
+          .select();
+
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
+      }
+
+      let { data, error } = await client.from('customers').upsert(cleanPayload, { onConflict: 'id_pelanggan' }).select();
+      if (error) {
+        const insertPayload = { ...cleanPayload };
+        delete insertPayload.id;
+        const { data: insData, error: insErr } = await client.from('customers').insert(insertPayload).select();
+        if (!insErr && insData) return { data: insData, error: null };
+      }
+      return { data, error };
+    });
   },
 
   async deleteCustomer(idPelanggan: string, nama?: string): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi") };
-    if (idPelanggan) {
-      const { data, error } = await client.from('customers').delete().eq('id_pelanggan', idPelanggan);
-      if (!error && data && (data as any).length > 0) return { data, error: null };
-    }
-    if (nama) {
-      const { data, error } = await client.from('customers').delete().ilike('nama', nama);
-      if (!error) return { data, error: null };
-    }
-    if (idPelanggan) {
-      const { data, error } = await client.from('customers').delete().eq('id_pelanggan', idPelanggan);
-      return { data, error };
-    }
-    return { data: null, error: new Error("ID/Nama pelanggan tidak valid") };
+    return SupabaseQueryLogger.track('customers', 'DELETE', { idPelanggan, nama }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi") };
+      if (idPelanggan) {
+        const { data, error } = await client.from('customers').delete().eq('id_pelanggan', idPelanggan);
+        if (!error && data && (data as any).length > 0) return { data, error: null };
+      }
+      if (nama) {
+        const { data, error } = await client.from('customers').delete().ilike('nama', nama);
+        if (!error) return { data, error: null };
+      }
+      if (idPelanggan) {
+        const { data, error } = await client.from('customers').delete().eq('id_pelanggan', idPelanggan);
+        return { data, error };
+      }
+      return { data: null, error: new Error("ID/Nama pelanggan tidak valid") };
+    });
   },
 
   async uploadCustomerPhoto(
@@ -759,114 +1002,120 @@ export const SupabaseStockService = {
   isConnected(): boolean { return SupabaseCustomerService.isConnected(); },
 
   async getProducts(options?: { limit?: number; select?: string; since?: string }): Promise<{ data: SupabaseProduct[] | null; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('products', 'SELECT', options, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const selectCols = options?.select || '*';
-    let baseQuery = client.from('products').select(selectCols);
+      const selectCols = options?.select || '*';
+      let baseQuery = client.from('products').select(selectCols);
 
-    if (options?.since) {
-      baseQuery = baseQuery.gt('created_at', options.since);
-    }
-
-    if (options?.limit && options.limit > 0) {
-      const { data, error } = await baseQuery
-        .order('nama', { ascending: true })
-        .limit(options.limit);
-      return { data: data as any, error };
-    }
-    let allData: SupabaseProduct[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-    let lastError: any = null;
-
-    while (hasMore) {
-      let pageQuery = client.from('products').select(selectCols);
       if (options?.since) {
-        pageQuery = pageQuery.gt('created_at', options.since);
+        baseQuery = baseQuery.gt('created_at', options.since);
       }
-      const { data, error } = await pageQuery
-        .order('nama', { ascending: true })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
 
-      if (error) {
-        lastError = error;
-        hasMore = false;
-      } else if (!data || data.length === 0) {
-        hasMore = false;
-      } else {
-        allData = allData.concat(data as any);
-        if (data.length < pageSize) hasMore = false;
-        else page++;
+      if (options?.limit && options.limit > 0) {
+        const { data, error } = await baseQuery
+          .order('nama', { ascending: true })
+          .limit(options.limit);
+        return { data: data as any, error };
       }
-    }
+      let allData: SupabaseProduct[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      let lastError: any = null;
 
-    if (allData.length === 0 && lastError) return { data: null, error: lastError };
-    return { data: allData, error: null };
+      while (hasMore) {
+        let pageQuery = client.from('products').select(selectCols);
+        if (options?.since) {
+          pageQuery = pageQuery.gt('created_at', options.since);
+        }
+        const { data, error } = await pageQuery
+          .order('nama', { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) {
+          lastError = error;
+          hasMore = false;
+        } else if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allData = allData.concat(data as any);
+          if (data.length < pageSize) hasMore = false;
+          else page++;
+        }
+      }
+
+      if (allData.length === 0 && lastError) return { data: null, error: lastError };
+      return { data: allData, error: null };
+    });
   },
 
   async upsertProduct(product: SupabaseProduct | any): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('products', 'UPSERT', { name: product.nama || product.Nama }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const cleanPayload: any = {
-      id_barang: String(product.id_barang || product.id || product.ID || `BRG-${Date.now()}`).trim(),
-      nama: String(product.nama || product.Nama || 'Barang').trim(),
-      kategori: String(product.kategori || product.Kategori || 'Sembako').trim(),
-      stok: Number(product.stok !== undefined ? product.stok : (product.Stok || 0)),
-      satuan: String(product.satuan || product.Satuan || 'pcs').trim(),
-      min_stok: Number(product.min_stok !== undefined ? product.min_stok : (product.MinStok || 5)),
-      harga_modal: Number(product.harga_modal !== undefined ? product.harga_modal : (product.HargaModal || 0)),
-      harga_jual: Number(product.harga_jual !== undefined ? product.harga_jual : (product.HargaJual || 0)),
-      gambar: String(product.gambar || product.Gambar || product.Image || '').trim(),
-      update_terakhir: String(product.update_terakhir || product.UpdateTerakhir || new Date().toLocaleString('id-ID')).trim(),
-      created_at: new Date().toISOString()
-    };
+      const cleanPayload: any = {
+        id_barang: String(product.id_barang || product.id || product.ID || `BRG-${Date.now()}`).trim(),
+        nama: String(product.nama || product.Nama || 'Barang').trim(),
+        kategori: String(product.kategori || product.Kategori || 'Sembako').trim(),
+        stok: Number(product.stok !== undefined ? product.stok : (product.Stok || 0)),
+        satuan: String(product.satuan || product.Satuan || 'pcs').trim(),
+        min_stok: Number(product.min_stok !== undefined ? product.min_stok : (product.MinStok || 5)),
+        harga_modal: Number(product.harga_modal !== undefined ? product.harga_modal : (product.HargaModal || 0)),
+        harga_jual: Number(product.harga_jual !== undefined ? product.harga_jual : (product.HargaJual || 0)),
+        gambar: String(product.gambar || product.Gambar || product.Image || '').trim(),
+        update_terakhir: String(product.update_terakhir || product.UpdateTerakhir || new Date().toLocaleString('id-ID')).trim(),
+        created_at: new Date().toISOString()
+      };
 
-    if (isValidUUID(product.id)) {
-      cleanPayload.id = product.id;
-    }
-
-    if (cleanPayload.id) {
-      const { data: updateData, error: updateErr } = await client
-        .from('products')
-        .update(cleanPayload)
-        .eq('id', cleanPayload.id)
-        .select();
-
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+      if (isValidUUID(product.id)) {
+        cleanPayload.id = product.id;
       }
-    }
 
-    if (cleanPayload.id_barang) {
-      const { data: updateData, error: updateErr } = await client
-        .from('products')
-        .update(cleanPayload)
-        .eq('id_barang', cleanPayload.id_barang)
-        .select();
+      if (cleanPayload.id) {
+        const { data: updateData, error: updateErr } = await client
+          .from('products')
+          .update(cleanPayload)
+          .eq('id', cleanPayload.id)
+          .select();
 
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
       }
-    }
 
-    let { data, error } = await client.from('products').upsert(cleanPayload, { onConflict: 'id_barang' }).select();
-    if (error) {
-      const insertPayload = { ...cleanPayload };
-      delete insertPayload.id;
-      const { data: insData, error: insErr } = await client.from('products').insert(insertPayload).select();
-      if (!insErr && insData) return { data: insData, error: null };
-    }
-    return { data, error };
+      if (cleanPayload.id_barang) {
+        const { data: updateData, error: updateErr } = await client
+          .from('products')
+          .update(cleanPayload)
+          .eq('id_barang', cleanPayload.id_barang)
+          .select();
+
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
+      }
+
+      let { data, error } = await client.from('products').upsert(cleanPayload, { onConflict: 'id_barang' }).select();
+      if (error) {
+        const insertPayload = { ...cleanPayload };
+        delete insertPayload.id;
+        const { data: insData, error: insErr } = await client.from('products').insert(insertPayload).select();
+        if (!insErr && insData) return { data: insData, error: null };
+      }
+      return { data, error };
+    });
   },
 
   async deleteProduct(idBarang: string): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
-    const { data, error } = await client.from('products').delete().eq('id_barang', idBarang);
-    return { data, error };
+    return SupabaseQueryLogger.track('products', 'DELETE', { idBarang }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      const { data, error } = await client.from('products').delete().eq('id_barang', idBarang);
+      return { data, error };
+    });
   },
 
   async bulkMigrateStock(
@@ -995,139 +1244,143 @@ export const SupabaseSavingsService = {
   },
 
   async getSavings(options?: { name?: string; limit?: number; select?: string; month?: string; currentMonthOnly?: boolean; since?: string }): Promise<{ data: SupabaseSavingTransaction[] | null; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('savings_transactions', 'SELECT', options, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const selectCols = options?.select || '*';
-    let baseQuery = client.from('savings_transactions').select(selectCols);
+      const selectCols = options?.select || '*';
+      let baseQuery = client.from('savings_transactions').select(selectCols);
 
-    if (options?.since) {
-      baseQuery = baseQuery.gt('created_at', options.since);
-    }
-
-    let targetMonth = options?.month;
-    if (!targetMonth && options?.currentMonthOnly && !options?.since) {
-      const now = new Date();
-      targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    }
-
-    if (targetMonth && !options?.since) {
-      const parts = targetMonth.split('-');
-      if (parts.length === 2) {
-        const y = parts[0];
-        const m = parts[1].padStart(2, '0');
-        const startISO = `${y}-${m}-01T00:00:00.000Z`;
-        baseQuery = baseQuery.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
-      }
-    }
-
-    if (options?.name && options.name.trim() !== '') {
-      baseQuery = baseQuery.ilike('nama', options.name.trim());
-    }
-
-    baseQuery = baseQuery.order('created_at', { ascending: true });
-
-    if (options?.limit && options.limit > 0) {
-      const { data, error } = await baseQuery.limit(options.limit);
-      return { data: data as any, error };
-    }
-
-    let allData: SupabaseSavingTransaction[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-    let lastError: any = null;
-
-    while (hasMore) {
-      let pageQuery = client.from('savings_transactions').select(selectCols);
       if (options?.since) {
-        pageQuery = pageQuery.gt('created_at', options.since);
+        baseQuery = baseQuery.gt('created_at', options.since);
       }
+
+      let targetMonth = options?.month;
+      if (!targetMonth && options?.currentMonthOnly && !options?.since) {
+        const now = new Date();
+        targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      }
+
       if (targetMonth && !options?.since) {
         const parts = targetMonth.split('-');
         if (parts.length === 2) {
           const y = parts[0];
           const m = parts[1].padStart(2, '0');
           const startISO = `${y}-${m}-01T00:00:00.000Z`;
-          pageQuery = pageQuery.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
+          baseQuery = baseQuery.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
         }
       }
+
       if (options?.name && options.name.trim() !== '') {
-        pageQuery = pageQuery.ilike('nama', options.name.trim());
+        baseQuery = baseQuery.ilike('nama', options.name.trim());
       }
 
-      const { data, error } = await pageQuery
-        .order('created_at', { ascending: true })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      baseQuery = baseQuery.order('created_at', { ascending: true });
 
-      if (error) {
-        lastError = error;
-        hasMore = false;
-      } else if (!data || data.length === 0) {
-        hasMore = false;
-      } else {
-        allData = allData.concat(data as any);
-        if (data.length < pageSize) hasMore = false;
-        else page++;
+      if (options?.limit && options.limit > 0) {
+        const { data, error } = await baseQuery.limit(options.limit);
+        return { data: data as any, error };
       }
-    }
 
-    if (allData.length === 0 && lastError) return { data: null, error: lastError };
-    return { data: allData, error: null };
+      let allData: SupabaseSavingTransaction[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      let lastError: any = null;
+
+      while (hasMore) {
+        let pageQuery = client.from('savings_transactions').select(selectCols);
+        if (options?.since) {
+          pageQuery = pageQuery.gt('created_at', options.since);
+        }
+        if (targetMonth && !options?.since) {
+          const parts = targetMonth.split('-');
+          if (parts.length === 2) {
+            const y = parts[0];
+            const m = parts[1].padStart(2, '0');
+            const startISO = `${y}-${m}-01T00:00:00.000Z`;
+            pageQuery = pageQuery.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
+          }
+        }
+        if (options?.name && options.name.trim() !== '') {
+          pageQuery = pageQuery.ilike('nama', options.name.trim());
+        }
+
+        const { data, error } = await pageQuery
+          .order('created_at', { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) {
+          lastError = error;
+          hasMore = false;
+        } else if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allData = allData.concat(data as any);
+          if (data.length < pageSize) hasMore = false;
+          else page++;
+        }
+      }
+
+      if (allData.length === 0 && lastError) return { data: null, error: lastError };
+      return { data: allData, error: null };
+    });
   },
 
   async upsertSaving(saving: SupabaseSavingTransaction | any): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('savings_transactions', 'UPSERT', { name: saving.nama || saving.Nama }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const cleanPayload: any = {
-      id_tabungan: String(saving.id_tabungan || saving.id || `TBG-${Date.now()}`).trim(),
-      id_pelanggan: String(saving.id_pelanggan || saving.idPelanggan || '').trim(),
-      tanggal: formatDateDDMMYYYY(saving.tanggal || saving.Tanggal),
-      nama: String(saving.nama || saving.Nama || saving.nama_nasabah || 'Nasabah').trim(),
-      tipe: String(saving.tipe || saving.Tipe || 'SETOR').toUpperCase().trim(),
-      nominal: Number(saving.nominal !== undefined ? saving.nominal : (saving.Nominal || 0)),
-      saldo_akhir: Number(saving.saldo_akhir !== undefined ? saving.saldo_akhir : (saving.SaldoAkhir || 0)),
-      berita: String(saving.berita || saving.Berita || saving.keterangan || saving.Keterangan || '').trim(),
-      sebagian: Number(saving.sebagian !== undefined ? saving.sebagian : (saving.Sebagian || 0))
-    };
+      const cleanPayload: any = {
+        id_tabungan: String(saving.id_tabungan || saving.id || `TBG-${Date.now()}`).trim(),
+        id_pelanggan: String(saving.id_pelanggan || saving.idPelanggan || '').trim(),
+        tanggal: formatDateDDMMYYYY(saving.tanggal || saving.Tanggal),
+        nama: String(saving.nama || saving.Nama || saving.nama_nasabah || 'Nasabah').trim(),
+        tipe: String(saving.tipe || saving.Tipe || 'SETOR').toUpperCase().trim(),
+        nominal: Number(saving.nominal !== undefined ? saving.nominal : (saving.Nominal || 0)),
+        saldo_akhir: Number(saving.saldo_akhir !== undefined ? saving.saldo_akhir : (saving.SaldoAkhir || 0)),
+        berita: String(saving.berita || saving.Berita || saving.keterangan || saving.Keterangan || '').trim(),
+        sebagian: Number(saving.sebagian !== undefined ? saving.sebagian : (saving.Sebagian || 0))
+      };
 
-    if (isValidUUID(saving.id)) {
-      cleanPayload.id = saving.id;
-    }
-
-    if (cleanPayload.id) {
-      const { data: updateData, error: updateErr } = await client
-        .from('savings_transactions')
-        .update(cleanPayload)
-        .eq('id', cleanPayload.id)
-        .select();
-
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+      if (isValidUUID(saving.id)) {
+        cleanPayload.id = saving.id;
       }
-    }
 
-    if (cleanPayload.id_tabungan) {
-      const { data: updateData, error: updateErr } = await client
-        .from('savings_transactions')
-        .update(cleanPayload)
-        .eq('id_tabungan', cleanPayload.id_tabungan)
-        .select();
+      if (cleanPayload.id) {
+        const { data: updateData, error: updateErr } = await client
+          .from('savings_transactions')
+          .update(cleanPayload)
+          .eq('id', cleanPayload.id)
+          .select();
 
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
       }
-    }
 
-    let { data, error } = await client.from('savings_transactions').upsert(cleanPayload, { onConflict: 'id_tabungan' }).select();
-    if (error) {
-      const insertPayload = { ...cleanPayload };
-      delete insertPayload.id;
-      const { data: insData, error: insErr } = await client.from('savings_transactions').insert(insertPayload).select();
-      if (!insErr && insData) return { data: insData, error: null };
-    }
-    return { data, error };
+      if (cleanPayload.id_tabungan) {
+        const { data: updateData, error: updateErr } = await client
+          .from('savings_transactions')
+          .update(cleanPayload)
+          .eq('id_tabungan', cleanPayload.id_tabungan)
+          .select();
+
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
+      }
+
+      let { data, error } = await client.from('savings_transactions').upsert(cleanPayload, { onConflict: 'id_tabungan' }).select();
+      if (error) {
+        const insertPayload = { ...cleanPayload };
+        delete insertPayload.id;
+        const { data: insData, error: insErr } = await client.from('savings_transactions').insert(insertPayload).select();
+        if (!insErr && insData) return { data: insData, error: null };
+      }
+      return { data, error };
+    });
   },
 
   async addSavingTransaction(saving: SupabaseSavingTransaction): Promise<{ data: any; error: any }> {
@@ -1135,14 +1388,16 @@ export const SupabaseSavingsService = {
   },
 
   async deleteSaving(idTabungan: string, altId?: string): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
-    let { data, error } = await client.from('savings_transactions').delete().eq('id_tabungan', idTabungan);
-    if (!error && altId && altId !== idTabungan) {
-      const res = await client.from('savings_transactions').delete().eq('id', altId);
-      if (res.error) error = res.error;
-    }
-    return { data, error };
+    return SupabaseQueryLogger.track('savings_transactions', 'DELETE', { idTabungan, altId }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      let { data, error } = await client.from('savings_transactions').delete().eq('id_tabungan', idTabungan);
+      if (!error && altId && altId !== idTabungan) {
+        const res = await client.from('savings_transactions').delete().eq('id', altId);
+        if (res.error) error = res.error;
+      }
+      return { data, error };
+    });
   },
 
   async bulkMigrateSavings(
@@ -1212,124 +1467,128 @@ export const SupabaseInvestmentService = {
   },
 
   async getInvestments(options?: { name?: string; limit?: number; select?: string; activeOnly?: boolean; since?: string }): Promise<{ data: SupabaseInvestmentTransaction[] | null; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('investment_transactions', 'SELECT', options, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const selectCols = options?.select || '*';
-    let baseQuery = client.from('investment_transactions').select(selectCols);
+      const selectCols = options?.select || '*';
+      let baseQuery = client.from('investment_transactions').select(selectCols);
 
-    if (options?.since) {
-      baseQuery = baseQuery.gt('created_at', options.since);
-    }
-
-    if (options?.activeOnly && !options?.since) {
-      baseQuery = baseQuery.neq('status', 'sukses dicairkan');
-    }
-
-    if (options?.name && options.name.trim() !== '') {
-      baseQuery = baseQuery.ilike('nama', options.name.trim());
-    }
-
-    baseQuery = baseQuery.order('created_at', { ascending: true });
-
-    if (options?.limit && options.limit > 0) {
-      const { data, error } = await baseQuery.limit(options.limit);
-      return { data: data as any, error };
-    }
-
-    let allData: SupabaseInvestmentTransaction[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-    let lastError: any = null;
-
-    while (hasMore) {
-      let pageQuery = client.from('investment_transactions').select(selectCols);
       if (options?.since) {
-        pageQuery = pageQuery.gt('created_at', options.since);
+        baseQuery = baseQuery.gt('created_at', options.since);
       }
+
       if (options?.activeOnly && !options?.since) {
-        pageQuery = pageQuery.neq('status', 'sukses dicairkan');
+        baseQuery = baseQuery.neq('status', 'sukses dicairkan');
       }
+
       if (options?.name && options.name.trim() !== '') {
-        pageQuery = pageQuery.ilike('nama', options.name.trim());
+        baseQuery = baseQuery.ilike('nama', options.name.trim());
       }
 
-      const { data, error } = await pageQuery
-        .order('created_at', { ascending: true })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      baseQuery = baseQuery.order('created_at', { ascending: true });
 
-      if (error) {
-        lastError = error;
-        hasMore = false;
-      } else if (!data || data.length === 0) {
-        hasMore = false;
-      } else {
-        allData = allData.concat(data as any);
-        if (data.length < pageSize) hasMore = false;
-        else page++;
+      if (options?.limit && options.limit > 0) {
+        const { data, error } = await baseQuery.limit(options.limit);
+        return { data: data as any, error };
       }
-    }
 
-    if (allData.length === 0 && lastError) return { data: null, error: lastError };
-    return { data: allData, error: null };
+      let allData: SupabaseInvestmentTransaction[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      let lastError: any = null;
+
+      while (hasMore) {
+        let pageQuery = client.from('investment_transactions').select(selectCols);
+        if (options?.since) {
+          pageQuery = pageQuery.gt('created_at', options.since);
+        }
+        if (options?.activeOnly && !options?.since) {
+          pageQuery = pageQuery.neq('status', 'sukses dicairkan');
+        }
+        if (options?.name && options.name.trim() !== '') {
+          pageQuery = pageQuery.ilike('nama', options.name.trim());
+        }
+
+        const { data, error } = await pageQuery
+          .order('created_at', { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) {
+          lastError = error;
+          hasMore = false;
+        } else if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allData = allData.concat(data as any);
+          if (data.length < pageSize) hasMore = false;
+          else page++;
+        }
+      }
+
+      if (allData.length === 0 && lastError) return { data: null, error: lastError };
+      return { data: allData, error: null };
+    });
   },
 
   async upsertInvestment(investment: SupabaseInvestmentTransaction | any): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('investment_transactions', 'UPSERT', { name: investment.nama || investment.Nama }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const cleanPayload: any = {
-      id_investasi: investment.id_investasi || (isValidUUID(investment.id) ? undefined : investment.id) || `INV-${Date.now()}`,
-      id_pelanggan: investment.id_pelanggan || '',
-      tanggal: investment.tanggal || investment.Tanggal || new Date().toISOString().slice(0, 10),
-      nama: investment.nama || investment.Nama || investment.nama_investor || 'Investor',
-      nominal: Number(investment.nominal !== undefined ? investment.nominal : (investment.Nominal || 0)),
-      tenor: investment.tenor || investment.Tenor || (investment.tenor_bulan ? `${investment.tenor_bulan} Bulan` : '12 Bulan'),
-      jatuh_tempo: investment.jatuh_tempo || investment.JatuhTempo || '',
-      status: investment.status || investment.Status || 'Aktif',
-      keterangan: investment.keterangan || investment.Keterangan || '',
-      nisbah: investment.nisbah || investment.Nisbah || (investment.nisbah_persen ? `${investment.nisbah_persen}%` : '10%'),
-      sebagian: Number(investment.sebagian || investment.Sebagian || 0)
-    };
+      const cleanPayload: any = {
+        id_investasi: investment.id_investasi || (isValidUUID(investment.id) ? undefined : investment.id) || `INV-${Date.now()}`,
+        id_pelanggan: investment.id_pelanggan || '',
+        tanggal: investment.tanggal || investment.Tanggal || new Date().toISOString().slice(0, 10),
+        nama: investment.nama || investment.Nama || investment.nama_investor || 'Investor',
+        nominal: Number(investment.nominal !== undefined ? investment.nominal : (investment.Nominal || 0)),
+        tenor: investment.tenor || investment.Tenor || (investment.tenor_bulan ? `${investment.tenor_bulan} Bulan` : '12 Bulan'),
+        jatuh_tempo: investment.jatuh_tempo || investment.JatuhTempo || '',
+        status: investment.status || investment.Status || 'Aktif',
+        keterangan: investment.keterangan || investment.Keterangan || '',
+        nisbah: investment.nisbah || investment.Nisbah || (investment.nisbah_persen ? `${investment.nisbah_persen}%` : '10%'),
+        sebagian: Number(investment.sebagian || investment.Sebagian || 0)
+      };
 
-    if (isValidUUID(investment.id)) {
-      cleanPayload.id = investment.id;
-    }
-
-    if (cleanPayload.id) {
-      const { data: updateData, error: updateErr } = await client
-        .from('investment_transactions')
-        .update(cleanPayload)
-        .eq('id', cleanPayload.id)
-        .select();
-
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+      if (isValidUUID(investment.id)) {
+        cleanPayload.id = investment.id;
       }
-    }
 
-    if (cleanPayload.id_investasi) {
-      const { data: updateData, error: updateErr } = await client
-        .from('investment_transactions')
-        .update(cleanPayload)
-        .eq('id_investasi', cleanPayload.id_investasi)
-        .select();
+      if (cleanPayload.id) {
+        const { data: updateData, error: updateErr } = await client
+          .from('investment_transactions')
+          .update(cleanPayload)
+          .eq('id', cleanPayload.id)
+          .select();
 
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
       }
-    }
 
-    let { data, error } = await client.from('investment_transactions').upsert(cleanPayload, { onConflict: 'id_investasi' }).select();
-    if (error) {
-      const insertPayload = { ...cleanPayload };
-      delete insertPayload.id;
-      const { data: insData, error: insErr } = await client.from('investment_transactions').insert(insertPayload).select();
-      if (!insErr && insData) return { data: insData, error: null };
-      return { data: null, error: insErr || error };
-    }
-    return { data, error };
+      if (cleanPayload.id_investasi) {
+        const { data: updateData, error: updateErr } = await client
+          .from('investment_transactions')
+          .update(cleanPayload)
+          .eq('id_investasi', cleanPayload.id_investasi)
+          .select();
+
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
+      }
+
+      let { data, error } = await client.from('investment_transactions').upsert(cleanPayload, { onConflict: 'id_investasi' }).select();
+      if (error) {
+        const insertPayload = { ...cleanPayload };
+        delete insertPayload.id;
+        const { data: insData, error: insErr } = await client.from('investment_transactions').insert(insertPayload).select();
+        if (!insErr && insData) return { data: insData, error: null };
+        return { data: null, error: insErr || error };
+      }
+      return { data, error };
+    });
   },
 
   async addInvestmentTransaction(investment: SupabaseInvestmentTransaction): Promise<{ data: any; error: any }> {
@@ -1337,10 +1596,12 @@ export const SupabaseInvestmentService = {
   },
 
   async deleteInvestment(idInvestasi: string): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
-    const { data, error } = await client.from('investment_transactions').delete().eq('id_investasi', idInvestasi);
-    return { data, error };
+    return SupabaseQueryLogger.track('investment_transactions', 'DELETE', { idInvestasi }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      const { data, error } = await client.from('investment_transactions').delete().eq('id_investasi', idInvestasi);
+      return { data, error };
+    });
   },
 
   async bulkMigrateInvestment(
@@ -1412,140 +1673,144 @@ export const SupabaseDebtService = {
   },
 
   async getDebts(options?: { name?: string; limit?: number; select?: string; month?: string; currentMonthOnly?: boolean; allHistory?: boolean; since?: string }): Promise<{ data: SupabaseDebtTransaction[] | null; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('debt_transactions', 'SELECT', options, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const selectCols = options?.select || '*';
-    let baseQuery = client.from('debt_transactions').select(selectCols);
+      const selectCols = options?.select || '*';
+      let baseQuery = client.from('debt_transactions').select(selectCols);
 
-    if (options?.since) {
-      baseQuery = baseQuery.gt('created_at', options.since);
-    }
-
-    let targetMonth = options?.month;
-    if (!targetMonth && options?.currentMonthOnly && !options?.allHistory && !options?.since) {
-      const now = new Date();
-      targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    }
-
-    if (targetMonth && !options?.since) {
-      const parts = targetMonth.split('-');
-      if (parts.length === 2) {
-        const y = parts[0];
-        const m = parts[1].padStart(2, '0');
-        const startISO = `${y}-${m}-01T00:00:00.000Z`;
-        baseQuery = baseQuery.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
-      }
-    }
-
-    if (options?.name && options.name.trim() !== '') {
-      baseQuery = baseQuery.ilike('nama', options.name.trim());
-    }
-
-    if (options?.limit && options.limit > 0) {
-      baseQuery = baseQuery.order('created_at', { ascending: false });
-      const { data, error } = await baseQuery.limit(options.limit);
-      return { data: data as any, error };
-    }
-
-    baseQuery = baseQuery.order('created_at', { ascending: true });
-
-    let allData: SupabaseDebtTransaction[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-    let lastError: any = null;
-
-    while (hasMore) {
-      let pageQuery = client.from('debt_transactions').select(selectCols);
       if (options?.since) {
-        pageQuery = pageQuery.gt('created_at', options.since);
+        baseQuery = baseQuery.gt('created_at', options.since);
       }
+
+      let targetMonth = options?.month;
+      if (!targetMonth && options?.currentMonthOnly && !options?.allHistory && !options?.since) {
+        const now = new Date();
+        targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      }
+
       if (targetMonth && !options?.since) {
         const parts = targetMonth.split('-');
         if (parts.length === 2) {
           const y = parts[0];
           const m = parts[1].padStart(2, '0');
           const startISO = `${y}-${m}-01T00:00:00.000Z`;
-          pageQuery = pageQuery.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
+          baseQuery = baseQuery.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
         }
       }
+
       if (options?.name && options.name.trim() !== '') {
-        pageQuery = pageQuery.ilike('nama', options.name.trim());
+        baseQuery = baseQuery.ilike('nama', options.name.trim());
       }
 
-      const { data, error } = await pageQuery
-        .order('created_at', { ascending: true })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-
-      if (error) {
-        lastError = error;
-        hasMore = false;
-      } else if (!data || data.length === 0) {
-        hasMore = false;
-      } else {
-        allData = allData.concat(data as any);
-        if (data.length < pageSize) hasMore = false;
-        else page++;
+      if (options?.limit && options.limit > 0) {
+        baseQuery = baseQuery.order('created_at', { ascending: false });
+        const { data, error } = await baseQuery.limit(options.limit);
+        return { data: data as any, error };
       }
-    }
 
-    if (allData.length === 0 && lastError) return { data: null, error: lastError };
-    return { data: allData, error: null };
+      baseQuery = baseQuery.order('created_at', { ascending: true });
+
+      let allData: SupabaseDebtTransaction[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      let lastError: any = null;
+
+      while (hasMore) {
+        let pageQuery = client.from('debt_transactions').select(selectCols);
+        if (options?.since) {
+          pageQuery = pageQuery.gt('created_at', options.since);
+        }
+        if (targetMonth && !options?.since) {
+          const parts = targetMonth.split('-');
+          if (parts.length === 2) {
+            const y = parts[0];
+            const m = parts[1].padStart(2, '0');
+            const startISO = `${y}-${m}-01T00:00:00.000Z`;
+            pageQuery = pageQuery.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
+          }
+        }
+        if (options?.name && options.name.trim() !== '') {
+          pageQuery = pageQuery.ilike('nama', options.name.trim());
+        }
+
+        const { data, error } = await pageQuery
+          .order('created_at', { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) {
+          lastError = error;
+          hasMore = false;
+        } else if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allData = allData.concat(data as any);
+          if (data.length < pageSize) hasMore = false;
+          else page++;
+        }
+      }
+
+      if (allData.length === 0 && lastError) return { data: null, error: lastError };
+      return { data: allData, error: null };
+    });
   },
 
   async upsertDebt(debt: SupabaseDebtTransaction | any): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('debt_transactions', 'UPSERT', { name: debt.nama || debt.Nama }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const cleanPayload: any = {
-      id_hutang: String(debt.id_hutang || debt.id || `HTG-${Date.now()}`).trim(),
-      id_pelanggan: String(debt.id_pelanggan || debt.idPelanggan || '').trim(),
-      tanggal: formatDateDDMMYYYY(debt.tanggal || debt.Tanggal),
-      nama: String(debt.nama || debt.Nama || debt.nama_pelanggan || debt.NamaPelanggan || 'Pelanggan').trim(),
-      tipe: String(debt.tipe || debt.Tipe || 'KASBON').toUpperCase().trim(),
-      jumlah: Number(debt.jumlah !== undefined ? debt.jumlah : (debt.Jumlah || 0)),
-      keterangan: String(debt.keterangan || debt.Keterangan || '').trim(),
-      saldo_akhir: Number(debt.saldo_akhir !== undefined ? debt.saldo_akhir : (debt.SaldoAkhir || 0)),
-      sebagian: Number(debt.sebagian !== undefined ? debt.sebagian : (debt.Sebagian || 0))
-    };
+      const cleanPayload: any = {
+        id_hutang: String(debt.id_hutang || debt.id || `HTG-${Date.now()}`).trim(),
+        id_pelanggan: String(debt.id_pelanggan || debt.idPelanggan || '').trim(),
+        tanggal: formatDateDDMMYYYY(debt.tanggal || debt.Tanggal),
+        nama: String(debt.nama || debt.Nama || debt.nama_pelanggan || debt.NamaPelanggan || 'Pelanggan').trim(),
+        tipe: String(debt.tipe || debt.Tipe || 'KASBON').toUpperCase().trim(),
+        jumlah: Number(debt.jumlah !== undefined ? debt.jumlah : (debt.Jumlah || 0)),
+        keterangan: String(debt.keterangan || debt.Keterangan || '').trim(),
+        saldo_akhir: Number(debt.saldo_akhir !== undefined ? debt.saldo_akhir : (debt.SaldoAkhir || 0)),
+        sebagian: Number(debt.sebagian !== undefined ? debt.sebagian : (debt.Sebagian || 0))
+      };
 
-    if (isValidUUID(debt.id)) {
-      cleanPayload.id = debt.id;
-    }
-
-    if (cleanPayload.id) {
-      const { data: updateData, error: updateErr } = await client
-        .from('debt_transactions')
-        .update(cleanPayload)
-        .eq('id', cleanPayload.id)
-        .select();
-
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+      if (isValidUUID(debt.id)) {
+        cleanPayload.id = debt.id;
       }
-    }
 
-    if (cleanPayload.id_hutang) {
-      const { data: updateData, error: updateErr } = await client
-        .from('debt_transactions')
-        .update(cleanPayload)
-        .eq('id_hutang', cleanPayload.id_hutang)
-        .select();
+      if (cleanPayload.id) {
+        const { data: updateData, error: updateErr } = await client
+          .from('debt_transactions')
+          .update(cleanPayload)
+          .eq('id', cleanPayload.id)
+          .select();
 
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
       }
-    }
 
-    let { data, error } = await client.from('debt_transactions').upsert(cleanPayload, { onConflict: 'id_hutang' }).select();
-    if (error) {
-      const insertPayload = { ...cleanPayload };
-      delete insertPayload.id;
-      const { data: insData, error: insErr } = await client.from('debt_transactions').insert(insertPayload).select();
-      if (!insErr && insData) return { data: insData, error: null };
-    }
-    return { data, error };
+      if (cleanPayload.id_hutang) {
+        const { data: updateData, error: updateErr } = await client
+          .from('debt_transactions')
+          .update(cleanPayload)
+          .eq('id_hutang', cleanPayload.id_hutang)
+          .select();
+
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
+      }
+
+      let { data, error } = await client.from('debt_transactions').upsert(cleanPayload, { onConflict: 'id_hutang' }).select();
+      if (error) {
+        const insertPayload = { ...cleanPayload };
+        delete insertPayload.id;
+        const { data: insData, error: insErr } = await client.from('debt_transactions').insert(insertPayload).select();
+        if (!insErr && insData) return { data: insData, error: null };
+      }
+      return { data, error };
+    });
   },
 
   async addDebtTransaction(debt: SupabaseDebtTransaction): Promise<{ data: any; error: any }> {
@@ -1553,14 +1818,16 @@ export const SupabaseDebtService = {
   },
 
   async deleteDebt(idHutang: string, altId?: string): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
-    let { data, error } = await client.from('debt_transactions').delete().eq('id_hutang', idHutang);
-    if (!error && altId && altId !== idHutang) {
-      const res = await client.from('debt_transactions').delete().eq('id', altId);
-      if (res.error) error = res.error;
-    }
-    return { data, error };
+    return SupabaseQueryLogger.track('debt_transactions', 'DELETE', { idHutang, altId }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      let { data, error } = await client.from('debt_transactions').delete().eq('id_hutang', idHutang);
+      if (!error && altId && altId !== idHutang) {
+        const res = await client.from('debt_transactions').delete().eq('id', altId);
+        if (res.error) error = res.error;
+      }
+      return { data, error };
+    });
   },
 
   async bulkMigrateDebt(
@@ -1630,95 +1897,37 @@ export const SupabaseSalesService = {
   },
 
   async getSales(options?: { name?: string; limit?: number; bansosOnly?: boolean; select?: string; month?: string; currentMonthOnly?: boolean; date?: string; todayOnly?: boolean; pendingOnly?: boolean; includePending?: boolean; since?: string }): Promise<{ data: SupabaseSalesTransaction[] | null; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('sales_transactions', 'SELECT', options, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const selectCols = options?.select || '*';
+      const selectCols = options?.select || '*';
 
-    let baseQuery = client.from('sales_transactions').select(selectCols);
+      let baseQuery = client.from('sales_transactions').select(selectCols);
 
-    if (options?.since) {
-      baseQuery = baseQuery.gt('created_at', options.since);
-    }
-
-    let targetDate = options?.date;
-    if (!targetDate && options?.todayOnly && !options?.since) {
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      const d = String(now.getDate()).padStart(2, '0');
-      targetDate = `${y}-${m}-${d}`;
-    }
-
-    let targetMonth = options?.month;
-    if (!targetDate && !targetMonth && options?.currentMonthOnly && !options?.since) {
-      const now = new Date();
-      targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    }
-
-    const PENDING_CLAUSE = 'status.ilike.%DIPROSES%,status.ilike.%BELUM DIAMBIL%,status.ilike.%PROSES%,status.ilike.%PENDING%';
-
-    if (options?.pendingOnly) {
-      baseQuery = baseQuery.or(PENDING_CLAUSE);
-    } else if (targetDate && !options?.since) {
-      const parts = targetDate.split('-');
-      if (parts.length === 3) {
-        const y = parts[0];
-        const m = parts[1].padStart(2, '0');
-        const d = parts[2].padStart(2, '0');
-        const mNum = String(parseInt(m, 10));
-        const dNum = String(parseInt(d, 10));
-        const startISO = `${y}-${m}-${d}T00:00:00.000Z`;
-        let dateOr = `tanggal.ilike.%${d}/${m}/${y}%,tanggal.ilike.%${dNum}/${mNum}/${y}%,tanggal.ilike.%${y}-${m}-${d}%,created_at.gte.${startISO}`;
-        if (options?.includePending) {
-          dateOr += `,${PENDING_CLAUSE}`;
-        }
-        baseQuery = baseQuery.or(dateOr);
-      }
-    } else if (targetMonth && !options?.since) {
-      const parts = targetMonth.split('-');
-      if (parts.length === 2) {
-        const y = parts[0];
-        const m = parts[1].padStart(2, '0');
-        const startISO = `${y}-${m}-01T00:00:00.000Z`;
-        let monthOr = `tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`;
-        if (options?.includePending) {
-          monthOr += `,${PENDING_CLAUSE}`;
-        }
-        baseQuery = baseQuery.or(monthOr);
-      }
-    } else if (options?.includePending && !options?.since) {
-      baseQuery = baseQuery.or(PENDING_CLAUSE);
-    }
-
-    if (options?.bansosOnly) {
-      baseQuery = baseQuery.or('jenis.ilike.%PKH%,jenis.ilike.%BPNT%');
-    }
-
-    if (options?.name && options.name.trim() !== '') {
-      baseQuery = baseQuery.ilike('nama', options.name.trim());
-    }
-
-    baseQuery = baseQuery.order('created_at', { ascending: true });
-
-    if (options?.limit && options.limit > 0) {
-      const { data, error } = await baseQuery.limit(options.limit);
-      return { data: data as any, error };
-    }
-
-    let allData: SupabaseSalesTransaction[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-    let lastError: any = null;
-
-    while (hasMore) {
-      let pageQuery = client.from('sales_transactions').select(selectCols);
       if (options?.since) {
-        pageQuery = pageQuery.gt('created_at', options.since);
+        baseQuery = baseQuery.gt('created_at', options.since);
       }
+
+      let targetDate = options?.date;
+      if (!targetDate && options?.todayOnly && !options?.since) {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        targetDate = `${y}-${m}-${d}`;
+      }
+
+      let targetMonth = options?.month;
+      if (!targetDate && !targetMonth && options?.currentMonthOnly && !options?.since) {
+        const now = new Date();
+        targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      }
+
+      const PENDING_CLAUSE = 'status.ilike.%DIPROSES%,status.ilike.%BELUM DIAMBIL%,status.ilike.%PROSES%,status.ilike.%PENDING%';
+
       if (options?.pendingOnly) {
-        pageQuery = pageQuery.or(PENDING_CLAUSE);
+        baseQuery = baseQuery.or(PENDING_CLAUSE);
       } else if (targetDate && !options?.since) {
         const parts = targetDate.split('-');
         if (parts.length === 3) {
@@ -1732,7 +1941,7 @@ export const SupabaseSalesService = {
           if (options?.includePending) {
             dateOr += `,${PENDING_CLAUSE}`;
           }
-          pageQuery = pageQuery.or(dateOr);
+          baseQuery = baseQuery.or(dateOr);
         }
       } else if (targetMonth && !options?.since) {
         const parts = targetMonth.split('-');
@@ -1744,96 +1953,158 @@ export const SupabaseSalesService = {
           if (options?.includePending) {
             monthOr += `,${PENDING_CLAUSE}`;
           }
-          pageQuery = pageQuery.or(monthOr);
+          baseQuery = baseQuery.or(monthOr);
         }
       } else if (options?.includePending && !options?.since) {
-        pageQuery = pageQuery.or(PENDING_CLAUSE);
+        baseQuery = baseQuery.or(PENDING_CLAUSE);
       }
+
       if (options?.bansosOnly) {
-        pageQuery = pageQuery.or('jenis.ilike.%PKH%,jenis.ilike.%BPNT%');
+        baseQuery = baseQuery.or('jenis.ilike.%PKH%,jenis.ilike.%BPNT%');
       }
+
       if (options?.name && options.name.trim() !== '') {
-        pageQuery = pageQuery.ilike('nama', options.name.trim());
+        baseQuery = baseQuery.ilike('nama', options.name.trim());
       }
 
-      const { data, error } = await pageQuery
-        .order('created_at', { ascending: true })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      baseQuery = baseQuery.order('created_at', { ascending: true });
 
-      if (error) {
-        lastError = error;
-        hasMore = false;
-      } else if (!data || data.length === 0) {
-        hasMore = false;
-      } else {
-        allData = allData.concat(data as any);
-        if (data.length < pageSize) hasMore = false;
-        else page++;
+      if (options?.limit && options.limit > 0) {
+        const { data, error } = await baseQuery.limit(options.limit);
+        return { data: data as any, error };
       }
-    }
 
-    if (allData.length === 0 && lastError) return { data: null, error: lastError };
-    return { data: allData, error: null };
+      let allData: SupabaseSalesTransaction[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      let lastError: any = null;
+
+      while (hasMore) {
+        let pageQuery = client.from('sales_transactions').select(selectCols);
+        if (options?.since) {
+          pageQuery = pageQuery.gt('created_at', options.since);
+        }
+        if (options?.pendingOnly) {
+          pageQuery = pageQuery.or(PENDING_CLAUSE);
+        } else if (targetDate && !options?.since) {
+          const parts = targetDate.split('-');
+          if (parts.length === 3) {
+            const y = parts[0];
+            const m = parts[1].padStart(2, '0');
+            const d = parts[2].padStart(2, '0');
+            const mNum = String(parseInt(m, 10));
+            const dNum = String(parseInt(d, 10));
+            const startISO = `${y}-${m}-${d}T00:00:00.000Z`;
+            let dateOr = `tanggal.ilike.%${d}/${m}/${y}%,tanggal.ilike.%${dNum}/${mNum}/${y}%,tanggal.ilike.%${y}-${m}-${d}%,created_at.gte.${startISO}`;
+            if (options?.includePending) {
+              dateOr += `,${PENDING_CLAUSE}`;
+            }
+            pageQuery = pageQuery.or(dateOr);
+          }
+        } else if (targetMonth && !options?.since) {
+          const parts = targetMonth.split('-');
+          if (parts.length === 2) {
+            const y = parts[0];
+            const m = parts[1].padStart(2, '0');
+            const startISO = `${y}-${m}-01T00:00:00.000Z`;
+            let monthOr = `tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`;
+            if (options?.includePending) {
+              monthOr += `,${PENDING_CLAUSE}`;
+            }
+            pageQuery = pageQuery.or(monthOr);
+          }
+        } else if (options?.includePending && !options?.since) {
+          pageQuery = pageQuery.or(PENDING_CLAUSE);
+        }
+        if (options?.bansosOnly) {
+          pageQuery = pageQuery.or('jenis.ilike.%PKH%,jenis.ilike.%BPNT%');
+        }
+        if (options?.name && options.name.trim() !== '') {
+          pageQuery = pageQuery.ilike('nama', options.name.trim());
+        }
+
+        const { data, error } = await pageQuery
+          .order('created_at', { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) {
+          lastError = error;
+          hasMore = false;
+        } else if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allData = allData.concat(data as any);
+          if (data.length < pageSize) hasMore = false;
+          else page++;
+        }
+      }
+
+      if (allData.length === 0 && lastError) return { data: null, error: lastError };
+      return { data: allData, error: null };
+    });
   },
 
   async upsertSale(sale: SupabaseSalesTransaction | any): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('sales_transactions', 'UPSERT', { name: sale.nama || sale.Nama }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const payload: any = {
-      id_transaksi: sale.id_transaksi || sale.id || `TRX-${Date.now()}`,
-      id_pelanggan: sale.id_pelanggan || '',
-      tanggal: sale.tanggal || sale.Tanggal || new Date().toISOString().slice(0, 10),
-      nama: sale.nama || sale.Nama || 'Pelanggan',
-      jenis: sale.jenis || sale.Jenis || 'Penjualan',
-      metode: sale.metode || sale.Metode || 'Tunai',
-      pemasukan: Number(sale.pemasukan !== undefined ? sale.pemasukan : (sale.Pemasukan || 0)),
-      poin: Number(sale.poin !== undefined ? sale.poin : (sale.Poin || 0)),
-      status: sale.status || sale.Status || 'SELESAI',
-      melalui: sale.melalui || sale.Melalui || 'Kasir',
-      harga_modal: Number(sale.harga_modal !== undefined ? sale.harga_modal : (sale.HargaModal || 0)),
-      sebagian: Number(sale.sebagian !== undefined ? sale.sebagian : (sale.Sebagian || 0))
-    };
+      const payload: any = {
+        id_transaksi: sale.id_transaksi || sale.id || `TRX-${Date.now()}`,
+        id_pelanggan: sale.id_pelanggan || '',
+        tanggal: sale.tanggal || sale.Tanggal || new Date().toISOString().slice(0, 10),
+        nama: sale.nama || sale.Nama || 'Pelanggan',
+        jenis: sale.jenis || sale.Jenis || 'Penjualan',
+        metode: sale.metode || sale.Metode || 'Tunai',
+        pemasukan: Number(sale.pemasukan !== undefined ? sale.pemasukan : (sale.Pemasukan || 0)),
+        poin: Number(sale.poin !== undefined ? sale.poin : (sale.Poin || 0)),
+        status: sale.status || sale.Status || 'SELESAI',
+        melalui: sale.melalui || sale.Melalui || 'Kasir',
+        harga_modal: Number(sale.harga_modal !== undefined ? sale.harga_modal : (sale.HargaModal || 0)),
+        sebagian: Number(sale.sebagian !== undefined ? sale.sebagian : (sale.Sebagian || 0))
+      };
 
-    if (isValidUUID(sale.id)) {
-      payload.id = sale.id;
-    }
-
-    // 1. If id (UUID) exists and is valid, update existing row by primary key id first
-    if (isValidUUID(sale.id)) {
-      const { data: updateData, error: updateErr } = await client
-        .from('sales_transactions')
-        .update(payload)
-        .eq('id', sale.id)
-        .select();
-
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+      if (isValidUUID(sale.id)) {
+        payload.id = sale.id;
       }
-    }
 
-    // 2. If id_transaksi exists, try updating existing row by id_transaksi
-    if (payload.id_transaksi) {
-      const { data: updateData, error: updateErr } = await client
-        .from('sales_transactions')
-        .update(payload)
-        .eq('id_transaksi', payload.id_transaksi)
-        .select();
+      // 1. If id (UUID) exists and is valid, update existing row by primary key id first
+      if (isValidUUID(sale.id)) {
+        const { data: updateData, error: updateErr } = await client
+          .from('sales_transactions')
+          .update(payload)
+          .eq('id', sale.id)
+          .select();
 
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
       }
-    }
 
-    // 3. Fallback to upsert/insert
-    let { data, error } = await client.from('sales_transactions').upsert(payload, { onConflict: 'id_transaksi' }).select();
-    if (error) {
-      const insertPayload = { ...payload };
-      delete insertPayload.id;
-      const { data: insData, error: insErr } = await client.from('sales_transactions').insert(insertPayload).select();
-      if (!insErr && insData) return { data: insData, error: null };
-    }
-    return { data, error };
+      // 2. If id_transaksi exists, try updating existing row by id_transaksi
+      if (payload.id_transaksi) {
+        const { data: updateData, error: updateErr } = await client
+          .from('sales_transactions')
+          .update(payload)
+          .eq('id_transaksi', payload.id_transaksi)
+          .select();
+
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
+      }
+
+      // 3. Fallback to upsert/insert
+      let { data, error } = await client.from('sales_transactions').upsert(payload, { onConflict: 'id_transaksi' }).select();
+      if (error) {
+        const insertPayload = { ...payload };
+        delete insertPayload.id;
+        const { data: insData, error: insErr } = await client.from('sales_transactions').insert(insertPayload).select();
+        if (!insErr && insData) return { data: insData, error: null };
+      }
+      return { data, error };
+    });
   },
 
   async addSalesTransaction(sale: SupabaseSalesTransaction): Promise<{ data: any; error: any }> {
@@ -1841,10 +2112,12 @@ export const SupabaseSalesService = {
   },
 
   async deleteSale(idTransaksi: string): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
-    const { data, error } = await client.from('sales_transactions').delete().eq('id_transaksi', idTransaksi);
-    return { data, error };
+    return SupabaseQueryLogger.track('sales_transactions', 'DELETE', { idTransaksi }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      const { data, error } = await client.from('sales_transactions').delete().eq('id_transaksi', idTransaksi);
+      return { data, error };
+    });
   },
 
   async bulkMigrateSales(
@@ -1917,104 +2190,108 @@ export const SupabasePointsService = {
   },
 
   async getPoints(options?: { name?: string; limit?: number; since?: string }): Promise<{ data: SupabaseRedeemedPoint[] | null; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('redeemed_points', 'SELECT', options, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    if (options?.name && options.name.trim() !== '') {
-      let query = client.from('redeemed_points').select('*').ilike('nama', options.name.trim()).order('created_at', { ascending: true });
-      if (options?.since) query = query.gt('created_at', options.since);
-      if (options?.limit && options.limit > 0) query = query.limit(options.limit);
-      const { data, error } = await query;
-      return { data, error };
-    }
-
-    if (options?.limit && options.limit > 0) {
-      let query = client.from('redeemed_points').select('*').order('created_at', { ascending: true }).limit(options.limit);
-      if (options?.since) query = query.gt('created_at', options.since);
-      const { data, error } = await query;
-      return { data, error };
-    }
-    let allData: SupabaseRedeemedPoint[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
-    let lastError: any = null;
-
-    while (hasMore) {
-      let query = client
-        .from('redeemed_points')
-        .select('*')
-        .order('created_at', { ascending: true });
-      if (options?.since) {
-        query = query.gt('created_at', options.since);
+      if (options?.name && options.name.trim() !== '') {
+        let query = client.from('redeemed_points').select('*').ilike('nama', options.name.trim()).order('created_at', { ascending: true });
+        if (options?.since) query = query.gt('created_at', options.since);
+        if (options?.limit && options.limit > 0) query = query.limit(options.limit);
+        const { data, error } = await query;
+        return { data, error };
       }
-      const { data, error } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
 
-      if (error) {
-        lastError = error;
-        hasMore = false;
-      } else if (!data || data.length === 0) {
-        hasMore = false;
-      } else {
-        allData = allData.concat(data);
-        if (data.length < pageSize) hasMore = false;
-        else page++;
+      if (options?.limit && options.limit > 0) {
+        let query = client.from('redeemed_points').select('*').order('created_at', { ascending: true }).limit(options.limit);
+        if (options?.since) query = query.gt('created_at', options.since);
+        const { data, error } = await query;
+        return { data, error };
       }
-    }
+      let allData: SupabaseRedeemedPoint[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      let lastError: any = null;
 
-    if (allData.length === 0 && lastError) return { data: null, error: lastError };
-    return { data: allData, error: null };
+      while (hasMore) {
+        let query = client
+          .from('redeemed_points')
+          .select('*')
+          .order('created_at', { ascending: true });
+        if (options?.since) {
+          query = query.gt('created_at', options.since);
+        }
+        const { data, error } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) {
+          lastError = error;
+          hasMore = false;
+        } else if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allData = allData.concat(data);
+          if (data.length < pageSize) hasMore = false;
+          else page++;
+        }
+      }
+
+      if (allData.length === 0 && lastError) return { data: null, error: lastError };
+      return { data: allData, error: null };
+    });
   },
 
   async upsertPoint(point: SupabaseRedeemedPoint | any): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+    return SupabaseQueryLogger.track('redeemed_points', 'UPSERT', { name: point.nama || point.Nama }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
-    const cleanPayload: any = {
-      id_tukar: String(point.id_tukar || point.id || `TKR-${Date.now()}`).trim(),
-      id_pelanggan: String(point.id_pelanggan || point.idPelanggan || '').trim(),
-      tanggal: String(point.tanggal || point.Tanggal || new Date().toISOString().slice(0, 10)).trim(),
-      nama: String(point.nama || point.Nama || 'Pelanggan').trim(),
-      poin: Number(point.poin !== undefined ? point.poin : (point.Poin || 0)),
-      hadiah: String(point.hadiah || point.Hadiah || '-').trim()
-    };
+      const cleanPayload: any = {
+        id_tukar: String(point.id_tukar || point.id || `TKR-${Date.now()}`).trim(),
+        id_pelanggan: String(point.id_pelanggan || point.idPelanggan || '').trim(),
+        tanggal: String(point.tanggal || point.Tanggal || new Date().toISOString().slice(0, 10)).trim(),
+        nama: String(point.nama || point.Nama || 'Pelanggan').trim(),
+        poin: Number(point.poin !== undefined ? point.poin : (point.Poin || 0)),
+        hadiah: String(point.hadiah || point.Hadiah || '-').trim()
+      };
 
-    if (isValidUUID(point.id)) {
-      cleanPayload.id = point.id;
-    }
-
-    if (cleanPayload.id) {
-      const { data: updateData, error: updateErr } = await client
-        .from('redeemed_points')
-        .update(cleanPayload)
-        .eq('id', cleanPayload.id)
-        .select();
-
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+      if (isValidUUID(point.id)) {
+        cleanPayload.id = point.id;
       }
-    }
 
-    if (cleanPayload.id_tukar) {
-      const { data: updateData, error: updateErr } = await client
-        .from('redeemed_points')
-        .update(cleanPayload)
-        .eq('id_tukar', cleanPayload.id_tukar)
-        .select();
+      if (cleanPayload.id) {
+        const { data: updateData, error: updateErr } = await client
+          .from('redeemed_points')
+          .update(cleanPayload)
+          .eq('id', cleanPayload.id)
+          .select();
 
-      if (!updateErr && updateData && updateData.length > 0) {
-        return { data: updateData, error: null };
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
       }
-    }
 
-    let { data, error } = await client.from('redeemed_points').upsert(cleanPayload, { onConflict: 'id_tukar' }).select();
-    if (error) {
-      const insertPayload = { ...cleanPayload };
-      delete insertPayload.id;
-      const { data: insData, error: insErr } = await client.from('redeemed_points').insert(insertPayload).select();
-      if (!insErr && insData) return { data: insData, error: null };
-    }
-    return { data, error };
+      if (cleanPayload.id_tukar) {
+        const { data: updateData, error: updateErr } = await client
+          .from('redeemed_points')
+          .update(cleanPayload)
+          .eq('id_tukar', cleanPayload.id_tukar)
+          .select();
+
+        if (!updateErr && updateData && updateData.length > 0) {
+          return { data: updateData, error: null };
+        }
+      }
+
+      let { data, error } = await client.from('redeemed_points').upsert(cleanPayload, { onConflict: 'id_tukar' }).select();
+      if (error) {
+        const insertPayload = { ...cleanPayload };
+        delete insertPayload.id;
+        const { data: insData, error: insErr } = await client.from('redeemed_points').insert(insertPayload).select();
+        if (!insErr && insData) return { data: insData, error: null };
+      }
+      return { data, error };
+    });
   },
 
   async addPointTransaction(point: SupabaseRedeemedPoint): Promise<{ data: any; error: any }> {
@@ -2022,10 +2299,12 @@ export const SupabasePointsService = {
   },
 
   async deletePoint(idTukar: string): Promise<{ data: any; error: any }> {
-    const client = getSupabaseClient();
-    if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
-    const { data, error } = await client.from('redeemed_points').delete().eq('id_tukar', idTukar);
-    return { data, error };
+    return SupabaseQueryLogger.track('redeemed_points', 'DELETE', { idTukar }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      const { data, error } = await client.from('redeemed_points').delete().eq('id_tukar', idTukar);
+      return { data, error };
+    });
   },
 
   async bulkMigratePoints(

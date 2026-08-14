@@ -7,6 +7,49 @@
 const CACHE_PREFIX = 'wt_delta_cache_v3_';
 const SYNC_TIME_PREFIX = 'wt_last_sync_v3_';
 
+/**
+ * Memformat dan menormalkan URL gambar agar dapat dimuat dengan sempurna di berbagai lingkungan (Local, Dev, Production Publish).
+ * - Menangani link Google Drive (mengubah format /file/d/.../view atau uc?id= menjadi lh3.googleusercontent.com/d/ID)
+ * - Menangani link Dropbox (mengubah dl=0 menjadi raw=1)
+ * - Menormalkan http ke https untuk mencegah Mixed Content blocking pada aplikasi yang di-publish
+ * - Menangani base64, data URI, dan sanitasi string
+ */
+export function formatImageUrl(url?: string | null): string {
+  if (!url || typeof url !== 'string') return '';
+  let clean = url.trim();
+  if (!clean || clean === '-' || clean === 'null' || clean === 'undefined') return '';
+
+  // 1. Data URLs / Base64 / Blobs -> return as is
+  if (clean.startsWith('data:image/') || clean.startsWith('blob:')) {
+    return clean;
+  }
+
+  // 2. Google Drive Links
+  // Patterns:
+  // https://drive.google.com/file/d/1aBcDeFgHiJkLmNoP/view?usp=sharing
+  // https://drive.google.com/open?id=1aBcDeFgHiJkLmNoP
+  // https://drive.google.com/uc?id=1aBcDeFgHiJkLmNoP
+  // https://docs.google.com/uc?id=1aBcDeFgHiJkLmNoP
+  // https://drive.google.com/thumbnail?id=1aBcDeFgHiJkLmNoP
+  const gDriveMatch = clean.match(/(?:drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=view&)?id=|thumbnail\?id=)|docs\.google\.com\/uc\?id=)([a-zA-Z0-9_-]{15,})/i);
+  if (gDriveMatch && gDriveMatch[1]) {
+    const fileId = gDriveMatch[1];
+    return `https://lh3.googleusercontent.com/d/${fileId}`;
+  }
+
+  // 3. Dropbox Links
+  if (clean.includes('dropbox.com')) {
+    return clean.replace(/\?dl=[01]/, '?raw=1').replace(/&dl=[01]/, '&raw=1');
+  }
+
+  // 4. Upgrade HTTP to HTTPS on production HTTPS sites to prevent mixed content blocking
+  if (clean.startsWith('http://') && !clean.includes('localhost') && !clean.includes('127.0.0.1')) {
+    clean = clean.replace('http://', 'https://');
+  }
+
+  return clean;
+}
+
 export const DeltaCache = {
   /**
    * Ambil data dari cache lokal
