@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -49,6 +49,8 @@ const LEVEL_METADATA: Record<string, { color: string }> = {
 };
 
 interface CustomerManagementProps {
+  initialCustomers?: any[];
+  setGlobalCustomers?: React.Dispatch<React.SetStateAction<any[]>>;
   onSyncComplete?: (data: Customer[]) => void;
   salesTransactions?: any[];
   savingsTransactions?: any[];
@@ -57,10 +59,12 @@ interface CustomerManagementProps {
   redeemedPoints?: any[];
 }
 
-const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzFXIApyWFaY7tGXiq-k7yvRlFAUJB2QNzeSU01-sR2dVL1FrnaVNPlgf2FXxsqSi5L9g/exec';
-const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL || DEFAULT_SCRIPT_URL;
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyS9FZaw8H-ckTRaCN3ZJP4FVeuMoAFwx9y6-pGSPtHFDCgxxLK-4HRV1WfO1xVBL8T/exec';
+const APPS_SCRIPT_URL = DEFAULT_SCRIPT_URL;
 
 export default function CustomerManagement({ 
+  initialCustomers,
+  setGlobalCustomers,
   onSyncComplete,
   salesTransactions = [],
   savingsTransactions = [],
@@ -69,26 +73,47 @@ export default function CustomerManagement({
   redeemedPoints = []
 }: CustomerManagementProps) {
   const navigate = useNavigate();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    if (initialCustomers && initialCustomers.length > 0) {
+      return initialCustomers.map((c: any, index: number) => ({
+        id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
+        nama: c.nama || c.Nama || 'Pelanggan',
+        pin: c.pin || '',
+        telepon: c.telepon || '',
+        alamat: c.alamat || '',
+        foto: c.foto || ''
+      }));
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(!initialCustomers || initialCustomers.length === 0);
   const [search, setSearch] = useState('');
   const [filterLevel, setFilterLevel] = useState('Semua');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
-    return localStorage.getItem('LAST_SHEETS_SYNC') || 'Belum Sync';
+    return localStorage.getItem('LAST_SHEETS_SYNC') || 'Belum Pernah';
   });
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [scriptUrl, setScriptUrl] = useState(() => {
-    return localStorage.getItem('APPS_SCRIPT_URL') || APPS_SCRIPT_URL;
-  });
-  const [isUrlConfigured, setIsUrlConfigured] = useState(true);
+  const [isSyncingDirect, setIsSyncingDirect] = useState(false);
+  const [syncDirectStatus, setSyncDirectStatus] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
-  const saveUrl = (url: string) => {
-    localStorage.setItem('APPS_SCRIPT_URL', url);
-    setScriptUrl(url);
-    setIsUrlConfigured(true);
-  };
+  // Sync initialCustomers if prop updates from outside
+  useEffect(() => {
+    if (initialCustomers && initialCustomers.length > 0) {
+      const formatted = initialCustomers.map((c: any, index: number) => ({
+        id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
+        nama: c.nama || c.Nama || 'Pelanggan',
+        pin: c.pin || '',
+        telepon: c.telepon || '',
+        alamat: c.alamat || '',
+        foto: c.foto || '',
+        poin: c.poin ?? c.Poin ?? 0
+      }));
+      setCustomers(formatted);
+      setLoading(false);
+    }
+  }, [initialCustomers]);
 
   const [dbSource, setDbSource] = useState<'supabase' | 'sheets'>(() => {
     return (localStorage.getItem('customer_db_source') as 'supabase' | 'sheets') || 
@@ -134,16 +159,34 @@ export default function CustomerManagement({
       alamat: '',
       foto: ''
     });
+    setEditingCustomer(null);
   };
 
-  const parseDate = (dateStr: any) => {
+  const handleEdit = (customer: Customer) => {
+    setEditingCustomer(customer);
+    setFormData({
+      nama: customer.nama,
+      pin: customer.pin,
+      telepon: customer.telepon,
+      alamat: customer.alamat,
+      foto: customer.foto
+    });
+    setIsModalOpen(true);
+  };
+
+  const parseDate = (dateStr: string) => {
     if (!dateStr || dateStr === "-") return new Date(0);
-    if (dateStr instanceof Date) return dateStr;
     const trimmed = String(dateStr).trim();
-    const normalized = trimmed.replace('T', ' ').replace(',', '');
-    const spaceSplit = normalized.split(/\s+/);
-    const datePart = spaceSplit[0];
-    const timePart = spaceSplit[1];
+    
+    // Check if contains time
+    const spaceIndex = trimmed.indexOf(' ');
+    let datePart = trimmed;
+    let timePart = '';
+    
+    if (spaceIndex !== -1) {
+      datePart = trimmed.substring(0, spaceIndex);
+      timePart = trimmed.substring(spaceIndex + 1).trim();
+    }
 
     let h = 0, m = 0, s = 0;
     if (timePart) {
@@ -176,6 +219,26 @@ export default function CustomerManagement({
     if (typeof val === 'number') return val;
     if (!val) return 0;
     return parseInt(String(val).replace(/[^\d]/g, '')) || 0;
+  };
+
+  const formatDateDDMMYYYY = (d: Date, rawStr?: string) => {
+    if (d && !isNaN(d.getTime()) && d.getTime() > 0) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    if (rawStr && rawStr !== '-') {
+      const spaceSplit = String(rawStr).trim().split(' ')[0];
+      const parts = spaceSplit.split(/[/-]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+        }
+        return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+      }
+    }
+    return '-';
   };
 
   const getRelativeTimeString = (dateInput: any) => {
@@ -212,480 +275,479 @@ export default function CustomerManagement({
 
   const isGenericId = (id?: string) => !id || id === 'cust-0000' || id === 'cust-xxxx' || id === 'cust' || id === '0000';
 
-  const calculateCustomerStats = (customerNama: string, idPelanggan?: string) => {
-    const name = (customerNama || "").toLowerCase().trim();
-    const targetCustObj = { id_pelanggan: idPelanggan, Nama: customerNama };
-    
-    // 1. Savings
-    const userSavings = savingsTransactions.filter(t => isCustomerSavingMatch(t, targetCustObj));
-    const tabungan = userSavings.length > 0 ? userSavings[userSavings.length - 1].SaldoAkhir : 0;
-
-    // 2. Investment
-    const userInvestments = investmentTransactions.filter(t => 
-      (!isGenericId(idPelanggan) && !isGenericId(t.id_pelanggan) && t.id_pelanggan === idPelanggan) || 
-      (name && (t.Nama || "").toLowerCase().trim() === name)
-    );
-    const investasi = userInvestments.filter(t => t.Status !== "Selesai").reduce((acc, curr) => acc + (curr.Nominal || 0), 0);
-
-    // 3. Debt
-    const userDebts = debtTransactions.filter(t => isCustomerDebtMatch(t, targetCustObj));
-    const targetCust = customers.find(c => 
-      (!isGenericId(idPelanggan) && !isGenericId(c.id_pelanggan) && c.id_pelanggan === idPelanggan) || 
-      (name && (c.nama || c.Nama || "").toLowerCase().trim() === name)
-    );
-    const hutang = userDebts.length > 0 ? userDebts[userDebts.length - 1].SaldoAkhir : parseCurrency(targetCust?.Hutang || targetCust?.hutang || 0);
-
-    // 4. Points & Level
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-
-    const userSales = salesTransactions.filter(t => 
-      (!isGenericId(idPelanggan) && !isGenericId(t.id_pelanggan) && t.id_pelanggan === idPelanggan) || 
-      (name && (t.Nama || "").toLowerCase().trim() === name)
-    );
-
-    // 5. Lainnya (Balance from transactions with status BELUM DIAMBIL, DIPROSES, PENDING, or static Lainnya field)
-    const userLainnyaTransactions = userSales.filter(t => {
-      const s = (t.Status || "").toUpperCase().trim();
-      return s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING";
-    });
-
-    const lainnyaFromTransactions = userLainnyaTransactions.reduce((acc, curr) => {
-      const s = (curr.Status || "").toUpperCase().trim();
-      if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
-        return acc + (parseCurrency(curr.Pemasukan || curr.Total || curr.Nominal) || parseCurrency(curr.HargaModal) || 0);
-      }
-      
-      let base = parseCurrency(curr.HargaModal || curr.Pemasukan || curr.Total || curr.Nominal || 0);
-      if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
-        base -= 1500;
-      }
-      const net = base - (parseCurrency(curr.Sebagian) || 0);
-      return acc + (net > 0 ? net : 0);
-    }, 0);
-
-    const staticLainnya = parseCurrency(targetCust?.Lainnya || targetCust?.lainnya || 0);
-    const lainnya = lainnyaFromTransactions > 0 ? lainnyaFromTransactions : staticLainnya;
-
-    const salesLast3Months = userSales.filter(t => parseDate(t.Tanggal) >= threeMonthsAgo);
-    const totalVolume = salesLast3Months.reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
-
-    let level = "Bronze";
-    if (totalVolume >= 20000000) level = "Platinum";
-    else if (totalVolume >= 10000000) level = "Gold";
-    else if (totalVolume >= 1000000) level = "Silver";
-
-    const userRedeemed = redeemedPoints
-      .filter(r => (idPelanggan && r.id_pelanggan === idPelanggan) || (r.Nama || "").toLowerCase() === name)
-      .reduce((acc, curr) => acc + (curr.Poin || 0), 0);
-
-    const now = new Date();
-    let totalEarned = 0;
-    let totalExpired = 0;
-    userSales.forEach(t => {
-      const points = Math.floor((parseCurrency(t.Pemasukan) || 0) / 10000);
-      totalEarned += points;
-      const tDate = parseDate(t.Tanggal);
-      const expiryDate = new Date(tDate);
-      expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-      if (expiryDate < now) totalExpired += points;
-    });
-
-    const poin = totalEarned - totalExpired - userRedeemed;
-
-    // 5. Build 5 Latest Activities for Google Sheets Column
-    interface ActivityItem {
-      date: Date;
-      rel: string;
-      nominal: number;
-      source: 'sales' | 'savings' | 'investment' | 'debt' | 'points';
-      isKasbonOrDebt?: boolean;
-      isTabungan?: boolean;
-      text: string;
+  // 1. Instant filtered customers for high-performance list rendering (0ms lag)
+  const filteredCustomers = useMemo(() => {
+    const q = (search || "").toLowerCase().trim();
+    if (!q) {
+      return [...customers].sort((a, b) => (a.nama || "").localeCompare(b.nama || ""));
     }
+    return customers
+      .filter(c => {
+        const cNama = (c.nama || "").toLowerCase();
+        const cId = (c.id_pelanggan || "").toLowerCase();
+        return cNama.includes(q) || cId.includes(q);
+      })
+      .sort((a, b) => (a.nama || "").localeCompare(b.nama || ""));
+  }, [customers, search]);
 
-    const rawActivities: ActivityItem[] = [];
-
-    // Helper to format date to DD/MM/YYYY
-    const formatDateDDMMYYYY = (d: Date, rawStr?: string) => {
-      if (d && !isNaN(d.getTime()) && d.getTime() > 0) {
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
+  // Compute Full Stats for Google Sheets Sync (Active Points, All-time Activities, All-time Savings Mutation, All-time Debt Records)
+  const computeCustomerStatsForSheets = (
+    custList: Customer[],
+    salesList: any[] = salesTransactions,
+    savingsList: any[] = savingsTransactions,
+    debtList: any[] = debtTransactions,
+    investList: any[] = investmentTransactions,
+    redeemList: any[] = redeemedPoints
+  ) => {
+    const salesByCustId = new Map<string, any[]>();
+    const salesByCustName = new Map<string, any[]>();
+    salesList.forEach(t => {
+      if (t.id_pelanggan && !isGenericId(t.id_pelanggan)) {
+        const list = salesByCustId.get(t.id_pelanggan) || [];
+        list.push(t);
+        salesByCustId.set(t.id_pelanggan, list);
       }
-      if (rawStr && rawStr !== '-') {
-        const spaceSplit = String(rawStr).trim().split(' ')[0];
-        const parts = spaceSplit.split(/[/-]/);
-        if (parts.length === 3) {
-          if (parts[0].length === 4) {
-            return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
-          }
-          return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`;
+      const n = (t.Nama || "").toLowerCase().trim();
+      if (n) {
+        const list = salesByCustName.get(n) || [];
+        list.push(t);
+        salesByCustName.set(n, list);
+      }
+    });
+
+    const savingsByCustId = new Map<string, any[]>();
+    const savingsByCustName = new Map<string, any[]>();
+    savingsList.forEach(t => {
+      if (t.id_pelanggan && !isGenericId(t.id_pelanggan)) {
+        const list = savingsByCustId.get(t.id_pelanggan) || [];
+        list.push(t);
+        savingsByCustId.set(t.id_pelanggan, list);
+      }
+      const n = (t.Nama || "").toLowerCase().trim();
+      if (n) {
+        const list = savingsByCustName.get(n) || [];
+        list.push(t);
+        savingsByCustName.set(n, list);
+      }
+    });
+
+    const debtsByCustId = new Map<string, any[]>();
+    const debtsByCustName = new Map<string, any[]>();
+    debtList.forEach(t => {
+      if (t.id_pelanggan && !isGenericId(t.id_pelanggan)) {
+        const list = debtsByCustId.get(t.id_pelanggan) || [];
+        list.push(t);
+        debtsByCustId.set(t.id_pelanggan, list);
+      }
+      const n = (t.Nama || "").toLowerCase().trim();
+      if (n) {
+        const list = debtsByCustName.get(n) || [];
+        list.push(t);
+        debtsByCustName.set(n, list);
+      }
+    });
+
+    const investmentsByCustId = new Map<string, any[]>();
+    const investmentsByCustName = new Map<string, any[]>();
+    investList.forEach(t => {
+      if (t.id_pelanggan && !isGenericId(t.id_pelanggan)) {
+        const list = investmentsByCustId.get(t.id_pelanggan) || [];
+        list.push(t);
+        investmentsByCustId.set(t.id_pelanggan, list);
+      }
+      const n = (t.Nama || "").toLowerCase().trim();
+      if (n) {
+        const list = investmentsByCustName.get(n) || [];
+        list.push(t);
+        investmentsByCustName.set(n, list);
+      }
+    });
+
+    const redeemedByCustId = new Map<string, any[]>();
+    const redeemedByCustName = new Map<string, any[]>();
+    redeemList.forEach(r => {
+      if (r.id_pelanggan && !isGenericId(r.id_pelanggan)) {
+        const list = redeemedByCustId.get(r.id_pelanggan) || [];
+        list.push(r);
+        redeemedByCustId.set(r.id_pelanggan, list);
+      }
+      const n = (r.Nama || "").toLowerCase().trim();
+      if (n) {
+        const list = redeemedByCustName.get(n) || [];
+        list.push(r);
+        redeemedByCustName.set(n, list);
+      }
+    });
+
+    const list = custList.map(c => {
+      const name = (c.nama || "").toLowerCase().trim();
+      const idPelanggan = c.id_pelanggan;
+
+      // 1. Savings (All time)
+      const userSavings = (idPelanggan && savingsByCustId.get(idPelanggan)) || savingsByCustName.get(name) || [];
+      const tabungan = userSavings.length > 0 ? userSavings[userSavings.length - 1].SaldoAkhir : 0;
+
+      // 2. Investment (All time active)
+      const userInvestments = (idPelanggan && investmentsByCustId.get(idPelanggan)) || investmentsByCustName.get(name) || [];
+      const investasi = userInvestments.filter(t => t.Status !== "Selesai").reduce((acc, curr) => acc + (curr.Nominal || 0), 0);
+
+      // 3. Debt (All time)
+      const userDebts = (idPelanggan && debtsByCustId.get(idPelanggan)) || debtsByCustName.get(name) || [];
+      const hutang = userDebts.length > 0 ? userDebts[userDebts.length - 1].SaldoAkhir : 0;
+
+      // 4. Sales (All time)
+      const userSales = (idPelanggan && salesByCustId.get(idPelanggan)) || salesByCustName.get(name) || [];
+
+      // 5. Lainnya (All time active)
+      const userLainnyaTransactions = userSales.filter(t => {
+        const s = (t.Status || "").toUpperCase().trim();
+        return s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING";
+      });
+
+      const lainnya = userLainnyaTransactions.reduce((acc, curr) => {
+        const s = (curr.Status || "").toUpperCase().trim();
+        if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
+          return acc + (parseCurrency(curr.Pemasukan || curr.Total || curr.Nominal) || parseCurrency(curr.HargaModal) || 0);
         }
-      }
-      return '-';
-    };
-
-    // Sales
-    userSales.forEach(t => {
-      const d = parseDate(t.Tanggal);
-      const rel = getRelativeTimeString(t.Tanggal);
-      const nominal = parseCurrency(t.Pemasukan || t.Total || t.Nominal || 0);
-      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
-
-      // Extract Jenis / Kategori (e.g., PULSA, SEMBAKO, Kategori, or Keterangan)
-      let rawJenis = t.Kategori || t.Jenis || t.Keterangan || t.NamaBarang || t.Produk || t.Barang;
-      if (!rawJenis || rawJenis === 'Umum' || rawJenis === '-') {
-        rawJenis = 'Transaksi';
-      }
-      const jenisClean = String(rawJenis).replace(/^Transaksi\s+/i, '').trim() || 'Transaksi';
-
-      // Payment method & kasbon handling
-      const rawMetode = String(t.MetodePembayaran || t.Metode || t.MetodeBayar || '').trim().toUpperCase();
-      const statusUpper = String(t.Status || '').trim().toUpperCase();
-      const isKasbon = statusUpper.includes('KASBON') || Boolean(t.Kasbon) || Boolean(t.IsKasbon) || rawMetode.includes('KASBON') || rawMetode.includes('HUTANG');
-      const isTabungan = rawMetode.includes('TABUNGAN');
-
-      let metodeTag = '';
-      if (isKasbon) {
-        metodeTag = ' (KASBON)';
-      } else if (isTabungan) {
-        metodeTag = ' (TABUNGAN)';
-      } else if (rawMetode && !rawMetode.includes('TUNAI') && !rawMetode.includes('CASH')) {
-        metodeTag = ` (${rawMetode})`;
-      } else {
-        // Tunai / Cash -> no method tag
-        metodeTag = '';
-      }
-
-      rawActivities.push({
-        date: d,
-        rel,
-        nominal,
-        source: 'sales',
-        isKasbonOrDebt: isKasbon,
-        isTabungan: isTabungan,
-        text: `* ${rel}: ${jenisClean} ${formatNominal}${metodeTag}`.replace(/\s+/g, ' ').trim()
-      });
-    });
-
-    // Savings
-    userSavings.forEach(t => {
-      const d = parseDate(t.Tanggal);
-      const rel = getRelativeTimeString(t.Tanggal);
-      const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
-      const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0);
-      const tipe = isSetor ? 'Setor Tabungan' : 'Tarik Tabungan';
-      const nominal = parseCurrency(t.Nominal || t.Jumlah || t.Setor || t.Tarik || 0);
-      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
-
-      const rawKet = (t.Berita || t.Keterangan || t.Catatan || '').trim();
-      const ketClean = (rawKet && rawKet !== '-' && !rawKet.toLowerCase().includes('tabungan')) ? rawKet : '';
-      const ketTag = ketClean ? ` (${ketClean.toUpperCase()})` : '';
-
-      rawActivities.push({
-        date: d,
-        rel,
-        nominal,
-        source: 'savings',
-        isTabungan: true,
-        text: `* ${rel}: ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
-      });
-    });
-
-    // Investments
-    userInvestments.forEach(t => {
-      const d = parseDate(t.Tanggal);
-      const rel = getRelativeTimeString(t.Tanggal);
-      const isCair = (t.Jenis || '').toLowerCase().includes('cair') || (t.Jenis || '').toLowerCase().includes('tarik');
-      const actionText = isCair ? 'Pencairan Investasi' : 'Tambah Investasi';
-      const nominal = parseCurrency(t.Nominal || t.Jumlah || 0);
-      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
-      rawActivities.push({
-        date: d,
-        rel,
-        nominal,
-        source: 'investment',
-        text: `* ${rel}: ${actionText} ${formatNominal}`.trim()
-      });
-    });
-
-    // Debts
-    userDebts.forEach(t => {
-      const d = parseDate(t.Tanggal);
-      const rel = getRelativeTimeString(t.Tanggal);
-      const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
-      const isBayar = tipeStr.includes('BAYAR') || tipeStr.includes('KURANG') || (t.Kredit && parseCurrency(t.Kredit) > 0);
-      const tipe = isBayar ? 'Bayar Hutang' : 'Kasbon';
-      const nominal = parseCurrency(t.Jumlah || t.Nominal || t.Kredit || t.Debet || 0);
-      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
-
-      const rawKet = (t.Keterangan || t.Berita || t.Catatan || t.Kategori || t.MetodePembayaran || t.Metode || '').trim();
-      const upperKet = rawKet.toUpperCase();
-
-      let ketTag = '';
-      if (isBayar) {
-        if (upperKet.includes('TABUNGAN')) {
-          ketTag = ' (TABUNGAN)';
-        } else if (upperKet && !upperKet.includes('TUNAI') && !upperKet.includes('CASH') && !upperKet.includes('HUTANG') && !upperKet.includes('KASBON') && rawKet !== '-') {
-          ketTag = ` (${rawKet})`;
-        } else {
-          // Cash/Tunai -> no tag!
-          ketTag = '';
+        let base = parseCurrency(curr.HargaModal || curr.Pemasukan || curr.Total || curr.Nominal || 0);
+        if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
+          base -= 1500;
         }
-      } else {
-        // Kasbon
-        let cleanCat = (rawKet && rawKet !== '-' && !upperKet.includes('HUTANG') && !upperKet.includes('KASBON') && !upperKet.includes('TUNAI') && !upperKet.includes('CASH')) ? rawKet : '';
-        if (!cleanCat) {
-          const matchSale = userSales.find(s => {
-            const sd = parseDate(s.Tanggal);
-            const snom = parseCurrency(s.Pemasukan || s.Total || s.Nominal || 0);
-            return sd.getTime() === d.getTime() && snom === nominal;
-          });
-          if (matchSale) {
-            const sj = (matchSale.Jenis || matchSale.Kategori || matchSale.Produk || matchSale.Keterangan || '').trim();
-            if (sj && sj !== '-' && !sj.toLowerCase().includes('penjualan')) {
-              cleanCat = sj;
-            }
-          }
-        }
-        ketTag = cleanCat ? ` (${cleanCat.toUpperCase()})` : '';
-      }
+        const net = base - (parseCurrency(curr.Sebagian) || 0);
+        return acc + (net > 0 ? net : 0);
+      }, 0);
 
-      rawActivities.push({
-        date: d,
-        rel,
-        nominal,
-        source: 'debt',
-        isKasbonOrDebt: !isBayar,
-        isTabungan: isBayar && upperKet.includes('TABUNGAN'),
-        text: `* ${rel}: ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
-      });
-    });
+      // Level (Volume 3 bulan terakhir)
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const salesLast3Months = userSales.filter(t => parseDate(t.Tanggal) >= threeMonthsAgo);
+      const totalVolume = salesLast3Months.reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
 
-    // Redeemed Points
-    const userRedeemedList = redeemedPoints.filter(r => (idPelanggan && r.id_pelanggan === idPelanggan) || (r.Nama || "").toLowerCase() === name);
-    userRedeemedList.forEach(r => {
-      const d = parseDate(r.Tanggal);
-      const rel = getRelativeTimeString(r.Tanggal);
-      const poinVal = r.Poin || 0;
-      rawActivities.push({
-        date: d,
-        rel,
-        nominal: 0,
-        source: 'points',
-        text: `* ${rel}: Tukar Poin ${poinVal} Poin`.trim()
-      });
-    });
+      let level = "Bronze";
+      if (totalVolume >= 20000000) level = "Platinum";
+      else if (totalVolume >= 10000000) level = "Gold";
+      else if (totalVolume >= 1000000) level = "Silver";
 
-    // Helper for exact timestamp key to avoid deduplicating different times on the same day!
-    const getTimeKey = (d: Date, nominal: number, rel: string) => {
-      const hasTime = d.getHours() !== 0 || d.getMinutes() !== 0 || d.getSeconds() !== 0;
-      if (hasTime && d.getTime() > 0) {
-        return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}_${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}_${nominal}`;
-      }
-      return `${rel}_${nominal}`;
-    };
+      // 6. POIN AKTIF (All Time: Total Poin Didapat - Poin Kadaluarsa > 1 Thn - Total Poin Ditukar)
+      const userRedeemed = ((idPelanggan && redeemedByCustId.get(idPelanggan)) || redeemedByCustName.get(name) || [])
+        .reduce((acc: number, curr: any) => acc + (curr.Poin || curr.poin || 0), 0);
 
-    // Deduplication rules:
-    // Only deduplicate across DIFFERENT categories (Sales & Debt, Sales & Savings, Debt & Savings).
-    // NEVER deduplicate within the SAME category (e.g., Sales & Sales).
-    const salesKasbonKeys = new Set<string>();
-    const salesTabunganKeys = new Set<string>();
-    const debtTabunganKeys = new Set<string>();
-
-    rawActivities.forEach(a => {
-      const key = getTimeKey(a.date, a.nominal, a.rel);
-      if (a.source === 'sales') {
-        if (a.isKasbonOrDebt) salesKasbonKeys.add(key);
-        if (a.isTabungan) salesTabunganKeys.add(key);
-      }
-      if (a.source === 'debt' && a.isTabungan) {
-        debtTabunganKeys.add(key);
-      }
-    });
-
-    const filteredActivities: ActivityItem[] = [];
-
-    rawActivities.forEach(act => {
-      const key = getTimeKey(act.date, act.nominal, act.rel);
-      
-      // Belanja & Hutang pair: drop debt if sales already logged kasbon at same timestamp & nominal
-      if (act.source === 'debt' && act.isKasbonOrDebt && salesKasbonKeys.has(key)) {
-        return;
-      }
-      // Belanja & Tabungan pair: drop savings if sales already logged tabungan at same timestamp & nominal
-      if (act.source === 'savings' && act.isTabungan && salesTabunganKeys.has(key)) {
-        return;
-      }
-      // Hutang & Tabungan pair: drop savings if debt already logged tabungan at same timestamp & nominal
-      if (act.source === 'savings' && act.isTabungan && debtTabunganKeys.has(key)) {
-        return;
-      }
-
-      filteredActivities.push(act);
-    });
-
-    // Sort descending by date (newest first)
-    filteredActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
-
-    // Take top 6
-    const top6 = filteredActivities.slice(0, 6);
-    const aktivitas_terakhir = top6.length > 0 
-      ? top6.map(a => a.text).join('\n')
-      : 'Belum ada aktivitas';
-
-    // 10 Mutasi Tabungan Terakhir
-    const formattedSavingsList = userSavings.map((t, idx) => {
-      const d = parseDate(t.Tanggal);
-      const dateStr = formatDateDDMMYYYY(d, t.Tanggal);
-      const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
-      const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0);
-      const tipe = isSetor ? 'Setor Tabungan' : 'Tarik Tabungan';
-      const nominal = parseCurrency(t.Nominal || t.Jumlah || t.Setor || t.Tarik || 0);
-      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
-
-      const rawKet = (t.Berita || t.Keterangan || t.Catatan || '').trim();
-      const ketClean = (rawKet && rawKet !== '-' && !rawKet.toLowerCase().includes('tabungan')) ? rawKet : '';
-      const ketTag = ketClean ? ` (${ketClean})` : '';
-
-      return {
-        idx,
-        date: d,
-        text: `* ${dateStr} : ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
-      };
-    });
-    formattedSavingsList.sort((a, b) => {
-      const diff = b.date.getTime() - a.date.getTime();
-      return diff !== 0 ? diff : b.idx - a.idx;
-    });
-    const top10Savings = formattedSavingsList.slice(0, 10);
-    const mutasi_tabungan = top10Savings.length > 0
-      ? top10Savings.map(s => s.text).join('\n')
-      : 'Belum ada mutasi tabungan';
-
-    // 10 Catatan Hutang Terakhir
-    const formattedDebtsList = userDebts.map((t, idx) => {
-      const d = parseDate(t.Tanggal);
-      const dateStr = formatDateDDMMYYYY(d, t.Tanggal);
-      const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
-      const isBayar = tipeStr.includes('BAYAR') || tipeStr.includes('KURANG') || (t.Kredit && parseCurrency(t.Kredit) > 0);
-      const tipe = isBayar ? 'BAYAR' : 'HUTANG';
-      const nominal = parseCurrency(t.Jumlah || t.Nominal || t.Kredit || t.Debet || 0);
-      const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
-
-      const rawKet = (t.Keterangan || t.Berita || t.Catatan || t.Kategori || t.MetodePembayaran || t.Metode || '').trim();
-      const upperKet = rawKet.toUpperCase();
-
-      let ketTag = '';
-      if (isBayar) {
-        // Keterangan hanya ditampilkan jika bayar hutang menggunakan tabungan
-        if (upperKet.includes('TABUNGAN')) {
-          ketTag = ' (TABUNGAN)';
-        } else {
-          // Metode tunai / cash -> keterangan tidak ditampilkan
-          ketTag = '';
-        }
-      } else {
-        // Tipe HUTANG: jika terkait transaksi belanja maka keterangan diisi dengan jenis (misal: PULSA)
-        let cleanCat = (rawKet && rawKet !== '-' && !upperKet.includes('HUTANG') && !upperKet.includes('KASBON') && !upperKet.includes('TUNAI') && !upperKet.includes('CASH')) ? rawKet : '';
-        if (!cleanCat) {
-          const matchSale = userSales.find(s => {
-            const sd = parseDate(s.Tanggal);
-            const snom = parseCurrency(s.Pemasukan || s.Total || s.Nominal || 0);
-            return sd.getTime() === d.getTime() && snom === nominal;
-          });
-          if (matchSale) {
-            const sj = (matchSale.Jenis || matchSale.Kategori || matchSale.Produk || matchSale.Keterangan || '').trim();
-            if (sj && sj !== '-' && !sj.toLowerCase().includes('penjualan')) {
-              cleanCat = sj;
-            }
+      const now = new Date();
+      let totalEarned = 0;
+      let totalExpired = 0;
+      userSales.forEach(t => {
+        const nominal = parseCurrency(t.Pemasukan || t.Total || t.Nominal || 0);
+        const points = Math.floor(nominal / 10000);
+        totalEarned += points;
+        const tDate = parseDate(t.Tanggal);
+        if (tDate.getTime() > 0) {
+          const expiryDate = new Date(tDate);
+          expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+          if (expiryDate < now) {
+            totalExpired += points;
           }
         }
-        ketTag = cleanCat ? ` (${cleanCat.toUpperCase()})` : '';
-      }
+      });
 
-      return {
-        idx,
-        date: d,
-        text: `* ${dateStr} : ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
-      };
-    });
-    formattedDebtsList.sort((a, b) => {
-      const diff = b.date.getTime() - a.date.getTime();
-      return diff !== 0 ? diff : b.idx - a.idx;
-    });
-    const top10Debts = formattedDebtsList.slice(0, 10);
-    const catatan_hutang = top10Debts.length > 0
-      ? top10Debts.map(d => d.text).join('\n')
-      : 'Belum ada catatan hutang';
+      const calculatedActivePoints = Math.max(0, totalEarned - totalExpired - userRedeemed);
+      const storedPoints = parseCurrency(c.poin ?? (c as any).Poin ?? (c as any).poin_aktif ?? (c as any).PoinAktif);
+      const poin = storedPoints > 0 ? storedPoints : calculatedActivePoints;
 
-    // Total Belanja Bulan Ini
-    const currentDate = new Date();
-    const currYear = currentDate.getFullYear();
-    const currMonth = currentDate.getMonth();
+      // 7. 6 AKTIVITAS TERAKHIR (Semua Waktu / All Time)
+      const rawActivities: any[] = [];
+      userSales.forEach(t => {
+        const d = parseDate(t.Tanggal);
+        const rel = getRelativeTimeString(t.Tanggal);
+        const nominal = parseCurrency(t.Pemasukan || t.Total || t.Nominal || 0);
+        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
+        let rawJenis = t.Kategori || t.Jenis || t.Keterangan || t.NamaBarang || t.Produk || t.Barang;
+        if (!rawJenis || rawJenis === 'Umum' || rawJenis === '-') rawJenis = 'Transaksi';
+        const jenisClean = String(rawJenis).replace(/^Transaksi\s+/i, '').trim() || 'Transaksi';
+        const rawMetode = String(t.MetodePembayaran || t.Metode || t.MetodeBayar || '').trim().toUpperCase();
+        const statusUpper = String(t.Status || '').trim().toUpperCase();
+        const isKasbon = statusUpper.includes('KASBON') || Boolean(t.Kasbon) || Boolean(t.IsKasbon) || rawMetode.includes('KASBON') || rawMetode.includes('HUTANG');
+        const isTabungan = rawMetode.includes('TABUNGAN');
 
-    const userSalesThisMonth = userSales.filter(t => {
-      const d = parseDate(t.Tanggal);
-      return d.getFullYear() === currYear && d.getMonth() === currMonth;
-    });
+        let metodeTag = isKasbon ? ' (KASBON)' : isTabungan ? ' (TABUNGAN)' : (rawMetode && !rawMetode.includes('TUNAI') && !rawMetode.includes('CASH')) ? ` (${rawMetode})` : '';
 
-    const total_belanja_bulan_ini = userSalesThisMonth.reduce(
-      (acc, curr) => acc + (parseCurrency(curr.Pemasukan || curr.Total || curr.Nominal || 0)),
-      0
-    );
+        rawActivities.push({
+          date: d,
+          rel,
+          nominal,
+          source: 'sales',
+          isKasbonOrDebt: isKasbon,
+          isTabungan: isTabungan,
+          text: `* ${rel}: ${jenisClean} ${formatNominal}${metodeTag}`.replace(/\s+/g, ' ').trim()
+        });
+      });
 
-    return { tabungan, investasi, lainnya, hutang, poin, level, aktivitas_terakhir, mutasi_tabungan, catatan_hutang, total_belanja_bulan_ini };
-  };
+      userSavings.forEach(t => {
+        const d = parseDate(t.Tanggal);
+        const rel = getRelativeTimeString(t.Tanggal);
+        const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
+        const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0);
+        const tipe = isSetor ? 'Setor Tabungan' : 'Tarik Tabungan';
+        const nominal = parseCurrency(t.Nominal || t.Jumlah || t.Setor || t.Tarik || 0);
+        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
+        const rawKet = (t.Berita || t.Keterangan || t.Catatan || '').trim();
+        const ketClean = (rawKet && rawKet !== '-' && !rawKet.toLowerCase().includes('tabungan')) ? rawKet : '';
+        const ketTag = ketClean ? ` (${ketClean.toUpperCase()})` : '';
 
-  const customersWithStats = useMemo(() => {
-    // 1. Calculate stats for all customers
-    const list = customers.map(c => {
-      const stats = calculateCustomerStats(c.nama || c.Nama, c.id_pelanggan);
+        rawActivities.push({
+          date: d,
+          rel,
+          nominal,
+          source: 'savings',
+          isTabungan: true,
+          text: `* ${rel}: ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
+        });
+      });
+
+      userInvestments.forEach(t => {
+        const d = parseDate(t.Tanggal);
+        const rel = getRelativeTimeString(t.Tanggal);
+        const isCair = (t.Jenis || '').toLowerCase().includes('cair') || (t.Jenis || '').toLowerCase().includes('tarik');
+        const actionText = isCair ? 'Pencairan Investasi' : 'Tambah Investasi';
+        const nominal = parseCurrency(t.Nominal || t.Jumlah || 0);
+        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
+        rawActivities.push({
+          date: d,
+          rel,
+          nominal,
+          source: 'investment',
+          text: `* ${rel}: ${actionText} ${formatNominal}`.trim()
+        });
+      });
+
+      userDebts.forEach(t => {
+        const d = parseDate(t.Tanggal);
+        const rel = getRelativeTimeString(t.Tanggal);
+        const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
+        const isBayar = tipeStr.includes('BAYAR') || tipeStr.includes('KURANG') || (t.Kredit && parseCurrency(t.Kredit) > 0);
+        const tipe = isBayar ? 'Bayar Hutang' : 'Kasbon';
+        const nominal = parseCurrency(t.Jumlah || t.Nominal || t.Kredit || t.Debet || 0);
+        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
+        const rawKet = (t.Keterangan || t.Berita || t.Catatan || t.Kategori || t.MetodePembayaran || t.Metode || '').trim();
+        const upperKet = rawKet.toUpperCase();
+        let ketTag = isBayar ? (upperKet.includes('TABUNGAN') ? ' (TABUNGAN)' : '') : (rawKet && rawKet !== '-' ? ` (${rawKet.toUpperCase()})` : '');
+
+        rawActivities.push({
+          date: d,
+          rel,
+          nominal,
+          source: 'debt',
+          isKasbonOrDebt: !isBayar,
+          isTabungan: isBayar && upperKet.includes('TABUNGAN'),
+          text: `* ${rel}: ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
+        });
+      });
+
+      const userRedeemedList = (idPelanggan && redeemedByCustId.get(idPelanggan)) || redeemedByCustName.get(name) || [];
+      userRedeemedList.forEach(r => {
+        const d = parseDate(r.Tanggal);
+        const rel = getRelativeTimeString(r.Tanggal);
+        const poinVal = r.Poin || r.poin || 0;
+        rawActivities.push({
+          date: d,
+          rel,
+          nominal: 0,
+          source: 'points',
+          text: `* ${rel}: Tukar Poin ${poinVal} Poin`.trim()
+        });
+      });
+
+      rawActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
+      const aktivitas_terakhir = rawActivities.slice(0, 6).map(a => a.text).join('\n') || 'Belum ada aktivitas';
+
+      // 8. 10 MUTASI TABUNGAN TERAKHIR (Semua Waktu / All Time)
+      const mappedSavings = userSavings.map(t => {
+        const d = parseDate(t.Tanggal);
+        const dateStr = formatDateDDMMYYYY(d, t.Tanggal);
+        const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
+        const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0);
+        const tipe = isSetor ? 'Setor Tabungan' : 'Tarik Tabungan';
+        const nominal = parseCurrency(t.Nominal || t.Jumlah || t.Setor || t.Tarik || 0);
+        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
+        const rawKet = (t.Berita || t.Keterangan || t.Catatan || '').trim();
+        const ketClean = (rawKet && rawKet !== '-' && !rawKet.toLowerCase().includes('tabungan')) ? rawKet : '';
+        const ketTag = ketClean ? ` (${ketClean.toUpperCase()})` : '';
+        return {
+          d,
+          text: `* ${dateStr} : ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
+        };
+      });
+      mappedSavings.sort((a, b) => b.d.getTime() - a.d.getTime());
+      const mutasi_tabungan = mappedSavings.slice(0, 10).map(s => s.text).join('\n') || 'Belum ada mutasi tabungan';
+
+      // 9. 10 CATATAN HUTANG TERAKHIR (Semua Waktu / All Time)
+      const mappedDebts = userDebts.map(t => {
+        const d = parseDate(t.Tanggal);
+        const dateStr = formatDateDDMMYYYY(d, t.Tanggal);
+        const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
+        const isBayar = tipeStr.includes('BAYAR') || tipeStr.includes('KURANG') || (t.Kredit && parseCurrency(t.Kredit) > 0);
+        const tipe = isBayar ? 'BAYAR' : 'HUTANG';
+        const nominal = parseCurrency(t.Jumlah || t.Nominal || t.Kredit || t.Debet || 0);
+        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
+        const rawKet = (t.Keterangan || t.Berita || t.Catatan || t.Kategori || t.MetodePembayaran || t.Metode || '').trim();
+        const upperKet = rawKet.toUpperCase();
+        let ketTag = isBayar 
+          ? (upperKet.includes('TABUNGAN') ? ' (TABUNGAN)' : '') 
+          : (rawKet && rawKet !== '-' ? ` (${rawKet.toUpperCase()})` : '');
+        return {
+          d,
+          text: `* ${dateStr} : ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
+        };
+      });
+      mappedDebts.sort((a, b) => b.d.getTime() - a.d.getTime());
+      const catatan_hutang = mappedDebts.slice(0, 10).map(d => d.text).join('\n') || 'Belum ada catatan hutang';
+
+      // 10. Total Belanja Bulan Ini (YYYY-MM)
+      const currYear = new Date().getFullYear();
+      const currMonth = new Date().getMonth();
+      const total_belanja_bulan_ini = userSales
+        .filter(t => {
+          const d = parseDate(t.Tanggal);
+          return d.getFullYear() === currYear && d.getMonth() === currMonth;
+        })
+        .reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan || curr.Total || curr.Nominal || 0)), 0);
+
       return {
         ...c,
-        ...stats
+        tabungan,
+        investasi,
+        lainnya,
+        hutang,
+        poin,
+        level,
+        aktivitas_terakhir,
+        mutasi_tabungan,
+        catatan_hutang,
+        total_belanja_bulan_ini
       };
     });
 
-    // 2. Filter active spending customers this month & sort descending
     const activeList = list
       .filter(c => (c.total_belanja_bulan_ini || 0) > 0)
       .sort((a, b) => (b.total_belanja_bulan_ini || 0) - (a.total_belanja_bulan_ini || 0));
-
     const totalActive = activeList.length;
 
-    // 3. Attach rank (Peringkat) to each customer
     return list.map(c => {
       const monthlyTotal = c.total_belanja_bulan_ini || 0;
       let peringkat = "Belum ada belanja bulan ini";
       if (monthlyTotal > 0) {
-        const rankIdx = activeList.findIndex(item => 
-          (item.id_pelanggan && c.id_pelanggan && item.id_pelanggan === c.id_pelanggan) ||
-          ((item.nama || item.Nama || '').toLowerCase().trim() === (c.nama || c.Nama || '').toLowerCase().trim())
-        );
+        const rankIdx = activeList.findIndex(item => item.id_pelanggan === c.id_pelanggan || (item.nama || '').toLowerCase() === (c.nama || '').toLowerCase());
         if (rankIdx !== -1) {
           peringkat = `Ke ${rankIdx + 1} dari ${totalActive}`;
         }
       }
       return {
         ...c,
-        lainnya: c.lainnya || c.Lainnya,
-        Lainnya: c.lainnya || c.Lainnya,
         peringkat,
         Peringkat: peringkat,
-        total_belanja_bulan_ini: monthlyTotal,
+        Lainnya: c.lainnya,
         TotalBelanjaBulanIni: monthlyTotal,
-        aktivitas_terakhir: c.aktivitas_terakhir,
         AktivitasTerakhir: c.aktivitas_terakhir,
-        mutasi_tabungan: c.mutasi_tabungan,
         MutasiTabungan: c.mutasi_tabungan,
-        catatan_hutang: c.catatan_hutang,
         CatatanHutang: c.catatan_hutang
       };
     });
-  }, [customers, salesTransactions, savingsTransactions, investmentTransactions, debtTransactions, redeemedPoints]);
+  };
+
+  const customersWithStatsForSync = useMemo(() => {
+    if (!isSyncModalOpen) return [];
+    return computeCustomerStatsForSheets(customers);
+  }, [isSyncModalOpen, customers, salesTransactions, savingsTransactions, investmentTransactions, debtTransactions, redeemedPoints]);
+
+  // Reusable background / direct sync to Google Apps Script Web App
+  const syncToAppsScript = async (customCustomerList?: Customer[], isBackground = false) => {
+    const listToSync = customCustomerList || customers;
+    if (!listToSync || listToSync.length === 0) return;
+
+    if (!isBackground) {
+      setIsSyncingDirect(true);
+      setSyncDirectStatus({ type: 'info', text: 'Sedang menyinkronkan data ke Google Sheets...' });
+    }
+
+    try {
+      const formattedStats = computeCustomerStatsForSheets(listToSync);
+      const payload = {
+        action: 'syncCustomers',
+        customers: formattedStats
+      };
+
+      const response = await fetch(DEFAULT_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      let resData: any = {};
+      try {
+        resData = await response.json();
+      } catch (e) {
+        resData = { status: 'success' };
+      }
+
+      if (resData.status === 'success' || response.ok) {
+        const timeNow = new Date().toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+        const dateNow = new Date().toLocaleDateString('id-ID', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+        const fullTimeStr = `${dateNow} ${timeNow}`;
+        
+        localStorage.setItem('LAST_SHEETS_SYNC', fullTimeStr);
+        setLastSyncTime(fullTimeStr);
+        if (!isBackground) {
+          setSyncDirectStatus({
+            type: 'success',
+            text: `✓ ${listToSync.length} data pelanggan berhasil disinkronkan ke Google Sheets (${fullTimeStr})`
+          });
+        }
+        if (onSyncComplete) onSyncComplete(listToSync);
+      } else {
+        throw new Error(resData.message || 'Gagal menyinkronkan ke Google Sheets');
+      }
+    } catch (err: any) {
+      console.error('Error syncing to Apps Script Web App:', err);
+      if (!isBackground) {
+        setSyncDirectStatus({
+          type: 'error',
+          text: err.message || 'Gagal menyinkronkan data ke Google Sheets. Pastikan skrip Google sudah aktif.'
+        });
+      }
+    } finally {
+      if (!isBackground) {
+        setIsSyncingDirect(false);
+        setTimeout(() => {
+          setSyncDirectStatus(null);
+        }, 6000);
+      }
+    }
+  };
+
+  const handleDirectSyncToAppsScript = () => {
+    syncToAppsScript(customers, false);
+  };
+
+  // Auto-sync debounced trigger when data is updated
+  const prevCustomerCount = useRef(customers.length);
+  useEffect(() => {
+    if (customers.length > 0 && customers.length !== prevCustomerCount.current) {
+      prevCustomerCount.current = customers.length;
+      const timer = setTimeout(() => {
+        syncToAppsScript(customers, true);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [customers.length]);
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
@@ -745,13 +807,19 @@ export default function CustomerManagement({
       foto: formData.foto || ''
     };
 
-    // Optimistically update local state
+    let nextCustomerList: Customer[] = [];
+
+    // Optimistically update local state & global state
     setCustomers(prev => {
       const exists = prev.some(c => c.id_pelanggan === targetId);
-      if (exists) {
-        return prev.map(c => c.id_pelanggan === targetId ? updatedCustomerObj : c);
+      const next = exists
+        ? prev.map(c => c.id_pelanggan === targetId ? updatedCustomerObj : c)
+        : [updatedCustomerObj, ...prev];
+      nextCustomerList = next;
+      if (setGlobalCustomers) {
+        setGlobalCustomers(next);
       }
-      return [updatedCustomerObj, ...prev];
+      return next;
     });
 
     // Save directly to Supabase
@@ -772,12 +840,16 @@ export default function CustomerManagement({
 
     setLoading(false);
     onActionSuccess(editingCustomer ? 'Data pelanggan berhasil diperbarui di Supabase' : 'Pelanggan baru berhasil ditambahkan ke Supabase');
+
+    // Trigger background auto sync to Google Sheets
+    if (nextCustomerList.length > 0) {
+      syncToAppsScript(nextCustomerList, true);
+    }
   };
 
   const onActionSuccess = (msg: string) => {
     setSuccessMessage(msg);
     setShowSuccess(true);
-    fetchCustomers();
     setIsModalOpen(false);
     setEditingCustomer(null);
     resetForm();
@@ -797,8 +869,17 @@ export default function CustomerManagement({
       setLoading(true);
       setIsDeleteModalOpen(false);
 
+      let nextCustomerList: Customer[] = [];
+
       // Optimistic delete
-      setCustomers(prev => prev.filter(c => c.id_pelanggan !== targetId));
+      setCustomers(prev => {
+        const next = prev.filter(c => c.id_pelanggan !== targetId);
+        nextCustomerList = next;
+        if (setGlobalCustomers) {
+          setGlobalCustomers(next);
+        }
+        return next;
+      });
 
       // Hapus dari Supabase
       if (SupabaseCustomerService.isConnected()) {
@@ -810,6 +891,11 @@ export default function CustomerManagement({
       }
       
       onActionSuccess('Pelanggan berhasil dihapus dari Supabase');
+
+      // Trigger background auto sync to Google Sheets
+      if (nextCustomerList.length > 0) {
+        syncToAppsScript(nextCustomerList, true);
+      }
     } catch (err) {
       console.error('Error deleting customer:', err);
       onActionSuccess('Pelanggan dihapus secara lokal');
@@ -824,19 +910,6 @@ export default function CustomerManagement({
     setFormData(customer);
     setIsModalOpen(true);
   };
-
-  const filteredCustomers = useMemo(() => {
-    return customersWithStats
-      .filter(c => {
-        const cNama = c.nama || c.Nama || "";
-        const cId = c.id_pelanggan || c.id || "";
-        const matchesSearch = cNama.toLowerCase().includes((search || "").toLowerCase()) || 
-                            cId.toLowerCase().includes((search || "").toLowerCase());
-        const matchesLevel = filterLevel === 'Semua' || c.level === filterLevel;
-        return matchesSearch && matchesLevel;
-      })
-      .sort((a, b) => (a.nama || a.Nama || "").localeCompare(b.nama || b.Nama || ""));
-  }, [customersWithStats, search, filterLevel]);
 
   const [displayLimit, setDisplayLimit] = useState(12);
 
@@ -1280,13 +1353,51 @@ export default function CustomerManagement({
                 </button>
               </div>
 
-              <GoogleSheetsSyncCard 
-                customers={customersWithStats} 
-                variant="embedded"
-                onSyncSuccess={() => {
-                  setLastSyncTime(localStorage.getItem('LAST_SHEETS_SYNC') || 'Baru Saja');
-                }}
-              />
+              {/* Direct 1-Click Apps Script Sync UI (Tanpa Perlu Login Google) */}
+              <div className="bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-3xl p-5 mb-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-600 text-white tracking-wider">
+                        Sistem API Otomatis
+                      </span>
+                      <span className="text-xs font-black text-emerald-900 dark:text-emerald-300 uppercase">
+                        Web App Apps Script
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                      Sinkronisasi instan ke Google Sheets tanpa perlu login Google berulang.
+                    </p>
+                    <p className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400">
+                      Terakhir Update: <span className="underline">{lastSyncTime}</span>
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleDirectSyncToAppsScript}
+                    disabled={isSyncingDirect}
+                    className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shrink-0"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isSyncingDirect ? 'animate-spin' : ''}`} />
+                    <span>{isSyncingDirect ? 'Menyinkronkan...' : 'Sinkronkan Sekarang'}</span>
+                  </button>
+                </div>
+
+                {syncDirectStatus && (
+                  <div className={`p-3 rounded-2xl text-xs font-bold flex items-center gap-2 ${
+                    syncDirectStatus.type === 'success'
+                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                      : syncDirectStatus.type === 'error'
+                      ? 'bg-rose-100 text-rose-900 border border-rose-300'
+                      : 'bg-blue-100 text-blue-900 border border-blue-300'
+                  }`}>
+                    {syncDirectStatus.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                    {syncDirectStatus.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />}
+                    <span>{syncDirectStatus.text}</span>
+                  </div>
+                )}
+              </div>
 
               <div className="mt-6 flex justify-end">
                 <button

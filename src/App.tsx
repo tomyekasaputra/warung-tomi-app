@@ -2883,20 +2883,30 @@ const PageDataSync: React.FC<{
   userFilterKey?: string;
 }> = ({ fetchData, activeTab, loadedCollectionsRef, getCollectionsForPath, userFilterKey }) => {
   const location = useLocation();
+  const isFirstMount = useRef(true);
+  const prevPathRef = useRef(location.pathname);
+  const prevTabRef = useRef(activeTab);
 
   useEffect(() => {
-    // Ketika user pindah ke tab belanja dan belum memuat katalog lengkap, trigger fetch stockItems
-    if (activeTab === 'belanja' && !loadedCollectionsRef.current.has('stockItems_catalog')) {
-      loadedCollectionsRef.current.add('stockItems_catalog');
-      fetchData(false, 'stockItems');
+    // Lewati initial mount karena fetchData(true) dipanggil saat pertama kali aplikasi dimuat
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      prevPathRef.current = location.pathname;
+      prevTabRef.current = activeTab;
       return;
     }
-    const required = getCollectionsForPath(location.pathname, activeTab);
-    const missing = required.filter(col => !loadedCollectionsRef.current.has(col));
-    if (missing.length > 0) {
-      fetchData(false, missing);
+
+    // Selalu trigger pengecekan delta sync dan tampilkan loading screen ketika berpindah halaman atau tab
+    if (prevPathRef.current !== location.pathname || prevTabRef.current !== activeTab) {
+      prevPathRef.current = location.pathname;
+      prevTabRef.current = activeTab;
+
+      const required = getCollectionsForPath(location.pathname, activeTab);
+      if (required && required.length > 0) {
+        fetchData(true, required);
+      }
     }
-  }, [location.pathname, activeTab, userFilterKey]);
+  }, [location.pathname, activeTab, userFilterKey, getCollectionsForPath, fetchData]);
 
   return null;
 };
@@ -29288,15 +29298,6 @@ export default function App() {
   const getCollectionsForPath = (pathname: string, tab?: string): string[] => {
     const p = pathname.toLowerCase();
     
-    if (p === '/' || p.startsWith('/home')) {
-      if (tab === 'belanja') return ['stockItems'];
-      if (tab === 'riwayat') return loggedInUser ? ['salesTransactions'] : [];
-      // Beranda tab: Guests only need stock/products if any, no customer accounts or store-wide sales history
-      if (loggedInUser) {
-        return ['stockItems', 'salesTransactions'];
-      }
-      return ['stockItems'];
-    }
     if (p.startsWith('/bansos')) {
       return ['salesTransactions'];
     }
@@ -29312,11 +29313,23 @@ export default function App() {
     if (p.startsWith('/hutang') || p.startsWith('/detail-hutang')) {
       return ['debtTransactions', 'salesTransactions', 'customers'];
     }
+    if (p.startsWith('/lainnya')) {
+      return ['salesTransactions', 'customers'];
+    }
     if (p.startsWith('/investasi')) {
       return ['investmentTransactions', 'customers'];
     }
     if (p.startsWith('/poin')) {
       return ['redeemedPoints', 'salesTransactions', 'customers'];
+    }
+    if (p.startsWith('/level')) {
+      return ['salesTransactions', 'customers'];
+    }
+    if (p.startsWith('/notifikasi')) {
+      return ['salesTransactions', 'savingTransactions', 'debtTransactions', 'customers'];
+    }
+    if (p.startsWith('/pengaturan-profil')) {
+      return ['customers', 'salesTransactions', 'investmentTransactions', 'redeemedPoints'];
     }
     if (p.startsWith('/detail-belanja')) {
       return ['salesTransactions', 'customers'];
@@ -29333,7 +29346,7 @@ export default function App() {
       if (p.includes('/savings')) return ['savingTransactions', 'customers'];
       if (p.includes('/debt')) return ['debtTransactions', 'customers'];
       if (p.includes('/investment')) return ['investmentTransactions', 'customers'];
-      if (p.includes('/cashflow')) return ['salesTransactions', 'savingsTransactions', 'debtTransactions', 'investmentTransactions', 'customers'];
+      if (p.includes('/cashflow')) return ['salesTransactions', 'savingTransactions', 'debtTransactions', 'investmentTransactions', 'customers'];
       if (p.includes('/report')) return ['salesTransactions', 'customers'];
       if (p.includes('/input-data')) return ['customers', 'stockItems'];
       if (p.includes('/database')) return ['customers', 'salesTransactions'];
@@ -29343,6 +29356,14 @@ export default function App() {
         return ['customers'];
       }
       return ['customers', 'salesTransactions', 'stockItems'];
+    }
+    
+    // Halaman Utama / Tabs
+    if (tab === 'belanja' || tab === 'konfirmasi-pesanan') return ['stockItems'];
+    if (tab === 'riwayat') return loggedInUser ? ['salesTransactions'] : [];
+    if (tab === 'settings') return ['customers', 'salesTransactions', 'investmentTransactions', 'redeemedPoints'];
+    if (loggedInUser) {
+      return ['stockItems', 'salesTransactions', 'savingTransactions', 'debtTransactions', 'investmentTransactions', 'customers'];
     }
     return ['stockItems'];
   };
@@ -30301,6 +30322,8 @@ export default function App() {
         <Route path="/admin/customers" element={
           <AdminLayout activeTab="customers">
             <CustomerManagement 
+              initialCustomers={customers}
+              setGlobalCustomers={setCustomers}
               onSyncComplete={() => {
                 fetchData(false, "customers");
               }}
