@@ -466,12 +466,16 @@ export const SupabaseCustomerService = {
     return !!getSupabaseClient();
   },
 
-  async getCustomers(options?: { name?: string; limit?: number; select?: string; withBalanceOnly?: boolean; debtOnly?: boolean }): Promise<{ data: SupabaseCustomer[] | null; error: any }> {
+  async getCustomers(options?: { name?: string; limit?: number; select?: string; withBalanceOnly?: boolean; debtOnly?: boolean; since?: string }): Promise<{ data: SupabaseCustomer[] | null; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
     const selectCols = options?.select || '*';
     let baseQuery = client.from('customers').select(selectCols);
+
+    if (options?.since) {
+      baseQuery = baseQuery.gt('created_at', options.since);
+    }
 
     if (options?.debtOnly) {
       baseQuery = baseQuery.gt('hutang', 0);
@@ -499,6 +503,9 @@ export const SupabaseCustomerService = {
 
     while (hasMore) {
       let pageQuery = client.from('customers').select(selectCols);
+      if (options?.since) {
+        pageQuery = pageQuery.gt('created_at', options.since);
+      }
       if (options?.debtOnly) {
         pageQuery = pageQuery.gt('hutang', 0);
       } else if (options?.withBalanceOnly) {
@@ -553,6 +560,7 @@ export const SupabaseCustomerService = {
     if (customer.point !== undefined || customer.Poin !== undefined || customer.poin !== undefined) cleanPayload.point = Number(customer.point ?? customer.Poin ?? customer.poin) || 0;
     if (customer.level !== undefined || customer.Level !== undefined) cleanPayload.level = String(customer.level ?? customer.Level ?? 'Bronze');
     if (customer.foto !== undefined || customer.Foto !== undefined) cleanPayload.foto = String(customer.foto ?? customer.Foto ?? '');
+    cleanPayload.created_at = new Date().toISOString();
 
     if (isValidUUID(customer.id)) {
       cleanPayload.id = customer.id;
@@ -750,16 +758,19 @@ export const SupabaseCustomerService = {
 export const SupabaseStockService = {
   isConnected(): boolean { return SupabaseCustomerService.isConnected(); },
 
-  async getProducts(options?: { limit?: number; select?: string }): Promise<{ data: SupabaseProduct[] | null; error: any }> {
+  async getProducts(options?: { limit?: number; select?: string; since?: string }): Promise<{ data: SupabaseProduct[] | null; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
     const selectCols = options?.select || '*';
+    let baseQuery = client.from('products').select(selectCols);
+
+    if (options?.since) {
+      baseQuery = baseQuery.gt('created_at', options.since);
+    }
 
     if (options?.limit && options.limit > 0) {
-      const { data, error } = await client
-        .from('products')
-        .select(selectCols)
+      const { data, error } = await baseQuery
         .order('nama', { ascending: true })
         .limit(options.limit);
       return { data: data as any, error };
@@ -771,9 +782,11 @@ export const SupabaseStockService = {
     let lastError: any = null;
 
     while (hasMore) {
-      const { data, error } = await client
-        .from('products')
-        .select(selectCols)
+      let pageQuery = client.from('products').select(selectCols);
+      if (options?.since) {
+        pageQuery = pageQuery.gt('created_at', options.since);
+      }
+      const { data, error } = await pageQuery
         .order('nama', { ascending: true })
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -807,7 +820,8 @@ export const SupabaseStockService = {
       harga_modal: Number(product.harga_modal !== undefined ? product.harga_modal : (product.HargaModal || 0)),
       harga_jual: Number(product.harga_jual !== undefined ? product.harga_jual : (product.HargaJual || 0)),
       gambar: String(product.gambar || product.Gambar || product.Image || '').trim(),
-      update_terakhir: String(product.update_terakhir || product.UpdateTerakhir || new Date().toLocaleString('id-ID')).trim()
+      update_terakhir: String(product.update_terakhir || product.UpdateTerakhir || new Date().toLocaleString('id-ID')).trim(),
+      created_at: new Date().toISOString()
     };
 
     if (isValidUUID(product.id)) {
@@ -980,20 +994,24 @@ export const SupabaseSavingsService = {
     return !!getSupabaseClient();
   },
 
-  async getSavings(options?: { name?: string; limit?: number; select?: string; month?: string; currentMonthOnly?: boolean }): Promise<{ data: SupabaseSavingTransaction[] | null; error: any }> {
+  async getSavings(options?: { name?: string; limit?: number; select?: string; month?: string; currentMonthOnly?: boolean; since?: string }): Promise<{ data: SupabaseSavingTransaction[] | null; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
     const selectCols = options?.select || '*';
     let baseQuery = client.from('savings_transactions').select(selectCols);
 
+    if (options?.since) {
+      baseQuery = baseQuery.gt('created_at', options.since);
+    }
+
     let targetMonth = options?.month;
-    if (!targetMonth && options?.currentMonthOnly) {
+    if (!targetMonth && options?.currentMonthOnly && !options?.since) {
       const now = new Date();
       targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
 
-    if (targetMonth) {
+    if (targetMonth && !options?.since) {
       const parts = targetMonth.split('-');
       if (parts.length === 2) {
         const y = parts[0];
@@ -1022,7 +1040,10 @@ export const SupabaseSavingsService = {
 
     while (hasMore) {
       let pageQuery = client.from('savings_transactions').select(selectCols);
-      if (targetMonth) {
+      if (options?.since) {
+        pageQuery = pageQuery.gt('created_at', options.since);
+      }
+      if (targetMonth && !options?.since) {
         const parts = targetMonth.split('-');
         if (parts.length === 2) {
           const y = parts[0];
@@ -1190,14 +1211,18 @@ export const SupabaseInvestmentService = {
     return !!getSupabaseClient();
   },
 
-  async getInvestments(options?: { name?: string; limit?: number; select?: string; activeOnly?: boolean }): Promise<{ data: SupabaseInvestmentTransaction[] | null; error: any }> {
+  async getInvestments(options?: { name?: string; limit?: number; select?: string; activeOnly?: boolean; since?: string }): Promise<{ data: SupabaseInvestmentTransaction[] | null; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
     const selectCols = options?.select || '*';
     let baseQuery = client.from('investment_transactions').select(selectCols);
 
-    if (options?.activeOnly) {
+    if (options?.since) {
+      baseQuery = baseQuery.gt('created_at', options.since);
+    }
+
+    if (options?.activeOnly && !options?.since) {
       baseQuery = baseQuery.neq('status', 'sukses dicairkan');
     }
 
@@ -1220,7 +1245,10 @@ export const SupabaseInvestmentService = {
 
     while (hasMore) {
       let pageQuery = client.from('investment_transactions').select(selectCols);
-      if (options?.activeOnly) {
+      if (options?.since) {
+        pageQuery = pageQuery.gt('created_at', options.since);
+      }
+      if (options?.activeOnly && !options?.since) {
         pageQuery = pageQuery.neq('status', 'sukses dicairkan');
       }
       if (options?.name && options.name.trim() !== '') {
@@ -1383,20 +1411,24 @@ export const SupabaseDebtService = {
     return !!getSupabaseClient();
   },
 
-  async getDebts(options?: { name?: string; limit?: number; select?: string; month?: string; currentMonthOnly?: boolean; allHistory?: boolean }): Promise<{ data: SupabaseDebtTransaction[] | null; error: any }> {
+  async getDebts(options?: { name?: string; limit?: number; select?: string; month?: string; currentMonthOnly?: boolean; allHistory?: boolean; since?: string }): Promise<{ data: SupabaseDebtTransaction[] | null; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
     const selectCols = options?.select || '*';
     let baseQuery = client.from('debt_transactions').select(selectCols);
 
+    if (options?.since) {
+      baseQuery = baseQuery.gt('created_at', options.since);
+    }
+
     let targetMonth = options?.month;
-    if (!targetMonth && options?.currentMonthOnly && !options?.allHistory) {
+    if (!targetMonth && options?.currentMonthOnly && !options?.allHistory && !options?.since) {
       const now = new Date();
       targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
 
-    if (targetMonth) {
+    if (targetMonth && !options?.since) {
       const parts = targetMonth.split('-');
       if (parts.length === 2) {
         const y = parts[0];
@@ -1426,7 +1458,10 @@ export const SupabaseDebtService = {
 
     while (hasMore) {
       let pageQuery = client.from('debt_transactions').select(selectCols);
-      if (targetMonth) {
+      if (options?.since) {
+        pageQuery = pageQuery.gt('created_at', options.since);
+      }
+      if (targetMonth && !options?.since) {
         const parts = targetMonth.split('-');
         if (parts.length === 2) {
           const y = parts[0];
@@ -1594,7 +1629,7 @@ export const SupabaseSalesService = {
     return !!getSupabaseClient();
   },
 
-  async getSales(options?: { name?: string; limit?: number; bansosOnly?: boolean; select?: string; month?: string; currentMonthOnly?: boolean; date?: string; todayOnly?: boolean; pendingOnly?: boolean; includePending?: boolean }): Promise<{ data: SupabaseSalesTransaction[] | null; error: any }> {
+  async getSales(options?: { name?: string; limit?: number; bansosOnly?: boolean; select?: string; month?: string; currentMonthOnly?: boolean; date?: string; todayOnly?: boolean; pendingOnly?: boolean; includePending?: boolean; since?: string }): Promise<{ data: SupabaseSalesTransaction[] | null; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
@@ -1602,8 +1637,12 @@ export const SupabaseSalesService = {
 
     let baseQuery = client.from('sales_transactions').select(selectCols);
 
+    if (options?.since) {
+      baseQuery = baseQuery.gt('created_at', options.since);
+    }
+
     let targetDate = options?.date;
-    if (!targetDate && options?.todayOnly) {
+    if (!targetDate && options?.todayOnly && !options?.since) {
       const now = new Date();
       const y = now.getFullYear();
       const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -1612,7 +1651,7 @@ export const SupabaseSalesService = {
     }
 
     let targetMonth = options?.month;
-    if (!targetDate && !targetMonth && options?.currentMonthOnly) {
+    if (!targetDate && !targetMonth && options?.currentMonthOnly && !options?.since) {
       const now = new Date();
       targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     }
@@ -1621,7 +1660,7 @@ export const SupabaseSalesService = {
 
     if (options?.pendingOnly) {
       baseQuery = baseQuery.or(PENDING_CLAUSE);
-    } else if (targetDate) {
+    } else if (targetDate && !options?.since) {
       const parts = targetDate.split('-');
       if (parts.length === 3) {
         const y = parts[0];
@@ -1636,7 +1675,7 @@ export const SupabaseSalesService = {
         }
         baseQuery = baseQuery.or(dateOr);
       }
-    } else if (targetMonth) {
+    } else if (targetMonth && !options?.since) {
       const parts = targetMonth.split('-');
       if (parts.length === 2) {
         const y = parts[0];
@@ -1648,7 +1687,7 @@ export const SupabaseSalesService = {
         }
         baseQuery = baseQuery.or(monthOr);
       }
-    } else if (options?.includePending) {
+    } else if (options?.includePending && !options?.since) {
       baseQuery = baseQuery.or(PENDING_CLAUSE);
     }
 
@@ -1675,9 +1714,12 @@ export const SupabaseSalesService = {
 
     while (hasMore) {
       let pageQuery = client.from('sales_transactions').select(selectCols);
+      if (options?.since) {
+        pageQuery = pageQuery.gt('created_at', options.since);
+      }
       if (options?.pendingOnly) {
         pageQuery = pageQuery.or(PENDING_CLAUSE);
-      } else if (targetDate) {
+      } else if (targetDate && !options?.since) {
         const parts = targetDate.split('-');
         if (parts.length === 3) {
           const y = parts[0];
@@ -1692,7 +1734,7 @@ export const SupabaseSalesService = {
           }
           pageQuery = pageQuery.or(dateOr);
         }
-      } else if (targetMonth) {
+      } else if (targetMonth && !options?.since) {
         const parts = targetMonth.split('-');
         if (parts.length === 2) {
           const y = parts[0];
@@ -1704,7 +1746,7 @@ export const SupabaseSalesService = {
           }
           pageQuery = pageQuery.or(monthOr);
         }
-      } else if (options?.includePending) {
+      } else if (options?.includePending && !options?.since) {
         pageQuery = pageQuery.or(PENDING_CLAUSE);
       }
       if (options?.bansosOnly) {
@@ -1874,19 +1916,22 @@ export const SupabasePointsService = {
     return !!getSupabaseClient();
   },
 
-  async getPoints(options?: { name?: string; limit?: number }): Promise<{ data: SupabaseRedeemedPoint[] | null; error: any }> {
+  async getPoints(options?: { name?: string; limit?: number; since?: string }): Promise<{ data: SupabaseRedeemedPoint[] | null; error: any }> {
     const client = getSupabaseClient();
     if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
     if (options?.name && options.name.trim() !== '') {
       let query = client.from('redeemed_points').select('*').ilike('nama', options.name.trim()).order('created_at', { ascending: true });
+      if (options?.since) query = query.gt('created_at', options.since);
       if (options?.limit && options.limit > 0) query = query.limit(options.limit);
       const { data, error } = await query;
       return { data, error };
     }
 
     if (options?.limit && options.limit > 0) {
-      const { data, error } = await client.from('redeemed_points').select('*').order('created_at', { ascending: true }).limit(options.limit);
+      let query = client.from('redeemed_points').select('*').order('created_at', { ascending: true }).limit(options.limit);
+      if (options?.since) query = query.gt('created_at', options.since);
+      const { data, error } = await query;
       return { data, error };
     }
     let allData: SupabaseRedeemedPoint[] = [];
@@ -1896,11 +1941,14 @@ export const SupabasePointsService = {
     let lastError: any = null;
 
     while (hasMore) {
-      const { data, error } = await client
+      let query = client
         .from('redeemed_points')
         .select('*')
-        .order('created_at', { ascending: true })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+        .order('created_at', { ascending: true });
+      if (options?.since) {
+        query = query.gt('created_at', options.since);
+      }
+      const { data, error } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (error) {
         lastError = error;

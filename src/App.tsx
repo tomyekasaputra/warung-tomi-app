@@ -45,6 +45,7 @@ import { AdminDatabasePage, JENIS_OPTIONS, MELALUI_OPTIONS, STATUS_OPTIONS, form
 import { AdminInputDataPage } from "./components/AdminInputDataPage";
 import { AdminCashFlowPage } from "./components/AdminCashFlowPage";
 import { DatabaseSuccessModal, SuccessModalData } from "./components/DatabaseSuccessModal";
+import { DeltaCache } from "./lib/deltaSync";
 import { SupabaseStockService, SupabaseCustomerService, SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseInvestmentService, SupabasePointsService, SUPABASE_CREATE_PRODUCTS_TABLE_SQL, SupabaseProduct, SupabaseSalesTransaction, formatDateDDMMYYYY } from "./lib/supabase";
 import { 
   ShoppingBag, 
@@ -359,22 +360,24 @@ export const isCustomerSavingMatch = (t: any, customer: { id_pelanggan?: string;
   const custId = (customer.id_pelanggan || customer.id || '').toLowerCase().trim();
 
   const tName = (t.Nama || t.nama || t.nama_nasabah || '').toLowerCase().trim();
-  const tIdPel = (t.id_pelanggan || '').toLowerCase().trim();
+  const tIdPel = (t.id_pelanggan || t.id_customer || t.customer_id || '').toLowerCase().trim();
 
-  // If names exist and are different, they MUST NOT match
-  if (custName && tName && custName !== tName) return false;
-
-  // 1. Strict name equality
+  // 1. Strict name equality if names match
   if (custName && tName && custName === tName) return true;
 
-  // 2. Non-generic ID match
-  if (!isGenericId(custId) && !isGenericId(tIdPel) && custId === tIdPel) return true;
+  // 2. ID Pelanggan match (jika nama tidak ketemu atau pelanggan ubah nama)
+  if (!isGenericId(custId) && !isGenericId(tIdPel)) {
+    if (custId === tIdPel) return true;
+    const cust4 = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
+    const t4 = get4DigitCustId(t.id_pelanggan || t.id_customer || t.customer_id, t.Nama || t.nama);
+    if (cust4 && cust4 !== "0000" && t4 && t4 !== "0000" && cust4 === t4) return true;
+  }
 
   // 3. Check transaction ID format TAB-XXXX/
   const cust4Digits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
-  const tIdTab = (t.id_tabungan || t.id || '').toUpperCase();
-  if (cust4Digits && cust4Digits !== "0000" && tIdTab.includes(`TAB-${cust4Digits}/`)) {
-    if (!tName || tName === custName) return true;
+  const tIdTab = String(t.id_tabungan || t.id || '').toUpperCase();
+  if (cust4Digits && cust4Digits !== "0000" && (tIdTab.includes(`TAB-${cust4Digits}/`) || tIdTab === `TAB-${cust4Digits}`)) {
+    return true;
   }
 
   return false;
@@ -386,22 +389,53 @@ export const isCustomerDebtMatch = (t: any, customer: { id_pelanggan?: string; i
   const custId = (customer.id_pelanggan || customer.id || '').toLowerCase().trim();
 
   const tName = (t.Nama || t.nama || t.nama_pelanggan || '').toLowerCase().trim();
-  const tIdPel = (t.id_pelanggan || '').toLowerCase().trim();
+  const tIdPel = (t.id_pelanggan || t.id_customer || t.customer_id || '').toLowerCase().trim();
 
-  // If names exist and are different, they MUST NOT match
-  if (custName && tName && custName !== tName) return false;
-
-  // 1. Strict name equality
+  // 1. Strict name equality if names match
   if (custName && tName && custName === tName) return true;
 
-  // 2. Non-generic ID match
-  if (!isGenericId(custId) && !isGenericId(tIdPel) && custId === tIdPel) return true;
+  // 2. ID Pelanggan match (jika nama tidak ketemu atau pelanggan ubah nama)
+  if (!isGenericId(custId) && !isGenericId(tIdPel)) {
+    if (custId === tIdPel) return true;
+    const cust4 = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
+    const t4 = get4DigitCustId(t.id_pelanggan || t.id_customer || t.customer_id, t.Nama || t.nama);
+    if (cust4 && cust4 !== "0000" && t4 && t4 !== "0000" && cust4 === t4) return true;
+  }
 
   // 3. Check transaction ID format HUT-XXXX/
   const cust4Digits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
-  const tIdHut = (t.id_hutang || t.id || '').toUpperCase();
-  if (cust4Digits && cust4Digits !== "0000" && tIdHut.includes(`HUT-${cust4Digits}/`)) {
-    if (!tName || tName === custName) return true;
+  const tIdHut = String(t.id_hutang || t.id || '').toUpperCase();
+  if (cust4Digits && cust4Digits !== "0000" && (tIdHut.includes(`HUT-${cust4Digits}/`) || tIdHut === `HUT-${cust4Digits}`)) {
+    return true;
+  }
+
+  return false;
+};
+
+export const isCustomerSalesMatch = (t: any, customer: { id_pelanggan?: string; id?: string; Nama?: string; nama?: string } | null) => {
+  if (!customer || !t) return false;
+  const custName = (customer.Nama || customer.nama || '').toLowerCase().trim();
+  const custId = (customer.id_pelanggan || customer.id || '').toLowerCase().trim();
+
+  const tName = (t.Nama || t.nama || '').toLowerCase().trim();
+  const tIdPel = (t.id_pelanggan || t.id_customer || t.customer_id || '').toLowerCase().trim();
+
+  // 1. Strict name equality if names match
+  if (custName && tName && custName === tName) return true;
+
+  // 2. ID Pelanggan match (jika nama tidak ketemu atau pelanggan ubah nama)
+  if (!isGenericId(custId) && !isGenericId(tIdPel)) {
+    if (custId === tIdPel) return true;
+    const cust4 = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
+    const t4 = get4DigitCustId(t.id_pelanggan || t.id_customer || t.customer_id, t.Nama || t.nama);
+    if (cust4 && cust4 !== "0000" && t4 && t4 !== "0000" && cust4 === t4) return true;
+  }
+
+  // 3. Check transaction ID format TRX-XXXX/
+  const cust4Digits = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
+  const tIdTrx = String(t.id_transaksi || t.id || '').toUpperCase();
+  if (cust4Digits && cust4Digits !== "0000" && (tIdTrx.includes(`TRX-${cust4Digits}/`) || tIdTrx === `TRX-${cust4Digits}`)) {
+    return true;
   }
 
   return false;
@@ -3008,6 +3042,52 @@ const LoginPage = ({
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
+  const [localCustomers, setLocalCustomers] = useState<Customer[]>([]);
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  // Fetch customer list for login suggestions (only name, pin, foto needed)
+  useEffect(() => {
+    if ((!customers || customers.length === 0) && SupabaseCustomerService.isConnected()) {
+      SupabaseCustomerService.getCustomers({ select: 'id, id_pelanggan, nama, pin, foto' })
+        .then(res => {
+          if (res.data && res.data.length > 0) {
+            const mapped = res.data.map((c, index) => ({
+              id: c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, '0')}`,
+              id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
+              Nama: c.nama || 'Pelanggan',
+              PIN: c.pin || '',
+              Foto: c.foto || ''
+            }));
+            setLocalCustomers(mapped);
+          }
+        })
+        .catch(err => console.error("Gagal memuat pelanggan di LoginPage:", err));
+    }
+  }, [customers]);
+
+  const activeCustomerList = useMemo(() => {
+    if (customers && customers.length > 0) return customers;
+    return localCustomers;
+  }, [customers, localCustomers]);
+
+  const savedPhotos: Record<string, string> = (() => {
+    try {
+      const saved = localStorage.getItem("warung_tomi_photos");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  })();
+
+  const getCustomerPhoto = (c: Customer | null | undefined): string => {
+    if (!c) return "";
+    return savedPhotos[c.Nama] || c.Foto || (c as any).foto || (c as any).FotoProfil || "";
+  };
+
+  const getCustomerPin = (c: Customer | null | undefined): string => {
+    if (!c) return "";
+    return String(c.PIN || (c as any).pin || (c as any).Pin || "").trim();
+  };
 
   // Helper function to highlight typed characters in orange, rest in BNI blue
   const highlightText = (text: string, query: string) => {
@@ -3043,8 +3123,8 @@ const LoginPage = ({
 
   useEffect(() => {
     const trimmedInput = customerName.trim();
-    if (trimmedInput.length > 0 && !showPinInput && customers) {
-      const filtered = customers.filter(c => 
+    if (trimmedInput.length > 0 && !showPinInput && activeCustomerList.length > 0) {
+      const filtered = activeCustomerList.filter(c => 
         c && c.Nama && 
         typeof c.Nama === 'string' && 
         c.Nama.toLowerCase().includes(trimmedInput.toLowerCase())
@@ -3053,15 +3133,47 @@ const LoginPage = ({
     } else {
       setSuggestions([]);
     }
-  }, [customerName, customers, showPinInput]);
+  }, [customerName, activeCustomerList, showPinInput]);
 
-  const handleLoginAttempt = () => {
-    if (!customers || !onLogin || !setActiveTab) return;
-    const foundUser = customers.find(c => 
-      c && c.Nama && typeof c.Nama === 'string' && c.Nama.toLowerCase() === customerName.toLowerCase()
+  const handleLoginAttempt = async () => {
+    const cleanName = customerName.trim();
+    if (!cleanName) return;
+
+    setIsVerifying(true);
+    setError("");
+
+    let foundUser = activeCustomerList.find(c => 
+      c && c.Nama && typeof c.Nama === 'string' && c.Nama.trim().toLowerCase() === cleanName.toLowerCase()
     );
+
+    // If not found or to ensure latest PIN/Foto from Supabase
+    if (SupabaseCustomerService.isConnected()) {
+      try {
+        const { data } = await SupabaseCustomerService.getCustomers({ 
+          name: cleanName,
+          select: 'id, id_pelanggan, nama, pin, foto'
+        });
+        if (data && data.length > 0) {
+          const c = data[0];
+          const freshUser: Customer = {
+            id: c.id_pelanggan || c.id || `CUST-0001`,
+            id_pelanggan: c.id_pelanggan || '',
+            Nama: c.nama || cleanName,
+            PIN: c.pin || '',
+            Foto: c.foto || ''
+          };
+          foundUser = freshUser;
+        }
+      } catch (err) {
+        console.error("Gagal verifikasi data pelanggan dari Supabase:", err);
+      }
+    }
+
+    setIsVerifying(false);
+
     if (foundUser) {
-      if (foundUser.PIN && foundUser.PIN.trim() !== "") {
+      const userPin = getCustomerPin(foundUser);
+      if (userPin !== "") {
         setSelectedCustomer(foundUser);
         setShowPinInput(true);
         setError("");
@@ -3076,13 +3188,41 @@ const LoginPage = ({
     }
   };
 
-  const handlePinSubmit = () => {
+  const handlePinSubmit = async () => {
     const cleanPin = pinInput.trim();
     if (cleanPin.length !== 6) {
       setError("PIN HARUS 6 DIGIT");
       return;
     }
-    if (selectedCustomer && String(selectedCustomer.PIN || selectedCustomer.pin || "").trim() === cleanPin && onLogin && setActiveTab) {
+    if (!selectedCustomer) return;
+
+    let targetPin = getCustomerPin(selectedCustomer);
+
+    // Verify against Supabase in real-time if needed
+    if (!targetPin || targetPin !== cleanPin) {
+      if (SupabaseCustomerService.isConnected()) {
+        try {
+          setIsVerifying(true);
+          const { data } = await SupabaseCustomerService.getCustomers({ 
+            name: selectedCustomer.Nama,
+            select: 'id, id_pelanggan, nama, pin, foto'
+          });
+          setIsVerifying(false);
+          if (data && data.length > 0) {
+            const supaPin = String(data[0].pin || "").trim();
+            if (supaPin === cleanPin) {
+              targetPin = cleanPin;
+              if (data[0].foto) selectedCustomer.Foto = data[0].foto;
+            }
+          }
+        } catch (e) {
+          setIsVerifying(false);
+          console.error("Gagal validasi PIN dari Supabase:", e);
+        }
+      }
+    }
+
+    if (targetPin === cleanPin && onLogin && setActiveTab) {
       onLogin(selectedCustomer);
       setCustomerName("");
       setPinInput("");
@@ -3096,16 +3236,7 @@ const LoginPage = ({
     }
   };
 
-  const savedPhotos: Record<string, string> = (() => {
-    try {
-      const saved = localStorage.getItem("warung_tomi_photos");
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  })();
-
-  const selectedPhoto = selectedCustomer ? (savedPhotos[selectedCustomer.Nama] || selectedCustomer.Foto || selectedCustomer.foto) : null;
+  const selectedPhoto = getCustomerPhoto(selectedCustomer);
 
   return (
     <div className="px-4 py-8 flex flex-col items-center justify-start min-h-[75vh] relative pb-28">
@@ -3119,7 +3250,7 @@ const LoginPage = ({
           <img 
             src="https://lh3.googleusercontent.com/d/1_Zf0ffn9lSBO6etgilrjnIYQ42d86wcv" 
             alt="Warung Tomi Logo" 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover" 
             referrerPolicy="no-referrer"
           />
         </div>
@@ -3157,12 +3288,13 @@ const LoginPage = ({
                       className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden z-50"
                     >
                       {suggestions.map((s, i) => {
-                        const photo = savedPhotos[s.Nama] || s.Foto || s.foto;
+                        const photo = getCustomerPhoto(s);
+                        const userPin = getCustomerPin(s);
                         return (
                           <button
                             key={i}
                             onClick={() => {
-                              if (s.PIN && s.PIN.trim() !== "") {
+                              if (userPin !== "") {
                                 setCustomerName(s.Nama);
                                 setSelectedCustomer(s);
                                 setShowPinInput(true);
@@ -3193,7 +3325,7 @@ const LoginPage = ({
                               </div>
                               <div className="flex flex-col">
                                 {highlightText(s.Nama, customerName)}
-                                {s.PIN && s.PIN.trim() !== "" && (
+                                {userPin !== "" && (
                                   <span className="text-[8px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1 mt-0.5">
                                     <Lock className="w-2.5 h-2.5" /> PIN Keamanan
                                   </span>
@@ -3213,7 +3345,7 @@ const LoginPage = ({
             <div className="space-y-4">
               <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between mb-4 shadow-sm">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 border-2 border-[#005E6A]/30 overflow-hidden shadow-sm">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 border-2 border-[#005E6A]/40 overflow-hidden shadow-sm">
                     {selectedPhoto ? (
                       <img 
                         src={selectedPhoto} 
@@ -3222,7 +3354,7 @@ const LoginPage = ({
                         referrerPolicy="no-referrer"
                       />
                     ) : (
-                      <div className="w-full h-full bg-[#005E6A] flex items-center justify-center text-white font-black text-xs">
+                      <div className="w-full h-full bg-[#005E6A] flex items-center justify-center text-white font-black text-sm">
                         {selectedCustomer?.Nama?.charAt(0)}
                       </div>
                     )}
@@ -3288,11 +3420,16 @@ const LoginPage = ({
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] flex justify-center">
         <div className="w-full max-w-sm">
           <button 
+            disabled={isVerifying}
             onClick={showPinInput ? handlePinSubmit : handleLoginAttempt}
-            className={`w-full ${showPinInput ? 'bg-[#F15A24] hover:bg-[#d84e1d]' : 'bg-[#005E6A] hover:bg-[#004852]'} text-white py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2`}
+            className={`w-full ${showPinInput ? 'bg-[#F15A24] hover:bg-[#d84e1d]' : 'bg-[#005E6A] hover:bg-[#004852]'} ${isVerifying ? 'opacity-75 cursor-wait' : 'cursor-pointer'} text-white py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2`}
           >
-            <LogIn className="w-4 h-4 stroke-[2.5]" />
-            <span>{showPinInput ? "MASUK SEKARANG" : "MASUK"}</span>
+            {isVerifying ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <LogIn className="w-4 h-4 stroke-[2.5]" />
+            )}
+            <span>{isVerifying ? "MEMVERIFIKASI..." : (showPinInput ? "MASUK SEKARANG" : "MASUK")}</span>
           </button>
         </div>
       </div>
@@ -5504,10 +5641,15 @@ const DebtDetailPage = ({
     }
   }, [searchParams, transactions, navigate]);
 
-  const displayUser = customerName && customers 
-    ? customers.find(c => c.Nama.toLowerCase() === decodeURIComponent(customerName).toLowerCase()) || user
+  const paramVal = customerName ? decodeURIComponent(customerName).toLowerCase().trim() : "";
+  const displayUser = paramVal && customers 
+    ? customers.find(c => 
+        (c.id_pelanggan && c.id_pelanggan.toLowerCase().trim() === paramVal) ||
+        (c.id && String(c.id).toLowerCase().trim() === paramVal) ||
+        c.Nama.toLowerCase().trim() === paramVal
+      ) || user
     : user;
-  
+
   const userTransactions = useMemo(() => {
     if (!displayUser) return [];
     return transactions
@@ -9322,15 +9464,50 @@ const AdminDashboard = ({
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
         
-        <div className="relative z-10">
+        <div className="relative z-10 space-y-3">
           <div 
             onClick={() => navigate("/admin")}
-            className="flex items-center gap-3 mb-2 cursor-pointer group hover:opacity-90 transition-opacity"
+            className="flex items-center gap-3 cursor-pointer group hover:opacity-90 transition-opacity"
           >
             <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-2xl font-black tracking-tight uppercase">Dashboard Admin</h1>
+          </div>
+
+          {/* Dropdown Filter Periode Utama - Acuan Seluruh Elemen Dashboard */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1 max-w-md">
+            <div className="relative w-full">
+              <select 
+                value={timeFilter}
+                onChange={(e) => setTimeFilter(e.target.value)}
+                className="w-full bg-white/15 hover:bg-white/25 focus:bg-[#004e58] backdrop-blur-md border border-white/30 text-white text-[11px] font-black uppercase tracking-widest rounded-xl px-4 py-2.5 pr-9 focus:ring-2 focus:ring-white/40 focus:outline-none cursor-pointer transition-all appearance-none shadow-inner"
+              >
+                <optgroup label="Cepat" className="text-slate-900 bg-white">
+                  <option value="Hari ini">Hari ini</option>
+                  <option value="Minggu ini">Minggu ini</option>
+                  <option value="Bulan ini">Bulan ini</option>
+                  <option value="Tahun ini">Tahun ini</option>
+                  <option value="Semua">Semua Waktu</option>
+                </optgroup>
+                <optgroup label="Bulan" className="text-slate-900 bg-white">
+                  {filterOptions.months.map(m => {
+                    const [y, mon] = m.split("-");
+                    const date = new Date(parseInt(y), parseInt(mon) - 1);
+                    const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                    return <option key={m} value={`month:${m}`}>{label}</option>;
+                  })}
+                </optgroup>
+                <optgroup label="Tahun" className="text-slate-900 bg-white">
+                  {filterOptions.years.map(y => (
+                    <option key={y} value={`year:${y}`}>{y}</option>
+                  ))}
+                </optgroup>
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/90">
+                <ChevronDown className="w-4 h-4" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -9709,7 +9886,7 @@ const AdminDashboard = ({
           <div className="flex flex-col gap-4 mb-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Grafik Laporan</h3>
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Laporan Penjualan</h3>
                 <div className="flex items-center gap-3 mt-1.5" onClick={(e) => e.stopPropagation()}>
                   {(chartTab === "semua" || chartTab === "penjualan") && (
                     <div className="flex items-center gap-1">
@@ -9734,36 +9911,6 @@ const AdminDashboard = ({
               <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center group-hover/card:scale-110 transition-transform shrink-0">
                 <TrendingUp className="w-4 h-4 text-[#F15A24]" />
               </div>
-            </div>
-
-            {/* Full-width select dropdown */}
-            <div className="w-full" onClick={(e) => e.stopPropagation()}>
-              <select 
-                value={timeFilter}
-                onChange={(e) => setTimeFilter(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-[11px] font-black uppercase tracking-widest rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-[#005E6A]/20 cursor-pointer hover:bg-slate-100 transition-colors"
-              >
-                <optgroup label="Cepat">
-                  <option value="Hari ini">Hari ini</option>
-                  <option value="Minggu ini">Minggu ini</option>
-                  <option value="Bulan ini">Bulan ini</option>
-                  <option value="Tahun ini">Tahun ini</option>
-                  <option value="Semua">Semua Waktu</option>
-                </optgroup>
-                <optgroup label="Bulan">
-                  {filterOptions.months.map(m => {
-                    const [y, mon] = m.split("-");
-                    const date = new Date(parseInt(y), parseInt(mon) - 1);
-                    const label = date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-                    return <option key={m} value={`month:${m}`}>{label}</option>;
-                  })}
-                </optgroup>
-                <optgroup label="Tahun">
-                  {filterOptions.years.map(y => (
-                    <option key={y} value={`year:${y}`}>{y}</option>
-                  ))}
-                </optgroup>
-              </select>
             </div>
 
             {/* 4 Tabs to filter charts */}
@@ -11374,7 +11521,7 @@ const AdminSavingsManagement = ({
       const val = parseCurrency(c.Tabungan);
       const color = CHART_COLORS[idx % CHART_COLORS.length];
 
-      const txCount = transactions.filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase()).length;
+      const txCount = transactions.filter(t => isCustomerSavingMatch(t, c)).length;
 
       return { 
         name: c.Nama, 
@@ -16347,6 +16494,16 @@ const CatalogPage = ({
     }
   ], []);
 
+  const [visibleCount, setVisibleCount] = useState(20);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const observerTarget = useRef<HTMLDivElement | null>(null);
+
+  // Reset pagination when search or category changes
+  useEffect(() => {
+    setVisibleCount(20);
+    setIsLoadingMore(false);
+  }, [searchQuery, selectedCategory]);
+
   const categories = useMemo(() => {
     const cats = Array.from(new Set(stock.map(s => s.Kategori))).sort((a, b) => a.localeCompare(b));
     return ["Semua", ...cats];
@@ -16361,6 +16518,38 @@ const CatalogPage = ({
         return matchesSearch && matchesCategory;
       });
   }, [stock, searchQuery, selectedCategory]);
+
+  const visibleStock = useMemo(() => {
+    return filteredStock.slice(0, visibleCount);
+  }, [filteredStock, visibleCount]);
+
+  const hasMore = visibleStock.length < filteredStock.length;
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasMore && !isLoadingMore) {
+          setIsLoadingMore(true);
+          setTimeout(() => {
+            setVisibleCount(prev => Math.min(prev + 20, filteredStock.length));
+            setIsLoadingMore(false);
+          }, 400);
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, isLoadingMore, filteredStock.length]);
 
   const addToCart = (product: StockItem) => {
     setCart(prev => {
@@ -16520,82 +16709,111 @@ const CatalogPage = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Main Product Grid Column */}
           <div className="lg:col-span-8 xl:col-span-8">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredStock.map((item) => {
-                const inCart = cart.find(c => c.product.id === item.id);
-                return (
-                  <motion.div
-                    layout
-                    key={item.id}
-                    className="bg-white border border-slate-100 dark:border-slate-800 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow group flex flex-col"
-                  >
-                    <div className="aspect-square rounded-md bg-slate-50 overflow-hidden mb-3 relative shrink-0">
-                      {item.Image ? (
-                        <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-200">
-                          <Package className="w-10 h-10" />
-                        </div>
-                      )}
-                      <div className="absolute top-2 left-2">
-                        <Badge className="bg-white/90 backdrop-blur-sm text-[#005E6A] text-[7px] font-black uppercase border-none">
-                          {item.Kategori}
-                        </Badge>
-                      </div>
-                    </div>
-                    <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight line-clamp-1 mb-1">{item.Nama}</h3>
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-[11px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</span>
-                    </div>
-
-                    <div className="mt-auto">
-                      <motion.button 
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => addToCart(item)}
-                        className="w-full py-2 bg-slate-50 text-[#005E6A] text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-[#005E6A] hover:text-white transition-colors flex items-center justify-center gap-2 relative overflow-hidden group"
+            {filteredStock.length === 0 ? (
+              <div className="py-16 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-6">
+                <Package className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                <p className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  {t("Produk Tidak Ditemukan", "No Products Found")}
+                </p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  {t("Coba cari dengan kata kunci lain atau pilih kategori Semua.", "Try searching with another keyword or select All category.")}
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {visibleStock.map((item) => {
+                    const inCart = cart.find(c => c.product.id === item.id);
+                    return (
+                      <motion.div
+                        layout
+                        key={item.id}
+                        className="bg-white border border-slate-100 dark:border-slate-800 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow group flex flex-col"
                       >
-                        <ShoppingCart className="w-3 h-3" /> 
-                        {inCart ? `${t("BELI", "BUY")} (${inCart.qty})` : t("BELI", "BUY")}
-                        <AnimatePresence>
-                          {inCart && (
-                            <motion.div
-                              initial={{ scale: 0, x: 20, y: -20 }}
-                              animate={{ scale: 1, x: 0, y: 0 }}
-                              className="absolute top-0 right-0 w-3 h-3 bg-[#F15A24] rounded-full border border-white"
-                            />
+                        <div className="aspect-square rounded-md bg-slate-50 overflow-hidden mb-3 relative shrink-0">
+                          {item.Image ? (
+                            <img src={item.Image} alt={item.Nama} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-slate-200">
+                              <Package className="w-10 h-10" />
+                            </div>
                           )}
-                        </AnimatePresence>
-                        
-                        {/* Add to cart burst animation */}
-                        <AnimatePresence>
-                          {lastAddedId === item.id && (
-                            <motion.div
-                              key={tick}
-                              className="absolute inset-0 pointer-events-none flex items-center justify-center"
-                            >
-                              {[...Array(6)].map((_, i) => (
+                          <div className="absolute top-2 left-2">
+                            <Badge className="bg-white/90 backdrop-blur-sm text-[#005E6A] text-[7px] font-black uppercase border-none">
+                              {item.Kategori}
+                            </Badge>
+                          </div>
+                        </div>
+                        <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-tight line-clamp-1 mb-1">{item.Nama}</h3>
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-[11px] font-black text-[#F15A24]">Rp {item.HargaJual.toLocaleString('id-ID')}</span>
+                        </div>
+
+                        <div className="mt-auto">
+                          <motion.button 
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => addToCart(item)}
+                            className="w-full py-2 bg-slate-50 text-[#005E6A] text-[9px] font-black uppercase tracking-widest rounded-md hover:bg-[#005E6A] hover:text-white transition-colors flex items-center justify-center gap-2 relative overflow-hidden group"
+                          >
+                            <ShoppingCart className="w-3 h-3" /> 
+                            {inCart ? `${t("BELI", "BUY")} (${inCart.qty})` : t("BELI", "BUY")}
+                            <AnimatePresence>
+                              {inCart && (
                                 <motion.div
-                                  key={i}
-                                  initial={{ scale: 0, opacity: 0 }}
-                                  animate={{
-                                    scale: [0, 1, 0],
-                                    opacity: [0, 1, 0],
-                                    x: (Math.random() - 0.5) * 120,
-                                    y: (Math.random() - 0.5) * 120 - 60,
-                                  }}
-                                  transition={{ duration: 0.6, ease: "easeOut" }}
-                                  className="absolute w-2 h-2 bg-[#F15A24] rounded-full shadow-sm"
+                                  initial={{ scale: 0, x: 20, y: -20 }}
+                                  animate={{ scale: 1, x: 0, y: 0 }}
+                                  className="absolute top-0 right-0 w-3 h-3 bg-[#F15A24] rounded-full border border-white"
                                 />
-                              ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.button>
+                              )}
+                            </AnimatePresence>
+                            
+                            {/* Add to cart burst animation */}
+                            <AnimatePresence>
+                              {lastAddedId === item.id && (
+                                <motion.div
+                                  key={tick}
+                                  className="absolute inset-0 pointer-events-none flex items-center justify-center"
+                                >
+                                  {[...Array(6)].map((_, i) => (
+                                    <motion.div
+                                      key={i}
+                                      initial={{ scale: 0, opacity: 0 }}
+                                      animate={{
+                                        scale: [0, 1, 0],
+                                        opacity: [0, 1, 0],
+                                        x: (Math.random() - 0.5) * 120,
+                                        y: (Math.random() - 0.5) * 120 - 60,
+                                      }}
+                                      transition={{ duration: 0.6, ease: "easeOut" }}
+                                      className="absolute w-2 h-2 bg-[#F15A24] rounded-full shadow-sm"
+                                    />
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </motion.button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+
+                {/* Infinite Scroll Trigger & Loading Animation */}
+                {hasMore && (
+                  <div ref={observerTarget} className="mt-8 py-4 flex flex-col items-center justify-center gap-3">
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-sm">
+                      <Loader2 className="w-4 h-4 text-[#005E6A] dark:text-teal-400 animate-spin" />
+                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                        {t("Memuat produk lainnya...", "Loading more products...")}
+                      </span>
                     </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      {visibleStock.length} {t("dari", "of")} {filteredStock.length} {t("produk", "products")}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Desktop Sticky Cart Panel */}
@@ -17385,7 +17603,7 @@ const AdminDebtManagement = ({
     .filter(c => parseCurrency(c.Hutang) > 0)
     .map(c => {
       const userTransactions = [...transactions]
-        .filter(t => t.Nama.toLowerCase() === c.Nama.toLowerCase())
+        .filter(t => isCustomerDebtMatch(t, c))
         .sort((a, b) => parseDate(a.Tanggal).getTime() - parseDate(b.Tanggal).getTime());
         
       const collectResult = calculateUserCollectability(userTransactions);
@@ -17432,7 +17650,9 @@ const AdminDebtManagement = ({
     });
 
   const handleItemClick = (name: string) => {
-    navigate(`/hutang/${encodeURIComponent(name)}`);
+    const cust = customers.find(c => c.Nama.toLowerCase() === name.toLowerCase());
+    const param = cust?.id_pelanggan || name;
+    navigate(`/hutang/${encodeURIComponent(param)}`);
   };
 
   const extraContent = (
@@ -28738,13 +28958,13 @@ export default function App() {
   const [showCart, setShowCart] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [savingsTransactions, setSavingsTransactions] = useState<SavingTransaction[]>([]);
-  const [debtTransactions, setDebtTransactions] = useState<DebtTransaction[]>([]);
-  const [salesTransactions, setSalesTransactions] = useState<SalesTransaction[]>([]);
-  const [investmentTransactions, setInvestmentTransactions] = useState<InvestmentTransaction[]>([]);
-  const [redeemedPoints, setRedeemedPoints] = useState<RedeemedPoint[]>([]);
-  const [stock, setStock] = useState<StockItem[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>(() => DeltaCache.get<Customer>('customers'));
+  const [savingsTransactions, setSavingsTransactions] = useState<SavingTransaction[]>(() => DeltaCache.get<SavingTransaction>('savingTransactions'));
+  const [debtTransactions, setDebtTransactions] = useState<DebtTransaction[]>(() => DeltaCache.get<DebtTransaction>('debtTransactions'));
+  const [salesTransactions, setSalesTransactions] = useState<SalesTransaction[]>(() => DeltaCache.get<SalesTransaction>('salesTransactions'));
+  const [investmentTransactions, setInvestmentTransactions] = useState<InvestmentTransaction[]>(() => DeltaCache.get<InvestmentTransaction>('investmentTransactions'));
+  const [redeemedPoints, setRedeemedPoints] = useState<RedeemedPoint[]>(() => DeltaCache.get<RedeemedPoint>('redeemedPoints'));
+  const [stock, setStock] = useState<StockItem[]>(() => DeltaCache.get<StockItem>('stockItems'));
   const [dataSource] = useState<"sheets" | "firebase">("sheets");
   const [userPhotos, setUserPhotos] = useState<Record<string, string>>(() => {
     const saved = localStorage.getItem("warung_tomi_photos");
@@ -28754,9 +28974,9 @@ export default function App() {
     const saved = localStorage.getItem("warung_tomi_user");
     return saved ? JSON.parse(saved) : null;
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => DeltaCache.get('customers').length === 0);
   const [dataError, setDataError] = useState<string | null>(null);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => DeltaCache.get('customers').length === 0);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallPrompt, setShowInstallPrompt] = useState(false);
 
@@ -28772,7 +28992,7 @@ export default function App() {
 
     // 1. Sales (Belanja)
     salesTransactions
-      .filter(t => t.Nama.toLowerCase() === nameLower)
+      .filter(t => isCustomerSalesMatch(t, loggedInUser))
       .forEach((t, index) => {
         const uniqueId = `belanja-${t.id || t.id_transaksi || index}-${t.Tanggal}-${t.Pemasukan}`;
         const jenisUpper = (t.Jenis || '').toUpperCase();
@@ -28797,7 +29017,7 @@ export default function App() {
 
     // 2. Savings (Tabungan)
     savingsTransactions
-      .filter(t => t.Nama.toLowerCase() === nameLower)
+      .filter(t => isCustomerSavingMatch(t, loggedInUser))
       .forEach((t, index) => {
         const uniqueId = `tabungan-${t.id || t.id_tabungan || index}-${t.Tanggal}-${t.Nominal}`;
         const tipeUpper = (t.Tipe || '').toUpperCase();
@@ -28824,7 +29044,7 @@ export default function App() {
 
     // 3. Debt (Hutang)
     debtTransactions
-      .filter(t => t.Nama.toLowerCase() === nameLower)
+      .filter(t => isCustomerDebtMatch(t, loggedInUser))
       .forEach((t, index) => {
         const uniqueId = `hutang-${t.id || t.id_hutang || index}-${t.Tanggal}-${t.Jumlah}`;
         const tipeUpper = (t.Tipe || '').toUpperCase();
@@ -29036,12 +29256,9 @@ export default function App() {
     const p = pathname.toLowerCase();
     
     if (p === '/' || p.startsWith('/home')) {
-      if (!loggedInUser && tab !== 'belanja' && tab !== 'riwayat') {
-        return ['stockItems'];
-      }
       if (tab === 'belanja') return ['stockItems', 'salesTransactions', 'customers'];
       if (tab === 'riwayat') return ['salesTransactions', 'customers'];
-      return ['stockItems', 'salesTransactions', 'customers'];
+      return ['stockItems', 'customers', 'salesTransactions'];
     }
     if (p.startsWith('/bansos')) {
       return ['salesTransactions'];
@@ -29058,7 +29275,7 @@ export default function App() {
     if (p.startsWith('/investasi')) {
       return ['investmentTransactions', 'customers'];
     }
-    if (p.startsWith('/poin') || p.startsWith('/tukar-poin')) {
+    if (p.startsWith('/poin')) {
       return ['redeemedPoints', 'salesTransactions', 'customers'];
     }
     if (p.startsWith('/detail-belanja')) {
@@ -29068,16 +29285,24 @@ export default function App() {
       return ['stockItems', 'salesTransactions', 'customers'];
     }
     if (p.startsWith('/admin')) {
+      if (p === '/admin' || p === '/admin/' || p.startsWith('/admin/dashboard')) {
+        return ['customers', 'salesTransactions', 'savingTransactions', 'debtTransactions', 'investmentTransactions', 'stockItems'];
+      }
       if (p.includes('/stock')) return ['stockItems'];
       if (p.includes('/customers')) return ['customers', 'salesTransactions'];
       if (p.includes('/savings')) return ['savingTransactions', 'customers'];
       if (p.includes('/debt')) return ['debtTransactions', 'customers'];
       if (p.includes('/investment')) return ['investmentTransactions', 'customers'];
-      if (p.includes('/cashflow') || p.includes('/report')) return ['salesTransactions', 'customers'];
-      if (p.includes('/database') || p.includes('/input-data')) {
-        return ['stockItems', 'salesTransactions', 'customers', 'savingTransactions', 'debtTransactions', 'investmentTransactions', 'redeemedPoints'];
+      if (p.includes('/cashflow')) return ['salesTransactions', 'savingsTransactions', 'debtTransactions', 'investmentTransactions', 'customers'];
+      if (p.includes('/report')) return ['salesTransactions', 'customers'];
+      if (p.includes('/input-data')) return ['customers', 'stockItems'];
+      if (p.includes('/database')) return ['customers', 'salesTransactions'];
+      if (p.includes('/rewards')) return ['redeemedPoints', 'customers', 'salesTransactions'];
+      if (p.includes('/management-lainnya')) return ['salesTransactions', 'customers'];
+      if (p.includes('/digiflazz')) {
+        return ['customers'];
       }
-      return ['stockItems', 'salesTransactions', 'customers', 'savingTransactions', 'debtTransactions', 'investmentTransactions', 'redeemedPoints'];
+      return ['customers', 'salesTransactions', 'stockItems'];
     }
     return ['stockItems', 'salesTransactions', 'customers'];
   };
@@ -29085,7 +29310,7 @@ export default function App() {
   const fetchData = async (
     showLoading = true,
     collectionName?: string | string[],
-    extraOptions?: { monthFilter?: string; dateFilter?: string; userFilterKey?: string; withBalanceOnly?: boolean; currentMonthOnly?: boolean; pendingOnly?: boolean; includePending?: boolean; debtOnly?: boolean; allHistory?: boolean }
+    extraOptions?: { monthFilter?: string; dateFilter?: string; userFilterKey?: string; withBalanceOnly?: boolean; currentMonthOnly?: boolean; pendingOnly?: boolean; includePending?: boolean; debtOnly?: boolean; allHistory?: boolean; forceFullRefresh?: boolean }
   ) => {
     if (abortControllerRef.current) abortControllerRef.current.abort();
     const controller = new AbortController();
@@ -29132,13 +29357,21 @@ export default function App() {
       const fetchStock = async () => {
         if (shouldFetch("stockItems") && SupabaseStockService.isConnected()) {
           try {
-            const stockOptions = isHomeGuest
-              ? { limit: 7, select: 'id, id_barang, nama, gambar, harga_jual, kategori' }
-              : (isHomePage && activeTab !== 'belanja' && !isAdminOrKasir ? { limit: 15 } : undefined);
+            const cached = DeltaCache.get<StockItem>('stockItems');
+            const lastSync = extraOptions?.forceFullRefresh ? null : DeltaCache.getLastSync('stockItems');
 
+            const stockOptions: any = isAdminDashboard 
+              ? { select: 'id, id_barang, nama, kategori, stok, satuan, min_stok, harga_modal, harga_jual, update_terakhir' } 
+              : {};
+
+            if (lastSync && cached.length > 0) {
+              stockOptions.since = lastSync;
+            }
+
+            const fetchTime = new Date().toISOString();
             const { data: supaProducts } = await SupabaseStockService.getProducts(stockOptions);
             if (supaProducts) {
-              supaStockData = supaProducts.map(p => ({
+              const mapped = supaProducts.map(p => ({
                 id: p.id_barang || p.id || '',
                 id_barang: p.id_barang || p.id || '',
                 Nama: p.nama || 'Produk',
@@ -29151,7 +29384,17 @@ export default function App() {
                 UpdateTerakhir: p.update_terakhir || '-',
                 Image: p.gambar && p.gambar.trim() !== '' ? p.gambar : undefined
               }));
-              setStock(supaStockData);
+
+              if (lastSync && cached.length > 0) {
+                const merged = DeltaCache.mergeDelta(cached, mapped, ['id_barang', 'id', 'Nama']);
+                DeltaCache.set('stockItems', merged, fetchTime);
+                supaStockData = merged;
+                setStock(merged);
+              } else {
+                DeltaCache.set('stockItems', mapped, fetchTime);
+                supaStockData = mapped;
+                setStock(mapped);
+              }
               loadedCollectionsRef.current.add("stockItems");
             }
           } catch (err) {
@@ -29164,9 +29407,18 @@ export default function App() {
       const fetchPoints = async () => {
         if (shouldFetch("redeemedPoints") && SupabasePointsService.isConnected()) {
           try {
-            const { data: supaPoints } = await SupabasePointsService.getPoints(userFilterName ? { name: userFilterName } : undefined);
+            const cached = DeltaCache.get<RedeemedPoint>('redeemedPoints');
+            const lastSync = extraOptions?.forceFullRefresh ? null : DeltaCache.getLastSync('redeemedPoints');
+            const pointsOptions: any = userFilterName ? { name: userFilterName } : {};
+
+            if (lastSync && cached.length > 0 && !userFilterName) {
+              pointsOptions.since = lastSync;
+            }
+
+            const fetchTime = new Date().toISOString();
+            const { data: supaPoints } = await SupabasePointsService.getPoints(pointsOptions);
             if (supaPoints) {
-              processedRedeemedPoints = supaPoints.map((item) => ({
+              const mapped = supaPoints.map((item) => ({
                 id: item.id_tukar || item.id,
                 id_tukar: item.id_tukar,
                 id_pelanggan: item.id_pelanggan || 'CUST-0000',
@@ -29175,7 +29427,17 @@ export default function App() {
                 Poin: Number(item.poin) || 0,
                 Hadiah: item.hadiah || '-'
               }));
-              setRedeemedPoints(processedRedeemedPoints);
+
+              if (lastSync && cached.length > 0 && !userFilterName) {
+                const merged = DeltaCache.mergeDelta(cached, mapped, ['id_tukar', 'id']);
+                DeltaCache.set('redeemedPoints', merged, fetchTime);
+                processedRedeemedPoints = merged;
+                setRedeemedPoints(merged);
+              } else {
+                if (!userFilterName) DeltaCache.set('redeemedPoints', mapped, fetchTime);
+                processedRedeemedPoints = mapped;
+                setRedeemedPoints(mapped);
+              }
               loadedCollectionsRef.current.add("redeemedPoints");
             }
           } catch (err) {
@@ -29188,23 +29450,31 @@ export default function App() {
       const fetchCustomers = async () => {
         if (shouldFetch("customers") && SupabaseCustomerService.isConnected()) {
           try {
+            const cached = DeltaCache.get<Customer>('customers');
+            const lastSync = extraOptions?.forceFullRefresh ? null : DeltaCache.getLastSync('customers');
             const custOptions: any = {};
             const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
             if (userFilterName) custOptions.name = userFilterName;
 
             if (p.startsWith('/admin/debt') || p.startsWith('/hutang') || extraOptions?.debtOnly) {
               custOptions.debtOnly = true;
-              custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, foto, level, point';
-            } else if ((isAdminDashboard && !p.includes('/report') && !p.includes('/cashflow') && !p.includes('/database') && !p.includes('/input-data')) || extraOptions?.withBalanceOnly) {
+              custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, level, point, foto, telepon, alamat, pin';
+            } else if (extraOptions?.withBalanceOnly) {
               custOptions.withBalanceOnly = true;
-              custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, foto, level, point';
+              custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, level, point, foto, telepon, alamat, pin';
             } else {
-              custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, foto, level, point';
+              custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, level, point, foto, telepon, alamat, pin';
             }
 
+            const isSpecificSubset = custOptions.name || custOptions.debtOnly || custOptions.withBalanceOnly;
+            if (lastSync && cached.length > 0 && !isSpecificSubset) {
+              custOptions.since = lastSync;
+            }
+
+            const fetchTime = new Date().toISOString();
             const { data: supaCust } = await SupabaseCustomerService.getCustomers(custOptions);
             if (supaCust) {
-              cData = supaCust.map((c, index) => ({
+              const mapped = supaCust.map((c, index) => ({
                 id: c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, '0')}`,
                 id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
                 Nama: c.nama || 'Pelanggan',
@@ -29219,7 +29489,17 @@ export default function App() {
                 Level: c.level || 'Bronze',
                 Foto: c.foto || ''
               }));
-              setCustomers(cData);
+
+              if (lastSync && cached.length > 0 && !isSpecificSubset) {
+                const merged = DeltaCache.mergeDelta(cached, mapped, ['id_pelanggan', 'id', 'Nama']);
+                DeltaCache.set('customers', merged, fetchTime);
+                cData = merged;
+                setCustomers(merged);
+              } else {
+                if (!isSpecificSubset) DeltaCache.set('customers', mapped, fetchTime);
+                cData = mapped;
+                setCustomers(mapped);
+              }
               loadedCollectionsRef.current.add("customers");
             }
           } catch (err) {
@@ -29232,6 +29512,8 @@ export default function App() {
       const fetchSales = async () => {
         if (shouldFetch("salesTransactions") && SupabaseSalesService.isConnected()) {
           try {
+            const cached = DeltaCache.get<SalesTransaction>('salesTransactions');
+            const lastSync = extraOptions?.forceFullRefresh ? null : DeltaCache.getLastSync('salesTransactions');
             const salesOptions: any = {};
             const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
             if (userFilterName) salesOptions.name = userFilterName;
@@ -29243,6 +29525,8 @@ export default function App() {
             if (extraOptions?.pendingOnly) salesOptions.pendingOnly = true;
             if (extraOptions?.includePending) salesOptions.includePending = true;
 
+            const isFiltered = isBansosPage || isManagementLainnya || extraOptions?.pendingOnly || isAdminReportPage || extraOptions?.dateFilter || p.startsWith('/kasir') || p.startsWith('/admin/customers') || p.startsWith('/admin/cashflow') || isAdminDashboard || isRiwayatPage || extraOptions?.monthFilter || extraOptions?.currentMonthOnly || userFilterName;
+
             if (isBansosPage) {
               salesOptions.bansosOnly = true;
               salesOptions.select = 'id, id_transaksi, nama, jenis, pemasukan, status, tanggal, created_at';
@@ -29252,16 +29536,24 @@ export default function App() {
             } else if (isAdminReportPage || extraOptions?.dateFilter) {
               salesOptions.date = extraOptions?.dateFilter || new Date().toISOString().split('T')[0];
               salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
+            } else if (p.startsWith('/kasir')) {
+              salesOptions.todayOnly = true;
+              salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
+            } else if (p.startsWith('/admin/customers') || p.startsWith('/admin/cashflow') || isAdminDashboard) {
+              salesOptions.currentMonthOnly = true;
+              salesOptions.includePending = true;
+              salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
             } else if (isRiwayatPage || extraOptions?.monthFilter || extraOptions?.currentMonthOnly) {
               salesOptions.month = extraOptions?.monthFilter;
               if (!salesOptions.month) salesOptions.currentMonthOnly = true;
               salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
-            } else if (isAdminDashboard) {
-              salesOptions.currentMonthOnly = true;
-              salesOptions.includePending = true;
-              salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
             }
 
+            if (lastSync && cached.length > 0 && !isFiltered) {
+              salesOptions.since = lastSync;
+            }
+
+            const fetchTime = new Date().toISOString();
             const { data: supaSales } = await SupabaseSalesService.getSales(salesOptions);
             if (supaSales) {
               const salesData = supaSales.map(item => ({
@@ -29288,11 +29580,14 @@ export default function App() {
                 return parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime();
               });
 
-              if (extraOptions?.dateFilter || extraOptions?.monthFilter) {
+              if (lastSync && cached.length > 0 && !isFiltered) {
+                const merged = DeltaCache.mergeDelta(cached, salesData, ['id_transaksi', 'id']);
+                DeltaCache.set('salesTransactions', merged, fetchTime);
+                processedSales = merged;
+                setSalesTransactions(merged);
+              } else if (extraOptions?.dateFilter || extraOptions?.monthFilter) {
                 setSalesTransactions(prev => {
-                  const existingMap = new Map<string, SalesTransaction>(prev.map(item => [item.id || item.id_transaksi, item]));
-                  salesData.forEach(item => existingMap.set(item.id || item.id_transaksi, item));
-                  const merged = Array.from(existingMap.values());
+                  const merged = DeltaCache.mergeDelta(prev, salesData, ['id_transaksi', 'id']);
                   merged.sort((a, b) => {
                     if (a.created_at && b.created_at) {
                       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -29302,6 +29597,7 @@ export default function App() {
                   return merged;
                 });
               } else {
+                if (!isFiltered) DeltaCache.set('salesTransactions', salesData, fetchTime);
                 processedSales = [...salesData].reverse();
                 setSalesTransactions(processedSales);
               }
@@ -29317,7 +29613,9 @@ export default function App() {
       const fetchSavings = async () => {
         if (shouldFetch("savingTransactions") && SupabaseSavingsService.isConnected()) {
           try {
-            const isSavingsPage = p.startsWith('/tabungan') || p.startsWith('/detail-tabungan');
+            const cached = DeltaCache.get<SavingTransaction>('savingTransactions');
+            const lastSync = extraOptions?.forceFullRefresh ? null : DeltaCache.getLastSync('savingTransactions');
+            const isSavingsPage = p.startsWith('/tabungan') || p.startsWith('/detail-tabungan') || p.startsWith('/admin/savings');
             const monthToFetch = extraOptions?.monthFilter || (isSavingsPage || isAdminDashboard ? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` : undefined);
             const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
 
@@ -29328,6 +29626,12 @@ export default function App() {
               savingsOptions.select = 'id, id_tabungan, id_pelanggan, tanggal, nama, tipe, nominal, saldo_akhir, berita, created_at';
             }
 
+            const isFiltered = userFilterName || monthToFetch;
+            if (lastSync && cached.length > 0 && !isFiltered) {
+              savingsOptions.since = lastSync;
+            }
+
+            const fetchTime = new Date().toISOString();
             const { data: supaSavings } = await SupabaseSavingsService.getSavings(savingsOptions);
             if (supaSavings) {
               const mappedSavings = supaSavings.map(item => ({
@@ -29342,12 +29646,21 @@ export default function App() {
                 Berita: item.berita || '-'
               }));
 
-              setSavingsTransactions(prev => {
-                if (!extraOptions?.monthFilter) return mappedSavings;
-                const existingMap = new Map(prev.map(item => [item.id || item.id_tabungan, item]));
-                mappedSavings.forEach(item => existingMap.set(item.id || item.id_tabungan, item));
-                return Array.from(existingMap.values());
-              });
+              if (lastSync && cached.length > 0 && !isFiltered) {
+                const merged = DeltaCache.mergeDelta(cached, mappedSavings, ['id_tabungan', 'id']);
+                DeltaCache.set('savingTransactions', merged, fetchTime);
+                allSavingsTransactions = merged;
+                setSavingsTransactions(merged);
+              } else if (extraOptions?.monthFilter) {
+                setSavingsTransactions(prev => {
+                  const merged = DeltaCache.mergeDelta(prev, mappedSavings, ['id_tabungan', 'id']);
+                  return merged;
+                });
+              } else {
+                if (!isFiltered) DeltaCache.set('savingTransactions', mappedSavings, fetchTime);
+                allSavingsTransactions = mappedSavings;
+                setSavingsTransactions(mappedSavings);
+              }
               loadedCollectionsRef.current.add("savingTransactions");
             }
           } catch (err) {
@@ -29360,6 +29673,8 @@ export default function App() {
       const fetchInvestments = async () => {
         if (shouldFetch("investmentTransactions") && SupabaseInvestmentService.isConnected()) {
           try {
+            const cached = DeltaCache.get<InvestmentTransaction>('investmentTransactions');
+            const lastSync = extraOptions?.forceFullRefresh ? null : DeltaCache.getLastSync('investmentTransactions');
             const investOptions: any = {};
             const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
             if (userFilterName) investOptions.name = userFilterName;
@@ -29368,9 +29683,15 @@ export default function App() {
               investOptions.select = 'id, id_investasi, id_pelanggan, tanggal, nama, nominal, tenor, jatuh_tempo, status, nisbah, keterangan';
             }
 
+            const isFiltered = userFilterName || investOptions.activeOnly;
+            if (lastSync && cached.length > 0 && !isFiltered) {
+              investOptions.since = lastSync;
+            }
+
+            const fetchTime = new Date().toISOString();
             const { data: supaInvest } = await SupabaseInvestmentService.getInvestments(investOptions);
             if (supaInvest) {
-              allInvestmentTransactions = supaInvest.map(item => ({
+              const mapped = supaInvest.map(item => ({
                 id: item.id_investasi || item.id,
                 id_investasi: item.id_investasi,
                 id_pelanggan: item.id_pelanggan || 'CUST-0000',
@@ -29383,7 +29704,17 @@ export default function App() {
                 Nisbah: item.nisbah || '70:30',
                 Keterangan: item.keterangan || '-'
               }));
-              setInvestmentTransactions(allInvestmentTransactions);
+
+              if (lastSync && cached.length > 0 && !isFiltered) {
+                const merged = DeltaCache.mergeDelta(cached, mapped, ['id_investasi', 'id']);
+                DeltaCache.set('investmentTransactions', merged, fetchTime);
+                allInvestmentTransactions = merged;
+                setInvestmentTransactions(merged);
+              } else {
+                if (!isFiltered) DeltaCache.set('investmentTransactions', mapped, fetchTime);
+                allInvestmentTransactions = mapped;
+                setInvestmentTransactions(mapped);
+              }
               loadedCollectionsRef.current.add("investmentTransactions");
             }
           } catch (err) {
@@ -29396,6 +29727,8 @@ export default function App() {
       const fetchDebts = async () => {
         if (shouldFetch("debtTransactions") && SupabaseDebtService.isConnected()) {
           try {
+            const cached = DeltaCache.get<DebtTransaction>('debtTransactions');
+            const lastSync = extraOptions?.forceFullRefresh ? null : DeltaCache.getLastSync('debtTransactions');
             const debtOptions: any = {};
             const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
             if (userFilterName) debtOptions.name = userFilterName;
@@ -29413,9 +29746,15 @@ export default function App() {
               debtOptions.select = 'id, id_hutang, id_pelanggan, tanggal, nama, tipe, jumlah, keterangan, saldo_akhir, created_at';
             }
 
+            const isFiltered = userFilterName || debtOptions.month || debtOptions.currentMonthOnly;
+            if (lastSync && cached.length > 0 && !isFiltered) {
+              debtOptions.since = lastSync;
+            }
+
+            const fetchTime = new Date().toISOString();
             const { data: supaDebt } = await SupabaseDebtService.getDebts(debtOptions);
             if (supaDebt) {
-              allDebtTransactions = supaDebt.map(item => ({
+              const mapped = supaDebt.map(item => ({
                 id: item.id_hutang || item.id,
                 id_hutang: item.id_hutang,
                 id_pelanggan: item.id_pelanggan || 'CUST-0000',
@@ -29426,7 +29765,17 @@ export default function App() {
                 Keterangan: item.keterangan || '-',
                 SaldoAkhir: Number(item.saldo_akhir) || 0
               }));
-              setDebtTransactions(allDebtTransactions);
+
+              if (lastSync && cached.length > 0 && !isFiltered) {
+                const merged = DeltaCache.mergeDelta(cached, mapped, ['id_hutang', 'id']);
+                DeltaCache.set('debtTransactions', merged, fetchTime);
+                allDebtTransactions = merged;
+                setDebtTransactions(merged);
+              } else {
+                if (!isFiltered) DeltaCache.set('debtTransactions', mapped, fetchTime);
+                allDebtTransactions = mapped;
+                setDebtTransactions(mapped);
+              }
               loadedCollectionsRef.current.add("debtTransactions");
             }
           } catch (err) {
@@ -29454,20 +29803,27 @@ export default function App() {
 
         const updatedCustomers = cData.map(c => {
           const name = c.Nama || c.nama || '';
-          const levelInfo = calculateCustomerLevel(currentSales, name);
-          const activePoints = calculateActivePoints(name, currentSales, currentRedeemed);
           const nameLower = (name || "").toLowerCase();
+          const targetObj = { Nama: name, id_pelanggan: c.id_pelanggan, id: c.id };
 
-          const userSavings = currentSavings.filter(s => (s.Nama || (s as any).nama || "").toLowerCase() === nameLower);
+          const userSales = currentSales.filter(s => isCustomerSalesMatch(s, targetObj));
+          const hasSalesForCustomer = userSales.length > 0;
+          const levelInfo = hasSalesForCustomer ? calculateCustomerLevel(userSales, name) : { name: c.Level || c.level || 'Bronze' };
+          const activePoints = hasSalesForCustomer ? calculateActivePoints(name, currentSales, currentRedeemed) : (c.Poin ?? c.poin ?? c.point ?? 0);
+
+          const userSavings = currentSavings.filter(s => isCustomerSavingMatch(s, targetObj));
           const lastSaving = userSavings[userSavings.length - 1];
-          const savingBal = lastSaving ? lastSaving.SaldoAkhir : c.Tabungan;
+          const savingBal = lastSaving ? lastSaving.SaldoAkhir : (c.Tabungan ?? c.tabungan ?? 0);
 
-          const userDebts = currentDebts.filter(d => (d.Nama || (d as any).nama || "").toLowerCase() === nameLower);
+          const userDebts = currentDebts.filter(d => isCustomerDebtMatch(d, targetObj));
           const lastDebt = userDebts[userDebts.length - 1];
-          const debtBal = lastDebt ? lastDebt.SaldoAkhir : c.Hutang;
+          const debtBal = lastDebt ? lastDebt.SaldoAkhir : (c.Hutang ?? c.hutang ?? 0);
 
-          const userInvests = currentInvestments.filter(i => (i.Nama || (i as any).nama || "").toLowerCase() === nameLower && (i.Status || (i as any).status || "").toLowerCase() !== "sukses dicairkan");
-          const investBal = userInvests.length > 0 ? userInvests.reduce((acc, curr) => acc + (curr.Nominal || 0), 0) : c.Investasi;
+          const userInvests = currentInvestments.filter(i => 
+            ((c.id_pelanggan && i.id_pelanggan && i.id_pelanggan === c.id_pelanggan) || (i.Nama || (i as any).nama || "").toLowerCase() === nameLower) && 
+            (i.Status || (i as any).status || "").toLowerCase() !== "sukses dicairkan"
+          );
+          const investBal = userInvests.length > 0 ? userInvests.reduce((acc, curr) => acc + (curr.Nominal || 0), 0) : (c.Investasi ?? c.investasi ?? 0);
 
           return {
             ...c,
@@ -29691,35 +30047,6 @@ export default function App() {
             />
           </Layout>
         } />
-        <Route path="/:subPage/:customerName" element={
-          <Layout 
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab}
-            user={loggedInUser}
-          >
-            <HomePage 
-              activeTab={activeTab} 
-              setActiveTab={setActiveTab} 
-              loggedInUser={loggedInUser}
-              onLogout={() => setShowLogoutConfirm(true)}
-              salesTransactions={salesTransactions}
-              investmentTransactions={investmentTransactions}
-              customers={customers}
-              stock={stock}
-              onLogin={handleLogin}
-              redeemedPoints={redeemedPoints}
-              onUpdatePhoto={handleUpdatePhoto}
-              cart={cart}
-              setCart={setCart}
-              setShowCart={setShowCart}
-              allNotifications={allNotifications}
-              unreadNotificationsCount={unreadNotificationsCount}
-              handleMarkAllAsRead={handleMarkAllAsRead}
-              readNotificationIds={readNotificationIds}
-              handleMarkAsRead={handleMarkAsRead}
-            />
-          </Layout>
-        } />
         <Route path="/tabungan" element={<SavingsPromotionPage />} />
         <Route path="/tabungan/:customerName" element={
           <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} customers={customers} fetchData={fetchData} />
@@ -29753,12 +30080,6 @@ export default function App() {
           <LoyaltyPointsPage user={loggedInUser} customers={customers} transactions={salesTransactions} redeemedPoints={redeemedPoints} />
         } />
         <Route path="/poin/:customerName" element={
-          <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} customers={customers} />
-        } />
-        <Route path="/tukar-poin" element={
-          <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} customers={customers} />
-        } />
-        <Route path="/tukar-poin/:customerName" element={
           <RedeemRewardsPage user={loggedInUser} transactions={salesTransactions} redeemedPoints={redeemedPoints} customers={customers} />
         } />
         <Route path="/pengaturan-profil" element={
@@ -29981,33 +30302,6 @@ export default function App() {
               fetchData={fetchData} 
             />
           </AdminLayout>
-        } />
-        <Route path="/admin/master-data" element={
-          <Navigate to="/admin" replace />
-        } />
-        <Route path="/admin/others" element={
-          <Navigate to="/admin/pengaturan" replace />
-        } />
-        <Route path="/admin/pengaturan" element={
-          <Navigate to="/admin" replace />
-        } />
-        <Route path="/admin/vouchers" element={
-          <AdminLayout activeTab="dashboard">
-             <div className="p-8 py-20 text-center bg-white rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl m-6 max-w-6xl mx-auto">
-              <Ticket className="w-16 h-16 text-purple-500 mx-auto mb-6" />
-              <h3 className="text-xl font-black text-[#005E6A] uppercase tracking-wider mb-2">Manajemen Voucher</h3>
-              <p className="text-xs text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase tracking-[0.2em] mb-8">Fitur ini sedang dalam pengembangan</p>
-              <Link 
-                to="/admin"
-                className="inline-flex px-8 py-3 bg-[#005E6A] text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
-              >
-                Kembali ke Dashboard
-              </Link>
-            </div>
-          </AdminLayout>
-        } />
-        <Route path="/admin/cashier" element={
-          <Navigate to="/kasir" replace />
         } />
         {/* Kasir Dedicated Session Routes (Orange Theme) */}
         <Route path="/kasir" element={

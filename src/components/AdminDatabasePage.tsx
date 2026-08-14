@@ -226,7 +226,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   // Fetch Savings Data from Supabase
   const fetchSavings = async () => {
     setIsLoadingSavings(true);
-    const res = await SupabaseSavingsService.getSavings();
+    const res = await SupabaseSavingsService.getSavings({
+      select: 'id, id_tabungan, id_pelanggan, tanggal, nama, tipe, nominal, saldo_akhir, berita, created_at'
+    });
     if (res.data) {
       setSavingsList(res.data);
     }
@@ -236,7 +238,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   // Fetch Debt Data from Supabase
   const fetchDebts = async () => {
     setIsLoadingDebts(true);
-    const res = await SupabaseDebtService.getDebts();
+    const res = await SupabaseDebtService.getDebts({
+      select: 'id, id_hutang, id_pelanggan, tanggal, nama, tipe, jumlah, keterangan, saldo_akhir, created_at'
+    });
     if (res.data) {
       setDebtList(res.data);
     }
@@ -246,7 +250,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   // Fetch Investment Data from Supabase
   const fetchInvestments = async () => {
     setIsLoadingInvestments(true);
-    const res = await SupabaseInvestmentService.getInvestments();
+    const res = await SupabaseInvestmentService.getInvestments({
+      select: 'id, id_investasi, id_pelanggan, tanggal, nama, nominal, tenor, jatuh_tempo, status, nisbah, keterangan'
+    });
     if (res.data) {
       setInvestmentList(res.data);
     }
@@ -256,19 +262,27 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   // Fetch Product Data from Supabase
   const fetchProducts = async () => {
     setIsLoadingProducts(true);
-    const res = await SupabaseStockService.getProducts();
+    const res = await SupabaseStockService.getProducts({
+      select: 'id, id_barang, nama, kategori, stok, satuan, min_stok, harga_modal, harga_jual, update_terakhir'
+    });
     if (res.data) {
       setProductList(res.data);
     }
     setIsLoadingProducts(false);
   };
 
+  // Lazy load data on-demand only when the respective category tab is active
   useEffect(() => {
-    fetchSavings();
-    fetchDebts();
-    fetchInvestments();
-    fetchProducts();
-  }, []);
+    if (activeCategory === "tabungan" && savingsList.length === 0) {
+      fetchSavings();
+    } else if (activeCategory === "hutang" && debtList.length === 0) {
+      fetchDebts();
+    } else if (activeCategory === "investasi" && investmentList.length === 0) {
+      fetchInvestments();
+    } else if (activeCategory === "stok" && productList.length === 0) {
+      fetchProducts();
+    }
+  }, [activeCategory]);
 
   // Helper for parsing date strings (supports DD/MM/YYYY, YYYY-MM-DD, DD-MM-YYYY)
   const parseTxDate = (dateVal?: any): number => {
@@ -306,9 +320,15 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
   useEffect(() => {
     const loadCustomers = async () => {
+      if (customers && customers.length > 0) {
+        setCustomerList(customers);
+        return;
+      }
       if (SupabaseCustomerService.isConnected()) {
         try {
-          const res = await SupabaseCustomerService.getCustomers();
+          const res = await SupabaseCustomerService.getCustomers({
+            select: 'id, id_pelanggan, nama, tabungan, hutang, level, point, foto'
+          });
           if (res.data && res.data.length > 0) {
             setCustomerList(res.data);
             return;
@@ -316,9 +336,6 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         } catch (e) {
           console.error("Error loading customers from Supabase:", e);
         }
-      }
-      if (customers && customers.length > 0) {
-        setCustomerList(customers);
       }
     };
     loadCustomers();
