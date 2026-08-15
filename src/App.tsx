@@ -47,6 +47,7 @@ import { AdminCashFlowPage } from "./components/AdminCashFlowPage";
 import { DatabaseSuccessModal, SuccessModalData } from "./components/DatabaseSuccessModal";
 import { DeltaCache, formatImageUrl } from "./lib/deltaSync";
 import { SupabaseStockService, SupabaseCustomerService, SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseInvestmentService, SupabasePointsService, SUPABASE_CREATE_PRODUCTS_TABLE_SQL, SupabaseProduct, SupabaseSalesTransaction, formatDateDDMMYYYY } from "./lib/supabase";
+import { syncAllCustomerStatsToGoogleSheets } from "./lib/googleSheetsSync";
 import { 
   ShoppingBag, 
   Award,
@@ -3522,14 +3523,14 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
 
   const activePoints = useMemo(() => {
     if (!user) return 0;
-    return calculateActivePoints(user.Nama, transactions, redeemedPoints);
-  }, [user, transactions, redeemedPoints]);
+    return Number(user.Poin ?? (user as any).point ?? (user as any).poin ?? 0);
+  }, [user]);
 
   const handleSearch = (val: string) => {
     setSearchQuery(val);
     if (val.trim().length > 0) {
       const filtered = customers.filter(c => 
-        c.Nama.toLowerCase().includes(val.toLowerCase())
+        (c.Nama || (c as any).nama || "").toLowerCase().includes(val.toLowerCase())
       ).slice(0, 5);
       setSuggestions(filtered);
     } else {
@@ -3600,7 +3601,7 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
                 className="absolute top-full left-0 right-0 mt-3 bg-white rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden z-[100]"
               >
                 {suggestions.map((s, i) => {
-                  const sPoints = calculateActivePoints(s.Nama, transactions, redeemedPoints);
+                  const sPoints = Number(s.Poin ?? (s as any).point ?? (s as any).poin ?? 0);
                   return (
                     <button
                       key={i}
@@ -4554,8 +4555,8 @@ const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, 
     { name: 'Hutang', value: hutangBalance, color: '#ef4444' },
   ].filter(item => item.value !== 0 || item.name === 'Investasi');
 
-  const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
-  const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
+  const customerLevel = { name: user?.Level || (user as any)?.level || 'Bronze', total: 0 };
+  const activePoints = Number(user?.Poin ?? (user as any)?.point ?? (user as any)?.poin ?? 0);
 
   return (
     <ProtectedPage user={user} title="Aset" customers={customers} onLogin={onLogin} setActiveTab={setActiveTab}>
@@ -10869,6 +10870,7 @@ const AdminManagementPage = ({
                             outerRadius={135}
                             paddingAngle={0}
                             dataKey="value"
+                            isAnimationActive={false}
                           >
                             {statsRight.map((entry, index) => (
                               <Cell key={`cell-right-${index}`} fill={entry.color} />
@@ -10983,6 +10985,7 @@ const AdminManagementPage = ({
                         outerRadius={105}
                         paddingAngle={4}
                         dataKey="value"
+                        isAnimationActive={false}
                       >
                         {stats.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -12206,8 +12209,8 @@ const AdminCustomerDetailPage = ({
     );
   }
 
-  const activePoints = calculateActivePoints(localCustomer.Nama, salesTransactions, redeemedPoints);
-  const levelInfo = calculateCustomerLevel(salesTransactions, localCustomer.Nama);
+  const activePoints = Number(localCustomer.Poin ?? (localCustomer as any).point ?? (localCustomer as any).poin ?? 0);
+  const levelInfo = { name: localCustomer.Level || (localCustomer as any).level || 'Bronze', total: 0 };
     
   const userSavings = savingsTransactions.filter(t => t.Nama.toLowerCase() === localCustomer.Nama.toLowerCase());
   const currentSavings = userSavings.length > 0 ? userSavings[userSavings.length - 1].SaldoAkhir : parseCurrency(localCustomer.Tabungan);
@@ -14701,7 +14704,10 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
   const categories = ["Semua", ...Array.from(new Set(stock.map(item => item.Kategori))).sort((a, b) => a.localeCompare(b))];
 
   const filteredItems = stock.filter(item => {
-    const matchesSearch = item.Nama.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = (searchQuery || "").toLowerCase();
+    const itemName = (item.Nama || (item as any).nama || "").toLowerCase();
+    const itemKat = (item.Kategori || (item as any).kategori || "").toLowerCase();
+    const matchesSearch = itemName.includes(q) || itemKat.includes(q);
     const matchesCategory = categoryFilter === "Semua" || item.Kategori === categoryFilter;
     return matchesSearch && matchesCategory;
   });
@@ -15643,7 +15649,7 @@ const AdminRewardManagement = ({
   const eligibleGroupedData = useMemo(() => {
     return REWARDS.map(reward => {
       let eligibleList = customers.map(c => {
-        const activePoints = calculateActivePoints(c.Nama, salesTransactions, redeemedPoints);
+        const activePoints = Number(c.Poin ?? (c as any).point ?? (c as any).poin ?? 0);
         return {
           customer: c,
           activePoints
@@ -16563,10 +16569,12 @@ const CatalogPage = ({
   }, [stock]);
   
   const filteredStock = useMemo(() => {
+    const q = (searchQuery || "").toLowerCase();
     return stock
       .filter(item => {
-        const matchesSearch = item.Nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                             item.Kategori.toLowerCase().includes(searchQuery.toLowerCase());
+        const itemName = (item.Nama || (item as any).nama || "").toLowerCase();
+        const itemKat = (item.Kategori || (item as any).kategori || "").toLowerCase();
+        const matchesSearch = itemName.includes(q) || itemKat.includes(q);
         const matchesCategory = selectedCategory === "Semua" || item.Kategori === selectedCategory;
         return matchesSearch && matchesCategory;
       });
@@ -16981,10 +16989,11 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
   const startDate = new Date(2025, 10, 1); // 1 November 2025
 
   const calculatePoints = (customerName: string) => {
-    const userSales = transactions.filter(t => t.Nama.toLowerCase() === customerName.toLowerCase());
+    const custLower = (customerName || "").toLowerCase();
+    const userSales = transactions.filter(t => (t.Nama || "").toLowerCase() === custLower);
     const userRedeemed = redeemedPoints
-      .filter(r => r.Nama.toLowerCase() === customerName.toLowerCase())
-      .reduce((acc, curr) => acc + curr.Poin, 0);
+      .filter(r => (r.Nama || "").toLowerCase() === custLower)
+      .reduce((acc, curr) => acc + (curr.Poin || 0), 0);
 
     let totalEarned = 0;
     let totalExpired = 0;
@@ -17009,22 +17018,25 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
   };
 
   const allCustomers = customers.map(c => {
-    const pointsInfo = calculatePoints(c.Nama);
-    const levelInfo = calculateCustomerLevel(transactions, c.Nama);
+    const custName = c.Nama || (c as any).nama || "";
+    const activePoints = Number(c.Poin ?? (c as any).point ?? (c as any).poin ?? 0);
+    const levelName = c.Level || (c as any).level || "Bronze";
     return {
       ...c,
-      activePoints: pointsInfo.activePoints,
-      level: levelInfo.name
+      Nama: custName,
+      activePoints: activePoints,
+      level: levelName
     };
   });
 
   const customerList = allCustomers
     .filter(c => {
-      const matchesSearch = c.Nama.toLowerCase().includes(searchQuery.toLowerCase());
+      const custName = c.Nama || (c as any).nama || "";
+      const matchesSearch = custName.toLowerCase().includes((searchQuery || "").toLowerCase());
       const matchesFilter = levelFilter === "Semua" || c.level === levelFilter;
       return matchesSearch && matchesFilter;
     })
-    .sort((a, b) => a.Nama.localeCompare(b.Nama));
+    .sort((a, b) => (a.Nama || "").localeCompare(b.Nama || ""));
 
   const levelCounts = allCustomers.reduce((acc: any, curr) => {
     const level = curr.level;
@@ -17240,7 +17252,8 @@ const DebtTransactionModal = ({
   const filtered = useMemo(() => {
     if (!search) return [];
     return customers.filter(c => {
-      const matchesSearch = c.Nama.toLowerCase().includes(search.toLowerCase());
+      const custName = c.Nama || (c as any).nama || "";
+      const matchesSearch = custName.toLowerCase().includes((search || "").toLowerCase());
       const hasDebt = parseCurrency(c.Hutang) > 0;
       return matchesSearch && (type === 'TAMBAH' ? true : hasDebt);
     }).slice(0, 5);
@@ -17497,11 +17510,13 @@ const AdminDebtManagement = ({
   const [processingTitle, setProcessingTitle] = useState("");
   const [processingMessage, setProcessingMessage] = useState("");
 
+  const hasFetchedRef = useRef(false);
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
     if (!isAdmin) {
       navigate("/");
-    } else if (fetchData) {
+    } else if (fetchData && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
       fetchData(false, "debtTransactions", { allHistory: true });
     }
   }, [navigate, fetchData]);
@@ -17607,8 +17622,6 @@ const AdminDebtManagement = ({
     });
     setIsSuccessModalOpen(true);
   };
-
-  const total = customers.reduce((acc, c) => acc + parseCurrency(c.Hutang), 0);
   
   // 1. Calculate Monthly Debt Flow (MTD)
   const debtFlow = useMemo(() => {
@@ -17616,13 +17629,17 @@ const AdminDebtManagement = ({
     const thisMonth = now.getMonth();
     const thisYear = now.getFullYear();
 
-    const monthlyTxs = transactions.filter(t => {
-      const d = parseDate(t.Tanggal);
-      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-    });
+    let totalKasbon = 0;
+    let totalBayar = 0;
 
-    const totalKasbon = monthlyTxs.filter(t => t.Tipe === "TAMBAH").reduce((acc, curr) => acc + curr.Jumlah, 0);
-    const totalBayar = monthlyTxs.filter(t => t.Tipe === "BAYAR").reduce((acc, curr) => acc + curr.Jumlah, 0);
+    for (let i = 0; i < transactions.length; i++) {
+      const t = transactions[i];
+      const d = parseDate(t.Tanggal);
+      if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) {
+        if (t.Tipe === "TAMBAH") totalKasbon += (t.Jumlah || 0);
+        else if (t.Tipe === "BAYAR") totalBayar += (t.Jumlah || 0);
+      }
+    }
     
     return { kasbon: totalKasbon, bayar: totalBayar };
   }, [transactions]);
@@ -17634,13 +17651,6 @@ const AdminDebtManagement = ({
       .slice(0, 5);
   }, [transactions]);
 
-  const CHART_COLORS = ["#22c55e", "#eab308", "#ef4444"];
-  const stats = [
-    { label: "Lancar", value: 0, count: 0, color: "#22c55e" },
-    { label: "Diragukan", value: 0, count: 0, color: "#FFE600" },
-    { label: "Macet", value: 0, count: 0, color: "#FF005C" }
-  ];
-
   const savedPhotos: Record<string, string> = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("customer_photos") || "{}");
@@ -17649,38 +17659,75 @@ const AdminDebtManagement = ({
     }
   }, []);
 
-  const allItems = customers
-    .filter(c => parseCurrency(c.Hutang) > 0)
-    .map(c => {
-      const userTransactions = [...transactions]
-        .filter(t => isCustomerDebtMatch(t, c))
-        .sort((a, b) => parseDate(a.Tanggal).getTime() - parseDate(b.Tanggal).getTime());
-        
-      const collectResult = calculateUserCollectability(userTransactions);
+  // 3. Fast O(N + M) grouping & single-pass calculation of stats & allItems
+  const { allItems, stats, total } = useMemo(() => {
+    const txByCustomer = new Map<string, DebtTransaction[]>();
+    for (let i = 0; i < transactions.length; i++) {
+      const t = transactions[i];
+      if (t.id_pelanggan) {
+        const list = txByCustomer.get(t.id_pelanggan);
+        if (list) list.push(t);
+        else txByCustomer.set(t.id_pelanggan, [t]);
+      }
+      const tName = (t.Nama || (t as any).nama || "").toLowerCase().trim();
+      if (tName) {
+        const list = txByCustomer.get(tName);
+        if (list) list.push(t);
+        else txByCustomer.set(tName, [t]);
+      }
+    }
+
+    const newStats = [
+      { label: "Lancar", value: 0, count: 0, color: "#22c55e" },
+      { label: "Diragukan", value: 0, count: 0, color: "#FFE600" },
+      { label: "Macet", value: 0, count: 0, color: "#FF005C" }
+    ];
+
+    let totalSum = 0;
+    const items: any[] = [];
+
+    for (let i = 0; i < customers.length; i++) {
+      const c = customers[i];
       const debtVal = parseCurrency(c.Hutang);
-      
+      totalSum += debtVal;
+
+      if (debtVal <= 0) continue;
+
+      const cId = c.id_pelanggan || c.id || '';
+      const cName = (c.Nama || (c as any).nama || "").toLowerCase().trim();
+
+      let userTransactions: DebtTransaction[] = [];
+      if (cId && txByCustomer.has(cId)) {
+        userTransactions = txByCustomer.get(cId)!;
+      } else if (cName && txByCustomer.has(cName)) {
+        userTransactions = txByCustomer.get(cName)!;
+      }
+
+      const sortedTxs = userTransactions.length > 1
+        ? [...userTransactions].sort((a, b) => parseDate(a.Tanggal).getTime() - parseDate(b.Tanggal).getTime())
+        : userTransactions;
+
+      const collectResult = calculateUserCollectability(sortedTxs);
+
       if (collectResult.label === "Lancar") {
-        stats[0].value += debtVal;
-        stats[0].count += 1;
+        newStats[0].value += debtVal;
+        newStats[0].count += 1;
       } else if (collectResult.label === "Diragukan") {
-        stats[1].value += debtVal;
-        stats[1].count += 1;
+        newStats[1].value += debtVal;
+        newStats[1].count += 1;
       } else if (collectResult.label === "Macet") {
-        stats[2].value += debtVal;
-        stats[2].count += 1;
+        newStats[2].value += debtVal;
+        newStats[2].count += 1;
       }
 
       const tierColor = collectResult.label === "Lancar" ? "#22c55e" : collectResult.label === "Diragukan" ? "#FFE600" : "#FF005C";
-      
-      const latestDateStr = userTransactions.length > 0 
-        ? userTransactions[userTransactions.length - 1].Tanggal
-        : "-";
+      const latestDateStr = sortedTxs.length > 0 ? sortedTxs[sortedTxs.length - 1].Tanggal : "-";
 
-      return { 
-        name: c.Nama, 
+      items.push({
+        name: c.Nama,
         value: debtVal,
         color: tierColor,
-        photo: savedPhotos[c.Nama] || c.Foto || c.foto,
+        photo: savedPhotos[c.Nama] || c.Foto || (c as any).foto,
         statusLabel: collectResult.label,
         statusBadge: {
           label: collectResult.label,
@@ -17689,18 +17736,24 @@ const AdminDebtManagement = ({
         countLabel: latestDateStr !== "-" ? getRelativeTime(latestDateStr) : "Belum Ada Transaksi",
         sortOrder: collectResult.sortOrder,
         latestDate: latestDateStr
-      };
-    });
+      });
+    }
 
-  const filteredItems = allItems
-    .filter(item => statusFilter === "Semua" || item.statusLabel === statusFilter)
-    .sort((a, b) => {
-      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-      return parseDate(b.latestDate).getTime() - parseDate(a.latestDate).getTime();
-    });
+    return { allItems: items, stats: newStats, total: totalSum };
+  }, [customers, transactions, savedPhotos]);
+
+  const filteredItems = useMemo(() => {
+    return allItems
+      .filter(item => statusFilter === "Semua" || item.statusLabel === statusFilter)
+      .sort((a, b) => {
+        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+        return parseDate(b.latestDate).getTime() - parseDate(a.latestDate).getTime();
+      });
+  }, [allItems, statusFilter]);
 
   const handleItemClick = (name: string) => {
-    const cust = customers.find(c => c.Nama.toLowerCase() === name.toLowerCase());
+    const targetName = (name || "").toLowerCase();
+    const cust = customers.find(c => (c.Nama || (c as any).nama || "").toLowerCase() === targetName);
     const param = cust?.id_pelanggan || name;
     navigate(`/hutang/${encodeURIComponent(param)}`);
   };
@@ -19106,7 +19159,8 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
       });
     }
 
-    const userTransactions = transactions.filter(t => t.Nama.toLowerCase() === (user?.Nama || "").toLowerCase());
+    const uName = (user?.Nama || (user as any)?.nama || "").toLowerCase();
+    const userTransactions = transactions.filter(t => (t.Nama || "").toLowerCase() === uName);
 
     userTransactions.forEach(t => {
       const tDate = parseDate(t.Tanggal);
@@ -20586,8 +20640,9 @@ Terima kasih telah berbelanja di Warung Tomi!`;
 
   // Process data for the chart (from first transaction to now)
   const chartData = React.useMemo(() => {
+    const uName = (user?.Nama || (user as any)?.nama || "").toLowerCase();
     const allUserTransactions = transactions.filter(t => 
-      t.Nama.toLowerCase() === user?.Nama?.toLowerCase()
+      (t.Nama || "").toLowerCase() === uName
     );
 
     const currentYear = now.getFullYear();
@@ -20659,7 +20714,8 @@ Terima kasih telah berbelanja di Warung Tomi!`;
   }, [chartData, selectedMonth]);
 
   const filteredTransactions = React.useMemo(() => {
-    let base = transactions.filter(t => t.Nama.toLowerCase() === user?.Nama?.toLowerCase());
+    const uName = (user?.Nama || (user as any)?.nama || "").toLowerCase();
+    let base = transactions.filter(t => (t.Nama || "").toLowerCase() === uName);
     
     // Always filter by selected month for both tabs if we want consistency, 
     // but user asked for "dropdown yang sama" in Rincian tab too.
@@ -20669,11 +20725,11 @@ Terima kasih telah berbelanja di Warung Tomi!`;
     });
 
     if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+      const query = (searchQuery || "").toLowerCase();
       base = base.filter(t => 
-        t.Jenis.toLowerCase().includes(query) ||
-        t.Tanggal.toLowerCase().includes(query) ||
-        t.Status.toLowerCase().includes(query)
+        (t.Jenis || "").toLowerCase().includes(query) ||
+        (t.Tanggal || "").toLowerCase().includes(query) ||
+        (t.Status || "").toLowerCase().includes(query)
       );
     }
 
@@ -22595,8 +22651,9 @@ const ProfilPage = ({
     setTimeout(() => setToastNotice(null), 3000);
   };
   
-  const customerLevel = calculateCustomerLevel(transactions, user?.Nama || "");
-  const activePoints = calculateActivePoints(user?.Nama || "", transactions, redeemedPoints);
+  const currentLevelConfig = LEVELS.find(l => l.name === (user?.Level || (user as any)?.level || 'Bronze')) || LEVELS[0];
+  const customerLevel = { ...currentLevelConfig, total: 0 };
+  const activePoints = Number(user?.Poin ?? (user as any)?.point ?? (user as any)?.poin ?? 0);
 
   const currentLevelIndex = LEVELS.findIndex(l => l.name === customerLevel.name);
   const nextLevel = LEVELS[currentLevelIndex + 1];
@@ -22658,9 +22715,10 @@ const ProfilPage = ({
 
   const tabunganBalance = parseCurrency(user?.Tabungan);
   
+  const uName = (user?.Nama || (user as any)?.nama || "").toLowerCase();
   const userInvestments = investmentTransactions.filter(t => 
-    t.Nama.toLowerCase() === user?.Nama?.toLowerCase() &&
-    t.Status.toLowerCase() !== "sukses dicairkan"
+    (t.Nama || "").toLowerCase() === uName &&
+    (t.Status || "").toLowerCase() !== "sukses dicairkan"
   );
   
   const investasiBalance = userInvestments.reduce((acc, curr) => {
@@ -22669,8 +22727,7 @@ const ProfilPage = ({
   }, 0);
   
   const lainnyaTransactions = transactions.filter(t => {
-    const tName = t.Nama.toLowerCase();
-    const uName = user?.Nama?.toLowerCase();
+    const tName = (t.Nama || "").toLowerCase();
     const s = (t.Status || "").toUpperCase().trim();
     return tName === uName && (s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING");
   });
@@ -26515,7 +26572,7 @@ const KasirLaporanPage = ({ salesTransactions }: { salesTransactions: any[] }) =
 
   const filteredTransactions = useMemo(() => {
     return (salesTransactions || []).filter(t => {
-      const matchKasir = filterKasir === "semua" ? true : (t.kasir ? t.kasir.toLowerCase() === filterKasir.toLowerCase() : true);
+      const matchKasir = filterKasir === "semua" ? true : (t.kasir ? (t.kasir || "").toLowerCase() === (filterKasir || "").toLowerCase() : true);
       
       let matchDate = true;
       if (filterDate && filterDate !== "semua") {
@@ -26535,10 +26592,10 @@ const KasirLaporanPage = ({ salesTransactions }: { salesTransactions: any[] }) =
         }
       }
 
-      const matchSearch = searchQuery.trim() === "" ? true : (
-        (t.id && t.id.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (t.customer?.Nama && t.customer.Nama.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (t.paymentMethod && t.paymentMethod.toLowerCase().includes(searchQuery.toLowerCase()))
+      const matchSearch = (searchQuery || "").trim() === "" ? true : (
+        (t.id && String(t.id).toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (t.customer?.Nama && String(t.customer.Nama).toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (t.paymentMethod && String(t.paymentMethod).toLowerCase().includes(searchQuery.toLowerCase()))
       );
 
       return matchKasir && matchDate && matchSearch;
@@ -26767,7 +26824,7 @@ const KasirProfilePage = ({ salesTransactions }: { salesTransactions: any[] }) =
   };
 
   const cashierInfo = useMemo(() => {
-    if (kasirUser.toLowerCase() === "ayu") {
+    if ((kasirUser || "").toLowerCase() === "ayu") {
       return {
         name: "Ayu",
         id: "KSR-002",
@@ -26788,7 +26845,7 @@ const KasirProfilePage = ({ salesTransactions }: { salesTransactions: any[] }) =
   }, [kasirUser]);
 
   const totalSalesCount = useMemo(() => {
-    return (salesTransactions || []).filter(t => !t.kasir || t.kasir.toLowerCase() === kasirUser.toLowerCase()).length;
+    return (salesTransactions || []).filter(t => !t.kasir || (t.kasir || "").toLowerCase() === (kasirUser || "").toLowerCase()).length;
   }, [salesTransactions, kasirUser]);
 
   const handleLogout = () => {
@@ -27378,7 +27435,8 @@ const HomePage = ({
 
   useEffect(() => {
     if (customerName && customers.length > 0 && !loggedInUser) {
-      const user = customers.find(c => c.Nama.toLowerCase() === customerName.toLowerCase());
+      const targetName = (customerName || "").toLowerCase();
+      const user = customers.find(c => (c.Nama || (c as any).nama || "").toLowerCase() === targetName);
       if (user) {
         onLogin(user);
         
@@ -27397,19 +27455,19 @@ const HomePage = ({
     }
   }, [customerName, subPage, customers, loggedInUser, onLogin, setActiveTab, navigate]);
 
-  const activePoints = calculateActivePoints(loggedInUser?.Nama || "", salesTransactions, redeemedPoints);
+  const activePoints = Number(loggedInUser?.Poin ?? (loggedInUser as any)?.point ?? (loggedInUser as any)?.poin ?? 0);
 
   const portfolioData = useMemo(() => {
     if (!loggedInUser) return null;
     
+    const uName = (loggedInUser.Nama || (loggedInUser as any).nama || "").toLowerCase();
     const tabVal = parseCurrency(loggedInUser.Tabungan);
     const invVal = investmentTransactions
-      .filter(t => t.Nama.toLowerCase() === loggedInUser.Nama.toLowerCase() && t.Status.toLowerCase() !== "sukses dicairkan")
+      .filter(t => (t.Nama || "").toLowerCase() === uName && (t.Status || "").toLowerCase() !== "sukses dicairkan")
       .reduce((acc, curr) => acc + calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo).total, 0);
     const lainVal = salesTransactions
       .filter(t => {
         const tName = (t.Nama || "").toLowerCase().trim();
-        const uName = (loggedInUser.Nama || "").toLowerCase().trim();
         const s = (t.Status || "").toUpperCase().trim();
         return tName === uName && (s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING");
       })
@@ -29030,7 +29088,7 @@ export default function App() {
 
   const allNotifications = useMemo(() => {
     if (!loggedInUser) return [];
-    const nameLower = loggedInUser.Nama.toLowerCase();
+    const nameLower = (loggedInUser.Nama || (loggedInUser as any).nama || "").toLowerCase();
     const list: UnifiedNotification[] = [];
 
     // 1. Sales (Belanja)
@@ -29114,9 +29172,10 @@ export default function App() {
 
     // 4. Investment (Investasi)
     investmentTransactions
-      .filter(t => t.Nama.toLowerCase() === nameLower)
+      .filter(t => (t.Nama || "").toLowerCase() === nameLower)
       .forEach((t, index) => {
         const uniqueId = `investasi-${t.id || t.id_investasi || index}-${t.Tanggal}-${t.Nominal}`;
+        const statusLower = (t.Status || "").toLowerCase();
         list.push({
           id: uniqueId,
           tanggal: t.Tanggal,
@@ -29126,7 +29185,7 @@ export default function App() {
           description: t.Keterangan || `Pembukaan investasi tenor ${t.Tenor}. Jatuh tempo pada ${t.JatuhTempo}.`,
           amount: t.Nominal,
           badgeText: t.Status,
-          badgeColorClass: t.Status.toLowerCase().includes("cair") || t.Status.toLowerCase().includes("sukses") 
+          badgeColorClass: statusLower.includes("cair") || statusLower.includes("sukses") 
             ? "bg-emerald-50 text-emerald-600 border-emerald-100" 
             : "bg-purple-50 text-purple-600 border-purple-100",
           rawItem: t
@@ -29883,29 +29942,27 @@ export default function App() {
           const nameLower = (name || "").toLowerCase();
           const targetObj = { Nama: name, id_pelanggan: c.id_pelanggan, id: c.id };
 
-          const userSales = currentSales.filter(s => isCustomerSalesMatch(s, targetObj));
-          const hasSalesForCustomer = userSales.length > 0;
-          const levelInfo = hasSalesForCustomer ? calculateCustomerLevel(userSales, name) : { name: c.Level || c.level || 'Bronze' };
-          const activePoints = hasSalesForCustomer ? calculateActivePoints(name, currentSales, currentRedeemed) : (c.Poin ?? c.poin ?? c.point ?? 0);
+          const levelName = c.Level || c.level || 'Bronze';
+          const activePoints = Number(c.Poin ?? c.poin ?? c.point ?? 0);
 
           const userSavings = currentSavings.filter(s => isCustomerSavingMatch(s, targetObj));
           const lastSaving = userSavings[userSavings.length - 1];
-          const savingBal = lastSaving ? lastSaving.SaldoAkhir : (c.Tabungan ?? c.tabungan ?? 0);
+          const savingBal = (c.Tabungan !== undefined && c.Tabungan !== null) ? Number(c.Tabungan) : (lastSaving ? lastSaving.SaldoAkhir : Number((c as any).tabungan || 0));
 
           const userDebts = currentDebts.filter(d => isCustomerDebtMatch(d, targetObj));
           const lastDebt = userDebts[userDebts.length - 1];
-          const debtBal = lastDebt ? lastDebt.SaldoAkhir : (c.Hutang ?? c.hutang ?? 0);
+          const debtBal = (c.Hutang !== undefined && c.Hutang !== null) ? Number(c.Hutang) : (lastDebt ? lastDebt.SaldoAkhir : Number((c as any).hutang || 0));
 
           const userInvests = currentInvestments.filter(i => 
             ((c.id_pelanggan && i.id_pelanggan && i.id_pelanggan === c.id_pelanggan) || (i.Nama || (i as any).nama || "").toLowerCase() === nameLower) && 
             (i.Status || (i as any).status || "").toLowerCase() !== "sukses dicairkan"
           );
-          const investBal = userInvests.length > 0 ? userInvests.reduce((acc, curr) => acc + (curr.Nominal || 0), 0) : (c.Investasi ?? c.investasi ?? 0);
+          const investBal = (c.Investasi !== undefined && c.Investasi !== null) ? Number(c.Investasi) : (userInvests.length > 0 ? userInvests.reduce((acc, curr) => acc + (curr.Nominal || 0), 0) : Number((c as any).investasi || 0));
 
           return {
             ...c,
             Poin: activePoints,
-            Level: levelInfo.name,
+            Level: levelName,
             Tabungan: savingBal,
             Hutang: debtBal,
             Investasi: investBal
@@ -29945,6 +30002,46 @@ export default function App() {
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
   }, [dataSource, isAuthReady]);
+
+  // Global Auto-Sync to Google Sheets whenever customer or transaction data changes
+  const isInitialSyncLoadDoneRef = useRef(false);
+  const prevSyncFingerprintRef = useRef<string>('');
+
+  useEffect(() => {
+    if (isLoading || !customers || customers.length === 0) return;
+
+    const currentFingerprint = `${customers.length}-${customers.map(c => c.id_pelanggan || c.id || c.Nama).join(',')}-${salesTransactions.length}-${savingsTransactions.length}-${debtTransactions.length}-${investmentTransactions.length}-${redeemedPoints.length}`;
+
+    if (!isInitialSyncLoadDoneRef.current) {
+      isInitialSyncLoadDoneRef.current = true;
+      prevSyncFingerprintRef.current = currentFingerprint;
+      return;
+    }
+
+    if (currentFingerprint !== prevSyncFingerprintRef.current) {
+      prevSyncFingerprintRef.current = currentFingerprint;
+      const timer = setTimeout(() => {
+        syncAllCustomerStatsToGoogleSheets(
+          customers,
+          salesTransactions,
+          savingsTransactions,
+          debtTransactions,
+          investmentTransactions,
+          redeemedPoints
+        ).catch(err => console.error("Global auto-sync to Google Sheets error:", err));
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [
+    isLoading,
+    customers,
+    salesTransactions.length,
+    savingsTransactions.length,
+    debtTransactions.length,
+    investmentTransactions.length,
+    redeemedPoints.length
+  ]);
 
   const handleUpdatePhoto = async (nama: string, base64: string, file?: File | null) => {
     const customerId = loggedInUser?.id_pelanggan || loggedInUser?.id || "";

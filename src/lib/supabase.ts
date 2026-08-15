@@ -774,7 +774,7 @@ export const SupabaseCustomerService = {
       if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
       const { data, error } = await client
         .from('customers')
-        .select('id_pelanggan, nama, foto')
+        .select('id_pelanggan, nama, foto, point, level, tabungan, investasi, lainnya, hutang')
         .order('nama', { ascending: true });
       return { data, error };
     });

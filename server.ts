@@ -436,6 +436,42 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
   }
 });
 
+// 7. Proxy Endpoint for Google Apps Script Web App Sync (Avoids Browser CORS)
+app.post("/api/sheets/apps-script-sync", async (req, res) => {
+  try {
+    const { scriptUrl, payload } = req.body;
+    const targetUrl = scriptUrl || "https://script.google.com/macros/s/AKfycbyS9FZaw8H-ckTRaCN3ZJP4FVeuMoAFwx9y6-pGSPtHFDCgxxLK-4HRV1WfO1xVBL8T/exec";
+
+    const response = await fetch(targetUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: typeof payload === "string" ? payload : JSON.stringify(payload),
+      redirect: "follow"
+    });
+
+    let resData: any = {};
+    const textResponse = await response.text();
+    try {
+      resData = JSON.parse(textResponse);
+    } catch {
+      resData = { status: response.ok ? "success" : "unknown", raw: textResponse };
+    }
+
+    return res.json({
+      success: true,
+      data: resData
+    });
+  } catch (err: any) {
+    console.error("Apps Script Proxy Sync Error:", err);
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Gagal menyinkronkan data ke Apps Script"
+    });
+  }
+});
+
 const DIGIFLAZZ_CONFIG = {
   username: process.env.DIGIFLAZZ_USERNAME || "hohebuo6jzVo",
   devKey: process.env.DIGIFLAZZ_DEV_KEY || "dev-692c3780-91a3-11f1-ad23-a1e7117c6546",

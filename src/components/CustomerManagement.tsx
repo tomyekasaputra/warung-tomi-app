@@ -6,7 +6,9 @@ import {
   TrendingUp, CircleDollarSign, Star, Award, Image as ImageIcon,
   Loader2, X, Check, AlertCircle, Save, PlusCircle, RefreshCw,
   PieChart as PieChartIcon, Calculator, Database, ArrowRight,
-  Key, Settings, CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Copy
+  Key, Settings, CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Copy,
+  BarChart3, Users, Flame, Zap, Trophy, Crown, ExternalLink, FileSpreadsheet,
+  ArrowUpRight, Sparkles
 } from 'lucide-react';
 
 const SUPABASE_CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS public.customers (
@@ -39,6 +41,8 @@ interface Customer {
   telepon?: string;
   alamat?: string;
   foto: string;
+  poin?: number;
+  [key: string]: any;
 }
 
 const LEVEL_METADATA: Record<string, { color: string }> = {
@@ -81,7 +85,13 @@ export default function CustomerManagement({
         pin: c.pin || '',
         telepon: c.telepon || '',
         alamat: c.alamat || '',
-        foto: c.foto || ''
+        foto: c.foto || '',
+        poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
+        level: c.level || c.Level || 'Bronze',
+        tabungan: Number(c.tabungan ?? c.Tabungan ?? 0),
+        investasi: Number(c.investasi ?? c.Investasi ?? 0),
+        lainnya: Number(c.lainnya ?? c.Lainnya ?? 0),
+        hutang: Number(c.hutang ?? c.Hutang ?? 0)
       }));
     }
     return [];
@@ -97,6 +107,54 @@ export default function CustomerManagement({
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isSyncingDirect, setIsSyncingDirect] = useState(false);
   const [syncDirectStatus, setSyncDirectStatus] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'analisa' | 'daftar'>('analisa');
+  const [isDeltaChecking, setIsDeltaChecking] = useState(false);
+
+  // Delta Sync check function on tab switch
+  const runDeltaSyncCheck = async () => {
+    setIsDeltaChecking(true);
+    try {
+      if (SupabaseCustomerService.isConnected()) {
+        const { data, error } = await SupabaseCustomerService.getCustomersMinimal();
+        if (!error && data && data.length > 0) {
+          const map = new Map<string, Customer>(customers.map(c => [c.id_pelanggan, c]));
+          const merged: Customer[] = data.map((c: any, index: number) => {
+            const existing = map.get(c.id_pelanggan);
+            return {
+              id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
+              nama: c.nama || existing?.nama || 'Pelanggan',
+              pin: c.pin || existing?.pin || '',
+              telepon: c.telepon || existing?.telepon || '',
+              alamat: c.alamat || existing?.alamat || '',
+              foto: c.foto || existing?.foto || '',
+              poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? existing?.poin ?? 0),
+              level: c.level || c.Level || existing?.level || 'Bronze',
+              tabungan: Number(c.tabungan ?? c.Tabungan ?? existing?.tabungan ?? 0),
+              investasi: Number(c.investasi ?? c.Investasi ?? existing?.investasi ?? 0),
+              lainnya: Number(c.lainnya ?? c.Lainnya ?? existing?.lainnya ?? 0),
+              hutang: Number(c.hutang ?? c.Hutang ?? existing?.hutang ?? 0)
+            };
+          });
+          setCustomers(merged);
+          if (setGlobalCustomers) {
+            setGlobalCustomers(merged);
+          }
+          if (onSyncComplete) {
+            onSyncComplete(merged);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Delta sync error:', err);
+    } finally {
+      setTimeout(() => setIsDeltaChecking(false), 600);
+    }
+  };
+
+  const handleTabSwitch = (tab: 'analisa' | 'daftar') => {
+    setActiveTab(tab);
+    runDeltaSyncCheck();
+  };
 
   // Sync initialCustomers if prop updates from outside
   useEffect(() => {
@@ -108,7 +166,12 @@ export default function CustomerManagement({
         telepon: c.telepon || '',
         alamat: c.alamat || '',
         foto: c.foto || '',
-        poin: c.poin ?? c.Poin ?? 0
+        poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
+        level: c.level || c.Level || 'Bronze',
+        tabungan: Number(c.tabungan ?? c.Tabungan ?? 0),
+        investasi: Number(c.investasi ?? c.Investasi ?? 0),
+        lainnya: Number(c.lainnya ?? c.Lainnya ?? 0),
+        hutang: Number(c.hutang ?? c.Hutang ?? 0)
       }));
       setCustomers(formatted);
       setLoading(false);
@@ -275,13 +338,35 @@ export default function CustomerManagement({
 
   const isGenericId = (id?: string) => !id || id === 'cust-0000' || id === 'cust-xxxx' || id === 'cust' || id === '0000';
 
+  // Direct point and level mapping from customers data
+  const customerPointsAndLevels = useMemo(() => {
+    const map = new Map<string, { poin: number; level: string }>();
+    customers.forEach(c => {
+      const key = (c.id_pelanggan || c.nama || "").toLowerCase();
+      const poin = Number(c.point ?? c.poin ?? (c as any).Poin ?? (c as any).Point ?? 0);
+      const level = String(c.level ?? (c as any).Level ?? "Bronze");
+      map.set(key, { poin, level });
+    });
+    return map;
+  }, [customers]);
+
   // 1. Instant filtered customers for high-performance list rendering (0ms lag)
   const filteredCustomers = useMemo(() => {
     const q = (search || "").toLowerCase().trim();
+    const enriched = customers.map(c => {
+      const poin = Number(c.point ?? c.poin ?? (c as any).Poin ?? (c as any).Point ?? 0);
+      const level = String(c.level ?? (c as any).Level ?? "Bronze");
+      return {
+        ...c,
+        poin,
+        level
+      };
+    });
+
     if (!q) {
-      return [...customers].sort((a, b) => (a.nama || "").localeCompare(b.nama || ""));
+      return [...enriched].sort((a, b) => (a.nama || "").localeCompare(b.nama || ""));
     }
-    return customers
+    return enriched
       .filter(c => {
         const cNama = (c.nama || "").toLowerCase();
         const cId = (c.id_pelanggan || "").toLowerCase();
@@ -417,41 +502,9 @@ export default function CustomerManagement({
         return acc + (net > 0 ? net : 0);
       }, 0);
 
-      // Level (Volume 3 bulan terakhir)
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-      const salesLast3Months = userSales.filter(t => parseDate(t.Tanggal) >= threeMonthsAgo);
-      const totalVolume = salesLast3Months.reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
-
-      let level = "Bronze";
-      if (totalVolume >= 20000000) level = "Platinum";
-      else if (totalVolume >= 10000000) level = "Gold";
-      else if (totalVolume >= 1000000) level = "Silver";
-
-      // 6. POIN AKTIF (All Time: Total Poin Didapat - Poin Kadaluarsa > 1 Thn - Total Poin Ditukar)
-      const userRedeemed = ((idPelanggan && redeemedByCustId.get(idPelanggan)) || redeemedByCustName.get(name) || [])
-        .reduce((acc: number, curr: any) => acc + (curr.Poin || curr.poin || 0), 0);
-
-      const now = new Date();
-      let totalEarned = 0;
-      let totalExpired = 0;
-      userSales.forEach(t => {
-        const nominal = parseCurrency(t.Pemasukan || t.Total || t.Nominal || 0);
-        const points = Math.floor(nominal / 10000);
-        totalEarned += points;
-        const tDate = parseDate(t.Tanggal);
-        if (tDate.getTime() > 0) {
-          const expiryDate = new Date(tDate);
-          expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-          if (expiryDate < now) {
-            totalExpired += points;
-          }
-        }
-      });
-
-      const calculatedActivePoints = Math.max(0, totalEarned - totalExpired - userRedeemed);
-      const storedPoints = parseCurrency(c.poin ?? (c as any).Poin ?? (c as any).poin_aktif ?? (c as any).PoinAktif);
-      const poin = storedPoints > 0 ? storedPoints : calculatedActivePoints;
+      // Level & Point directly from Supabase / customer data without recalculation
+      const poin = Number(c.poin ?? (c as any).point ?? (c as any).Poin ?? (c as any).Point ?? 0);
+      const level = String(c.level ?? (c as any).Level ?? 'Bronze');
 
       // 7. 6 AKTIVITAS TERAKHIR (Semua Waktu / All Time)
       const rawActivities: any[] = [];
@@ -767,7 +820,13 @@ export default function CustomerManagement({
             pin: c.pin || '',
             telepon: c.telepon || '',
             alamat: c.alamat || '',
-            foto: c.foto || ''
+            foto: c.foto || '',
+            poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
+            level: c.level || c.Level || 'Bronze',
+            tabungan: Number(c.tabungan ?? c.Tabungan ?? 0),
+            investasi: Number(c.investasi ?? c.Investasi ?? 0),
+            lainnya: Number(c.lainnya ?? c.Lainnya ?? 0),
+            hutang: Number(c.hutang ?? c.Hutang ?? 0)
           }));
           setCustomers(formatted);
           if (onSyncComplete) onSyncComplete(formatted);
@@ -807,20 +866,16 @@ export default function CustomerManagement({
       foto: formData.foto || ''
     };
 
-    let nextCustomerList: Customer[] = [];
-
     // Optimistically update local state & global state
-    setCustomers(prev => {
-      const exists = prev.some(c => c.id_pelanggan === targetId);
-      const next = exists
-        ? prev.map(c => c.id_pelanggan === targetId ? updatedCustomerObj : c)
-        : [updatedCustomerObj, ...prev];
-      nextCustomerList = next;
-      if (setGlobalCustomers) {
-        setGlobalCustomers(next);
-      }
-      return next;
-    });
+    const exists = customers.some(c => c.id_pelanggan === targetId);
+    const nextCustomerList = exists
+      ? customers.map(c => c.id_pelanggan === targetId ? updatedCustomerObj : c)
+      : [updatedCustomerObj, ...customers];
+
+    setCustomers(nextCustomerList);
+    if (setGlobalCustomers) {
+      setGlobalCustomers(nextCustomerList);
+    }
 
     // Save directly to Supabase
     if (SupabaseCustomerService.isConnected()) {
@@ -869,17 +924,12 @@ export default function CustomerManagement({
       setLoading(true);
       setIsDeleteModalOpen(false);
 
-      let nextCustomerList: Customer[] = [];
-
       // Optimistic delete
-      setCustomers(prev => {
-        const next = prev.filter(c => c.id_pelanggan !== targetId);
-        nextCustomerList = next;
-        if (setGlobalCustomers) {
-          setGlobalCustomers(next);
-        }
-        return next;
-      });
+      const nextCustomerList = customers.filter(c => c.id_pelanggan !== targetId);
+      setCustomers(nextCustomerList);
+      if (setGlobalCustomers) {
+        setGlobalCustomers(nextCustomerList);
+      }
 
       // Hapus dari Supabase
       if (SupabaseCustomerService.isConnected()) {
@@ -931,11 +981,146 @@ export default function CustomerManagement({
     return filteredCustomers.slice(0, displayLimit);
   }, [filteredCustomers, displayLimit]);
 
+  // Analytics for Current Month
+  const analyticsThisMonth = useMemo(() => {
+    const now = new Date();
+    const currYear = now.getFullYear();
+    const currMonth = now.getMonth(); // 0-indexed
+
+    const monthNames = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    const currentMonthName = `${monthNames[currMonth]} ${currYear}`;
+
+    // Filter helper: ignore generic "Pelanggan Umum" / unnamed entries
+    const isGenericOrUmum = (nama?: string, id?: string) => {
+      const n = (nama || '').trim().toLowerCase();
+      const i = (id || '').trim().toLowerCase();
+      if (!n || n === '-' || n === 'pelanggan') return true;
+      if (
+        n === 'umum' || 
+        n === 'pelanggan umum' || 
+        n.includes('pelanggan umum') || 
+        n.includes('umum') || 
+        n === 'non-member' || 
+        n === 'non member' || 
+        n === 'anonim' || 
+        n === 'pembeli umum' ||
+        n === 'guest'
+      ) return true;
+      if (i === 'umum' || i === 'cust-umum') return true;
+      return false;
+    };
+
+    // Filter sales this month
+    const thisMonthSales = (salesTransactions || []).filter(t => {
+      const d = parseDate(t.Tanggal || t.tanggal);
+      return d.getFullYear() === currYear && d.getMonth() === currMonth;
+    });
+
+    const customerStatsMap = new Map<string, {
+      key: string;
+      id_pelanggan: string;
+      nama: string;
+      foto: string;
+      totalSpending: number;
+      transactionCount: number;
+      totalProfit: number;
+      rawSales: any[];
+    }>();
+
+    // Initialize with all named registered customers (exclude umum)
+    customers.forEach(c => {
+      if (isGenericOrUmum(c.nama, c.id_pelanggan)) return;
+      const key = (c.id_pelanggan || c.nama || '').trim().toLowerCase();
+      if (!key) return;
+      customerStatsMap.set(key, {
+        key,
+        id_pelanggan: c.id_pelanggan || '',
+        nama: c.nama || '',
+        foto: c.foto || '',
+        totalSpending: 0,
+        transactionCount: 0,
+        totalProfit: 0,
+        rawSales: []
+      });
+    });
+
+    // Calculate from this month's sales
+    thisMonthSales.forEach(t => {
+      const cId = (t.id_pelanggan || '').trim();
+      const cName = (t.Nama || t.nama || '').trim();
+      
+      // Abaikan transaksi pelanggan umum
+      if (isGenericOrUmum(cName, cId)) return;
+
+      const key = (cId || cName).toLowerCase();
+      if (!key) return;
+
+      let stat = customerStatsMap.get(key);
+      if (!stat) {
+        const matched = customers.find(c => 
+          (c.id_pelanggan && c.id_pelanggan.toLowerCase() === key) ||
+          (c.nama && c.nama.toLowerCase() === cName.toLowerCase())
+        );
+
+        const finalName = matched?.nama || cName;
+        if (isGenericOrUmum(finalName, cId || matched?.id_pelanggan)) return;
+
+        stat = {
+          key,
+          id_pelanggan: cId || matched?.id_pelanggan || '',
+          nama: finalName,
+          foto: matched?.foto || '',
+          totalSpending: 0,
+          transactionCount: 0,
+          totalProfit: 0,
+          rawSales: []
+        };
+        customerStatsMap.set(key, stat);
+      }
+
+      const spending = parseCurrency(t.Pemasukan || t.Total || t.Nominal || 0);
+      const modal = parseCurrency(t.HargaModal || t.harga_modal || 0);
+      // Profit: Total Pemasukan - Harga Modal (estimasi 15% jika harga modal belum diinput)
+      const profit = modal > 0 ? Math.max(0, spending - modal) : Math.round(spending * 0.15);
+
+      stat.totalSpending += spending;
+      stat.transactionCount += 1;
+      stat.totalProfit += profit;
+      stat.rawSales.push(t);
+    });
+
+    // Filter only active customers with names (strictly excluding umum)
+    const activePelanggan = Array.from(customerStatsMap.values()).filter(c => 
+      !isGenericOrUmum(c.nama, c.id_pelanggan) && (c.transactionCount > 0 || c.totalSpending > 0)
+    );
+
+    // 1. Transaksi Terbesar (Top 3 Spenders Bulan Ini)
+    const topSpenders = [...activePelanggan].sort((a, b) => b.totalSpending - a.totalSpending).slice(0, 3);
+
+    // 2. Transaksi Tersering (Top 3 Paling Sering Belanja Bulan Ini)
+    const mostFrequent = [...activePelanggan].sort((a, b) => b.transactionCount - a.transactionCount || b.totalSpending - a.totalSpending).slice(0, 3);
+
+    // 3. Paling Banyak Memberi Keuntungan (Top 3 Margin Keuntungan Bulan Ini)
+    const topProfit = [...activePelanggan].sort((a, b) => b.totalProfit - a.totalProfit || b.totalSpending - a.totalSpending).slice(0, 3);
+
+    return {
+      currentMonthName,
+      topSpenders,
+      mostFrequent,
+      topProfit,
+      activeCustomerCount: activePelanggan.length
+    };
+  }, [customers, salesTransactions]);
+
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 relative overflow-hidden">
+      {/* Header Area */}
+      <div className="bg-[#005E6A] text-white px-6 pt-10 pb-16 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
-        <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div 
             onClick={() => navigate("/admin")}
             className="flex items-center gap-4 cursor-pointer group hover:opacity-90 transition-opacity"
@@ -945,135 +1130,513 @@ export default function CustomerManagement({
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black tracking-tight uppercase leading-tight">Manajemen Pelanggan</h1>
-              <p className="text-[10px] font-medium text-white/60 uppercase tracking-[0.2em]">Data & Pelanggan Warung Tomi</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-6 -mt-12 relative z-20 max-w-7xl mx-auto space-y-4">
-        {/* 1. Kolom Cari Paling Atas */}
-        <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm">
-          <div className="relative w-full">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
-            <input 
-              type="text"
-              placeholder="CARI NAMA / ID PELANGGAN..."
-              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-[#005E6A] placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#005E6A]/5 transition-all"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* 2. Dua Kartu Sejajar: Singkronisasi (Kiri) & Tambah Pelanggan (Kanan) */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-          {/* Kartu Singkronisasi */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setIsSyncModalOpen(true)}
-            className="bg-white p-4 sm:p-5 rounded-[2rem] border border-emerald-100 shadow-sm flex items-center gap-3.5 text-left transition-all hover:shadow-md group"
-          >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-emerald-200 shadow-md shrink-0">
-              <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs sm:text-sm font-black text-emerald-900 uppercase tracking-tight truncate">Singkronisasi</span>
-              <span className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Auto Sync Sheets</span>
-              <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 tracking-wider truncate mt-0.5">
-                Terakhir update: {lastSyncTime}
-              </span>
-            </div>
-          </motion.button>
-
-          {/* Kartu Tambah Pelanggan */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => { resetForm(); setEditingCustomer(null); setIsModalOpen(true); }}
-            className="bg-white p-4 sm:p-5 rounded-[2rem] border border-teal-100 shadow-sm flex items-center gap-3.5 text-left transition-all hover:shadow-md group"
-          >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#005E6A] rounded-2xl flex items-center justify-center text-white shadow-teal-200 shadow-md shrink-0">
-              <PlusCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-xs sm:text-sm font-black text-[#005E6A] uppercase tracking-tight truncate">Tambah Pelanggan</span>
-              <span className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Register Pelanggan Baru</span>
-            </div>
-          </motion.button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider flex items-center gap-2">
-              <User className="w-4 h-4" /> Daftar Pelanggan Aktif
-            </h3>
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={fetchCustomers}
-                className="p-2 bg-white rounded-xl border border-slate-100 text-slate-400 hover:text-[#005E6A] transition-all shadow-sm"
-                title="Refresh Data"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              </button>
+              <p className="text-[10px] font-medium text-white/60 uppercase tracking-[0.2em]">Data, Analisa & Sinkronisasi Warung Tomi</p>
             </div>
           </div>
 
-          {loading && customers.length === 0 ? (
-            <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100">
-               <Loader2 className="w-8 h-8 text-[#005E6A] animate-spin mx-auto mb-4" />
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sedang memuat data...</p>
-            </div>
-          ) : filteredCustomers.length === 0 ? (
-            <div className="bg-white rounded-[2rem] p-12 text-center border border-dashed border-slate-200">
-               <Search className="w-8 h-8 text-slate-200 mx-auto mb-4" />
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tidak ada pelanggan ditemukan</p>
-            </div>
-          ) : (
-            <div>
-              <div className="bg-white rounded-3xl border border-slate-100 divide-y divide-slate-100 shadow-sm overflow-hidden">
-                {displayedCustomers.map((customer, i) => (
-                  <motion.div 
-                    layout
-                    key={`cust-${customer.id_pelanggan}-${i}`}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.02, 0.2) }}
-                    onClick={() => navigate(`/admin/customers/${encodeURIComponent(customer.nama)}`)}
-                    className="p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors group"
-                  >
-                    <div className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shrink-0 flex items-center justify-center">
-                      {customer.foto ? (
-                        <img src={customer.foto} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <User className="w-5 h-5 text-slate-400" />
-                      )}
-                    </div>
-                    <h4 className="text-xs font-black text-[#005E6A] uppercase tracking-wide group-hover:text-teal-600 transition-colors">
-                      {customer.nama}
-                    </h4>
-                  </motion.div>
-                ))}
-              </div>
-
-              {filteredCustomers.length > displayLimit && (
-                <div className="mt-8 text-center flex flex-col items-center gap-2 pb-6">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Menampilkan {displayedCustomers.length} dari {filteredCustomers.length} Pelanggan
-                  </p>
-                  <button
-                    onClick={() => setDisplayLimit(prev => prev + 12)}
-                    className="px-6 py-3 bg-[#005E6A] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-teal-700 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Muat ({Math.min(12, filteredCustomers.length - displayLimit)}) Pelanggan Lagi
-                  </button>
-                </div>
-              )}
+          {/* Delta Sync Badge Indicator */}
+          {isDeltaChecking && (
+            <div className="self-start md:self-auto bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-teal-100 animate-pulse">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-200" />
+              <span>Memeriksa Delta Sync...</span>
             </div>
           )}
         </div>
+      </div>
+
+      <div className="px-4 sm:px-6 -mt-8 relative z-20 max-w-7xl mx-auto space-y-5">
+        {/* 2 TAB UTAMA PALING ATAS */}
+        <div className="bg-white p-2 rounded-[2.2rem] border border-slate-200/80 shadow-md flex items-center gap-2">
+          <button
+            id="tab-analisa-btn"
+            onClick={() => handleTabSwitch('analisa')}
+            className={`flex-1 py-3.5 px-4 rounded-[1.8rem] text-xs sm:text-sm font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+              activeTab === 'analisa'
+                ? 'bg-[#005E6A] text-white shadow-lg shadow-teal-900/20'
+                : 'text-slate-500 hover:text-[#005E6A] hover:bg-slate-50'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span>Analisa</span>
+            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+              activeTab === 'analisa' ? 'bg-white/20 text-white' : 'bg-teal-50 text-teal-700'
+            }`}>
+              Bulan Ini
+            </span>
+          </button>
+
+          <button
+            id="tab-daftar-btn"
+            onClick={() => handleTabSwitch('daftar')}
+            className={`flex-1 py-3.5 px-4 rounded-[1.8rem] text-xs sm:text-sm font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+              activeTab === 'daftar'
+                ? 'bg-[#005E6A] text-white shadow-lg shadow-teal-900/20'
+                : 'text-slate-500 hover:text-[#005E6A] hover:bg-slate-50'
+            }`}
+          >
+            <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span>Daftar</span>
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+              activeTab === 'daftar' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700'
+            }`}>
+              {customers.length}
+            </span>
+          </button>
+        </div>
+
+        {/* TAB CONTENT: ANALISA */}
+        {activeTab === 'analisa' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-6"
+          >
+            {/* 3 KARTU ANALISA UTAMA BULAN INI (HANYA PELANGGAN BERNAMA & TOP 3) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+              {/* 1. Transaksi Terbesar (Top Spenders) */}
+              <div className="bg-white rounded-[2.5rem] p-6 border border-amber-100 shadow-sm flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-200">
+                        <Trophy className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Transaksi Terbesar</h3>
+                        <p className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Top Spender Bulan Ini</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black bg-amber-50 text-amber-800 px-2.5 py-1 rounded-xl border border-amber-200/60">
+                      Nominal
+                    </span>
+                  </div>
+
+                  {analyticsThisMonth.topSpenders.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-xs font-medium">
+                      Belum ada transaksi di bulan ini
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {analyticsThisMonth.topSpenders.map((cust, idx) => (
+                        <div
+                          key={`top-spender-${cust.key}-${idx}`}
+                          onClick={() => navigate(`/admin/customers/${encodeURIComponent(cust.nama)}`)}
+                          className="p-3 bg-amber-50/40 hover:bg-amber-50/80 rounded-2xl border border-amber-100/80 flex items-center justify-between gap-3 cursor-pointer transition-all group"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
+                              idx === 0 ? 'bg-amber-500 text-white shadow-xs' :
+                              idx === 1 ? 'bg-slate-300 text-slate-800' :
+                              idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {idx + 1}
+                            </div>
+                            <div className="w-9 h-9 rounded-full bg-white overflow-hidden border border-amber-200 shrink-0 flex items-center justify-center">
+                              {cust.foto ? (
+                                <img src={cust.foto} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <User className="w-4 h-4 text-amber-700" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-slate-800 uppercase tracking-wide truncate group-hover:text-amber-700 transition-colors">
+                                {cust.nama}
+                              </p>
+                              <p className="text-[9px] font-bold text-slate-400 tracking-wider">
+                                {cust.transactionCount}x Transaksi
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-black text-amber-700 block">
+                              Rp {cust.totalSpending.toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Transaksi Tersering (Most Frequent) */}
+              <div className="bg-white rounded-[2.5rem] p-6 border border-teal-100 shadow-sm flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-[#005E6A] text-white flex items-center justify-center shadow-md shadow-teal-200">
+                        <Flame className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Transaksi Tersering</h3>
+                        <p className="text-[9px] font-bold text-teal-600 uppercase tracking-wider">Paling Sering Belanja</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black bg-teal-50 text-teal-800 px-2.5 py-1 rounded-xl border border-teal-200/60">
+                      Frekuensi
+                    </span>
+                  </div>
+
+                  {analyticsThisMonth.mostFrequent.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-xs font-medium">
+                      Belum ada transaksi di bulan ini
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {analyticsThisMonth.mostFrequent.map((cust, idx) => (
+                        <div
+                          key={`most-frequent-${cust.key}-${idx}`}
+                          onClick={() => navigate(`/admin/customers/${encodeURIComponent(cust.nama)}`)}
+                          className="p-3 bg-teal-50/40 hover:bg-teal-50/80 rounded-2xl border border-teal-100/80 flex items-center justify-between gap-3 cursor-pointer transition-all group"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
+                              idx === 0 ? 'bg-[#005E6A] text-white shadow-xs' :
+                              idx === 1 ? 'bg-teal-600 text-white' :
+                              idx === 2 ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {idx + 1}
+                            </div>
+                            <div className="w-9 h-9 rounded-full bg-white overflow-hidden border border-teal-200 shrink-0 flex items-center justify-center">
+                              {cust.foto ? (
+                                <img src={cust.foto} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <User className="w-4 h-4 text-teal-700" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-slate-800 uppercase tracking-wide truncate group-hover:text-teal-700 transition-colors">
+                                {cust.nama}
+                              </p>
+                              <p className="text-[9px] font-bold text-slate-400 tracking-wider">
+                                Total: Rp {cust.totalSpending.toLocaleString('id-ID')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-black text-[#005E6A] bg-teal-100/70 px-2.5 py-1 rounded-xl block">
+                              {cust.transactionCount}x Beli
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 3. Paling Banyak Memberi Keuntungan (Top Margin/Profit) */}
+              <div className="bg-white rounded-[2.5rem] p-6 border border-emerald-100 shadow-sm flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-200">
+                        <TrendingUp className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Paling Menguntungkan</h3>
+                        <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Laba Bersih Terbesar</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-black bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-xl border border-emerald-200/60">
+                      Profit
+                    </span>
+                  </div>
+
+                  {analyticsThisMonth.topProfit.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-xs font-medium">
+                      Belum ada transaksi di bulan ini
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {analyticsThisMonth.topProfit.map((cust, idx) => (
+                        <div
+                          key={`top-profit-${cust.key}-${idx}`}
+                          onClick={() => navigate(`/admin/customers/${encodeURIComponent(cust.nama)}`)}
+                          className="p-3 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-2xl border border-emerald-100/80 flex items-center justify-between gap-3 cursor-pointer transition-all group"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
+                              idx === 0 ? 'bg-emerald-600 text-white shadow-xs' :
+                              idx === 1 ? 'bg-emerald-700 text-white' :
+                              idx === 2 ? 'bg-emerald-800 text-white' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {idx + 1}
+                            </div>
+                            <div className="w-9 h-9 rounded-full bg-white overflow-hidden border border-emerald-200 shrink-0 flex items-center justify-center">
+                              {cust.foto ? (
+                                <img src={cust.foto} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <User className="w-4 h-4 text-emerald-700" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-black text-slate-800 uppercase tracking-wide truncate group-hover:text-emerald-700 transition-colors">
+                                {cust.nama}
+                              </p>
+                              <p className="text-[9px] font-bold text-slate-400 tracking-wider">
+                                Omset: Rp {cust.totalSpending.toLocaleString('id-ID')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-xs font-black text-emerald-700 block">
+                              +Rp {cust.totalProfit.toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* UI SINGKRONISASI KE GOOGLE SHEETS & UPDATE TERAKHIR */}
+            <div className="bg-white rounded-[2.5rem] p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-200 shrink-0">
+                    <FileSpreadsheet className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">
+                        Singkronisasi ke Google Sheets
+                      </h3>
+                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Auto Sync Aktif
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-400 tracking-wide mt-0.5">
+                      Pembaruan Terakhir: <span className="text-emerald-700 font-black">{lastSyncTime}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Tombol Aksi Singkronisasi */}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    onClick={handleDirectSyncToAppsScript}
+                    disabled={isSyncingDirect}
+                    className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider shadow-md hover:shadow-emerald-200/50 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isSyncingDirect ? 'animate-spin' : ''}`} />
+                    <span>{isSyncingDirect ? 'Menyinkronkan...' : 'Singkronkan Sekarang'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsSyncModalOpen(true)}
+                    className="px-4 py-3 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-2xl text-xs font-black uppercase tracking-wider border border-slate-200 transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <Settings className="w-4 h-4 text-slate-400" />
+                    <span>Detail & Konfigurasi</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Feedback Banner */}
+              {syncDirectStatus && (
+                <div className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-3 border transition-all ${
+                  syncDirectStatus.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : syncDirectStatus.type === 'error'
+                    ? 'bg-rose-50 text-rose-800 border-rose-200'
+                    : 'bg-teal-50 text-teal-800 border-teal-200'
+                }`}>
+                  {syncDirectStatus.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
+                  {syncDirectStatus.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />}
+                  {syncDirectStatus.type === 'info' && <RefreshCw className="w-4 h-4 text-teal-600 animate-spin shrink-0" />}
+                  <span className="flex-1">{syncDirectStatus.text}</span>
+                </div>
+              )}
+
+              {/* Kolom Data yang Disinkronkan */}
+              <div className="bg-slate-50 p-5 rounded-2xl space-y-3 border border-slate-100">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    Format Data yang Disinkronkan Otomatis:
+                  </p>
+                  <span className="text-[10px] font-black text-[#005E6A] uppercase bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-100">
+                    {customers.length} Data Pelanggan Terintegrasi
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    "ID Pelanggan",
+                    "Nama Pelanggan",
+                    "PIN",
+                    "No Telepon",
+                    "Alamat",
+                    "Saldo Tabungan",
+                    "Investasi",
+                    "Total Hutang",
+                    "Poin Aktif",
+                    "Peringkat Member",
+                    "10 Mutasi Tabungan Terakhir",
+                    "10 Catatan Hutang Terakhir",
+                    "6 Aktivitas Terakhir",
+                    "Waktu Update"
+                  ].map((col, idx) => (
+                    <span 
+                      key={idx} 
+                      className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      {col}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* TAB CONTENT: DAFTAR PELANGGAN */}
+        {activeTab === 'daftar' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-4"
+          >
+            {/* 1. Kolom Pencarian Pelanggan */}
+            <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm">
+              <div className="relative w-full">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                <input 
+                  type="text"
+                  placeholder="CARI NAMA / ID PELANGGAN..."
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-[#005E6A] placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#005E6A]/5 transition-all"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* 2. Tombol Aksi Tambah Pelanggan & Refresh */}
+            <div className="flex items-center justify-between gap-3">
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => { resetForm(); setEditingCustomer(null); setIsModalOpen(true); }}
+                className="flex-1 bg-white p-4 sm:p-5 rounded-[2rem] border border-teal-100 shadow-sm flex items-center gap-3.5 text-left transition-all hover:shadow-md group cursor-pointer"
+              >
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#005E6A] rounded-2xl flex items-center justify-center text-white shadow-teal-200 shadow-md shrink-0">
+                  <PlusCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs sm:text-sm font-black text-[#005E6A] uppercase tracking-tight truncate">Tambah Pelanggan Baru</span>
+                  <span className="text-[8px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Registrasi Akun Baru</span>
+                </div>
+              </motion.button>
+
+              <button 
+                onClick={fetchCustomers}
+                className="p-4 sm:p-5 bg-white rounded-[2rem] border border-slate-100 text-slate-400 hover:text-[#005E6A] transition-all shadow-sm flex items-center justify-center cursor-pointer group shrink-0"
+                title="Segarkan Data Pelanggan"
+              >
+                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin text-[#005E6A]' : 'group-hover:rotate-180 transition-transform'}`} />
+              </button>
+            </div>
+
+            {/* 3. Daftar List Pelanggan Aktif */}
+            <div className="space-y-4 pt-1">
+              <div className="flex items-center justify-between px-2">
+                <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider flex items-center gap-2">
+                  <User className="w-4 h-4" /> Daftar Pelanggan Aktif
+                </h3>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Total: {filteredCustomers.length} Pelanggan
+                </span>
+              </div>
+
+              {loading && customers.length === 0 ? (
+                <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100">
+                  <Loader2 className="w-8 h-8 text-[#005E6A] animate-spin mx-auto mb-4" />
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sedang memuat data...</p>
+                </div>
+              ) : filteredCustomers.length === 0 ? (
+                <div className="bg-white rounded-[2rem] p-12 text-center border border-dashed border-slate-200">
+                  <Search className="w-8 h-8 text-slate-200 mx-auto mb-4" />
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tidak ada pelanggan ditemukan</p>
+                </div>
+              ) : (
+                <div>
+                  <div className="bg-white rounded-3xl border border-slate-100 divide-y divide-slate-100 shadow-sm overflow-hidden">
+                    {displayedCustomers.map((customer, i) => (
+                      <motion.div 
+                        layout
+                        key={`cust-${customer.id_pelanggan}-${i}`}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: Math.min(i * 0.02, 0.2) }}
+                        onClick={() => navigate(`/admin/customers/${encodeURIComponent(customer.nama)}`)}
+                        className="p-4 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50 transition-colors group"
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shrink-0 flex items-center justify-center">
+                            {customer.foto ? (
+                              <img src={customer.foto} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <User className="w-5 h-5 text-slate-400" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-black text-[#005E6A] uppercase tracking-wide group-hover:text-teal-600 transition-colors truncate">
+                              {customer.nama}
+                            </h4>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                              ID: {customer.id_pelanggan || '-'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {customer.level && (
+                            <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border ${
+                              customer.level === "Platinum" ? "bg-slate-900 text-slate-100 border-slate-700" :
+                              customer.level === "Gold" ? "bg-amber-100 text-amber-800 border-amber-300" :
+                              customer.level === "Silver" ? "bg-slate-100 text-slate-700 border-slate-300" :
+                              "bg-amber-50 text-[#A57164] border-[#CD7F32]/30"
+                            }`}>
+                              {customer.level}
+                            </span>
+                          )}
+                          {customer.poin !== undefined && (
+                            <span className="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-xl text-[9px] font-black uppercase tracking-wider border border-amber-200">
+                              {customer.poin} Poin
+                            </span>
+                          )}
+                          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#005E6A] group-hover:translate-x-0.5 transition-all" />
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {filteredCustomers.length > displayLimit && (
+                    <div className="mt-8 text-center flex flex-col items-center gap-2 pb-6">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        Menampilkan {displayedCustomers.length} dari {filteredCustomers.length} Pelanggan
+                      </p>
+                      <button
+                        onClick={() => setDisplayLimit(prev => prev + 12)}
+                        className="px-6 py-3 bg-[#005E6A] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-teal-700 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Muat ({Math.min(12, filteredCustomers.length - displayLimit)}) Pelanggan Lagi
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
       </div>
 
       <AnimatePresence>
