@@ -382,15 +382,19 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
         <div className="flex flex-wrap gap-1.5">
           {[
             "ID Pelanggan",
-            "Nama Pelanggan",
-            "Tabungan (Rp)",
-            "Investasi (Rp)",
-            "Lainnya (Rp)",
-            "Hutang (Rp)",
+            "Nama",
+            "Tabungan",
+            "Investasi",
+            "Lainnya",
+            "Hutang",
             "Level",
             "Poin",
+            "Total Belanja Bulan Ini",
+            "Peringkat",
             "Aktivitas Terakhir",
-            "Waktu Update"
+            "Mutasi Tabungan",
+            "Catatan Hutang",
+            "Terakhir Diperbarui"
           ].map((col, idx) => (
             <span 
               key={idx} 

@@ -353,7 +353,15 @@ export const generateNextHutangId = (
   return `HUT-${custDigits}/${nextSeq}`;
 };
 
-const isGenericId = (id: string) => !id || id === 'cust-0000' || id === 'cust-xxxx' || id === 'cust' || id === '0000';
+const isGenericId = (id: string) => {
+  const clean = (id || '').toLowerCase().trim();
+  return !clean || clean === 'cust-0000' || clean === 'cust-xxxx' || clean === 'cust' || clean === '0000' || clean === '-' || clean === 'null' || clean === 'undefined';
+};
+
+const isGenericName = (name: string) => {
+  const clean = (name || '').toLowerCase().trim();
+  return !clean || clean === 'pelanggan umum' || clean === 'pelanggan' || clean === 'umum' || clean === '-' || clean === 'null' || clean === 'undefined';
+};
 
 export const isCustomerSavingMatch = (t: any, customer: { id_pelanggan?: string; id?: string; Nama?: string; nama?: string } | null) => {
   if (!customer || !t) return false;
@@ -366,7 +374,16 @@ export const isCustomerSavingMatch = (t: any, customer: { id_pelanggan?: string;
   // 1. Strict name equality if names match
   if (custName && tName && custName === tName) return true;
 
-  // 2. ID Pelanggan match (jika nama tidak ketemu atau pelanggan ubah nama)
+  // If both have explicit, non-generic names that do NOT match, they are strictly different customers
+  if (!isGenericName(custName) && !isGenericName(tName) && custName !== tName) {
+    const cleanCust = custName.replace(/[^a-z0-9]/g, '');
+    const cleanT = tName.replace(/[^a-z0-9]/g, '');
+    if (cleanCust && cleanT && cleanCust !== cleanT) {
+      return false;
+    }
+  }
+
+  // 2. ID Pelanggan match (jika nama tidak ketemu atau salah satu nama generik)
   if (!isGenericId(custId) && !isGenericId(tIdPel)) {
     if (custId === tIdPel) return true;
     const cust4 = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
@@ -395,7 +412,16 @@ export const isCustomerDebtMatch = (t: any, customer: { id_pelanggan?: string; i
   // 1. Strict name equality if names match
   if (custName && tName && custName === tName) return true;
 
-  // 2. ID Pelanggan match (jika nama tidak ketemu atau pelanggan ubah nama)
+  // If both have explicit, non-generic names that do NOT match, they are strictly different customers
+  if (!isGenericName(custName) && !isGenericName(tName) && custName !== tName) {
+    const cleanCust = custName.replace(/[^a-z0-9]/g, '');
+    const cleanT = tName.replace(/[^a-z0-9]/g, '');
+    if (cleanCust && cleanT && cleanCust !== cleanT) {
+      return false;
+    }
+  }
+
+  // 2. ID Pelanggan match (jika nama tidak ketemu atau salah satu nama generik)
   if (!isGenericId(custId) && !isGenericId(tIdPel)) {
     if (custId === tIdPel) return true;
     const cust4 = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
@@ -424,7 +450,16 @@ export const isCustomerSalesMatch = (t: any, customer: { id_pelanggan?: string; 
   // 1. Strict name equality if names match
   if (custName && tName && custName === tName) return true;
 
-  // 2. ID Pelanggan match (jika nama tidak ketemu atau pelanggan ubah nama)
+  // If both have explicit, non-generic names that do NOT match, they are strictly different customers
+  if (!isGenericName(custName) && !isGenericName(tName) && custName !== tName) {
+    const cleanCust = custName.replace(/[^a-z0-9]/g, '');
+    const cleanT = tName.replace(/[^a-z0-9]/g, '');
+    if (cleanCust && cleanT && cleanCust !== cleanT) {
+      return false;
+    }
+  }
+
+  // 2. ID Pelanggan match (jika nama tidak ketemu atau salah satu nama generik)
   if (!isGenericId(custId) && !isGenericId(tIdPel)) {
     if (custId === tIdPel) return true;
     const cust4 = get4DigitCustId(customer.id_pelanggan || customer.id, customer.Nama || customer.nama);
@@ -617,6 +652,7 @@ export interface SavingTransaction {
   SaldoAkhir: number;
   Berita?: string;
   Sebagian?: number;
+  created_at?: string;
 }
 
 export interface DebtTransaction {
@@ -630,6 +666,7 @@ export interface DebtTransaction {
   Keterangan: string;
   SaldoAkhir: number;
   Sebagian?: number;
+  created_at?: string;
 }
 
 export interface SalesTransaction {
@@ -3456,65 +3493,6 @@ const LoginPage = ({
   );
 };
 
-const AssetPieChart = ({ data, compact = false }: { data: any[], compact?: boolean }) => {
-  return (
-    <div className={`${compact ? 'h-full' : 'h-64'} w-full relative flex items-center justify-center`}>
-      {!compact && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em]">Komposisi</p>
-          <p className="text-xs font-black text-[#005E6A]">{data.length} Kategori</p>
-        </div>
-      )}
-      <ResponsiveContainer width={compact ? "100%" : "100%"} height={compact ? "100%" : "100%"}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={compact ? "55%" : 70}
-            outerRadius={compact ? "95%" : 95}
-            paddingAngle={compact ? 3 : 8}
-            dataKey="value"
-            stroke="none"
-            cornerRadius={compact ? 4 : 10}
-            animationBegin={0}
-            animationDuration={1000}
-            animationEasing="ease-out"
-          >
-            {data.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={entry.color} 
-                className="hover:opacity-80 transition-opacity cursor-pointer outline-none"
-              />
-            ))}
-          </Pie>
-          {!compact && (
-            <Tooltip 
-              content={({ active, payload }) => {
-              if (active && payload && payload.length) {
-                const total = data.reduce((acc, curr) => acc + curr.value, 0);
-                const item = payload[0].payload;
-                const percentage = ((item.value / total) * 100).toFixed(1);
-                return (
-                  <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col items-center">
-                    <div className="w-2 h-2 rounded-full mb-1" style={{ backgroundColor: item.color }} />
-                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{item.name}</p>
-                    <p className="text-xs font-black text-[#005E6A]">Rp {item.value.toLocaleString('id-ID')}</p>
-                    <p className="text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 mt-1">{percentage}% dari total</p>
-                  </div>
-                );
-              }
-              return null;
-            }}
-            />
-          )}
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
-  );
-};
-
 const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { user: Customer | null, customers: Customer[], transactions: SalesTransaction[], redeemedPoints: RedeemedPoint[] }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab ] = useState<"HADIAH" | "CARA">("HADIAH");
@@ -4479,354 +4457,6 @@ const RedeemRewardsPage = ({ user, transactions, redeemedPoints, customers }: { 
   );
 };
 
-const AsetPage = ({ user, transactions, investmentTransactions, redeemedPoints, customers, onLogin, setActiveTab }: { user: Customer | null, transactions: SalesTransaction[], investmentTransactions: InvestmentTransaction[], redeemedPoints: RedeemedPoint[], customers: Customer[], onLogin: (user: Customer) => void, setActiveTab: (id: string) => void }) => {
-  const navigate = useNavigate();
-  const [showBalances, setShowBalances] = useState(() => localStorage.getItem('aset_show_balance') !== 'false');
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [targetGoal, setTargetGoal] = useState(() => {
-    const saved = localStorage.getItem(`target_goal_${user?.Nama}`);
-    return saved ? parseInt(saved) : 10000000;
-  });
-  const [tempGoal, setTempGoal] = useState(targetGoal.toString());
-
-  const toggleBalance = () => {
-    setShowBalances(prev => {
-      const next = !prev;
-      localStorage.setItem('aset_show_balance', String(next));
-      return next;
-    });
-  };
-
-  const handleSaveGoal = () => {
-    const val = parseInt(tempGoal.replace(/\D/g, ""));
-    if (!isNaN(val) && val > 0) {
-      setTargetGoal(val);
-      localStorage.setItem(`target_goal_${user?.Nama}`, val.toString());
-      setIsEditingGoal(false);
-    }
-  };
-
-  const mask = (val: string | number) => showBalances ? val : "••••••";
-
-
-  const tabunganBalance = parseCurrency(user?.Tabungan);
-  
-  // Calculate Investasi balance from investmentTransactions
-  const userInvestments = investmentTransactions.filter(t => 
-    t.Nama.toLowerCase() === user?.Nama?.toLowerCase() &&
-    t.Status.toLowerCase() !== "sukses dicairkan"
-  );
-  
-  const investasiBalance = userInvestments.reduce((acc, curr) => {
-    const estimate = calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo);
-    return acc + estimate.total;
-  }, 0);
-  
-  // Calculate Lainnya balance from "BELUM DIAMBIL" & "DIPROSES" transactions
-  const lainnyaTransactions = transactions.filter(t => {
-    const tName = t.Nama.toLowerCase();
-    const uName = user?.Nama?.toLowerCase();
-    const s = (t.Status || "").toUpperCase().trim();
-    return tName === uName && (s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING");
-  });
-  
-  const lainnyaBalance = lainnyaTransactions.reduce((acc, curr) => {
-    const s = (curr.Status || "").toUpperCase().trim();
-    if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
-      return acc + (parseCurrency(curr.Pemasukan) || parseCurrency(curr.HargaModal) || 0);
-    }
-    
-    let base = curr.HargaModal;
-    if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
-      base -= 1500;
-    }
-    const net = base - curr.Sebagian;
-    return acc + (net > 0 ? net : 0);
-  }, 0);
-
-  const hutangBalance = parseCurrency(user?.Hutang);
-  
-  const totalAset = tabunganBalance + investasiBalance + lainnyaBalance - hutangBalance;
-
-  const assetData = [
-    { name: 'Tabungan', value: tabunganBalance, color: '#22c55e' },
-    { name: 'Investasi', value: investasiBalance, color: '#6366f1' },
-    { name: 'Lainnya', value: lainnyaBalance, color: '#f39c12' },
-    { name: 'Hutang', value: hutangBalance, color: '#ef4444' },
-  ].filter(item => item.value !== 0 || item.name === 'Investasi');
-
-  const customerLevel = { name: user?.Level || (user as any)?.level || 'Bronze', total: 0 };
-  const activePoints = Number(user?.Poin ?? (user as any)?.point ?? (user as any)?.poin ?? 0);
-
-  return (
-    <ProtectedPage user={user} title="Aset" customers={customers} onLogin={onLogin} setActiveTab={setActiveTab}>
-      <motion.div 
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.2}
-        onDragEnd={(e, info) => {
-          if (info.offset.x > 100) {
-            setActiveTab("beranda");
-          }
-        }}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="px-6 py-4 cursor-grab active:cursor-grabbing"
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-white rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 mb-6 relative overflow-hidden group border border-slate-100 dark:border-slate-800"
-        >
-          <div className="flex items-center justify-between relative z-10 gap-6">
-            <div className="flex flex-col justify-center">
-              <h2 className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.3em] mb-2">
-                Total Aset
-              </h2>
-              <div className="flex items-center gap-1">
-                <span className="text-sm font-black text-[#F15A24] italic opacity-70">Rp</span>
-                <motion.span 
-                  key={totalAset}
-                  initial={{ scale: 0.95, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="text-3xl font-black text-[#005E6A] tracking-tighter leading-none"
-                >
-                  {mask(formatCurrency(totalAset))}
-                </motion.span>
-              </div>
-              <div className="flex items-center gap-1.5 mt-3">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Portfolio Analytics</span>
-              </div>
-            </div>
-
-            <div className="w-28 h-28 bg-slate-50/50 rounded-[1.5rem] flex items-center justify-center p-1.5 border border-slate-100/50 dark:border-slate-800/50 shadow-inner">
-              <div className="w-full h-full transform transition-transform group-hover:scale-105">
-                <AssetPieChart data={assetData} compact={true} />
-              </div>
-            </div>
-          </div>
-
-          {/* Integrated Balance Grid */}
-          <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800/50 flex flex-col gap-4 relative z-10">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.3em]">Rincian Saldo</h3>
-              <div className="h-0.5 w-8 bg-[#F15A24]/30 rounded-full" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              {[
-                { 
-                  name: "Tabungan", 
-                  balance: formatCurrency(tabunganBalance), 
-                  gradient: "from-[#2ecc71] to-[#27ae60]", // Emerald Wallet
-                  icon: Wallet,
-                  clickable: true, 
-                  path: user ? `/tabungan/${encodeURIComponent(user.Nama)}` : "/tabungan" 
-                },
-                { 
-                  name: "Investasi", 
-                  balance: formatCurrency(investasiBalance), 
-                  gradient: "from-[#9b59b6] to-[#8e44ad]", // Purple Wallet
-                  icon: TrendingUp,
-                  clickable: true, 
-                  path: user ? `/investasi/${encodeURIComponent(user.Nama)}` : "/investasi" 
-                },
-                { 
-                  name: "Lainnya", 
-                  balance: formatCurrency(lainnyaBalance), 
-                  gradient: "from-[#f1c40f] to-[#f39c12]", // Gold/Yellow Wallet
-                  icon: Layers,
-                  clickable: true, 
-                  path: user ? `/lainnya/${encodeURIComponent(user.Nama)}` : "/lainnya" 
-                },
-                { 
-                  name: "Hutang", 
-                  balance: formatCurrency(hutangBalance), 
-                  gradient: "from-[#e74c3c] to-[#c0392b]", // Red Wallet
-                  icon: CreditCard,
-                  clickable: true, 
-                  path: user ? `/hutang/${encodeURIComponent(user.Nama)}` : "/hutang" 
-                },
-              ].map((item, i) => (
-                <motion.div 
-                  key={i} 
-                  initial={{ rotateX: -30, opacity: 0, translateY: 20 }}
-                  animate={{ rotateX: 0, opacity: 1, translateY: 0 }}
-                  transition={{ 
-                    duration: 0.7, 
-                    delay: i * 0.1,
-                    ease: "easeOut"
-                  }}
-                  onClick={() => item.clickable && item.path && navigate(item.path)}
-                  className={`relative overflow-hidden bg-gradient-to-br ${item.gradient} p-5 rounded-[2.2rem] flex flex-col justify-between shadow-lg shadow-slate-200/40 min-h-[130px] ${item.clickable ? 'cursor-pointer active:scale-95 transition-all group/wallet hover:shadow-xl hover:-translate-y-1' : ''} border-t border-white/20`}
-                >
-                  {/* Wallet Closure Strap Design */}
-                  <motion.div 
-                    initial={{ x: 20, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: i * 0.1 + 0.5, type: "spring", stiffness: 200, damping: 15 }}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 w-7 h-12 bg-black/5 backdrop-blur-sm border-l border-t border-b border-white/20 rounded-l-2xl z-0 transition-all group-hover/wallet:w-9" 
-                  />
-                  <motion.div 
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: i * 0.1 + 0.8 }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 w-2 h-2 bg-white/40 rounded-full z-10 shadow-sm border border-white/20" 
-                  />
-                  
-                  {/* Subtle Texture for Wallet Feel */}
-                  <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/leather.png')]" />
-
-                  <div className="flex justify-between items-start relative z-10">
-                    <div className="w-10 h-10 bg-white/25 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30 shadow-inner">
-                      <item.icon className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="w-6 h-6 bg-white/15 rounded-xl flex items-center justify-center border border-white/10 group-hover/wallet:bg-white/30 transition-colors">
-                      <ChevronRight className="w-3 h-3 text-white" />
-                    </div>
-                  </div>
-
-                  <div className="relative z-10">
-                    <p className="text-[8px] font-black text-white/80 uppercase tracking-[0.2em] leading-none mb-2">{item.name}</p>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[8px] font-black text-white/50 italic leading-none">Rp</span>
-                      <p className="text-[14px] font-black text-white tracking-tight leading-none uppercase">
-                        {mask(item.balance)}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Target Impian Section - Moved to Bottom */}
-
-        <div className="mt-10">
-          <div className="bg-white rounded-[2.5rem] p-6 shadow-xl relative overflow-hidden group border border-slate-100 dark:border-slate-800">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#005E6A]/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-[#005E6A]/10 transition-colors" />
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#005E6A]/10 rounded-lg flex items-center justify-center">
-                <Trophy className="w-4 h-4 text-[#005E6A]" />
-              </div>
-              <h3 className="text-[10px] font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">Target Impian</h3>
-            </div>
-            <button 
-              onClick={() => {
-                setTempGoal(targetGoal.toLocaleString('id-ID'));
-                setIsEditingGoal(true);
-              }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#005E6A]/5 hover:bg-[#005E6A]/10 rounded-full transition-colors border border-[#005E6A]/10 dark:border-teal-800/30"
-            >
-              <span className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">
-                Goal: {targetGoal >= 1000000 ? `${(targetGoal / 1000000).toFixed(0)}jt` : formatCurrency(targetGoal)}
-              </span>
-              <Settings className="w-3 h-3 text-[#005E6A]/60" />
-            </button>
-          </div>
-          
-          <div className="space-y-3">
-            <div className="flex justify-between items-end">
-              <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Progres Tabungan</p>
-              <p className="text-xs font-black text-[#005E6A]">{Math.min(Math.round((tabunganBalance / targetGoal) * 100), 100)}%</p>
-            </div>
-            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-50 dark:border-slate-800/50">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.min((tabunganBalance / targetGoal) * 100, 100)}%` }}
-                transition={{ duration: 1, delay: 0.5 }}
-                className="h-full bg-gradient-to-r from-[#005E6A] to-[#00b8c4] rounded-full shadow-sm"
-              />
-            </div>
-            <p className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-tight italic">"Kumpulkan aset untuk mencapai kebebasan finansial"</p>
-          </div>
-        </div>
-      </div>
-
-        {/* Goal Edit Modal - Restored */}
-        <AnimatePresence>
-          {isEditingGoal && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsEditingGoal(false)}
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              />
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative w-full max-w-sm bg-white rounded-[2.5rem] overflow-hidden shadow-2xl"
-              >
-                <div className="p-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center">
-                      <Trophy className="w-6 h-6 text-[#F15A24]" />
-                    </div>
-                    <div>
-                      <h3 className="text-[#005E6A] font-black text-sm uppercase tracking-widest">Set Target Goal</h3>
-                      <p className="text-slate-400 dark:text-slate-300 dark:text-slate-200 text-[10px] font-bold uppercase tracking-tight">Tentukan nominal impian Anda</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 mb-8">
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-[#005E6A]">Rp</span>
-                      <input 
-                        type="text"
-                        value={tempGoal}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, "");
-                          setTempGoal(val ? parseInt(val).toLocaleString('id-ID') : "");
-                        }}
-                        className="w-full bg-slate-50 border border-slate-100 dark:border-slate-800 rounded-2xl pl-12 pr-6 py-4 text-xl font-black text-[#005E6A] focus:outline-none focus:border-[#F15A24] transition-all"
-                        placeholder="Contoh: 10.000.000"
-                        autoFocus
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {[5000000, 10000000, 25000000, 50000000].map(val => (
-                        <button
-                          key={val}
-                          onClick={() => setTempGoal(val.toLocaleString('id-ID'))}
-                          className="py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 text-[10px] font-black text-[#005E6A] hover:bg-slate-50 transition-colors uppercase tracking-widest"
-                        >
-                          {(val / 1000000).toFixed(0)} Juta
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <Button 
-                      variant="outline"
-                      onClick={() => setIsEditingGoal(false)}
-                      className="flex-1 py-6 rounded-2xl font-black uppercase tracking-widest"
-                    >
-                      Batal
-                    </Button>
-                    <Button 
-                      onClick={handleSaveGoal}
-                      className="flex-1 bg-[#F15A24] hover:bg-[#d94e1f] text-white font-black uppercase tracking-widest py-6 rounded-2xl shadow-lg shadow-[#F15A24]/20"
-                    >
-                      Simpan
-                    </Button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-    </ProtectedPage>
-  );
-};
-
 const SavingsPromotionPage = () => {
   const navigate = useNavigate();
   return (
@@ -5666,14 +5296,28 @@ const DebtDetailPage = ({
         (c.id_pelanggan && c.id_pelanggan.toLowerCase().trim() === paramVal) ||
         (c.id && String(c.id).toLowerCase().trim() === paramVal) ||
         c.Nama.toLowerCase().trim() === paramVal
-      ) || user
+      ) || (paramVal ? { Nama: decodeURIComponent(customerName || ''), id_pelanggan: paramVal, Hutang: 0 } as Customer : user)
     : user;
+
+  useEffect(() => {
+    if (fetchData && displayUser?.Nama) {
+      fetchData(false, 'debtTransactions', { userFilterKey: displayUser.Nama, allHistory: true });
+    }
+  }, [displayUser?.Nama]);
 
   const userTransactions = useMemo(() => {
     if (!displayUser) return [];
     return transactions
       .filter(t => isCustomerDebtMatch(t, displayUser))
-      .reverse();
+      .sort((a, b) => {
+        const timeA = parseDate(a.Tanggal).getTime();
+        const timeB = parseDate(b.Tanggal).getTime();
+        if (timeA !== timeB) return timeB - timeA;
+        if (a.created_at && b.created_at) {
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
+        return String(b.id_hutang || b.id || '').localeCompare(String(a.id_hutang || a.id || ''));
+      });
   }, [transactions, displayUser]);
 
   // Matching Sales Transaction for a TAMBAH Debt Transaction
@@ -8134,29 +7778,47 @@ const AdminReportPage = ({
   }, [navigate]);
 
   // Convert ISO date (YYYY-MM-DD) to DD/MM/YYYY for matching
-  const formattedFilterDate = filterDate.split('-').reverse().join('/');
+  const formattedFilterDate = useMemo(() => {
+    return filterDate.split('-').reverse().join('/');
+  }, [filterDate]);
 
-  // Filter transactions for selected date and search query
-  const filteredTransactions = [...transactions]
-    .filter(t => {
+  // Filter transactions and compute totals in a single memoized pass
+  const { filteredTransactions, totalPemasukan, totalModal, totalKeuntungan, totalTransaksi } = useMemo(() => {
+    const q = (searchQuery || "").toLowerCase().trim();
+    let pemasukan = 0;
+    let modal = 0;
+
+    const filtered = transactions.filter(t => {
       const matchDate = t.Tanggal.startsWith(formattedFilterDate);
       if (!matchDate) return false;
       
-      if (!searchQuery.trim()) return true;
+      if (!q) {
+        pemasukan += parseCurrency(t.Pemasukan) || 0;
+        modal += parseCurrency(t.HargaModal) || 0;
+        return true;
+      }
       
-      const q = searchQuery.toLowerCase();
       const matchName = (t.Nama || "Pelanggan Umum").toLowerCase().includes(q);
       const matchJenis = (t.Jenis || "").toLowerCase().includes(q);
       const matchMelalui = (t.Melalui || "").toLowerCase().includes(q);
       const matchStatus = (t.Status || "").toLowerCase().includes(q);
       
-      return matchName || matchJenis || matchMelalui || matchStatus;
+      const match = matchName || matchJenis || matchMelalui || matchStatus;
+      if (match) {
+        pemasukan += parseCurrency(t.Pemasukan) || 0;
+        modal += parseCurrency(t.HargaModal) || 0;
+      }
+      return match;
     });
 
-  const totalPemasukan = filteredTransactions.reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
-  const totalModal = filteredTransactions.reduce((acc, curr) => acc + (parseCurrency(curr.HargaModal) || 0), 0);
-  const totalKeuntungan = totalPemasukan - totalModal;
-  const totalTransaksi = filteredTransactions.length;
+    return {
+      filteredTransactions: filtered,
+      totalPemasukan: pemasukan,
+      totalModal: modal,
+      totalKeuntungan: pemasukan - modal,
+      totalTransaksi: filtered.length
+    };
+  }, [transactions, formattedFilterDate, searchQuery]);
 
   // Group by Jenis (categories) and calculate totals for each
   interface GroupedReport {
@@ -11479,8 +11141,6 @@ const AdminSavingsManagement = ({
     });
     setIsSuccessModalOpen(true);
   };
-
-  const total = customers.reduce((acc, c) => acc + parseCurrency(c.Tabungan), 0);
   
   // 1. Calculate Monthly Cash Flow (MTD)
   const cashFlow = useMemo(() => {
@@ -11535,30 +11195,50 @@ const AdminSavingsManagement = ({
     }
   }, []);
 
-  const items = customers
-    .filter(c => parseCurrency(c.Tabungan) > 0)
-    .sort((a, b) => parseCurrency(b.Tabungan) - parseCurrency(a.Tabungan))
-    .map((c, idx) => {
+  const { items, stats, total } = useMemo(() => {
+    const txCountMap = new Map<string, number>();
+    transactions.forEach(t => {
+      if (t.id_pelanggan) {
+        txCountMap.set(t.id_pelanggan, (txCountMap.get(t.id_pelanggan) || 0) + 1);
+      }
+      if (t.Nama) {
+        const lower = t.Nama.toLowerCase();
+        txCountMap.set(lower, (txCountMap.get(lower) || 0) + 1);
+      }
+    });
+
+    let totalSum = 0;
+    const filtered = customers.filter(c => {
+      const val = parseCurrency(c.Tabungan);
+      totalSum += val;
+      return val > 0;
+    }).sort((a, b) => parseCurrency(b.Tabungan) - parseCurrency(a.Tabungan));
+
+    const itms = filtered.map((c, idx) => {
       const val = parseCurrency(c.Tabungan);
       const color = CHART_COLORS[idx % CHART_COLORS.length];
-
-      const txCount = transactions.filter(t => isCustomerSavingMatch(t, c)).length;
+      const countById = c.id_pelanggan ? txCountMap.get(c.id_pelanggan) : 0;
+      const countByName = c.Nama ? txCountMap.get(c.Nama.toLowerCase()) : 0;
+      const txCount = countById || countByName || 0;
 
       return { 
         name: c.Nama, 
-        value: val,
-        color,
-        photo: savedPhotos[c.Nama] || c.Foto || c.foto,
-        countLabel: `${txCount} Mutasi`
+        value: val, 
+        color, 
+        photo: savedPhotos[c.Nama] || c.Foto || c.foto, 
+        countLabel: `${txCount} Mutasi` 
       };
     });
 
-  const stats = items.map(item => ({
-    label: item.name,
-    value: item.value,
-    count: 1,
-    color: item.color
-  }));
+    const sts = itms.map(item => ({
+      label: item.name,
+      value: item.value,
+      count: 1,
+      color: item.color
+    }));
+
+    return { items: itms, stats: sts, total: totalSum };
+  }, [customers, transactions, savedPhotos]);
 
   const handleItemClick = (name: string) => {
     const cust = customers.find(c => c.Nama.toLowerCase() === name.toLowerCase());
@@ -11882,7 +11562,10 @@ const AdminCustomerDetailPage = ({
     }
   }, [navigate]);
 
-  const customer = customers.find(c => c.Nama.toLowerCase() === customerName?.toLowerCase());
+  const customer = customers.find(c => 
+    c.Nama.toLowerCase() === customerName?.toLowerCase() ||
+    (c.id_pelanggan && c.id_pelanggan.toLowerCase() === customerName?.toLowerCase())
+  );
   
   const [localCustomer, setLocalCustomer] = useState<Customer | null>(customer || null);
   const [isSaving, setIsSaving] = useState(false);
@@ -11958,8 +11641,16 @@ const AdminCustomerDetailPage = ({
 
   const userSales = useMemo(() => {
     if (!localCustomer) return [];
+    const custId = (localCustomer.id_pelanggan || '').trim().toLowerCase();
+    const custName = (localCustomer.Nama || '').trim().toLowerCase();
     return salesTransactions
-      .filter(t => t.Nama.toLowerCase() === localCustomer.Nama.toLowerCase())
+      .filter(t => {
+        const transId = (t.id_pelanggan || (t as any).idPelanggan || '').trim().toLowerCase();
+        const transName = (t.Nama || (t as any).nama || '').trim().toLowerCase();
+        if (custId && transId && custId === transId) return true;
+        if (custName && transName && custName === transName) return true;
+        return false;
+      })
       .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime());
   }, [salesTransactions, localCustomer]);
 
@@ -12084,6 +11775,20 @@ const AdminCustomerDetailPage = ({
       };
 
       await SupabaseCustomerService.upsertCustomer(payload);
+
+      // Cascade update all historical records if name was changed
+      if (activeEditField === 'nama' && newNama !== (localCustomer.Nama || '')) {
+        try {
+          await SupabaseCustomerService.cascadeUpdateCustomer({
+            oldIdPelanggan: localCustomer.id_pelanggan,
+            newIdPelanggan: localCustomer.id_pelanggan,
+            oldName: localCustomer.Nama,
+            newName: newNama
+          });
+        } catch (cascadeErr) {
+          console.warn("[AdminCustomerDetailPage] Cascade update warning:", cascadeErr);
+        }
+      }
 
       const updatedObj = {
         ...localCustomer,
@@ -16985,67 +16690,6 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
     }
   }, [navigate]);
 
-  const now = new Date();
-  const startDate = new Date(2025, 10, 1); // 1 November 2025
-
-  const calculatePoints = (customerName: string) => {
-    const custLower = (customerName || "").toLowerCase();
-    const userSales = transactions.filter(t => (t.Nama || "").toLowerCase() === custLower);
-    const userRedeemed = redeemedPoints
-      .filter(r => (r.Nama || "").toLowerCase() === custLower)
-      .reduce((acc, curr) => acc + (curr.Poin || 0), 0);
-
-    let totalEarned = 0;
-    let totalExpired = 0;
-
-    userSales.forEach(t => {
-      const tDate = parseDate(t.Tanggal);
-      if (tDate >= startDate) {
-        const points = Math.floor(t.Pemasukan / 10000);
-        totalEarned += points;
-
-        // Check if expired (1 year)
-        const expiryDate = new Date(tDate);
-        expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-        if (expiryDate < now) {
-          totalExpired += points;
-        }
-      }
-    });
-
-    const activePoints = totalEarned - totalExpired - userRedeemed;
-    return { activePoints, totalEarned, totalExpired, userRedeemed };
-  };
-
-  const allCustomers = customers.map(c => {
-    const custName = c.Nama || (c as any).nama || "";
-    const activePoints = Number(c.Poin ?? (c as any).point ?? (c as any).poin ?? 0);
-    const levelName = c.Level || (c as any).level || "Bronze";
-    return {
-      ...c,
-      Nama: custName,
-      activePoints: activePoints,
-      level: levelName
-    };
-  });
-
-  const customerList = allCustomers
-    .filter(c => {
-      const custName = c.Nama || (c as any).nama || "";
-      const matchesSearch = custName.toLowerCase().includes((searchQuery || "").toLowerCase());
-      const matchesFilter = levelFilter === "Semua" || c.level === levelFilter;
-      return matchesSearch && matchesFilter;
-    })
-    .sort((a, b) => (a.Nama || "").localeCompare(b.Nama || ""));
-
-  const levelCounts = allCustomers.reduce((acc: any, curr) => {
-    const level = curr.level;
-    acc[level] = (acc[level] || 0) + 1;
-    return acc;
-  }, { Bronze: 0, Silver: 0, Gold: 0, Platinum: 0 });
-
-  const activeCustomersCount = customers.length;
-
   const levelColorMap: Record<string, { bg: string, text: string, chart: string, iconBg: string, iconColor: string }> = {
     Bronze: { bg: "bg-orange-50", text: "text-orange-600", chart: "#f97316", iconBg: "bg-orange-50", iconColor: "text-orange-600" },
     Silver: { bg: "bg-slate-100", text: "text-slate-600", chart: "#94a3b8", iconBg: "bg-slate-100", iconColor: "text-slate-500" },
@@ -17053,13 +16697,51 @@ const AdminCustomerManagement = ({ customers, transactions, redeemedPoints }: { 
     Platinum: { bg: "bg-indigo-50", text: "text-indigo-600", chart: "#4f46e5", iconBg: "bg-indigo-50", iconColor: "text-indigo-600" },
   };
 
-  const chartData = Object.entries(levelCounts)
-    .filter(([_, count]) => (count as number) > 0)
-    .map(([level, count]) => ({
-      name: level,
-      value: count as number,
-      color: levelColorMap[level]?.chart || "#cbd5e1"
-    }));
+  const allCustomers = useMemo(() => {
+    return customers.map(c => {
+      const custName = c.Nama || (c as any).nama || "";
+      const activePoints = Number(c.Poin ?? (c as any).point ?? (c as any).poin ?? 0);
+      const levelName = c.Level || (c as any).level || "Bronze";
+      return {
+        ...c,
+        Nama: custName,
+        activePoints: activePoints,
+        level: levelName
+      };
+    });
+  }, [customers]);
+
+  const customerList = useMemo(() => {
+    const query = (searchQuery || "").toLowerCase();
+    return allCustomers
+      .filter(c => {
+        const custName = c.Nama || (c as any).nama || "";
+        const matchesSearch = !query || custName.toLowerCase().includes(query);
+        const matchesFilter = levelFilter === "Semua" || c.level === levelFilter;
+        return matchesSearch && matchesFilter;
+      })
+      .sort((a, b) => (a.Nama || "").localeCompare(b.Nama || ""));
+  }, [allCustomers, searchQuery, levelFilter]);
+
+  const levelCounts = useMemo(() => {
+    return allCustomers.reduce((acc: any, curr) => {
+      const level = curr.level;
+      acc[level] = (acc[level] || 0) + 1;
+      return acc;
+    }, { Bronze: 0, Silver: 0, Gold: 0, Platinum: 0 });
+  }, [allCustomers]);
+
+  const activeCustomersCount = customers.length;
+
+  const chartData = useMemo(() => {
+    return Object.entries(levelCounts)
+      .filter(([_, count]) => (count as number) > 0)
+      .map(([level, count]) => ({
+        name: level,
+        value: count as number,
+        color: levelColorMap[level]?.chart || "#cbd5e1"
+      }));
+  }, [levelCounts]);
 
   return (
     <motion.div 
@@ -17647,7 +17329,15 @@ const AdminDebtManagement = ({
   // 2. Global Recent Debt Activity
   const recentGlobalDebts = useMemo(() => {
     return [...transactions]
-      .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())
+      .sort((a, b) => {
+        const timeA = parseDate(a.Tanggal).getTime();
+        const timeB = parseDate(b.Tanggal).getTime();
+        if (timeB !== timeA) return timeB - timeA;
+        if (a.created_at && b.created_at) {
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }
+        return String(b.id_hutang || b.id || '').localeCompare(String(a.id_hutang || a.id || ''));
+      })
       .slice(0, 5);
   }, [transactions]);
 
@@ -17659,21 +17349,31 @@ const AdminDebtManagement = ({
     }
   }, []);
 
-  // 3. Fast O(N + M) grouping & single-pass calculation of stats & allItems
+  // 3. Fast multi-index customer grouping & single-pass calculation of stats & allItems
   const { allItems, stats, total } = useMemo(() => {
-    const txByCustomer = new Map<string, DebtTransaction[]>();
+    const txByToken = new Map<string, DebtTransaction[]>();
+    const addTx = (key: string, tx: DebtTransaction) => {
+      const k = key.toLowerCase().trim();
+      if (!k || isGenericId(k)) return;
+      const list = txByToken.get(k);
+      if (list) list.push(tx);
+      else txByToken.set(k, [tx]);
+    };
+
     for (let i = 0; i < transactions.length; i++) {
       const t = transactions[i];
-      if (t.id_pelanggan) {
-        const list = txByCustomer.get(t.id_pelanggan);
-        if (list) list.push(t);
-        else txByCustomer.set(t.id_pelanggan, [t]);
-      }
-      const tName = (t.Nama || (t as any).nama || "").toLowerCase().trim();
-      if (tName) {
-        const list = txByCustomer.get(tName);
-        if (list) list.push(t);
-        else txByCustomer.set(tName, [t]);
+      const tIdPel = t.id_pelanggan || (t as any).id_customer || '';
+      const tName = t.Nama || (t as any).nama || (t as any).nama_pelanggan || '';
+      if (tIdPel) addTx(tIdPel, t);
+      if (tName) addTx(tName, t);
+      
+      const t4 = get4DigitCustId(tIdPel, tName);
+      if (t4 && t4 !== "0000") addTx(`digit:${t4}`, t);
+
+      const rawIdHut = String(t.id_hutang || t.id || '').toUpperCase();
+      const matchHut = rawIdHut.match(/HUT-(\d{4})/);
+      if (matchHut && matchHut[1] && matchHut[1] !== "0000") {
+        addTx(`digit:${matchHut[1]}`, t);
       }
     }
 
@@ -17693,19 +17393,44 @@ const AdminDebtManagement = ({
 
       if (debtVal <= 0) continue;
 
-      const cId = c.id_pelanggan || c.id || '';
-      const cName = (c.Nama || (c as any).nama || "").toLowerCase().trim();
+      const cId = (c.id_pelanggan || c.id || '').toLowerCase().trim();
+      const cName = (c.Nama || (c as any).nama || '').toLowerCase().trim();
+      const c4 = get4DigitCustId(c.id_pelanggan || c.id, c.Nama || (c as any).nama);
 
-      let userTransactions: DebtTransaction[] = [];
-      if (cId && txByCustomer.has(cId)) {
-        userTransactions = txByCustomer.get(cId)!;
-      } else if (cName && txByCustomer.has(cName)) {
-        userTransactions = txByCustomer.get(cName)!;
+      // Collect all unique transactions matching this customer
+      const seenIds = new Set<string | number>();
+      const userTransactions: DebtTransaction[] = [];
+
+      const candidateLists: (DebtTransaction[] | undefined)[] = [];
+      if (cId && txByToken.has(cId)) candidateLists.push(txByToken.get(cId));
+      if (cName && txByToken.has(cName)) candidateLists.push(txByToken.get(cName));
+      if (c4 && c4 !== "0000" && txByToken.has(`digit:${c4}`)) candidateLists.push(txByToken.get(`digit:${c4}`));
+
+      for (let j = 0; j < candidateLists.length; j++) {
+        const list = candidateLists[j];
+        if (!list) continue;
+        for (let k = 0; k < list.length; k++) {
+          const t = list[k];
+          const txKey = t.id_hutang || t.id || `${t.Tanggal}-${t.Jumlah}-${t.SaldoAkhir}`;
+          if (!seenIds.has(txKey)) {
+            if (isCustomerDebtMatch(t, c)) {
+              seenIds.add(txKey);
+              userTransactions.push(t);
+            }
+          }
+        }
       }
 
-      const sortedTxs = userTransactions.length > 1
-        ? [...userTransactions].sort((a, b) => parseDate(a.Tanggal).getTime() - parseDate(b.Tanggal).getTime())
-        : userTransactions;
+      // Sort chronologically ascending
+      const sortedTxs = userTransactions.sort((a, b) => {
+        const timeA = parseDate(a.Tanggal).getTime();
+        const timeB = parseDate(b.Tanggal).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        if (a.created_at && b.created_at) {
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        }
+        return String(a.id_hutang || a.id || '').localeCompare(String(b.id_hutang || b.id || ''));
+      });
 
       const collectResult = calculateUserCollectability(sortedTxs);
 
@@ -17721,7 +17446,8 @@ const AdminDebtManagement = ({
       }
 
       const tierColor = collectResult.label === "Lancar" ? "#22c55e" : collectResult.label === "Diragukan" ? "#FFE600" : "#FF005C";
-      const latestDateStr = sortedTxs.length > 0 ? sortedTxs[sortedTxs.length - 1].Tanggal : "-";
+      const latestTx = sortedTxs.length > 0 ? sortedTxs[sortedTxs.length - 1] : null;
+      const latestDateStr = latestTx ? latestTx.Tanggal : "-";
 
       items.push({
         name: c.Nama,
@@ -17735,7 +17461,8 @@ const AdminDebtManagement = ({
         },
         countLabel: latestDateStr !== "-" ? getRelativeTime(latestDateStr) : "Belum Ada Transaksi",
         sortOrder: collectResult.sortOrder,
-        latestDate: latestDateStr
+        latestDate: latestDateStr,
+        txCount: sortedTxs.length
       });
     }
 
@@ -20748,10 +20475,15 @@ Terima kasih telah berbelanja di Warung Tomi!`;
     return groups;
   }, [filteredTransactions]);
 
-  const totalSixMonths = (chartData as any[]).reduce((acc, curr) => acc + curr.total, 0);
-  const selectedMonthData = (chartData as any[]).find(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
-  const totalSelectedMonth = selectedMonthData?.total || 0;
-  const selectedMonthLabel = selectedMonthData?.label || "";
+  const { totalSixMonths, totalSelectedMonth, selectedMonthLabel } = React.useMemo(() => {
+    const total6 = (chartData as any[]).reduce((acc, curr) => acc + curr.total, 0);
+    const sel = (chartData as any[]).find(m => m.month === selectedMonth.month && m.year === selectedMonth.year);
+    return {
+      totalSixMonths: total6,
+      totalSelectedMonth: sel?.total || 0,
+      selectedMonthLabel: sel?.label || ""
+    };
+  }, [chartData, selectedMonth]);
 
   const pieData = React.useMemo(() => {
     return Object.entries(groupedTransactions).map(([name, data]: [string, any]) => {
@@ -22473,15 +22205,21 @@ const ProfilPage = ({
 
     const handleMouseEnter = () => { isHovered = true; };
     const handleMouseLeave = () => { isHovered = false; };
+    const handleTouchStart = () => { isHovered = true; };
+    const handleTouchEnd = () => { isHovered = false; };
 
-    container.addEventListener('mouseenter', handleMouseEnter);
-    container.addEventListener('mouseleave', handleMouseLeave);
+    container.addEventListener('mouseenter', handleMouseEnter, { passive: true });
+    container.addEventListener('mouseleave', handleMouseLeave, { passive: true });
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     const startAutoScroll = () => {
       intervalId = setInterval(() => {
-        if (isHovered) return;
+        if (isHovered || document.hidden) return;
         
         const { scrollLeft, scrollWidth, clientWidth } = container;
+        if (scrollWidth <= clientWidth) return;
+
         const cardWidth = 182; // 170px card + 12px gap
         let nextScrollLeft = scrollLeft + cardWidth;
         
@@ -22494,7 +22232,7 @@ const ProfilPage = ({
           left: nextScrollLeft,
           behavior: 'smooth'
         });
-      }, 3500); // automatic slide interval of 3.5 seconds
+      }, 4000);
     };
 
     startAutoScroll();
@@ -22503,6 +22241,8 @@ const ProfilPage = ({
       clearInterval(intervalId);
       container.removeEventListener('mouseenter', handleMouseEnter);
       container.removeEventListener('mouseleave', handleMouseLeave);
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchend', handleTouchEnd);
     };
   }, [user]);
   
@@ -22651,19 +22391,33 @@ const ProfilPage = ({
     setTimeout(() => setToastNotice(null), 3000);
   };
   
-  const currentLevelConfig = LEVELS.find(l => l.name === (user?.Level || (user as any)?.level || 'Bronze')) || LEVELS[0];
-  const customerLevel = { ...currentLevelConfig, total: 0 };
-  const activePoints = Number(user?.Poin ?? (user as any)?.point ?? (user as any)?.poin ?? 0);
-
-  const currentLevelIndex = LEVELS.findIndex(l => l.name === customerLevel.name);
-  const nextLevel = LEVELS[currentLevelIndex + 1];
-  
-  let progressPercentage = 100;
-  if (nextLevel) {
-    const currentMin = LEVELS[currentLevelIndex].min;
-    const nextMin = nextLevel.min;
-    progressPercentage = Math.min(100, Math.max(0, ((customerLevel.total - currentMin) / (nextMin - currentMin)) * 100));
-  }
+  // Memoize level configuration and active points
+  const { customerLevel, activePoints, progressPercentage } = useMemo(() => {
+    if (!user) {
+      return {
+        customerLevel: { ...LEVELS[0], total: 0 },
+        activePoints: 0,
+        progressPercentage: 100
+      };
+    }
+    const currentLevelConfig = LEVELS.find(l => l.name === (user?.Level || (user as any)?.level || 'Bronze')) || LEVELS[0];
+    const customerLvl = { ...currentLevelConfig, total: 0 };
+    const pts = Number(user?.Poin ?? (user as any)?.point ?? (user as any)?.poin ?? 0);
+    const currentLevelIndex = LEVELS.findIndex(l => l.name === customerLvl.name);
+    const nextLevel = LEVELS[currentLevelIndex + 1];
+    
+    let prog = 100;
+    if (nextLevel) {
+      const currentMin = LEVELS[currentLevelIndex].min;
+      const nextMin = nextLevel.min;
+      prog = Math.min(100, Math.max(0, ((customerLvl.total - currentMin) / (nextMin - currentMin)) * 100));
+    }
+    return {
+      customerLevel: customerLvl,
+      activePoints: pts,
+      progressPercentage: prog
+    };
+  }, [user]);
 
   const handlePhotoClick = () => {
     if (!user) {
@@ -22713,42 +22467,100 @@ const ProfilPage = ({
     }
   };
 
-  const tabunganBalance = parseCurrency(user?.Tabungan);
-  
-  const uName = (user?.Nama || (user as any)?.nama || "").toLowerCase();
-  const userInvestments = investmentTransactions.filter(t => 
-    (t.Nama || "").toLowerCase() === uName &&
-    (t.Status || "").toLowerCase() !== "sukses dicairkan"
-  );
-  
-  const investasiBalance = userInvestments.reduce((acc, curr) => {
-    const estimate = calculateEstimatedReturn(curr.Nominal, curr.Nisbah, curr.Tanggal, curr.JatuhTempo);
-    return acc + estimate.total;
-  }, 0);
-  
-  const lainnyaTransactions = transactions.filter(t => {
-    const tName = (t.Nama || "").toLowerCase();
-    const s = (t.Status || "").toUpperCase().trim();
-    return tName === uName && (s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING");
-  });
-  
-  const lainnyaBalance = lainnyaTransactions.reduce((acc, curr) => {
-    const s = (curr.Status || "").toUpperCase().trim();
-    if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
-      return acc + (parseCurrency(curr.Pemasukan) || parseCurrency(curr.HargaModal) || 0);
+  // High-performance memoized calculations for all balances & customer ID
+  const {
+    tabunganBalance,
+    investasiBalance,
+    lainnyaBalance,
+    hutangBalance,
+    customerId
+  } = useMemo(() => {
+    if (!user) {
+      return {
+        tabunganBalance: 0,
+        investasiBalance: 0,
+        lainnyaBalance: 0,
+        hutangBalance: 0,
+        customerId: "GUEST"
+      };
     }
-    
-    let base = curr.HargaModal;
-    if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
-      base -= 1500;
+
+    const tabVal = parseCurrency(user.Tabungan);
+    const uName = (user.Nama || (user as any).nama || "").toLowerCase();
+
+    let invVal = 0;
+    if (investmentTransactions && investmentTransactions.length > 0) {
+      for (let i = 0; i < investmentTransactions.length; i++) {
+        const t = investmentTransactions[i];
+        if ((t.Nama || "").toLowerCase() === uName && (t.Status || "").toLowerCase() !== "sukses dicairkan") {
+          const estimate = calculateEstimatedReturn(t.Nominal, t.Nisbah, t.Tanggal, t.JatuhTempo);
+          invVal += estimate.total;
+        }
+      }
     }
-    const net = base - curr.Sebagian;
-    return acc + (net > 0 ? net : 0);
-  }, 0);
 
-  const hutangBalance = parseCurrency(user?.Hutang);
+    let lainVal = 0;
+    if (transactions && transactions.length > 0) {
+      for (let i = 0; i < transactions.length; i++) {
+        const t = transactions[i];
+        if ((t.Nama || "").toLowerCase() === uName) {
+          const s = (t.Status || "").toUpperCase().trim();
+          if (s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
+            if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
+              lainVal += (parseCurrency(t.Pemasukan) || parseCurrency(t.HargaModal) || 0);
+            } else {
+              let base = t.HargaModal || 0;
+              if ((t.Melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
+                base -= 1500;
+              }
+              const net = base - (t.Sebagian || 0);
+              if (net > 0) lainVal += net;
+            }
+          }
+        }
+      }
+    }
 
-  const customerId = user?.id_pelanggan || user?.id || "P-00" + Math.abs(user?.Nama?.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) || 123);
+    const hutVal = parseCurrency(user.Hutang);
+    const cId = user.id_pelanggan || user.id || "P-00" + Math.abs((user.Nama || "").split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) || 123);
+
+    return {
+      tabunganBalance: tabVal,
+      investasiBalance: invVal,
+      lainnyaBalance: lainVal,
+      hutangBalance: hutVal,
+      customerId: cId
+    };
+  }, [user, investmentTransactions, transactions]);
+
+  // Memoized profile completion calculations
+  const profileCompletion = useMemo(() => {
+    if (!user) return null;
+    const hasName = Boolean(user.Nama || (user as any).nama || (user as any).name);
+    const hasPin = Boolean(user.PIN || (user as any).pin);
+    const hasPhoto = Boolean(user.Foto || (user as any).foto);
+    const hasPhone = Boolean(user.Telepon || (user as any).telepon || (user as any).HP || (user as any).hp || (user as any).NoHP || (user as any).no_hp);
+    const hasAddress = Boolean(user.Alamat || (user as any).alamat);
+
+    const totalItems = 5;
+    const completedCount = (hasName ? 1 : 0) + (hasPin ? 1 : 0) + (hasPhoto ? 1 : 0) + (hasPhone ? 1 : 0) + (hasAddress ? 1 : 0);
+    const completionPercentage = Math.round((completedCount / totalItems) * 100);
+
+    return {
+      completedCount,
+      totalItems,
+      completionPercentage
+    };
+  }, [user]);
+
+  // Memoized contact and address
+  const userContactInfo = useMemo(() => {
+    if (!user) return null;
+    const phoneVal = user.Telepon || (user as any).telepon || (user as any).HP || (user as any).hp || (user as any).NoHP || (user as any).no_hp || "";
+    const addressVal = user.Alamat || (user as any).alamat || "";
+    if (!phoneVal && !addressVal) return null;
+    return { phoneVal, addressVal };
+  }, [user]);
 
   return (
     <ProtectedPage user={user} title="Profil" customers={customers} onLogin={onLogin} setActiveTab={setActiveTab} allowGuest={true}>
@@ -22805,16 +22617,16 @@ const ProfilPage = ({
             <img 
               src={formatImageUrl(user.Foto)} 
               alt={user?.Nama || "Profile"} 
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300" 
               referrerPolicy="no-referrer" 
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center p-4 relative">
-              {/* Subtle Background Glows */}
-              <div className="absolute -top-10 -left-10 w-48 h-48 bg-white/20 rounded-full blur-2xl pointer-events-none" />
-              <div className="absolute -bottom-10 -right-10 w-52 h-52 bg-black/15 rounded-full blur-2xl pointer-events-none" />
-
-              <User className="w-28 h-28 sm:w-36 sm:h-36 text-white drop-shadow-xl relative z-10" />
+              {/* Lightweight Background Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+              <User className="w-28 h-28 sm:w-36 sm:h-36 text-white drop-shadow-md relative z-10" />
             </div>
           )}
         </div>
@@ -22858,88 +22670,66 @@ const ProfilPage = ({
           )}
 
           {/* 1. Kelengkapan Profil (Disembunyikan jika sudah 100%) */}
-          {user && (() => {
-            const hasName = Boolean(user.Nama || user.nama || user.name);
-            const hasPin = Boolean(user.PIN || user.pin);
-            const hasPhoto = Boolean(user.Foto || user.foto);
-            const hasPhone = Boolean(user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp);
-            const hasAddress = Boolean(user.Alamat || user.alamat);
-
-            const totalItems = 5;
-            const completedCount = (hasName ? 1 : 0) + (hasPin ? 1 : 0) + (hasPhoto ? 1 : 0) + (hasPhone ? 1 : 0) + (hasAddress ? 1 : 0);
-            const completionPercentage = Math.round((completedCount / totalItems) * 100);
-
-            // Sembunyikan jika sudah 100%
-            if (completionPercentage === 100) return null;
-
-            return (
-              <div 
-                onClick={() => navigate("/pengaturan-profil")}
-                className="w-full pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 cursor-pointer group hover:opacity-95 transition-opacity"
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                      {language === "en" ? "Profile Completion" : "Kelengkapan Profil"}
-                    </span>
-                    <span className="text-[9px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-800/80 px-2 py-0.5 rounded-full">
-                      {completionPercentage}%
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500 group-hover:translate-x-0.5 transition-transform">
-                    <span className="text-[9px] font-bold uppercase tracking-wider">
-                      {completedCount}/{totalItems}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                  </div>
+          {user && profileCompletion && profileCompletion.completionPercentage < 100 && (
+            <div 
+              onClick={() => navigate("/pengaturan-profil")}
+              className="w-full pt-3 border-t border-slate-100 dark:border-slate-800 mt-2 cursor-pointer group hover:opacity-95 transition-opacity"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    {language === "en" ? "Profile Completion" : "Kelengkapan Profil"}
+                  </span>
+                  <span className="text-[9px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 border border-amber-200/80 dark:border-amber-800/80 px-2 py-0.5 rounded-full">
+                    {profileCompletion.completionPercentage}%
+                  </span>
                 </div>
-
-                {/* Progress Bar (Kuning & Lebih Tebal) */}
-                <div className="w-full bg-amber-50 dark:bg-slate-800 h-3 rounded-full overflow-hidden border border-amber-100 dark:border-slate-700/50 p-0.5">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${completionPercentage}%` }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
-                    className="h-full bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 rounded-full shadow-xs"
-                  />
+                <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500 group-hover:translate-x-0.5 transition-transform">
+                  <span className="text-[9px] font-bold uppercase tracking-wider">
+                    {profileCompletion.completedCount}/{profileCompletion.totalItems}
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                 </div>
               </div>
-            );
-          })()}
+
+              {/* Progress Bar */}
+              <div className="w-full bg-amber-50 dark:bg-slate-800 h-3 rounded-full overflow-hidden border border-amber-100 dark:border-slate-700/50 p-0.5">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${profileCompletion.completionPercentage}%` }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className="h-full bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 rounded-full shadow-xs"
+                />
+              </div>
+            </div>
+          )}
 
           {/* 2. Data Kontak/Alamat Pengguna */}
-          {user && (() => {
-            const phoneVal = user.Telepon || user.telepon || user.HP || user.hp || user.NoHP || user.no_hp;
-            const addressVal = user.Alamat || user.alamat;
-
-            if (!phoneVal && !addressVal) return null;
-
-            return (
-              <div className="w-full pt-3 border-t border-slate-100 dark:border-slate-800 mt-3 text-left">
-                {phoneVal && (
-                  <div className="flex items-center gap-3 text-xs font-bold text-slate-700 dark:text-slate-300">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 text-[#005E6A] dark:text-teal-400">
-                      <Phone className="w-4 h-4" />
-                    </div>
-                    <span className="break-words whitespace-normal leading-snug">{phoneVal}</span>
+          {user && userContactInfo && (
+            <div className="w-full pt-3 border-t border-slate-100 dark:border-slate-800 mt-3 text-left">
+              {userContactInfo.phoneVal && (
+                <div className="flex items-center gap-3 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 text-[#005E6A] dark:text-teal-400">
+                    <Phone className="w-4 h-4" />
                   </div>
-                )}
+                  <span className="break-words whitespace-normal leading-snug">{userContactInfo.phoneVal}</span>
+                </div>
+              )}
 
-                {phoneVal && addressVal && (
-                  <div className="border-t border-slate-100 dark:border-slate-800 my-2.5" />
-                )}
+              {userContactInfo.phoneVal && userContactInfo.addressVal && (
+                <div className="border-t border-slate-100 dark:border-slate-800 my-2.5" />
+              )}
 
-                {addressVal && (
-                  <div className="flex items-start gap-3 text-xs font-bold text-slate-700 dark:text-slate-300">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 text-[#005E6A] dark:text-teal-400 mt-0.5">
-                      <MapPin className="w-4 h-4" />
-                    </div>
-                    <span className="break-words whitespace-normal leading-relaxed flex-1">{addressVal}</span>
+              {userContactInfo.addressVal && (
+                <div className="flex items-start gap-3 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 text-[#005E6A] dark:text-teal-400 mt-0.5">
+                    <MapPin className="w-4 h-4" />
                   </div>
-                )}
-              </div>
-            );
-          })()}
+                  <span className="break-words whitespace-normal leading-relaxed flex-1">{userContactInfo.addressVal}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 3. Reward Section (Level & Poin) */}
           {user && (
@@ -23833,12 +23623,16 @@ const ProfilPage = ({
                 <p className="text-[9px] text-slate-400 dark:text-slate-300 dark:text-slate-200 font-bold uppercase tracking-widest mb-6">Gunakan untuk transaksi cepat</p>
                 
                 <div className="p-4 bg-white border border-slate-100 dark:border-slate-800 rounded-3xl shadow-inner mb-6 flex items-center justify-center w-56 h-56">
-                  <img 
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(customerId)}`}
-                    alt="Customer QR Code"
-                    className="w-full h-full object-contain"
-                    referrerPolicy="no-referrer"
-                  />
+                  {showQR && (
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(customerId)}`}
+                      alt="Customer QR Code"
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
                 </div>
 
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 dark:border-slate-800 w-full text-center">
@@ -29866,7 +29660,7 @@ export default function App() {
             const cached = DeltaCache.get<DebtTransaction>('debtTransactions');
             const lastSync = extraOptions?.forceFullRefresh ? null : DeltaCache.getLastSync('debtTransactions');
             const debtOptions: any = {};
-            const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
+            const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? (p.startsWith('/hutang/') ? decodeURIComponent(p.split('/hutang/')[1] || '').trim() : undefined) : loggedInUser?.Nama);
             if (userFilterName) debtOptions.name = userFilterName;
             if (extraOptions?.allHistory) {
               debtOptions.allHistory = true;
@@ -29877,12 +29671,15 @@ export default function App() {
             } else if (p.startsWith('/admin/debt')) {
               debtOptions.allHistory = true;
               debtOptions.select = 'id, id_hutang, id_pelanggan, tanggal, nama, tipe, jumlah, keterangan, saldo_akhir, created_at';
-            } else if (isAdminDashboard || p.startsWith('/hutang')) {
+            } else if (p.startsWith('/hutang') || p.startsWith('/detail-hutang') || userFilterName) {
+              debtOptions.allHistory = true;
+              debtOptions.select = 'id, id_hutang, id_pelanggan, tanggal, nama, tipe, jumlah, keterangan, saldo_akhir, created_at';
+            } else if (isAdminDashboard) {
               debtOptions.currentMonthOnly = true;
               debtOptions.select = 'id, id_hutang, id_pelanggan, tanggal, nama, tipe, jumlah, keterangan, saldo_akhir, created_at';
             }
 
-            const isFiltered = userFilterName || debtOptions.month || debtOptions.currentMonthOnly;
+            const isFiltered = Boolean(userFilterName || debtOptions.month || debtOptions.currentMonthOnly);
             if (lastSync && cached.length > 0 && !isFiltered) {
               debtOptions.since = lastSync;
             }
@@ -29899,7 +29696,8 @@ export default function App() {
                 Tipe: String(item.tipe || 'TAMBAH').toUpperCase(),
                 Jumlah: Number(item.jumlah) || 0,
                 Keterangan: item.keterangan || '-',
-                SaldoAkhir: Number(item.saldo_akhir) || 0
+                SaldoAkhir: Number(item.saldo_akhir) || 0,
+                created_at: item.created_at
               }));
 
               if (lastSync && cached.length > 0 && !isFiltered) {
@@ -29907,6 +29705,12 @@ export default function App() {
                 DeltaCache.set('debtTransactions', merged, fetchTime);
                 allDebtTransactions = merged;
                 setDebtTransactions(merged);
+              } else if (userFilterName) {
+                setDebtTransactions(prev => {
+                  const merged = DeltaCache.mergeDelta(prev, mapped, ['id_hutang', 'id']);
+                  allDebtTransactions = merged;
+                  return merged;
+                });
               } else {
                 if (!isFiltered) DeltaCache.set('debtTransactions', mapped, fetchTime);
                 allDebtTransactions = mapped;
@@ -30003,14 +29807,20 @@ export default function App() {
     };
   }, [dataSource, isAuthReady]);
 
-  // Global Auto-Sync to Google Sheets whenever customer or transaction data changes
+  // Global Auto-Sync to Google Sheets whenever customer, transaction, savings, or debt data changes
   const isInitialSyncLoadDoneRef = useRef(false);
   const prevSyncFingerprintRef = useRef<string>('');
 
   useEffect(() => {
     if (isLoading || !customers || customers.length === 0) return;
 
-    const currentFingerprint = `${customers.length}-${customers.map(c => c.id_pelanggan || c.id || c.Nama).join(',')}-${salesTransactions.length}-${savingsTransactions.length}-${debtTransactions.length}-${investmentTransactions.length}-${redeemedPoints.length}`;
+    // Build comprehensive fingerprint capturing lengths, customer balances, and latest transaction IDs
+    const lastSaleId = salesTransactions.length > 0 ? (salesTransactions[salesTransactions.length - 1]?.id || salesTransactions[salesTransactions.length - 1]?.id_transaksi || '') : '';
+    const lastSavingId = savingsTransactions.length > 0 ? (savingsTransactions[savingsTransactions.length - 1]?.id || '') : '';
+    const lastDebtId = debtTransactions.length > 0 ? (debtTransactions[debtTransactions.length - 1]?.id || '') : '';
+    const totalCustBalances = customers.reduce((acc, c) => acc + Number(c.tabungan || 0) + Number(c.hutang || 0) + Number(c.poin || 0), 0);
+
+    const currentFingerprint = `${customers.length}_${totalCustBalances}_${salesTransactions.length}_${lastSaleId}_${savingsTransactions.length}_${lastSavingId}_${debtTransactions.length}_${lastDebtId}_${investmentTransactions.length}_${redeemedPoints.length}`;
 
     if (!isInitialSyncLoadDoneRef.current) {
       isInitialSyncLoadDoneRef.current = true;
@@ -30028,19 +29838,19 @@ export default function App() {
           debtTransactions,
           investmentTransactions,
           redeemedPoints
-        ).catch(err => console.error("Global auto-sync to Google Sheets error:", err));
-      }, 3000);
+        ).catch(err => console.warn("Global auto-sync to Google Sheets notice:", err?.message || err));
+      }, 2500);
 
       return () => clearTimeout(timer);
     }
   }, [
     isLoading,
     customers,
-    salesTransactions.length,
-    savingsTransactions.length,
-    debtTransactions.length,
-    investmentTransactions.length,
-    redeemedPoints.length
+    salesTransactions,
+    savingsTransactions,
+    debtTransactions,
+    investmentTransactions,
+    redeemedPoints
   ]);
 
   const handleUpdatePhoto = async (nama: string, base64: string, file?: File | null) => {
@@ -30226,7 +30036,14 @@ export default function App() {
           <SavingsDetailPage user={loggedInUser} transactions={savingsTransactions} customers={customers} fetchData={fetchData} />
         } />
         <Route path="/hutang" element={
-          <DebtDetailPage user={loggedInUser} transactions={debtTransactions} salesTransactions={salesTransactions} />
+          <DebtDetailPage 
+            user={loggedInUser} 
+            transactions={debtTransactions} 
+            customers={customers} 
+            fetchData={fetchData} 
+            dataSource={dataSource} 
+            salesTransactions={salesTransactions} 
+          />
         } />
         <Route path="/hutang/:customerName" element={
           <DebtDetailPage 

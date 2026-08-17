@@ -32,6 +32,7 @@ ALTER TABLE public.customers DISABLE ROW LEVEL SECURITY;`;
 import { motion, AnimatePresence } from 'motion/react';
 import { SupabaseCustomerService, SupabaseCustomer } from '../lib/supabase';
 import { isCustomerSavingMatch, isCustomerDebtMatch } from '../App';
+import { extractCleanItemOrReason } from '../lib/googleSheetsSync';
 import GoogleSheetsSyncCard from './GoogleSheetsSyncCard';
 
 interface Customer {
@@ -197,6 +198,7 @@ export default function CustomerManagement({
   };
 
   const [formData, setFormData] = useState<Partial<Customer>>({
+    id_pelanggan: '',
     nama: '',
     pin: '',
     telepon: '',
@@ -216,6 +218,7 @@ export default function CustomerManagement({
 
   const resetForm = () => {
     setFormData({
+      id_pelanggan: '',
       nama: '',
       pin: '',
       telepon: '',
@@ -228,6 +231,7 @@ export default function CustomerManagement({
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer);
     setFormData({
+      id_pelanggan: customer.id_pelanggan || '',
       nama: customer.nama,
       pin: customer.pin,
       telepon: customer.telepon,
@@ -384,15 +388,22 @@ export default function CustomerManagement({
     investList: any[] = investmentTransactions,
     redeemList: any[] = redeemedPoints
   ) => {
+    const salesMap = new Map<string, any>();
     const salesByCustId = new Map<string, any[]>();
     const salesByCustName = new Map<string, any[]>();
+
     salesList.forEach(t => {
-      if (t.id_pelanggan && !isGenericId(t.id_pelanggan)) {
-        const list = salesByCustId.get(t.id_pelanggan) || [];
-        list.push(t);
-        salesByCustId.set(t.id_pelanggan, list);
+      const txId = t.id_transaksi || t.id || t.ID || t.IdTransaksi;
+      if (txId) {
+        salesMap.set(String(txId).trim(), t);
       }
-      const n = (t.Nama || "").toLowerCase().trim();
+      const cId = (t.id_pelanggan || t.IdPelanggan || t.idPelanggan || t.pelanggan_id || '').toLowerCase().trim();
+      if (cId && !isGenericId(cId)) {
+        const list = salesByCustId.get(cId) || [];
+        list.push(t);
+        salesByCustId.set(cId, list);
+      }
+      const n = (t.Nama || t.nama || t.NamaPelanggan || t.nama_pelanggan || t.Pelanggan || t.pelanggan || '').toLowerCase().trim();
       if (n) {
         const list = salesByCustName.get(n) || [];
         list.push(t);
@@ -403,12 +414,13 @@ export default function CustomerManagement({
     const savingsByCustId = new Map<string, any[]>();
     const savingsByCustName = new Map<string, any[]>();
     savingsList.forEach(t => {
-      if (t.id_pelanggan && !isGenericId(t.id_pelanggan)) {
-        const list = savingsByCustId.get(t.id_pelanggan) || [];
+      const cId = (t.id_pelanggan || t.IdPelanggan || t.idPelanggan || t.pelanggan_id || '').toLowerCase().trim();
+      if (cId && !isGenericId(cId)) {
+        const list = savingsByCustId.get(cId) || [];
         list.push(t);
-        savingsByCustId.set(t.id_pelanggan, list);
+        savingsByCustId.set(cId, list);
       }
-      const n = (t.Nama || "").toLowerCase().trim();
+      const n = (t.Nama || t.nama || t.NamaPelanggan || t.nama_pelanggan || t.Pelanggan || t.pelanggan || '').toLowerCase().trim();
       if (n) {
         const list = savingsByCustName.get(n) || [];
         list.push(t);
@@ -419,12 +431,13 @@ export default function CustomerManagement({
     const debtsByCustId = new Map<string, any[]>();
     const debtsByCustName = new Map<string, any[]>();
     debtList.forEach(t => {
-      if (t.id_pelanggan && !isGenericId(t.id_pelanggan)) {
-        const list = debtsByCustId.get(t.id_pelanggan) || [];
+      const cId = (t.id_pelanggan || t.IdPelanggan || t.idPelanggan || t.pelanggan_id || '').toLowerCase().trim();
+      if (cId && !isGenericId(cId)) {
+        const list = debtsByCustId.get(cId) || [];
         list.push(t);
-        debtsByCustId.set(t.id_pelanggan, list);
+        debtsByCustId.set(cId, list);
       }
-      const n = (t.Nama || "").toLowerCase().trim();
+      const n = (t.Nama || t.nama || t.NamaPelanggan || t.nama_pelanggan || t.Pelanggan || t.pelanggan || '').toLowerCase().trim();
       if (n) {
         const list = debtsByCustName.get(n) || [];
         list.push(t);
@@ -435,12 +448,13 @@ export default function CustomerManagement({
     const investmentsByCustId = new Map<string, any[]>();
     const investmentsByCustName = new Map<string, any[]>();
     investList.forEach(t => {
-      if (t.id_pelanggan && !isGenericId(t.id_pelanggan)) {
-        const list = investmentsByCustId.get(t.id_pelanggan) || [];
+      const cId = (t.id_pelanggan || t.IdPelanggan || t.idPelanggan || t.pelanggan_id || '').toLowerCase().trim();
+      if (cId && !isGenericId(cId)) {
+        const list = investmentsByCustId.get(cId) || [];
         list.push(t);
-        investmentsByCustId.set(t.id_pelanggan, list);
+        investmentsByCustId.set(cId, list);
       }
-      const n = (t.Nama || "").toLowerCase().trim();
+      const n = (t.Nama || t.nama || t.NamaPelanggan || t.nama_pelanggan || t.Pelanggan || t.pelanggan || '').toLowerCase().trim();
       if (n) {
         const list = investmentsByCustName.get(n) || [];
         list.push(t);
@@ -451,12 +465,13 @@ export default function CustomerManagement({
     const redeemedByCustId = new Map<string, any[]>();
     const redeemedByCustName = new Map<string, any[]>();
     redeemList.forEach(r => {
-      if (r.id_pelanggan && !isGenericId(r.id_pelanggan)) {
-        const list = redeemedByCustId.get(r.id_pelanggan) || [];
+      const cId = (r.id_pelanggan || r.IdPelanggan || r.idPelanggan || r.pelanggan_id || '').toLowerCase().trim();
+      if (cId && !isGenericId(cId)) {
+        const list = redeemedByCustId.get(cId) || [];
         list.push(r);
-        redeemedByCustId.set(r.id_pelanggan, list);
+        redeemedByCustId.set(cId, list);
       }
-      const n = (r.Nama || "").toLowerCase().trim();
+      const n = (r.Nama || r.nama || r.NamaPelanggan || r.nama_pelanggan || r.Pelanggan || r.pelanggan || '').toLowerCase().trim();
       if (n) {
         const list = redeemedByCustName.get(n) || [];
         list.push(r);
@@ -464,41 +479,68 @@ export default function CustomerManagement({
       }
     });
 
+    const getMergedUserList = (byIdMap: Map<string, any[]>, byNameMap: Map<string, any[]>, id?: string, name?: string): any[] => {
+      const matched: any[] = [];
+      const seen = new Set<string>();
+
+      const add = (item: any) => {
+        const uniqueKey = item.id_transaksi || item.id || item.ID || `${item.Tanggal || item.tanggal || item.created_at || ''}_${item.Total || item.total || item.Pemasukan || item.pemasukan || item.Nominal || item.nominal || item.Jumlah || item.jumlah || ''}_${item.Keterangan || item.keterangan || item.Kategori || item.kategori || ''}`;
+        if (!seen.has(uniqueKey)) {
+          seen.add(uniqueKey);
+          matched.push(item);
+        }
+      };
+
+      const normId = (id || '').toLowerCase().trim();
+      if (normId && !isGenericId(normId)) {
+        const list = byIdMap.get(normId);
+        if (list) list.forEach(add);
+      }
+
+      const normName = (name || '').toLowerCase().trim();
+      if (normName) {
+        const list = byNameMap.get(normName);
+        if (list) list.forEach(add);
+      }
+
+      return matched;
+    };
+
     const list = custList.map(c => {
-      const name = (c.nama || "").toLowerCase().trim();
-      const idPelanggan = c.id_pelanggan;
+      const name = (c.nama || c.Nama || "").toLowerCase().trim();
+      const idPelanggan = c.id_pelanggan || (c as any).id;
 
       // 1. Savings (All time)
-      const userSavings = (idPelanggan && savingsByCustId.get(idPelanggan)) || savingsByCustName.get(name) || [];
-      const tabungan = userSavings.length > 0 ? userSavings[userSavings.length - 1].SaldoAkhir : 0;
+      const userSavings = getMergedUserList(savingsByCustId, savingsByCustName, idPelanggan, name);
+      const tabungan = userSavings.length > 0 ? (userSavings[userSavings.length - 1].SaldoAkhir ?? userSavings[userSavings.length - 1].saldo_akhir ?? 0) : 0;
 
       // 2. Investment (All time active)
-      const userInvestments = (idPelanggan && investmentsByCustId.get(idPelanggan)) || investmentsByCustName.get(name) || [];
-      const investasi = userInvestments.filter(t => t.Status !== "Selesai").reduce((acc, curr) => acc + (curr.Nominal || 0), 0);
+      const userInvestments = getMergedUserList(investmentsByCustId, investmentsByCustName, idPelanggan, name);
+      const investasi = userInvestments.filter(t => (t.Status || t.status || '') !== "Selesai").reduce((acc, curr) => acc + (curr.Nominal || curr.nominal || 0), 0);
 
       // 3. Debt (All time)
-      const userDebts = (idPelanggan && debtsByCustId.get(idPelanggan)) || debtsByCustName.get(name) || [];
-      const hutang = userDebts.length > 0 ? userDebts[userDebts.length - 1].SaldoAkhir : 0;
+      const userDebts = getMergedUserList(debtsByCustId, debtsByCustName, idPelanggan, name);
+      const hutang = userDebts.length > 0 ? (userDebts[userDebts.length - 1].SaldoAkhir ?? userDebts[userDebts.length - 1].saldo_akhir ?? 0) : 0;
 
       // 4. Sales (All time)
-      const userSales = (idPelanggan && salesByCustId.get(idPelanggan)) || salesByCustName.get(name) || [];
+      const userSales = getMergedUserList(salesByCustId, salesByCustName, idPelanggan, name);
 
       // 5. Lainnya (All time active)
       const userLainnyaTransactions = userSales.filter(t => {
-        const s = (t.Status || "").toUpperCase().trim();
+        const s = (t.Status || t.status || "").toUpperCase().trim();
         return s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING";
       });
 
       const lainnya = userLainnyaTransactions.reduce((acc, curr) => {
-        const s = (curr.Status || "").toUpperCase().trim();
+        const s = (curr.Status || curr.status || "").toUpperCase().trim();
         if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
-          return acc + (parseCurrency(curr.Pemasukan || curr.Total || curr.Nominal) || parseCurrency(curr.HargaModal) || 0);
+          return acc + (parseCurrency(curr.Pemasukan || curr.pemasukan || curr.Total || curr.total || curr.Nominal || curr.nominal) || parseCurrency(curr.HargaModal || curr.harga_modal) || 0);
         }
-        let base = parseCurrency(curr.HargaModal || curr.Pemasukan || curr.Total || curr.Nominal || 0);
-        if ((curr.Melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
+        let base = parseCurrency(curr.HargaModal || curr.harga_modal || curr.Pemasukan || curr.pemasukan || curr.Total || curr.total || curr.Nominal || curr.nominal || 0);
+        if ((curr.Melalui || curr.melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
           base -= 1500;
         }
-        const net = base - (parseCurrency(curr.Sebagian) || 0);
+        const net = base - (parseCurrency(curr.Sebagian || curr.sebagian) || 0);
         return acc + (net > 0 ? net : 0);
       }, 0);
 
@@ -508,61 +550,149 @@ export default function CustomerManagement({
 
       // 7. 6 AKTIVITAS TERAKHIR (Semua Waktu / All Time)
       const rawActivities: any[] = [];
+      const salesKasbonTimes: number[] = [];
+      const salesTabunganTimes: number[] = [];
+      const debtPaidTabunganTimes: number[] = [];
+
       userSales.forEach(t => {
-        const d = parseDate(t.Tanggal);
-        const rel = getRelativeTimeString(t.Tanggal);
-        const nominal = parseCurrency(t.Pemasukan || t.Total || t.Nominal || 0);
-        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
-        let rawJenis = t.Kategori || t.Jenis || t.Keterangan || t.NamaBarang || t.Produk || t.Barang;
-        if (!rawJenis || rawJenis === 'Umum' || rawJenis === '-') rawJenis = 'Transaksi';
-        const jenisClean = String(rawJenis).replace(/^Transaksi\s+/i, '').trim() || 'Transaksi';
-        const rawMetode = String(t.MetodePembayaran || t.Metode || t.MetodeBayar || '').trim().toUpperCase();
-        const statusUpper = String(t.Status || '').trim().toUpperCase();
+        const tDate = t.Tanggal || t.tanggal || t.created_at || t.CreatedAt || t.waktu || t.Waktu;
+        const d = parseDate(tDate);
+        const rel = getRelativeTimeString(tDate);
+        const nominal = parseCurrency(t.Pemasukan || t.pemasukan || t.Total || t.total || t.Nominal || t.nominal || t.HargaModal || t.harga_modal || 0);
+        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
+        let rawJenis = t.Kategori || t.kategori || t.Jenis || t.jenis || t.Keterangan || t.keterangan || t.NamaBarang || t.nama_barang || t.Produk || t.produk || t.Barang || t.barang;
+        if (!rawJenis || rawJenis === 'Umum' || rawJenis === '-' || rawJenis === 'Transaksi') rawJenis = 'Belanja';
+        const jenisClean = String(rawJenis).replace(/^Transaksi\s+/i, '').trim().toUpperCase() || 'BELANJA';
+        const rawMetode = String(t.MetodePembayaran || t.metode_pembayaran || t.Metode || t.metode || t.MetodeBayar || t.metode_bayar || '').trim().toUpperCase();
+        const statusUpper = String(t.Status || t.status || '').trim().toUpperCase();
         const isKasbon = statusUpper.includes('KASBON') || Boolean(t.Kasbon) || Boolean(t.IsKasbon) || rawMetode.includes('KASBON') || rawMetode.includes('HUTANG');
         const isTabungan = rawMetode.includes('TABUNGAN');
 
-        let metodeTag = isKasbon ? ' (KASBON)' : isTabungan ? ' (TABUNGAN)' : (rawMetode && !rawMetode.includes('TUNAI') && !rawMetode.includes('CASH')) ? ` (${rawMetode})` : '';
+        if (isKasbon) salesKasbonTimes.push(d.getTime());
+        if (isTabungan) salesTabunganTimes.push(d.getTime());
+
+        let tag = '';
+        if (isKasbon) {
+          tag = ' (Kasbon)';
+        } else if (isTabungan) {
+          tag = ' (Tabungan)';
+        } else if (rawMetode && !rawMetode.includes('TUNAI') && !rawMetode.includes('CASH')) {
+          const titleMetode = rawMetode.charAt(0) + rawMetode.slice(1).toLowerCase();
+          tag = ` (${titleMetode})`;
+        } else {
+          tag = '';
+        }
 
         rawActivities.push({
           date: d,
           rel,
           nominal,
           source: 'sales',
-          isKasbonOrDebt: isKasbon,
-          isTabungan: isTabungan,
-          text: `* ${rel}: ${jenisClean} ${formatNominal}${metodeTag}`.replace(/\s+/g, ' ').trim()
+          text: `* ${rel}: ${jenisClean} ${formatNominal}${tag}`.replace(/\s+/g, ' ').trim()
         });
+      });
+
+      userDebts.forEach(t => {
+        const tDate = t.Tanggal || t.tanggal || t.created_at || t.CreatedAt || t.waktu || t.Waktu;
+        const d = parseDate(tDate);
+        const rel = getRelativeTimeString(tDate);
+        const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
+        const isBayar = tipeStr.includes('BAYAR') || tipeStr.includes('KURANG') || (t.Kredit && parseCurrency(t.Kredit) > 0) || (t.kredit && parseCurrency(t.kredit) > 0);
+        const nominal = parseCurrency(t.Jumlah || t.jumlah || t.Nominal || t.nominal || t.Kredit || t.kredit || t.Debet || t.debet || 0);
+        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
+        const rawKet = (t.Keterangan || t.keterangan || t.Berita || t.berita || t.Catatan || t.catatan || t.Kategori || t.kategori || t.MetodePembayaran || t.metode_pembayaran || t.Metode || t.metode || '').trim();
+        const upperKet = rawKet.toUpperCase();
+        const isFromTabungan = upperKet.includes('TABUNGAN') || String(t.Metode || t.metode || '').toUpperCase().includes('TABUNGAN');
+
+        if (isBayar) {
+          if (isFromTabungan) {
+            debtPaidTabunganTimes.push(d.getTime());
+            rawActivities.push({
+              date: d,
+              rel,
+              nominal,
+              source: 'debt',
+              text: `* ${rel}: Bayar Hutang ${formatNominal} Dari Tabungan`.replace(/\s+/g, ' ').trim()
+            });
+          } else {
+            rawActivities.push({
+              date: d,
+              rel,
+              nominal,
+              source: 'debt',
+              text: `* ${rel}: Bayar Hutang ${formatNominal}`.replace(/\s+/g, ' ').trim()
+            });
+          }
+        } else {
+          // Cek apakah kasbon ini berasal dari penjualan belanja/virtual yang sudah dicatat di userSales
+          const isFromSales = /belanja|virtual|trx|pos|inv/i.test(rawKet) || salesKasbonTimes.some(st => Math.abs(st - d.getTime()) <= 300000);
+          if (!isFromSales) {
+            const itemReason = extractCleanItemOrReason(rawKet, salesMap);
+            const tag = itemReason ? ` (${itemReason})` : '';
+            rawActivities.push({
+              date: d,
+              rel,
+              nominal,
+              source: 'debt',
+              text: `* ${rel}: Kasbon ${formatNominal}${tag}`.replace(/\s+/g, ' ').trim()
+            });
+          }
+        }
       });
 
       userSavings.forEach(t => {
-        const d = parseDate(t.Tanggal);
-        const rel = getRelativeTimeString(t.Tanggal);
+        const tDate = t.Tanggal || t.tanggal || t.created_at || t.CreatedAt || t.waktu || t.Waktu;
+        const d = parseDate(tDate);
+        const rel = getRelativeTimeString(tDate);
         const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
-        const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0);
-        const tipe = isSetor ? 'Setor Tabungan' : 'Tarik Tabungan';
-        const nominal = parseCurrency(t.Nominal || t.Jumlah || t.Setor || t.Tarik || 0);
-        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
-        const rawKet = (t.Berita || t.Keterangan || t.Catatan || '').trim();
-        const ketClean = (rawKet && rawKet !== '-' && !rawKet.toLowerCase().includes('tabungan')) ? rawKet : '';
-        const ketTag = ketClean ? ` (${ketClean.toUpperCase()})` : '';
+        const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0) || (t.setor && parseCurrency(t.setor) > 0);
+        const nominal = parseCurrency(t.Nominal || t.nominal || t.Jumlah || t.jumlah || t.Setor || t.setor || t.Tarik || t.tarik || 0);
+        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
+        const rawKet = (t.Berita || t.berita || t.Keterangan || t.keterangan || t.Catatan || t.catatan || '').trim();
 
-        rawActivities.push({
-          date: d,
-          rel,
-          nominal,
-          source: 'savings',
-          isTabungan: true,
-          text: `* ${rel}: ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
-        });
+        if (isSetor) {
+          rawActivities.push({
+            date: d,
+            rel,
+            nominal,
+            source: 'savings',
+            text: `* ${rel}: Setor Tabungan ${formatNominal}`.replace(/\s+/g, ' ').trim()
+          });
+        } else {
+          // Cek apakah penarikan ini sudah dicatat sebagai bayar hutang dari tabungan atau belanja metode tabungan
+          const isDebtPayment = debtPaidTabunganTimes.some(dt => Math.abs(dt - d.getTime()) <= 300000) || /bayar\s*hutang|pelunasan/i.test(rawKet);
+          const isSalesPayment = salesTabunganTimes.some(st => Math.abs(st - d.getTime()) <= 300000) || /belanja|virtual|bayar\s*belanja|pos|trx/i.test(rawKet);
+
+          if (isDebtPayment || isSalesPayment) {
+            return;
+          }
+
+          const reason = extractCleanItemOrReason(rawKet);
+          let reasonTag = '';
+          if (reason) {
+            reasonTag = ` (${reason})`;
+          } else if (rawKet && rawKet !== '-' && !/tabungan|tarik/i.test(rawKet)) {
+            reasonTag = ` (${rawKet})`;
+          }
+
+          rawActivities.push({
+            date: d,
+            rel,
+            nominal,
+            source: 'savings',
+            text: `* ${rel}: Tarik Tabungan ${formatNominal}${reasonTag}`.replace(/\s+/g, ' ').trim()
+          });
+        }
       });
 
       userInvestments.forEach(t => {
-        const d = parseDate(t.Tanggal);
-        const rel = getRelativeTimeString(t.Tanggal);
-        const isCair = (t.Jenis || '').toLowerCase().includes('cair') || (t.Jenis || '').toLowerCase().includes('tarik');
+        const tDate = t.Tanggal || t.tanggal || t.created_at || t.CreatedAt || t.waktu || t.Waktu;
+        const d = parseDate(tDate);
+        const rel = getRelativeTimeString(tDate);
+        const isCair = (t.Jenis || t.jenis || '').toLowerCase().includes('cair') || (t.Jenis || t.jenis || '').toLowerCase().includes('tarik');
         const actionText = isCair ? 'Pencairan Investasi' : 'Tambah Investasi';
-        const nominal = parseCurrency(t.Nominal || t.Jumlah || 0);
-        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
+        const nominal = parseCurrency(t.Nominal || t.nominal || t.Jumlah || t.jumlah || 0);
+        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
         rawActivities.push({
           date: d,
           rel,
@@ -572,33 +702,11 @@ export default function CustomerManagement({
         });
       });
 
-      userDebts.forEach(t => {
-        const d = parseDate(t.Tanggal);
-        const rel = getRelativeTimeString(t.Tanggal);
-        const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
-        const isBayar = tipeStr.includes('BAYAR') || tipeStr.includes('KURANG') || (t.Kredit && parseCurrency(t.Kredit) > 0);
-        const tipe = isBayar ? 'Bayar Hutang' : 'Kasbon';
-        const nominal = parseCurrency(t.Jumlah || t.Nominal || t.Kredit || t.Debet || 0);
-        const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : '';
-        const rawKet = (t.Keterangan || t.Berita || t.Catatan || t.Kategori || t.MetodePembayaran || t.Metode || '').trim();
-        const upperKet = rawKet.toUpperCase();
-        let ketTag = isBayar ? (upperKet.includes('TABUNGAN') ? ' (TABUNGAN)' : '') : (rawKet && rawKet !== '-' ? ` (${rawKet.toUpperCase()})` : '');
-
-        rawActivities.push({
-          date: d,
-          rel,
-          nominal,
-          source: 'debt',
-          isKasbonOrDebt: !isBayar,
-          isTabungan: isBayar && upperKet.includes('TABUNGAN'),
-          text: `* ${rel}: ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
-        });
-      });
-
-      const userRedeemedList = (idPelanggan && redeemedByCustId.get(idPelanggan)) || redeemedByCustName.get(name) || [];
+      const userRedeemedList = getMergedUserList(redeemedByCustId, redeemedByCustName, idPelanggan, name);
       userRedeemedList.forEach(r => {
-        const d = parseDate(r.Tanggal);
-        const rel = getRelativeTimeString(r.Tanggal);
+        const tDate = r.Tanggal || r.tanggal || r.created_at || r.CreatedAt || r.waktu || r.Waktu;
+        const d = parseDate(tDate);
+        const rel = getRelativeTimeString(tDate);
         const poinVal = r.Poin || r.poin || 0;
         rawActivities.push({
           date: d,
@@ -614,42 +722,82 @@ export default function CustomerManagement({
 
       // 8. 10 MUTASI TABUNGAN TERAKHIR (Semua Waktu / All Time)
       const mappedSavings = userSavings.map(t => {
-        const d = parseDate(t.Tanggal);
-        const dateStr = formatDateDDMMYYYY(d, t.Tanggal);
+        const tDate = t.Tanggal || t.tanggal || t.created_at || t.CreatedAt || t.waktu || t.Waktu;
+        const d = parseDate(tDate);
+        const dateStr = formatDateDDMMYYYY(d, tDate);
         const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
-        const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0);
-        const tipe = isSetor ? 'Setor Tabungan' : 'Tarik Tabungan';
-        const nominal = parseCurrency(t.Nominal || t.Jumlah || t.Setor || t.Tarik || 0);
+        const isSetor = tipeStr.includes('SETOR') || tipeStr.includes('TAMBAH') || (t.Setor && parseCurrency(t.Setor) > 0) || (t.setor && parseCurrency(t.setor) > 0);
+        const nominal = parseCurrency(t.Nominal || t.nominal || t.Jumlah || t.jumlah || t.Setor || t.setor || t.Tarik || t.tarik || 0);
         const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
-        const rawKet = (t.Berita || t.Keterangan || t.Catatan || '').trim();
-        const ketClean = (rawKet && rawKet !== '-' && !rawKet.toLowerCase().includes('tabungan')) ? rawKet : '';
-        const ketTag = ketClean ? ` (${ketClean.toUpperCase()})` : '';
-        return {
-          d,
-          text: `* ${dateStr} : ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
-        };
+        const rawKet = (t.Berita || t.berita || t.Keterangan || t.keterangan || t.Catatan || t.catatan || '').trim();
+
+        if (isSetor) {
+          return {
+            d,
+            text: `* ${dateStr}: Setor ${formatNominal}`.replace(/\s+/g, ' ').trim()
+          };
+        } else {
+          let reasonTag = '';
+          if (/bayar\s*hutang|pelunasan/i.test(rawKet)) {
+            reasonTag = ' (Bayar Hutang)';
+          } else if (/pulsa/i.test(rawKet)) {
+            reasonTag = ' (Bayar Pulsa)';
+          } else if (/paket\s*data/i.test(rawKet)) {
+            reasonTag = ' (Bayar Paket Data)';
+          } else if (/belanja|virtual|pos|trx/i.test(rawKet)) {
+            const itemReason = extractCleanItemOrReason(rawKet);
+            reasonTag = itemReason ? ` (Bayar ${itemReason})` : ' (Bayar Belanja)';
+          } else {
+            const itemReason = extractCleanItemOrReason(rawKet);
+            if (itemReason) {
+              reasonTag = itemReason.toLowerCase().startsWith('bayar') ? ` (${itemReason})` : ` (Bayar ${itemReason})`;
+            } else if (rawKet && rawKet !== '-' && !/tabungan|tarik/i.test(rawKet)) {
+              reasonTag = ` (${rawKet})`;
+            }
+          }
+          return {
+            d,
+            text: `* ${dateStr}: Tarik ${formatNominal}${reasonTag}`.replace(/\s+/g, ' ').trim()
+          };
+        }
       });
       mappedSavings.sort((a, b) => b.d.getTime() - a.d.getTime());
       const mutasi_tabungan = mappedSavings.slice(0, 10).map(s => s.text).join('\n') || 'Belum ada mutasi tabungan';
 
       // 9. 10 CATATAN HUTANG TERAKHIR (Semua Waktu / All Time)
       const mappedDebts = userDebts.map(t => {
-        const d = parseDate(t.Tanggal);
-        const dateStr = formatDateDDMMYYYY(d, t.Tanggal);
+        const tDate = t.Tanggal || t.tanggal || t.created_at || t.CreatedAt || t.waktu || t.Waktu;
+        const d = parseDate(tDate);
+        const dateStr = formatDateDDMMYYYY(d, tDate);
         const tipeStr = String(t.Tipe || t.tipe || t.Jenis || t.jenis || '').toUpperCase();
-        const isBayar = tipeStr.includes('BAYAR') || tipeStr.includes('KURANG') || (t.Kredit && parseCurrency(t.Kredit) > 0);
-        const tipe = isBayar ? 'BAYAR' : 'HUTANG';
-        const nominal = parseCurrency(t.Jumlah || t.Nominal || t.Kredit || t.Debet || 0);
+        const isBayar = tipeStr.includes('BAYAR') || tipeStr.includes('KURANG') || (t.Kredit && parseCurrency(t.Kredit) > 0) || (t.kredit && parseCurrency(t.kredit) > 0);
+        const nominal = parseCurrency(t.Jumlah || t.jumlah || t.Nominal || t.nominal || t.Kredit || t.kredit || t.Debet || t.debet || 0);
         const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
-        const rawKet = (t.Keterangan || t.Berita || t.Catatan || t.Kategori || t.MetodePembayaran || t.Metode || '').trim();
+        const rawKet = (t.Keterangan || t.keterangan || t.Berita || t.berita || t.Catatan || t.catatan || t.Kategori || t.kategori || t.MetodePembayaran || t.metode_pembayaran || t.Metode || t.metode || '').trim();
         const upperKet = rawKet.toUpperCase();
-        let ketTag = isBayar 
-          ? (upperKet.includes('TABUNGAN') ? ' (TABUNGAN)' : '') 
-          : (rawKet && rawKet !== '-' ? ` (${rawKet.toUpperCase()})` : '');
-        return {
-          d,
-          text: `* ${dateStr} : ${tipe} ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
-        };
+        const isFromTabungan = upperKet.includes('TABUNGAN') || String(t.Metode || t.metode || '').toUpperCase().includes('TABUNGAN');
+
+        if (isBayar) {
+          if (isFromTabungan) {
+            return {
+              d,
+              text: `* ${dateStr}: Bayar ${formatNominal} (Tabungan)`.replace(/\s+/g, ' ').trim()
+            };
+          } else {
+            return {
+              d,
+              text: `* ${dateStr}: Bayar ${formatNominal}`.replace(/\s+/g, ' ').trim()
+            };
+          }
+        } else {
+          // Coba cari nama produk jika ada
+          const cleanReason = extractCleanItemOrReason(rawKet, salesMap);
+          const ketTag = cleanReason ? ` (${cleanReason})` : '';
+          return {
+            d,
+            text: `* ${dateStr}: Hutang ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
+          };
+        }
       });
       mappedDebts.sort((a, b) => b.d.getTime() - a.d.getTime());
       const catatan_hutang = mappedDebts.slice(0, 10).map(d => d.text).join('\n') || 'Belum ada catatan hutang';
@@ -684,24 +832,53 @@ export default function CustomerManagement({
       .sort((a, b) => (b.total_belanja_bulan_ini || 0) - (a.total_belanja_bulan_ini || 0));
     const totalActive = activeList.length;
 
-    return list.map(c => {
-      const monthlyTotal = c.total_belanja_bulan_ini || 0;
+    const nowJakarta = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
+    return list.map((item: any) => {
+      const monthlyTotal = item.total_belanja_bulan_ini || 0;
       let peringkat = "Belum ada belanja bulan ini";
       if (monthlyTotal > 0) {
-        const rankIdx = activeList.findIndex(item => item.id_pelanggan === c.id_pelanggan || (item.nama || '').toLowerCase() === (c.nama || '').toLowerCase());
+        const rankIdx = activeList.findIndex(x => x.id_pelanggan === item.id_pelanggan || (x.nama || '').toLowerCase() === (item.nama || '').toLowerCase());
         if (rankIdx !== -1) {
           peringkat = `Ke ${rankIdx + 1} dari ${totalActive}`;
         }
       }
       return {
-        ...c,
+        ...item,
+        id_pelanggan: item.id_pelanggan || item.id || '',
+        nama: item.nama || item.Nama || 'Pelanggan',
+        tabungan: item.tabungan || 0,
+        investasi: item.investasi || 0,
+        lainnya: item.lainnya || 0,
+        hutang: item.hutang || 0,
+        level: item.level || item.Level || 'Bronze',
+        poin: Number(item.poin ?? item.point ?? item.Poin ?? item.Point ?? 0),
+        total_belanja_bulan_ini: monthlyTotal,
         peringkat,
-        Peringkat: peringkat,
-        Lainnya: c.lainnya,
-        TotalBelanjaBulanIni: monthlyTotal,
-        AktivitasTerakhir: c.aktivitas_terakhir,
-        MutasiTabungan: c.mutasi_tabungan,
-        CatatanHutang: c.catatan_hutang
+        aktivitas_terakhir: item.aktivitas_terakhir,
+        mutasi_tabungan: item.mutasi_tabungan,
+        catatan_hutang: item.catatan_hutang,
+        terakhir_diperbarui: nowJakarta,
+        // Aliases
+        "id pelanggan": item.id_pelanggan || item.id || '',
+        "ID Pelanggan": item.id_pelanggan || item.id || '',
+        "Nama": item.nama || item.Nama || 'Pelanggan',
+        "Tabungan": item.tabungan || 0,
+        "Investasi": item.investasi || 0,
+        "Lainnya": item.lainnya || 0,
+        "Hutang": item.hutang || 0,
+        "Level": item.level || item.Level || 'Bronze',
+        "Poin": Number(item.poin ?? item.point ?? item.Poin ?? item.Point ?? 0),
+        "total belanja bulan ini": monthlyTotal,
+        "Total Belanja Bulan Ini": monthlyTotal,
+        "Peringkat": peringkat,
+        "aktivitas terakhir": item.aktivitas_terakhir,
+        "Aktivitas Terakhir": item.aktivitas_terakhir,
+        "mutasi tabungan": item.mutasi_tabungan,
+        "Mutasi Tabungan": item.mutasi_tabungan,
+        "catatan hutang": item.catatan_hutang,
+        "Catatan Hutang": item.catatan_hutang,
+        "terakhir diperbarui": nowJakarta,
+        "Terakhir Diperbarui": nowJakarta
       };
     });
   };
@@ -713,7 +890,39 @@ export default function CustomerManagement({
 
   // Reusable background / direct sync to Google Apps Script Web App
   const syncToAppsScript = async (customCustomerList?: Customer[], isBackground = false) => {
-    const listToSync = customCustomerList || customers;
+    let listToSync = customCustomerList || customers;
+
+    // Ensure we fetch all customers from Supabase if connected
+    if (SupabaseCustomerService.isConnected()) {
+      try {
+        const { data: supaAllCust } = await SupabaseCustomerService.getCustomers();
+        if (supaAllCust && supaAllCust.length > 0) {
+          const formatted = supaAllCust.map((c: any, index: number) => ({
+            id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
+            id: c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, '0')}`,
+            nama: c.nama || 'Pelanggan',
+            Nama: c.nama || 'Pelanggan',
+            pin: c.pin || '',
+            telepon: c.telepon || '',
+            alamat: c.alamat || '',
+            foto: c.foto || '',
+            poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
+            Poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
+            level: c.level || c.Level || 'Bronze',
+            Level: c.level || c.Level || 'Bronze',
+            tabungan: Number(c.tabungan ?? c.Tabungan ?? 0),
+            investasi: Number(c.investasi ?? c.Investasi ?? 0),
+            lainnya: Number(c.lainnya ?? c.Lainnya ?? 0),
+            hutang: Number(c.hutang ?? c.Hutang ?? 0)
+          }));
+          listToSync = formatted;
+          setCustomers(formatted);
+        }
+      } catch (e) {
+        console.warn('Error fetching all customers for syncToAppsScript:', e);
+      }
+    }
+
     if (!listToSync || listToSync.length === 0) return;
 
     if (!isBackground) {
@@ -728,22 +937,54 @@ export default function CustomerManagement({
         customers: formattedStats
       };
 
-      const response = await fetch(DEFAULT_SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify(payload)
-      });
+      // 1. Try server proxy endpoint first
+      let syncSuccess = false;
+      let errorMsg = '';
 
-      let resData: any = {};
       try {
-        resData = await response.json();
-      } catch (e) {
-        resData = { status: 'success' };
+        const proxyRes = await fetch('/api/sheets/apps-script-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scriptUrl: DEFAULT_SCRIPT_URL,
+            payload
+          })
+        });
+        if (proxyRes.ok) {
+          const proxyData = await proxyRes.json().catch(() => ({ success: true }));
+          if (proxyData.success) {
+            syncSuccess = true;
+          }
+        }
+      } catch (proxyErr) {
+        console.warn('Proxy sync attempt failed in CustomerManagement, trying direct fetch...', proxyErr);
       }
 
-      if (resData.status === 'success' || response.ok) {
+      // 2. Fallback direct fetch
+      if (!syncSuccess) {
+        const response = await fetch(DEFAULT_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        let resData: any = {};
+        try {
+          resData = await response.json();
+        } catch (e) {
+          resData = { status: response.ok ? 'success' : 'unknown' };
+        }
+
+        if (resData.status === 'success' || response.ok) {
+          syncSuccess = true;
+        } else {
+          errorMsg = resData.message || 'Gagal menyinkronkan ke Google Sheets';
+        }
+      }
+
+      if (syncSuccess) {
         const timeNow = new Date().toLocaleTimeString('id-ID', {
           hour: '2-digit',
           minute: '2-digit',
@@ -761,12 +1002,12 @@ export default function CustomerManagement({
         if (!isBackground) {
           setSyncDirectStatus({
             type: 'success',
-            text: `✓ ${listToSync.length} data pelanggan berhasil disinkronkan ke Google Sheets (${fullTimeStr})`
+            text: `✓ Seluruh (${listToSync.length}) data pelanggan berhasil disinkronkan ke Google Sheets (${fullTimeStr})`
           });
         }
         if (onSyncComplete) onSyncComplete(listToSync);
       } else {
-        throw new Error(resData.message || 'Gagal menyinkronkan ke Google Sheets');
+        throw new Error(errorMsg || 'Gagal menyinkronkan ke Google Sheets');
       }
     } catch (err: any) {
       console.error('Error syncing to Apps Script Web App:', err);
@@ -808,21 +1049,24 @@ export default function CustomerManagement({
   const [successMessage, setSuccessMessage] = useState('');
 
   const fetchCustomers = async () => {
-    if (customers && customers.length > 0) return;
     setLoading(true);
     try {
       if (SupabaseCustomerService.isConnected()) {
-        const { data, error } = await SupabaseCustomerService.getCustomersMinimal();
+        const { data, error } = await SupabaseCustomerService.getCustomers();
         if (!error && data) {
           const formatted = data.map((c: any, index: number) => ({
             id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
+            id: c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, '0')}`,
             nama: c.nama || 'Pelanggan',
+            Nama: c.nama || 'Pelanggan',
             pin: c.pin || '',
             telepon: c.telepon || '',
             alamat: c.alamat || '',
             foto: c.foto || '',
             poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
+            Poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
             level: c.level || c.Level || 'Bronze',
+            Level: c.level || c.Level || 'Bronze',
             tabungan: Number(c.tabungan ?? c.Tabungan ?? 0),
             investasi: Number(c.investasi ?? c.Investasi ?? 0),
             lainnya: Number(c.lainnya ?? c.Lainnya ?? 0),
@@ -855,11 +1099,19 @@ export default function CustomerManagement({
     if (!formData.nama) return;
 
     setLoading(true);
-    const targetId = editingCustomer ? editingCustomer.id_pelanggan : `CUST-${Date.now().toString().slice(-4)}`;
+    const oldId = editingCustomer ? editingCustomer.id_pelanggan : undefined;
+    const oldName = editingCustomer ? editingCustomer.nama : undefined;
+
+    const targetId = (formData.id_pelanggan && formData.id_pelanggan.trim())
+      ? formData.id_pelanggan.trim().toUpperCase()
+      : (editingCustomer ? editingCustomer.id_pelanggan : `CUST-${Date.now().toString().slice(-4)}`);
+
+    const newName = formData.nama.trim().toUpperCase();
 
     const updatedCustomerObj: Customer = {
+      ...(editingCustomer || {}),
       id_pelanggan: targetId,
-      nama: formData.nama.trim(),
+      nama: newName,
       pin: formData.pin || '',
       telepon: formData.telepon || '',
       alamat: formData.alamat || '',
@@ -867,9 +1119,9 @@ export default function CustomerManagement({
     };
 
     // Optimistically update local state & global state
-    const exists = customers.some(c => c.id_pelanggan === targetId);
+    const exists = customers.some(c => c.id_pelanggan === targetId || (oldId && c.id_pelanggan === oldId));
     const nextCustomerList = exists
-      ? customers.map(c => c.id_pelanggan === targetId ? updatedCustomerObj : c)
+      ? customers.map(c => (c.id_pelanggan === targetId || (oldId && c.id_pelanggan === oldId)) ? updatedCustomerObj : c)
       : [updatedCustomerObj, ...customers];
 
     setCustomers(nextCustomerList);
@@ -888,13 +1140,23 @@ export default function CustomerManagement({
           alamat: updatedCustomerObj.alamat,
           foto: updatedCustomerObj.foto
         });
+
+        // If editing and ID or Name changed, run Cascade Update to all transaction histories
+        if (editingCustomer && (oldId !== targetId || oldName !== newName)) {
+          await SupabaseCustomerService.cascadeUpdateCustomer({
+            oldIdPelanggan: oldId,
+            newIdPelanggan: targetId,
+            oldName: oldName,
+            newName: newName
+          });
+        }
       } catch (err) {
         console.error('Error saving customer to Supabase:', err);
       }
     }
 
     setLoading(false);
-    onActionSuccess(editingCustomer ? 'Data pelanggan berhasil diperbarui di Supabase' : 'Pelanggan baru berhasil ditambahkan ke Supabase');
+    onActionSuccess(editingCustomer ? 'Data pelanggan & seluruh riwayat transaksi berhasil diselaraskan di Supabase' : 'Pelanggan baru berhasil ditambahkan ke Supabase');
 
     // Trigger background auto sync to Google Sheets
     if (nextCustomerList.length > 0) {
@@ -1468,19 +1730,19 @@ export default function CustomerManagement({
                 <div className="flex flex-wrap gap-2">
                   {[
                     "ID Pelanggan",
-                    "Nama Pelanggan",
-                    "PIN",
-                    "No Telepon",
-                    "Alamat",
-                    "Saldo Tabungan",
+                    "Nama",
+                    "Tabungan",
                     "Investasi",
-                    "Total Hutang",
-                    "Poin Aktif",
-                    "Peringkat Member",
-                    "10 Mutasi Tabungan Terakhir",
-                    "10 Catatan Hutang Terakhir",
-                    "6 Aktivitas Terakhir",
-                    "Waktu Update"
+                    "Lainnya",
+                    "Hutang",
+                    "Level",
+                    "Poin",
+                    "Total Belanja Bulan Ini",
+                    "Peringkat",
+                    "Aktivitas Terakhir",
+                    "Mutasi Tabungan",
+                    "Catatan Hutang",
+                    "Terakhir Diperbarui"
                   ].map((col, idx) => (
                     <span 
                       key={idx} 
@@ -1673,6 +1935,21 @@ export default function CustomerManagement({
                   </h3>
                   
                   <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5 px-1">
+                        <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">ID Pelanggan (Kode Unik)</label>
+                        <span className="text-[8px] font-bold text-teal-600 uppercase">
+                          {editingCustomer ? 'Opsional - Ubah jika perlu' : 'Otomatis jika kosong'}
+                        </span>
+                      </div>
+                      <input 
+                        type="text" 
+                        placeholder="CONTOH: CUST-0001 (OTOMATIS JIKA KOSONG)"
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-[#005E6A]/10 outline-none transition-all text-xs font-black text-[#005E6A] placeholder:text-slate-300 uppercase tracking-wider"
+                        value={formData.id_pelanggan || ''}
+                        onChange={(e) => setFormData({...formData, id_pelanggan: e.target.value.toUpperCase()})}
+                      />
+                    </div>
                     <div>
                       <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 px-1">Nama Lengkap *</label>
                       <input 

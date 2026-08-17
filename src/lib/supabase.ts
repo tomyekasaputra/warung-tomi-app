@@ -487,11 +487,20 @@ class SupabaseQueryLoggerClass {
     const sizeColor = log.estimatedBytes > 500000 ? '#ef4444' : log.estimatedBytes > 100000 ? '#f59e0b' : '#3b82f6';
 
     if (log.status === 'ERROR') {
-      console.error(
-        `%c[Supabase Query ERROR]%c ${log.table}.${log.operation} ⚡ ${log.durationMs}ms | Error: ${log.error}`,
-        'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold;',
-        'color: #ef4444; font-weight: bold;'
-      );
+      const isNetworkError = /Failed to fetch|NetworkError|fetch/i.test(String(log.error || ''));
+      if (isNetworkError) {
+        console.warn(
+          `%c[Supabase Query Offline/Warning]%c ${log.table}.${log.operation} ⚡ ${log.durationMs}ms | Network Notice: ${log.error} (Mode Offline/Fallback)`,
+          'background: #f59e0b; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold;',
+          'color: #d97706; font-weight: bold;'
+        );
+      } else {
+        console.error(
+          `%c[Supabase Query ERROR]%c ${log.table}.${log.operation} ⚡ ${log.durationMs}ms | Error: ${log.error}`,
+          'background: #ef4444; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold;',
+          'color: #ef4444; font-weight: bold;'
+        );
+      }
     } else {
       console.log(
         `%c[Supabase]%c %c${log.table}%c %c${log.operation}%c ⚡ %c${log.durationMs}ms (${speedBadge})%c | 📦 %c${log.rowCount} rows%c | 🌐 %c${log.formattedSize}%c | Filter: %c${log.filterSummary.length > 80 ? log.filterSummary.slice(0, 80) + '...' : log.filterSummary}`,
@@ -992,6 +1001,99 @@ export const SupabaseCustomerService = {
     }
 
     return { successCount, skippedCount, failedCount, errors };
+  },
+
+  /**
+   * Cascade update nama dan id_pelanggan di seluruh riwayat transaksi
+   * (hutang, tabungan, penjualan, investasi, point).
+   * Mencegah riwayat hilang atau tidak akurat saat nama/ID diubah.
+   */
+  async cascadeUpdateCustomer(params: {
+    oldIdPelanggan?: string;
+    newIdPelanggan: string;
+    oldName?: string;
+    newName: string;
+  }): Promise<{ success: boolean; updatedTables: string[]; errors: string[] }> {
+    const client = getSupabaseClient();
+    if (!client) {
+      return { success: false, updatedTables: [], errors: ["Supabase belum terhubung"] };
+    }
+
+    const { oldIdPelanggan, newIdPelanggan, oldName, newName } = params;
+    const cleanOldId = (oldIdPelanggan || '').trim();
+    const cleanNewId = (newIdPelanggan || '').trim();
+    const cleanOldName = (oldName || '').trim();
+    const cleanNewName = (newName || '').trim();
+
+    const updatedTables: string[] = [];
+    const errors: string[] = [];
+
+    // Helper untuk update tabel transaksi dengan target ID atau Nama lama
+    const updateTable = async (
+      tableName: string,
+      idColumn: string = 'id_pelanggan',
+      nameColumn: string = 'nama'
+    ) => {
+      try {
+        let count = 0;
+        // 1. Update berdasarkan id_pelanggan jika ada
+        if (cleanOldId) {
+          const payload: any = { [idColumn]: cleanNewId };
+          if (cleanNewName) payload[nameColumn] = cleanNewName;
+
+          const { data, error } = await client
+            .from(tableName)
+            .update(payload)
+            .eq(idColumn, cleanOldId)
+            .select('id');
+
+          if (error) {
+            console.warn(`[Cascade] Gagal update by ID di tabel ${tableName}:`, error.message);
+          } else if (data && data.length > 0) {
+            count += data.length;
+          }
+        }
+
+        // 2. Update berdasarkan nama lama (jika nama lama valid & berbeda dari ID yang sudah terupdate)
+        if (cleanOldName && cleanOldName !== cleanNewName) {
+          const payload: any = { [nameColumn]: cleanNewName };
+          if (cleanNewId) payload[idColumn] = cleanNewId;
+
+          const { data, error } = await client
+            .from(tableName)
+            .update(payload)
+            .ilike(nameColumn, cleanOldName)
+            .select('id');
+
+          if (error) {
+            console.warn(`[Cascade] Gagal update by Name di tabel ${tableName}:`, error.message);
+          } else if (data && data.length > 0) {
+            count += data.length;
+          }
+        }
+
+        if (count > 0) {
+          updatedTables.push(`${tableName} (${count} baris)`);
+        }
+      } catch (err: any) {
+        errors.push(`${tableName}: ${err.message || err}`);
+      }
+    };
+
+    // Jalankan pembaruan di seluruh tabel terkait
+    await Promise.allSettled([
+      updateTable('debt_transactions', 'id_pelanggan', 'nama'),
+      updateTable('savings_transactions', 'id_pelanggan', 'nama'),
+      updateTable('sales_transactions', 'id_pelanggan', 'nama'),
+      updateTable('investment_transactions', 'id_pelanggan', 'nama'),
+      updateTable('redeemed_points', 'id_pelanggan', 'nama')
+    ]);
+
+    return {
+      success: errors.length === 0,
+      updatedTables,
+      errors
+    };
   }
 };
 
@@ -1678,39 +1780,40 @@ export const SupabaseDebtService = {
       if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
       const selectCols = options?.select || '*';
-      let baseQuery = client.from('debt_transactions').select(selectCols);
-
-      if (options?.since) {
-        baseQuery = baseQuery.gt('created_at', options.since);
-      }
-
       let targetMonth = options?.month;
-      if (!targetMonth && options?.currentMonthOnly && !options?.allHistory && !options?.since) {
+      if (!targetMonth && options?.currentMonthOnly && !options?.allHistory && !options?.since && !options?.name) {
         const now = new Date();
         targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       }
 
-      if (targetMonth && !options?.since) {
-        const parts = targetMonth.split('-');
-        if (parts.length === 2) {
-          const y = parts[0];
-          const m = parts[1].padStart(2, '0');
-          const startISO = `${y}-${m}-01T00:00:00.000Z`;
-          baseQuery = baseQuery.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
+      const applyFilters = (q: any) => {
+        let query = q;
+        if (options?.since) {
+          query = query.gt('created_at', options.since);
         }
-      }
-
-      if (options?.name && options.name.trim() !== '') {
-        baseQuery = baseQuery.ilike('nama', options.name.trim());
-      }
+        if (targetMonth && !options?.since && !options?.name && !options?.allHistory) {
+          const parts = targetMonth.split('-');
+          if (parts.length === 2) {
+            const y = parts[0];
+            const m = parts[1].padStart(2, '0');
+            const startISO = `${y}-${m}-01T00:00:00.000Z`;
+            query = query.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
+          }
+        }
+        if (options?.name && options.name.trim() !== '') {
+          const cleanName = options.name.trim();
+          query = query.or(`nama.ilike.%${cleanName}%,id_pelanggan.ilike.%${cleanName}%`);
+        }
+        return query;
+      };
 
       if (options?.limit && options.limit > 0) {
+        let baseQuery = client.from('debt_transactions').select(selectCols);
+        baseQuery = applyFilters(baseQuery);
         baseQuery = baseQuery.order('created_at', { ascending: false });
         const { data, error } = await baseQuery.limit(options.limit);
         return { data: data as any, error };
       }
-
-      baseQuery = baseQuery.order('created_at', { ascending: true });
 
       let allData: SupabaseDebtTransaction[] = [];
       let page = 0;
@@ -1720,21 +1823,7 @@ export const SupabaseDebtService = {
 
       while (hasMore) {
         let pageQuery = client.from('debt_transactions').select(selectCols);
-        if (options?.since) {
-          pageQuery = pageQuery.gt('created_at', options.since);
-        }
-        if (targetMonth && !options?.since) {
-          const parts = targetMonth.split('-');
-          if (parts.length === 2) {
-            const y = parts[0];
-            const m = parts[1].padStart(2, '0');
-            const startISO = `${y}-${m}-01T00:00:00.000Z`;
-            pageQuery = pageQuery.or(`tanggal.ilike.%/${m}/${y}%,tanggal.ilike.%${y}-${m}%,created_at.gte.${startISO}`);
-          }
-        }
-        if (options?.name && options.name.trim() !== '') {
-          pageQuery = pageQuery.ilike('nama', options.name.trim());
-        }
+        pageQuery = applyFilters(pageQuery);
 
         const { data, error } = await pageQuery
           .order('created_at', { ascending: true })

@@ -316,21 +316,20 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
     }
 
     const headers = [
-      "No",
-      "ID Pelanggan",
-      "Nama Pelanggan",
-      "Tabungan (Rp)",
-      "Investasi (Rp)",
-      "Lainnya (Rp)",
-      "Hutang (Rp)",
-      "Level",
-      "Poin",
-      "Total Belanja Bulan Ini (Rp)",
-      "Peringkat",
-      "6 Aktivitas Terakhir",
-      "10 Mutasi Tabungan",
-      "10 Catatan Hutang",
-      "Terakhir Diperbarui"
+      "id pelanggan",
+      "nama",
+      "tabungan",
+      "investasi",
+      "lainnya",
+      "hutang",
+      "level",
+      "poin",
+      "total belanja bulan ini",
+      "peringkat",
+      "aktivitas terakhir",
+      "mutasi tabungan",
+      "catatan hutang",
+      "terakhir diperbarui"
     ];
 
     const customerRows = Array.isArray(customers) ? customers.map((c: any, index: number) => {
@@ -345,21 +344,20 @@ app.post("/api/sheets/sync-customers", async (req, res) => {
         const positiveHash = Math.abs(hash).toString(36).toUpperCase().padStart(4, "0").slice(-4);
         idPel = `CUST-${positiveHash}-${index + 1}`;
       }
-      const tabungan = Number(c.tabungan || c.Tabungan || 0);
-      const investasi = Number(c.investasi || c.Investasi || 0);
-      const lainnya = Number(c.lainnya || c.Lainnya || 0);
-      const hutang = Number(c.hutang || c.Hutang || 0);
+      const tabungan = Number(c.tabungan ?? c.Tabungan ?? 0);
+      const investasi = Number(c.investasi ?? c.Investasi ?? 0);
+      const lainnya = Number(c.lainnya ?? c.Lainnya ?? 0);
+      const hutang = Number(c.hutang ?? c.Hutang ?? 0);
       const level = c.level || c.Level || "Bronze";
-      const poin = Number(c.poin || c.Poin || 0);
+      const poin = Number(c.poin ?? c.point ?? c.Poin ?? c.Point ?? 0);
+      const totalBelanjaBulanIni = Number(c.total_belanja_bulan_ini ?? c.TotalBelanjaBulanIni ?? c.belanja_bulan_ini ?? 0);
+      const peringkat = c.peringkat || c.Peringkat || "Belum ada belanja bulan ini";
       const aktivitas = c.aktivitas_terakhir || c.AktivitasTerakhir || c.aktivitas || "Belum ada aktivitas";
       const mutasiTabungan = c.mutasi_tabungan || c.MutasiTabungan || "Belum ada mutasi tabungan";
       const catatanHutang = c.catatan_hutang || c.CatatanHutang || "Belum ada catatan hutang";
-      const totalBelanjaBulanIni = Number(c.total_belanja_bulan_ini || c.TotalBelanjaBulanIni || c.belanja_bulan_ini || 0);
-      const peringkat = c.peringkat || c.Peringkat || "Belum ada belanja bulan ini";
-      const updatedTime = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
+      const updatedTime = c.terakhir_diperbarui || c.TerakhirDiperbarui || new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
 
       return [
-        index + 1,
         idPel,
         nama,
         tabungan,
