@@ -246,7 +246,518 @@ CREATE TABLE IF NOT EXISTS public.redeemed_points (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_points_id_tukar ON public.redeemed_points (id_tukar);
 ALTER TABLE public.redeemed_points ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Akses Publik Points" ON public.redeemed_points;
-CREATE POLICY "Akses Publik Points" ON public.redeemed_points FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "Akses Publik Points" ON public.redeemed_points FOR ALL USING (true) WITH CHECK (true);
+
+-- 8. FUNCTION RPC: HITUNG LEVEL PELANGGAN DI DATABASE
+CREATE OR REPLACE FUNCTION public.calculate_customer_level(p_customer_name TEXT, p_customer_id TEXT DEFAULT NULL)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $
+DECLARE
+  v_total NUMERIC := 0;
+  v_level TEXT := 'Bronze';
+  v_min NUMERIC := 0;
+  v_max NUMERIC := 999999;
+  v_progress NUMERIC := 0;
+  v_color TEXT := 'text-amber-700';
+  v_bg TEXT := 'bg-amber-100';
+  v_border TEXT := 'border-amber-200';
+  v_three_months_ago TIMESTAMP WITH TIME ZONE := NOW() - INTERVAL '3 months';
+BEGIN
+  -- Hitung total belanja 3 bulan terakhir dari tabel sales_transactions
+  SELECT COALESCE(SUM(pemasukan), 0)
+  INTO v_total
+  FROM public.sales_transactions
+  WHERE (
+    (p_customer_id IS NOT NULL AND p_customer_id <> '' AND id_pelanggan = p_customer_id)
+    OR (p_customer_name IS NOT NULL AND p_customer_name <> '' AND LOWER(nama) = LOWER(p_customer_name))
+  )
+  AND (
+    created_at >= v_three_months_ago
+    OR (
+      CASE
+        WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN
+          TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY') >= v_three_months_ago::DATE
+        WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN
+          TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD') >= v_three_months_ago::DATE
+        ELSE TRUE
+      END
+    )
+  );
+
+  -- Tentukan level berdasarkan total belanja 3 bulan
+  IF v_total >= 20000000 THEN
+    v_level := 'Platinum';
+    v_min := 20000000;
+    v_max := 999999999;
+    v_progress := 100;
+    v_color := 'text-teal-600';
+    v_bg := 'bg-teal-100';
+    v_border := 'border-teal-300';
+  ELSIF v_total >= 10000000 THEN
+    v_level := 'Gold';
+    v_min := 10000000;
+    v_max := 19999999;
+    v_progress := LEAST(100, GREATEST(0, ((v_total - 10000000)::NUMERIC / 10000000::NUMERIC) * 100));
+    v_color := 'text-yellow-600';
+    v_bg := 'bg-yellow-100';
+    v_border := 'border-yellow-300';
+  ELSIF v_total >= 1000000 THEN
+    v_level := 'Silver';
+    v_min := 1000000;
+    v_max := 9999999;
+    v_progress := LEAST(100, GREATEST(0, ((v_total - 1000000)::NUMERIC / 9000000::NUMERIC) * 100));
+    v_color := 'text-slate-500';
+    v_bg := 'bg-slate-100';
+    v_border := 'border-slate-300';
+  ELSE
+    v_level := 'Bronze';
+    v_min := 0;
+    v_max := 999999;
+    v_progress := LEAST(100, GREATEST(0, (v_total::NUMERIC / 1000000::NUMERIC) * 100));
+    v_color := 'text-amber-700';
+    v_bg := 'bg-amber-100';
+    v_border := 'border-amber-200';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'name', v_level,
+    'total', v_total,
+    'min', v_min,
+    'max', v_max,
+    'progress', v_progress,
+    'color', v_color,
+    'bg', v_bg,
+    'border', v_border
+  );
+END;
+$;
+
+GRANT EXECUTE ON FUNCTION public.calculate_customer_level(TEXT, TEXT) TO anon, authenticated, service_role;
+
+-- 9. FUNCTION RPC: HITUNG RINGKASAN ARUS KAS (CASHFLOW) DI DATABASE
+CREATE OR REPLACE FUNCTION public.calculate_cashflow_summary(p_time_filter TEXT DEFAULT 'Bulan ini', p_custom_date TEXT DEFAULT NULL)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $
+DECLARE
+  v_start_date DATE;
+  v_end_date DATE;
+  v_sales_inflow NUMERIC := 0;
+  v_sales_outflow NUMERIC := 0;
+  v_savings_inflow NUMERIC := 0;
+  v_savings_outflow NUMERIC := 0;
+  v_debt_inflow NUMERIC := 0;
+  v_debt_outflow NUMERIC := 0;
+  v_total_pemasukan NUMERIC := 0;
+  v_total_pengeluaran NUMERIC := 0;
+  v_net NUMERIC := 0;
+  v_chart_data JSONB := '[]'::jsonb;
+BEGIN
+  IF p_time_filter = 'Hari ini' THEN
+    v_start_date := CURRENT_DATE;
+    v_end_date := CURRENT_DATE;
+  ELSIF p_time_filter = 'Minggu ini' THEN
+    v_start_date := DATE_TRUNC('week', CURRENT_DATE)::DATE;
+    v_end_date := CURRENT_DATE;
+  ELSIF p_time_filter = 'Bulan ini' THEN
+    v_start_date := DATE_TRUNC('month', CURRENT_DATE)::DATE;
+    v_end_date := (DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month - 1 day')::DATE;
+  ELSIF p_time_filter = 'Tahun ini' THEN
+    v_start_date := DATE_TRUNC('year', CURRENT_DATE)::DATE;
+    v_end_date := (DATE_TRUNC('year', CURRENT_DATE) + INTERVAL '1 year - 1 day')::DATE;
+  ELSIF p_time_filter LIKE 'day:%' THEN
+    v_start_date := TO_DATE(SUBSTRING(p_time_filter FROM 5), 'YYYY-MM-DD');
+    v_end_date := v_start_date;
+  ELSIF p_time_filter LIKE 'month:%' THEN
+    v_start_date := TO_DATE(SUBSTRING(p_time_filter FROM 7) || '-01', 'YYYY-MM-DD');
+    v_end_date := (DATE_TRUNC('month', v_start_date) + INTERVAL '1 month - 1 day')::DATE;
+  ELSIF p_time_filter LIKE 'year:%' THEN
+    v_start_date := TO_DATE(SUBSTRING(p_time_filter FROM 6) || '-01-01', 'YYYY-MM-DD');
+    v_end_date := (DATE_TRUNC('year', v_start_date) + INTERVAL '1 year - 1 day')::DATE;
+  ELSE
+    v_start_date := DATE_TRUNC('month', CURRENT_DATE)::DATE;
+    v_end_date := CURRENT_DATE;
+  END IF;
+
+  -- 1. Sales Inflow (Pemasukan) & Outflow (Modal)
+  SELECT 
+    COALESCE(SUM(pemasukan), 0),
+    COALESCE(SUM(harga_modal), 0)
+  INTO v_sales_inflow, v_sales_outflow
+  FROM public.sales_transactions
+  WHERE (
+    (created_at::DATE >= v_start_date AND created_at::DATE <= v_end_date)
+    OR (
+      CASE 
+        WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY') BETWEEN v_start_date AND v_end_date
+        WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD') BETWEEN v_start_date AND v_end_date
+        ELSE FALSE
+      END
+    )
+  );
+
+  -- 2. Savings Inflow (Setor) & Outflow (Tarik)
+  SELECT 
+    COALESCE(SUM(CASE WHEN UPPER(tipe) = 'SETOR' THEN nominal ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN UPPER(tipe) = 'TARIK' THEN nominal ELSE 0 END), 0)
+  INTO v_savings_inflow, v_savings_outflow
+  FROM public.saving_transactions
+  WHERE (
+    (created_at::DATE >= v_start_date AND created_at::DATE <= v_end_date)
+    OR (
+      CASE 
+        WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY') BETWEEN v_start_date AND v_end_date
+        WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD') BETWEEN v_start_date AND v_end_date
+        ELSE FALSE
+      END
+    )
+  );
+
+  -- 3. Debt Inflow (Bayar/Lunas) & Outflow (Kasbon/Tambah)
+  SELECT 
+    COALESCE(SUM(CASE WHEN UPPER(tipe) IN ('BAYAR', 'LUNAS', 'PEMBAYARAN', 'SETOR') THEN nominal ELSE 0 END), 0),
+    COALESCE(SUM(CASE WHEN UPPER(tipe) IN ('TAMBAH', 'KASBON', 'PINJAM', 'HUTANG') THEN nominal ELSE 0 END), 0)
+  INTO v_debt_inflow, v_debt_outflow
+  FROM public.debt_transactions
+  WHERE (
+    (created_at::DATE >= v_start_date AND created_at::DATE <= v_end_date)
+    OR (
+      CASE 
+        WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY') BETWEEN v_start_date AND v_end_date
+        WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD') BETWEEN v_start_date AND v_end_date
+        ELSE FALSE
+      END
+    )
+  );
+
+  v_total_pemasukan := v_sales_inflow + v_savings_inflow + v_debt_inflow;
+  v_total_pengeluaran := v_sales_outflow + v_savings_outflow + v_debt_outflow;
+  v_net := v_total_pemasukan - v_total_pengeluaran;
+
+  -- 4. Chart Data Aggregation
+  WITH daily_stats AS (
+    SELECT 
+      tgl,
+      SUM(inflow) AS pemasukan,
+      SUM(outflow) AS pengeluaran
+    FROM (
+      SELECT 
+        CASE 
+          WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_CHAR(TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY'), 'YYYY-MM-DD')
+          WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN SUBSTRING(tanggal FROM 1 FOR 10)
+          ELSE TO_CHAR(created_at::DATE, 'YYYY-MM-DD')
+        END AS tgl,
+        pemasukan AS inflow,
+        harga_modal AS outflow
+      FROM public.sales_transactions
+      WHERE (
+        (created_at::DATE >= v_start_date AND created_at::DATE <= v_end_date)
+        OR (
+          CASE 
+            WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY') BETWEEN v_start_date AND v_end_date
+            WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD') BETWEEN v_start_date AND v_end_date
+            ELSE FALSE
+          END
+        )
+      )
+      UNION ALL
+      SELECT 
+        CASE 
+          WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_CHAR(TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY'), 'YYYY-MM-DD')
+          WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN SUBSTRING(tanggal FROM 1 FOR 10)
+          ELSE TO_CHAR(created_at::DATE, 'YYYY-MM-DD')
+        END AS tgl,
+        CASE WHEN UPPER(tipe) = 'SETOR' THEN nominal ELSE 0 END AS inflow,
+        CASE WHEN UPPER(tipe) = 'TARIK' THEN nominal ELSE 0 END AS outflow
+      FROM public.saving_transactions
+      WHERE (
+        (created_at::DATE >= v_start_date AND created_at::DATE <= v_end_date)
+        OR (
+          CASE 
+            WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY') BETWEEN v_start_date AND v_end_date
+            WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD') BETWEEN v_start_date AND v_end_date
+            ELSE FALSE
+          END
+        )
+      )
+      UNION ALL
+      SELECT 
+        CASE 
+          WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_CHAR(TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY'), 'YYYY-MM-DD')
+          WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN SUBSTRING(tanggal FROM 1 FOR 10)
+          ELSE TO_CHAR(created_at::DATE, 'YYYY-MM-DD')
+        END AS tgl,
+        CASE WHEN UPPER(tipe) IN ('BAYAR', 'LUNAS', 'PEMBAYARAN', 'SETOR') THEN nominal ELSE 0 END AS inflow,
+        CASE WHEN UPPER(tipe) IN ('TAMBAH', 'KASBON', 'PINJAM', 'HUTANG') THEN nominal ELSE 0 END AS outflow
+      FROM public.debt_transactions
+      WHERE (
+        (created_at::DATE >= v_start_date AND created_at::DATE <= v_end_date)
+        OR (
+          CASE 
+            WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY') BETWEEN v_start_date AND v_end_date
+            WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD') BETWEEN v_start_date AND v_end_date
+            ELSE FALSE
+          END
+        )
+      )
+    ) comb
+    WHERE tgl IS NOT NULL AND tgl <> ''
+    GROUP BY tgl
+    ORDER BY tgl ASC
+  )
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'date', tgl,
+      'pemasukan', pemasukan,
+      'pengeluaran', pengeluaran,
+      'net', pemasukan - pengeluaran,
+      'status', CASE WHEN pemasukan >= pengeluaran THEN 'Surplus' ELSE 'Defisit' END
+    )
+  ) INTO v_chart_data
+  FROM daily_stats;
+
+  RETURN jsonb_build_object(
+    'total_pemasukan', v_total_pemasukan,
+    'total_pengeluaran', v_total_pengeluaran,
+    'net_defisit_surplus', v_net,
+    'sales_inflow', v_sales_inflow,
+    'sales_outflow', v_sales_outflow,
+    'savings_inflow', v_savings_inflow,
+    'savings_outflow', v_savings_outflow,
+    'debt_inflow', v_debt_inflow,
+    'debt_outflow', v_debt_outflow,
+    'chart_data', COALESCE(v_chart_data, '[]'::jsonb)
+  );
+END;
+$;
+
+GRANT EXECUTE ON FUNCTION public.calculate_cashflow_summary(TEXT, TEXT) TO anon, authenticated, service_role;
+
+-- 10. FUNCTION RPC: HITUNG LAPORAN PENJUALAN DI DATABASE
+CREATE OR REPLACE FUNCTION public.calculate_sales_report_summary(
+  p_date TEXT DEFAULT NULL,
+  p_month TEXT DEFAULT NULL,
+  p_year TEXT DEFAULT NULL,
+  p_search TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $
+DECLARE
+  v_total_pemasukan NUMERIC := 0;
+  v_total_modal NUMERIC := 0;
+  v_total_keuntungan NUMERIC := 0;
+  v_total_transaksi INT := 0;
+  v_grouped JSONB := '[]'::jsonb;
+  v_target_date DATE;
+BEGIN
+  IF p_date IS NOT NULL AND p_date <> '' THEN
+    IF p_date ~ '^\d{2}/\d{2}/\d{4}' THEN
+      v_target_date := TO_DATE(SUBSTRING(p_date FROM 1 FOR 10), 'DD/MM/YYYY');
+    ELSE
+      v_target_date := TO_DATE(SUBSTRING(p_date FROM 1 FOR 10), 'YYYY-MM-DD');
+    END IF;
+  END IF;
+
+  WITH filtered_sales AS (
+    SELECT 
+      id,
+      id_transaksi,
+      id_pelanggan,
+      tanggal,
+      nama,
+      COALESCE(jenis, 'Lainnya') AS jenis,
+      COALESCE(pemasukan, 0) AS pemasukan,
+      COALESCE(harga_modal, 0) AS harga_modal,
+      COALESCE(pemasukan, 0) - COALESCE(harga_modal, 0) AS keuntungan,
+      melalui,
+      status
+    FROM public.sales_transactions
+    WHERE (
+      v_target_date IS NULL
+      OR (
+        CASE 
+          WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY') = v_target_date
+          WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD') = v_target_date
+          ELSE created_at::DATE = v_target_date
+        END
+      )
+    )
+    AND (
+      p_search IS NULL OR p_search = ''
+      OR LOWER(nama) LIKE '%' || LOWER(p_search) || '%'
+      OR LOWER(jenis) LIKE '%' || LOWER(p_search) || '%'
+      OR LOWER(melalui) LIKE '%' || LOWER(p_search) || '%'
+      OR LOWER(status) LIKE '%' || LOWER(p_search) || '%'
+    )
+  ),
+  aggregated_types AS (
+    SELECT 
+      INITCAP(jenis) AS jenis,
+      SUM(pemasukan) AS pemasukan,
+      SUM(keuntungan) AS keuntungan,
+      COUNT(*) AS count
+    FROM filtered_sales
+    GROUP BY INITCAP(jenis)
+    ORDER BY pemasukan DESC
+  )
+  SELECT 
+    COALESCE(SUM(pemasukan), 0),
+    COALESCE(SUM(harga_modal), 0),
+    COALESCE(SUM(keuntungan), 0),
+    COUNT(*)
+  INTO v_total_pemasukan, v_total_modal, v_total_keuntungan, v_total_transaksi
+  FROM filtered_sales;
+
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'jenis', jenis,
+      'pemasukan', pemasukan,
+      'keuntungan', keuntungan,
+      'count', count
+    )
+  ), '[]'::jsonb)
+  INTO v_grouped
+  FROM aggregated_types;
+
+  RETURN jsonb_build_object(
+    'total_pemasukan', v_total_pemasukan,
+    'total_modal', v_total_modal,
+    'total_keuntungan', v_total_keuntungan,
+    'total_transaksi', v_total_transaksi,
+    'grouped_summary', v_grouped
+  );
+END;
+$;
+
+GRANT EXECUTE ON FUNCTION public.calculate_sales_report_summary(TEXT, TEXT, TEXT, TEXT) TO anon, authenticated, service_role;
+
+-- 11. FUNCTION RPC: HITUNG POIN AKTIF & KEDALUWARSA DI DATABASE
+CREATE OR REPLACE FUNCTION public.calculate_customer_active_points(
+  p_customer_name TEXT,
+  p_customer_id TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $
+DECLARE
+  v_earned_points NUMERIC := 0;
+  v_expired_points NUMERIC := 0;
+  v_redeemed_points NUMERIC := 0;
+  v_active_points NUMERIC := 0;
+  v_one_year_ago TIMESTAMP WITH TIME ZONE := NOW() - INTERVAL '1 year';
+BEGIN
+  -- Total poin diperoleh dari transaksi belanja sejak Nov 2025
+  SELECT COALESCE(SUM(FLOOR(pemasukan / 10000)), 0)
+  INTO v_earned_points
+  FROM public.sales_transactions
+  WHERE (
+    (p_customer_id IS NOT NULL AND p_customer_id <> '' AND id_pelanggan = p_customer_id)
+    OR (p_customer_name IS NOT NULL AND p_customer_name <> '' AND LOWER(nama) = LOWER(p_customer_name))
+  )
+  AND (
+    created_at >= '2025-11-01'::TIMESTAMP WITH TIME ZONE
+    OR (
+      CASE 
+        WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY') >= '2025-11-01'::DATE
+        WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD') >= '2025-11-01'::DATE
+        ELSE TRUE
+      END
+    )
+  );
+
+  -- Poin hangus (> 1 tahun)
+  SELECT COALESCE(SUM(FLOOR(pemasukan / 10000)), 0)
+  INTO v_expired_points
+  FROM public.sales_transactions
+  WHERE (
+    (p_customer_id IS NOT NULL AND p_customer_id <> '' AND id_pelanggan = p_customer_id)
+    OR (p_customer_name IS NOT NULL AND p_customer_name <> '' AND LOWER(nama) = LOWER(p_customer_name))
+  )
+  AND (
+    created_at < v_one_year_ago
+    OR (
+      CASE 
+        WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY') < v_one_year_ago::DATE
+        WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD') < v_one_year_ago::DATE
+        ELSE FALSE
+      END
+    )
+  );
+
+  -- Poin yang telah ditukarkan
+  SELECT COALESCE(SUM(poin), 0)
+  INTO v_redeemed_points
+  FROM public.redeemed_points
+  WHERE (
+    (p_customer_id IS NOT NULL AND p_customer_id <> '' AND id_pelanggan = p_customer_id)
+    OR (p_customer_name IS NOT NULL AND p_customer_name <> '' AND LOWER(nama) = LOWER(p_customer_name))
+  );
+
+  v_active_points := GREATEST(0, v_earned_points - v_expired_points - v_redeemed_points);
+
+  RETURN jsonb_build_object(
+    'active_points', v_active_points,
+    'earned_points', v_earned_points,
+    'expired_points', v_expired_points,
+    'redeemed_points', v_redeemed_points
+  );
+END;
+$;
+
+GRANT EXECUTE ON FUNCTION public.calculate_customer_active_points(TEXT, TEXT) TO anon, authenticated, service_role;
+
+-- 12. FUNCTION RPC: HITUNG VALUASI INVENTORI & STOK DI DATABASE
+CREATE OR REPLACE FUNCTION public.calculate_stock_valuation()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $
+DECLARE
+  v_total_items INT := 0;
+  v_total_qty NUMERIC := 0;
+  v_total_modal NUMERIC := 0;
+  v_total_jual NUMERIC := 0;
+  v_potential_profit NUMERIC := 0;
+  v_low_stock_count INT := 0;
+  v_out_of_stock_count INT := 0;
+BEGIN
+  SELECT 
+    COUNT(*),
+    COALESCE(SUM(stok), 0),
+    COALESCE(SUM(stok * harga_modal), 0),
+    COALESCE(SUM(stok * harga_jual), 0),
+    COALESCE(SUM(stok * (harga_jual - harga_modal)), 0),
+    COUNT(*) FILTER (WHERE stok > 0 AND stok <= COALESCE(min_stok, 5)),
+    COUNT(*) FILTER (WHERE stok <= 0)
+  INTO 
+    v_total_items,
+    v_total_qty,
+    v_total_modal,
+    v_total_jual,
+    v_potential_profit,
+    v_low_stock_count,
+    v_out_of_stock_count
+  FROM public.products;
+
+  RETURN jsonb_build_object(
+    'total_items', v_total_items,
+    'total_qty', v_total_qty,
+    'total_modal_value', v_total_modal,
+    'total_jual_value', v_total_jual,
+    'potential_profit', v_potential_profit,
+    'low_stock_count', v_low_stock_count,
+    'out_of_stock_count', v_out_of_stock_count
+  );
+END;
+$;
+
+GRANT EXECUTE ON FUNCTION public.calculate_stock_valuation() TO anon, authenticated, service_role;`;
 
 export const SUPABASE_CREATE_PRODUCTS_TABLE_SQL = SUPABASE_MASTER_CREATE_TABLES_SQL;
 
@@ -331,6 +842,7 @@ export interface SupabaseQueryLog {
   id: string;
   timestamp: string;
   table: string;
+  page: string;
   operation: 'SELECT' | 'INSERT' | 'UPDATE' | 'UPSERT' | 'DELETE' | 'STORAGE' | 'BATCH';
   durationMs: number;
   rowCount: number;
@@ -351,6 +863,19 @@ export interface SupabaseTableStats {
   errorCount: number;
 }
 
+export interface SupabasePageStats {
+  page: string;
+  pageLabel: string;
+  count: number;
+  totalMs: number;
+  avgMs: number;
+  totalBytes: number;
+  formattedSize: string;
+  rowCount: number;
+  errorCount: number;
+  byTable: Record<string, { count: number; bytes: number; formattedSize: string; rowCount: number }>;
+}
+
 export interface SupabaseQueryStats {
   totalQueries: number;
   totalDurationMs: number;
@@ -359,6 +884,7 @@ export interface SupabaseQueryStats {
   avgDurationMs: number;
   errorCount: number;
   byTable: Record<string, SupabaseTableStats>;
+  byPage: Record<string, SupabasePageStats>;
 }
 
 export function formatByteSize(bytes: number): string {
@@ -377,9 +903,29 @@ export function estimateObjectSize(data: any): number {
   }
 }
 
+export function getFriendlyPageLabel(pathname: string): string {
+  if (!pathname || pathname === '/') return 'Beranda / Kasir Utama';
+  if (pathname.includes('/admin/laporan')) return 'Admin - Laporan Penjualan';
+  if (pathname.includes('/admin/database')) return 'Admin - Database & Analisa Trafik';
+  if (pathname.includes('/admin/pelanggan')) return 'Admin - Manajemen Pelanggan';
+  if (pathname.includes('/admin/stok')) return 'Admin - Manajemen Stok Barang';
+  if (pathname.includes('/admin/tabungan')) return 'Admin - Detail Tabungan';
+  if (pathname.includes('/admin/hutang')) return 'Admin - Detail Hutang';
+  if (pathname.includes('/admin/belanja')) return 'Admin - Detail Belanja';
+  if (pathname.includes('/admin/input-data')) return 'Admin - Input Transaksi';
+  if (pathname.includes('/admin/digiflazz')) return 'Admin - Digiflazz PPOB';
+  if (pathname.includes('/admin')) return 'Admin - Dashboard Utama';
+  if (pathname.includes('/transaksi-penjualan')) return 'Kasir - Transaksi Penjualan';
+  if (pathname.includes('/profil') || pathname.includes('/pengaturan-profil')) return 'Profil Pelanggan & Loyalitas';
+  if (pathname.includes('/hadiah') || pathname.includes('/tukar-poin')) return 'Katalog Hadiah & Tukar Poin';
+  if (pathname.includes('/bantuan')) return 'Pusat Bantuan';
+  return pathname;
+}
+
 class SupabaseQueryLoggerClass {
   private logs: SupabaseQueryLog[] = [];
-  private maxLogs = 200;
+  private maxLogs = 300;
+  private listeners: Array<() => void> = [];
   private stats: SupabaseQueryStats = {
     totalQueries: 0,
     totalDurationMs: 0,
@@ -387,8 +933,22 @@ class SupabaseQueryLoggerClass {
     formattedTotalSize: '0 B',
     avgDurationMs: 0,
     errorCount: 0,
-    byTable: {}
+    byTable: {},
+    byPage: {}
   };
+
+  public subscribe(callback: () => void): () => void {
+    this.listeners.push(callback);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== callback);
+    };
+  }
+
+  private notify() {
+    this.listeners.forEach(l => {
+      try { l(); } catch {}
+    });
+  }
 
   public async track<T>(
     table: string,
@@ -400,6 +960,8 @@ class SupabaseQueryLoggerClass {
     const filterSummary = typeof filterInfo === 'string'
       ? filterInfo
       : JSON.stringify(filterInfo || {});
+
+    const currentPage = typeof window !== 'undefined' && window.location ? window.location.pathname : '/';
 
     try {
       const res = await queryFn();
@@ -416,6 +978,7 @@ class SupabaseQueryLoggerClass {
         id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         timestamp: new Date().toISOString(),
         table,
+        page: currentPage,
         operation,
         durationMs,
         rowCount,
@@ -434,6 +997,7 @@ class SupabaseQueryLoggerClass {
         id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         timestamp: new Date().toISOString(),
         table,
+        page: currentPage,
         operation,
         durationMs,
         rowCount: 0,
@@ -453,7 +1017,7 @@ class SupabaseQueryLoggerClass {
       this.logs.pop();
     }
 
-    // Update stats
+    // Update global stats
     this.stats.totalQueries++;
     this.stats.totalDurationMs += log.durationMs;
     this.stats.totalBytes += log.estimatedBytes;
@@ -461,6 +1025,7 @@ class SupabaseQueryLoggerClass {
     this.stats.avgDurationMs = Math.round((this.stats.totalDurationMs / this.stats.totalQueries) * 100) / 100;
     if (log.status === 'ERROR') this.stats.errorCount++;
 
+    // Update byTable stats
     if (!this.stats.byTable[log.table]) {
       this.stats.byTable[log.table] = {
         count: 0,
@@ -480,6 +1045,41 @@ class SupabaseQueryLoggerClass {
     tbl.formattedSize = formatByteSize(tbl.totalBytes);
     tbl.rowCount += log.rowCount;
     if (log.status === 'ERROR') tbl.errorCount++;
+
+    // Update byPage stats
+    const pageKey = log.page || '/';
+    if (!this.stats.byPage[pageKey]) {
+      this.stats.byPage[pageKey] = {
+        page: pageKey,
+        pageLabel: getFriendlyPageLabel(pageKey),
+        count: 0,
+        totalMs: 0,
+        avgMs: 0,
+        totalBytes: 0,
+        formattedSize: '0 B',
+        rowCount: 0,
+        errorCount: 0,
+        byTable: {}
+      };
+    }
+    const pg = this.stats.byPage[pageKey];
+    pg.count++;
+    pg.totalMs += log.durationMs;
+    pg.avgMs = Math.round((pg.totalMs / pg.count) * 100) / 100;
+    pg.totalBytes += log.estimatedBytes;
+    pg.formattedSize = formatByteSize(pg.totalBytes);
+    pg.rowCount += log.rowCount;
+    if (log.status === 'ERROR') pg.errorCount++;
+
+    if (!pg.byTable[log.table]) {
+      pg.byTable[log.table] = { count: 0, bytes: 0, formattedSize: '0 B', rowCount: 0 };
+    }
+    pg.byTable[log.table].count++;
+    pg.byTable[log.table].bytes += log.estimatedBytes;
+    pg.byTable[log.table].formattedSize = formatByteSize(pg.byTable[log.table].bytes);
+    pg.byTable[log.table].rowCount += log.rowCount;
+
+    this.notify();
 
     // Pretty Console Output with badges
     const speedBadge = log.durationMs > 1000 ? '🔴 SLOW' : log.durationMs > 300 ? '🟡 MED' : '🟢 FAST';
@@ -503,7 +1103,7 @@ class SupabaseQueryLoggerClass {
       }
     } else {
       console.log(
-        `%c[Supabase]%c %c${log.table}%c %c${log.operation}%c ⚡ %c${log.durationMs}ms (${speedBadge})%c | 📦 %c${log.rowCount} rows%c | 🌐 %c${log.formattedSize}%c | Filter: %c${log.filterSummary.length > 80 ? log.filterSummary.slice(0, 80) + '...' : log.filterSummary}`,
+        `%c[Supabase]%c %c${log.table}%c %c${log.operation}%c ⚡ %c${log.durationMs}ms (${speedBadge})%c | 📦 %c${log.rowCount} rows%c | 🌐 %c${log.formattedSize}%c | Page: %c${log.page}%c | Filter: %c${log.filterSummary.length > 60 ? log.filterSummary.slice(0, 60) + '...' : log.filterSummary}`,
         'background: #005E6A; color: white; padding: 1px 5px; border-radius: 3px; font-weight: bold; font-size: 10px;',
         '',
         'color: #0284c7; font-weight: bold;',
@@ -515,6 +1115,8 @@ class SupabaseQueryLoggerClass {
         'color: #059669; font-weight: bold;',
         '',
         `color: ${sizeColor}; font-weight: bold;`,
+        '',
+        'color: #8b5cf6; font-weight: 600;',
         '',
         'color: #64748b; font-style: italic;'
       );
@@ -538,8 +1140,10 @@ class SupabaseQueryLoggerClass {
       formattedTotalSize: '0 B',
       avgDurationMs: 0,
       errorCount: 0,
-      byTable: {}
+      byTable: {},
+      byPage: {}
     };
+    this.notify();
   }
 
   public printSummary() {
@@ -710,7 +1314,16 @@ export const SupabaseCustomerService = {
     return !!getSupabaseClient();
   },
 
-  async getCustomers(options?: { name?: string; limit?: number; select?: string; withBalanceOnly?: boolean; debtOnly?: boolean; since?: string }): Promise<{ data: SupabaseCustomer[] | null; error: any }> {
+  async getCustomers(options?: { 
+    name?: string; 
+    customerId?: string; 
+    id_pelanggan?: string; 
+    limit?: number; 
+    select?: string; 
+    withBalanceOnly?: boolean; 
+    debtOnly?: boolean; 
+    since?: string 
+  }): Promise<{ data: SupabaseCustomer[] | null; error: any }> {
     return SupabaseQueryLogger.track('customers', 'SELECT', options, async () => {
       const client = getSupabaseClient();
       if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
@@ -726,6 +1339,17 @@ export const SupabaseCustomerService = {
         baseQuery = baseQuery.gt('hutang', 0);
       } else if (options?.withBalanceOnly) {
         baseQuery = baseQuery.or('tabungan.gt.0,investasi.gt.0,lainnya.gt.0,hutang.gt.0');
+      }
+
+      const cId = (options?.customerId || options?.id_pelanggan || '').trim();
+      if (cId) {
+        baseQuery = baseQuery.eq('id_pelanggan', cId);
+        if (options?.limit && options.limit > 0) baseQuery = baseQuery.limit(options.limit);
+        else baseQuery = baseQuery.limit(1);
+        const { data, error } = await baseQuery;
+        if (!error && data && (data as any).length > 0) {
+          return { data: data as any, error: null };
+        }
       }
 
       if (options?.name && options.name.trim() !== '') {
@@ -774,6 +1398,30 @@ export const SupabaseCustomerService = {
 
       if (allData.length === 0 && lastError) return { data: null, error: lastError };
       return { data: allData, error: null };
+    });
+  },
+
+  async calculateCustomerLevelRpc(
+    customerName: string,
+    customerId?: string
+  ): Promise<{ data: { name: string; total: number; min: number; max: number; progress: number; color?: string; bg?: string; border?: string } | null; error: any }> {
+    return SupabaseQueryLogger.track('sales_transactions', 'SELECT', { function: 'calculate_customer_level', customerName, customerId }, async () => {
+      const client = getSupabaseClient();
+      if (!client || !customerName) {
+        return { data: null, error: new Error("Client Supabase tidak aktif atau nama pelanggan kosong.") };
+      }
+      try {
+        const { data, error } = await client.rpc('calculate_customer_level', {
+          p_customer_name: customerName,
+          p_customer_id: customerId || null
+        });
+        if (!error && data) {
+          return { data: data as any, error: null };
+        }
+        return { data: null, error };
+      } catch (err: any) {
+        return { data: null, error: err };
+      }
     });
   },
 
@@ -1283,6 +1931,33 @@ export const SupabaseStockService = {
     }
 
     return { successCount, skippedCount, failedCount, errors };
+  },
+
+  async calculateStockValuationRpc(): Promise<{
+    data: {
+      total_items: number;
+      total_qty: number;
+      total_modal_value: number;
+      total_jual_value: number;
+      potential_profit: number;
+      low_stock_count: number;
+      out_of_stock_count: number;
+    } | null;
+    error: any;
+  }> {
+    return SupabaseQueryLogger.track('products', 'SELECT', { function: 'calculate_stock_valuation' }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      try {
+        const { data, error } = await client.rpc('calculate_stock_valuation');
+        if (!error && data) {
+          return { data: data as any, error: null };
+        }
+        return { data: null, error };
+      } catch (err: any) {
+        return { data: null, error: err };
+      }
+    });
   }
 };
 
@@ -2196,8 +2871,50 @@ export const SupabaseSalesService = {
     });
   },
 
-  async addSalesTransaction(sale: SupabaseSalesTransaction): Promise<{ data: any; error: any }> {
-    return this.upsertSale(sale);
+  async addSalesTransaction(sale: SupabaseSalesTransaction | any): Promise<{ data: any; error: any }> {
+    return SupabaseQueryLogger.track('sales_transactions', 'INSERT', { name: sale.nama || sale.Nama }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+
+      let idTx = String(sale.id_transaksi || sale.id || `TRX-${Date.now()}`).trim();
+
+      // Check if id_transaksi already exists in Supabase, append unique suffix to avoid overwriting existing data
+      try {
+        const { data: existing } = await client
+          .from('sales_transactions')
+          .select('id_transaksi')
+          .eq('id_transaksi', idTx)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          idTx = `${idTx}-${Math.floor(Date.now() / 1000).toString().slice(-4)}`;
+        }
+      } catch (e) {
+        // Ignore check error and proceed
+      }
+
+      const payload: any = {
+        id_transaksi: idTx,
+        id_pelanggan: sale.id_pelanggan || '',
+        tanggal: sale.tanggal || sale.Tanggal || new Date().toISOString().slice(0, 10),
+        nama: sale.nama || sale.Nama || 'Pelanggan',
+        jenis: sale.jenis || sale.Jenis || 'Penjualan',
+        metode: sale.metode || sale.Metode || 'Tunai',
+        pemasukan: Number(sale.pemasukan !== undefined ? sale.pemasukan : (sale.Pemasukan || 0)),
+        poin: Number(sale.poin !== undefined ? sale.poin : (sale.Poin || 0)),
+        status: sale.status || sale.Status || 'SELESAI',
+        melalui: sale.melalui || sale.Melalui || 'Kasir',
+        harga_modal: Number(sale.harga_modal !== undefined ? sale.harga_modal : (sale.HargaModal || 0)),
+        sebagian: Number(sale.sebagian !== undefined ? sale.sebagian : (sale.Sebagian || 0))
+      };
+
+      const { data, error } = await client.from('sales_transactions').insert(payload).select();
+      if (error) {
+        // Fallback to upsert if needed
+        return await client.from('sales_transactions').upsert(payload, { onConflict: 'id_transaksi' }).select();
+      }
+      return { data, error: null };
+    });
   },
 
   async deleteSale(idTransaksi: string): Promise<{ data: any; error: any }> {
@@ -2265,6 +2982,88 @@ export const SupabaseSalesService = {
       await new Promise(res => setTimeout(res, 5));
     }
     return { successCount, skippedCount, failedCount, errors };
+  },
+
+  async calculateCashflowSummaryRpc(
+    timeFilter: string = 'Bulan ini',
+    customDate?: string
+  ): Promise<{
+    data: {
+      total_pemasukan: number;
+      total_pengeluaran: number;
+      net_defisit_surplus: number;
+      sales_inflow: number;
+      sales_outflow: number;
+      savings_inflow: number;
+      savings_outflow: number;
+      debt_inflow: number;
+      debt_outflow: number;
+      chart_data: Array<{
+        date: string;
+        pemasukan: number;
+        pengeluaran: number;
+        net: number;
+        status: string;
+      }>;
+    } | null;
+    error: any;
+  }> {
+    return SupabaseQueryLogger.track('sales_transactions', 'SELECT', { function: 'calculate_cashflow_summary', timeFilter, customDate }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      try {
+        const { data, error } = await client.rpc('calculate_cashflow_summary', {
+          p_time_filter: timeFilter,
+          p_custom_date: customDate || null
+        });
+        if (!error && data) {
+          return { data: data as any, error: null };
+        }
+        return { data: null, error };
+      } catch (err: any) {
+        return { data: null, error: err };
+      }
+    });
+  },
+
+  async calculateSalesReportSummaryRpc(options?: {
+    date?: string;
+    month?: string;
+    year?: string;
+    search?: string;
+  }): Promise<{
+    data: {
+      total_pemasukan: number;
+      total_modal: number;
+      total_keuntungan: number;
+      total_transaksi: number;
+      grouped_summary: Array<{
+        jenis: string;
+        pemasukan: number;
+        keuntungan: number;
+        count: number;
+      }>;
+    } | null;
+    error: any;
+  }> {
+    return SupabaseQueryLogger.track('sales_transactions', 'SELECT', { function: 'calculate_sales_report_summary', options }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      try {
+        const { data, error } = await client.rpc('calculate_sales_report_summary', {
+          p_date: options?.date || null,
+          p_month: options?.month || null,
+          p_year: options?.year || null,
+          p_search: options?.search || null
+        });
+        if (!error && data) {
+          return { data: data as any, error: null };
+        }
+        return { data: null, error };
+      } catch (err: any) {
+        return { data: null, error: err };
+      }
+    });
   }
 };
 
@@ -2446,5 +3245,37 @@ export const SupabasePointsService = {
       await new Promise(res => setTimeout(res, 5));
     }
     return { successCount, skippedCount, failedCount, errors };
+  },
+
+  async calculateCustomerActivePointsRpc(
+    customerName: string,
+    customerId?: string
+  ): Promise<{
+    data: {
+      active_points: number;
+      earned_points: number;
+      expired_points: number;
+      redeemed_points: number;
+    } | null;
+    error: any;
+  }> {
+    return SupabaseQueryLogger.track('redeemed_points', 'SELECT', { function: 'calculate_customer_active_points', customerName, customerId }, async () => {
+      const client = getSupabaseClient();
+      if (!client || !customerName) {
+        return { data: null, error: new Error("Supabase tidak aktif atau nama kosong.") };
+      }
+      try {
+        const { data, error } = await client.rpc('calculate_customer_active_points', {
+          p_customer_name: customerName,
+          p_customer_id: customerId || null
+        });
+        if (!error && data) {
+          return { data: data as any, error: null };
+        }
+        return { data: null, error };
+      } catch (err: any) {
+        return { data: null, error: err };
+      }
+    });
   }
 };

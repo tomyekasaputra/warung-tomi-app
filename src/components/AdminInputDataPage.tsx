@@ -144,7 +144,9 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
   // ==========================================
   const calculateAutoTxId = (idPelanggan: string, nama: string, allTxs: SalesTransaction[]): string => {
     const custDigits = get4DigitCustId(idPelanggan);
-    const custTxs = allTxs.filter((tx) => {
+    const existingIds = new Set((allTxs || []).map((t) => String(t.id_transaksi || t.id || "")));
+
+    const custTxs = (allTxs || []).filter((tx) => {
       const txCustId = (tx.id_pelanggan || "").trim().toLowerCase();
       const txName = (tx.Nama || tx.nama || "").trim().toLowerCase();
       const targetCustId = (idPelanggan || "").trim().toLowerCase();
@@ -153,7 +155,7 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
       if (targetCustId && targetCustId !== "cust-0000") {
         if (txCustId === targetCustId) return true;
       }
-      if (targetName) {
+      if (targetName && targetName.toLowerCase() !== "pelanggan umum") {
         if (txName === targetName) return true;
       }
       return false;
@@ -162,7 +164,7 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
     let maxSeq = custTxs.length;
     custTxs.forEach((tx) => {
       const txIdStr = tx.id_transaksi || tx.id || "";
-      const match = txIdStr.match(/\/(\d+)$/);
+      const match = txIdStr.match(/\/(\d+)(?:-\d+)?$/);
       if (match) {
         const num = parseInt(match[1], 10);
         if (!isNaN(num) && num > maxSeq) {
@@ -171,8 +173,23 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
       }
     });
 
-    const nextSeq = maxSeq + 1;
-    return `TRX-${custDigits}/${nextSeq}`;
+    let nextSeq = maxSeq + 1;
+    let candidate = `TRX-${custDigits}/${nextSeq}`;
+
+    while (existingIds.has(candidate)) {
+      nextSeq++;
+      candidate = `TRX-${custDigits}/${nextSeq}`;
+    }
+
+    if (custDigits === "0000" || !idPelanggan || idPelanggan === "CUST-0000") {
+      const timeSlice = Math.floor(Date.now() / 1000).toString().slice(-4);
+      candidate = `TRX-${custDigits}/${nextSeq}-${timeSlice}`;
+      while (existingIds.has(candidate)) {
+        candidate = `TRX-${custDigits}/${nextSeq}-${Math.floor(Math.random() * 9000 + 1000)}`;
+      }
+    }
+
+    return candidate;
   };
 
   const defaultCustId = "CUST-0000";
@@ -286,6 +303,24 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
         `Transaksi ${newTx.id_transaksi} atas nama ${newTx.Nama} telah sukses tersimpan di Supabase Database!`,
         `Jenis: ${newTx.Jenis} | Total: Rp ${(newTx.Pemasukan || 0).toLocaleString('id-ID')}`
       );
+
+      // Reset form with a brand new auto transaction ID
+      const nextTxId = calculateAutoTxId(defaultCustId, defaultName, [newTx, ...salesTransactions]);
+      setAddSalesForm({
+        id_transaksi: nextTxId,
+        id_pelanggan: defaultCustId,
+        Tanggal: formatDateDDMMYYYY(),
+        Nama: defaultName,
+        Jenis: "TARIK TUNAI",
+        Melalui: "EDC BNI",
+        Metode: "TUNAI",
+        Pemasukan: 0,
+        hargaAdmin: 3000,
+        HargaModal: 0,
+        Sebagian: 0,
+        Poin: 0,
+        Status: "SELESAI"
+      });
     } catch (err: any) {
       console.error("Gagal menambah transaksi virtual:", err);
       setIsProcessingModal(false);

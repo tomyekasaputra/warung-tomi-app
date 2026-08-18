@@ -3498,11 +3498,25 @@ const LoyaltyPointsPage = ({ user, customers, transactions, redeemedPoints }: { 
   const [activeTab, setActiveTab ] = useState<"HADIAH" | "CARA">("HADIAH");
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
+  const [rpcPoints, setRpcPoints] = useState<number | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (user?.Nama) {
+      SupabasePointsService.calculateCustomerActivePointsRpc(user.Nama, user.id_pelanggan).then(res => {
+        if (isMounted && res.data && typeof res.data.active_points === 'number') {
+          setRpcPoints(res.data.active_points);
+        }
+      }).catch(() => {});
+    }
+    return () => { isMounted = false; };
+  }, [user?.Nama, user?.id_pelanggan]);
 
   const activePoints = useMemo(() => {
+    if (rpcPoints !== null) return rpcPoints;
     if (!user) return 0;
     return Number(user.Poin ?? (user as any).point ?? (user as any).poin ?? 0);
-  }, [user]);
+  }, [user, rpcPoints]);
 
   const handleSearch = (val: string) => {
     setSearchQuery(val);
@@ -7217,13 +7231,13 @@ const AdminReportPage = ({
 }) => {
   const navigate = useNavigate();
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (filterDate && fetchData) {
       fetchData(false, 'salesTransactions', { dateFilter: filterDate });
     }
   }, [filterDate]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [showSummary, setShowSummary] = useState(false);
   const [listDirection, setListDirection] = useState<'left' | 'right'>('right');
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -7341,8 +7355,9 @@ const AdminReportPage = ({
 
   const calculateAutoTxId = (idPelanggan: string, nama: string, allTxs: SalesTransaction[]): string => {
     const custDigits = get4DigitCustId(idPelanggan);
+    const existingIds = new Set((allTxs || []).map((t) => String(t.id_transaksi || t.id || "")));
 
-    const custTxs = allTxs.filter((tx) => {
+    const custTxs = (allTxs || []).filter((tx) => {
       const txCustId = (tx.id_pelanggan || "").trim().toLowerCase();
       const txName = (tx.Nama || "").trim().toLowerCase();
       const targetCustId = (idPelanggan || "").trim().toLowerCase();
@@ -7351,7 +7366,7 @@ const AdminReportPage = ({
       if (targetCustId && targetCustId !== "cust-0000") {
         if (txCustId === targetCustId) return true;
       }
-      if (targetName) {
+      if (targetName && targetName.toLowerCase() !== "pelanggan umum") {
         if (txName === targetName) return true;
       }
       return false;
@@ -7361,7 +7376,7 @@ const AdminReportPage = ({
 
     custTxs.forEach((tx) => {
       const txIdStr = tx.id_transaksi || tx.id || "";
-      const match = txIdStr.match(/\/(\d+)$/);
+      const match = txIdStr.match(/\/(\d+)(?:-\d+)?$/);
       if (match) {
         const num = parseInt(match[1], 10);
         if (!isNaN(num) && num > maxSeq) {
@@ -7370,8 +7385,25 @@ const AdminReportPage = ({
       }
     });
 
-    const nextSeq = maxSeq + 1;
-    return `TRX-${custDigits}/${nextSeq}`;
+    let nextSeq = maxSeq + 1;
+    let candidate = `TRX-${custDigits}/${nextSeq}`;
+
+    // Guarantee uniqueness against all existing transactions
+    while (existingIds.has(candidate)) {
+      nextSeq++;
+      candidate = `TRX-${custDigits}/${nextSeq}`;
+    }
+
+    // For generic customers (0000), append timestamp slice to guarantee zero collision in multi-tab/rapid entry
+    if (custDigits === "0000" || !idPelanggan || idPelanggan === "CUST-0000") {
+      const timeSlice = Math.floor(Date.now() / 1000).toString().slice(-4);
+      candidate = `TRX-${custDigits}/${nextSeq}-${timeSlice}`;
+      while (existingIds.has(candidate)) {
+        candidate = `TRX-${custDigits}/${nextSeq}-${Math.floor(Math.random() * 9000 + 1000)}`;
+      }
+    }
+
+    return candidate;
   };
 
   const handleSelectCustomerSuggestion = (cust: { id_pelanggan?: string; id?: string; Nama?: string; nama?: string; hutang?: number; tabungan?: number }) => {
@@ -14398,6 +14430,25 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [rpcValuation, setRpcValuation] = useState<{
+    total_items: number;
+    total_stock: number;
+    total_asset_beli: number;
+    total_asset_jual: number;
+    potential_profit: number;
+    low_stock_count: number;
+    out_of_stock_count: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    SupabaseStockService.calculateStockValuationRpc().then(res => {
+      if (isMounted && res.data) {
+        setRpcValuation(res.data);
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, [stock.length]);
 
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
@@ -14418,7 +14469,8 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
   });
 
   const lowStockItems = stock.filter(item => item.Stok <= item.MinStok);
-  const totalValue = stock.reduce((acc, item) => acc + (item.Stok * item.HargaModal), 0);
+  const totalValue = rpcValuation?.total_asset_beli ?? stock.reduce((acc, item) => acc + (item.Stok * item.HargaModal), 0);
+  const lowStockCount = rpcValuation?.low_stock_count ?? lowStockItems.length;
 
   return (
     <motion.div 
@@ -14464,7 +14516,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
               <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest mb-1">Stok Menipis</p>
               <div className="flex items-center justify-center gap-2 text-orange-500">
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span className="text-sm font-black">{lowStockItems.length}</span>
+                <span className="text-sm font-black">{lowStockCount}</span>
               </div>
             </div>
           </div>
@@ -18865,7 +18917,37 @@ const LevelPage = ({ user, transactions, customers = [] }: { user: Customer | nu
     }
   };
 
-  const currentLevelInfo = calculateCustomerLevel(transactions, user?.Nama || "");
+  const [rpcLevelInfo, setRpcLevelInfo] = useState<{
+    name: string;
+    total: number;
+    min: number;
+    max: number;
+    progress: number;
+    color?: string;
+    bg?: string;
+    border?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let isMounted = true;
+    SupabaseCustomerService.calculateCustomerLevelRpc(user.Nama, user.id_pelanggan || user.id).then(res => {
+      if (isMounted && res.data && res.data.name) {
+        setRpcLevelInfo(res.data);
+      }
+    }).catch(err => {
+      console.warn("LevelPage RPC calculation fallback:", err);
+    });
+    return () => { isMounted = false; };
+  }, [user?.Nama, user?.id_pelanggan, user?.id]);
+
+  const fallbackLevelInfo = calculateCustomerLevel(transactions, user?.Nama || "");
+  const currentLevelInfo = rpcLevelInfo ? {
+    name: rpcLevelInfo.name,
+    total: rpcLevelInfo.total,
+    min: rpcLevelInfo.min,
+    max: rpcLevelInfo.max
+  } : fallbackLevelInfo;
   const currentLevelIndex = Math.max(0, LEVELS.findIndex(l => l.name === currentLevelInfo.name));
 
   const maxTargetForGauge = LEVELS[currentLevelIndex + 1]?.min || LEVELS[currentLevelIndex].min || 1;
@@ -22391,6 +22473,45 @@ const ProfilPage = ({
     setTimeout(() => setToastNotice(null), 3000);
   };
   
+  // Customer level from Database RPC (with fallback to client calculations)
+  const [rpcLevelData, setRpcLevelData] = useState<{
+    name: string;
+    total: number;
+    min: number;
+    max: number;
+    progress: number;
+    color?: string;
+    bg?: string;
+    border?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setRpcLevelData(null);
+      return;
+    }
+    let isMounted = true;
+    const fetchLevelRpc = async () => {
+      if (SupabaseCustomerService.isConnected()) {
+        try {
+          const res = await SupabaseCustomerService.calculateCustomerLevelRpc(
+            user.Nama,
+            user.id_pelanggan || user.id
+          );
+          if (isMounted && res.data && res.data.name) {
+            setRpcLevelData(res.data);
+          }
+        } catch (err) {
+          console.warn("RPC calculate_customer_level fallback:", err);
+        }
+      }
+    };
+    fetchLevelRpc();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.Nama, user?.id_pelanggan, user?.id]);
+
   // Memoize level configuration and active points
   const { customerLevel, activePoints, progressPercentage } = useMemo(() => {
     if (!user) {
@@ -22400,9 +22521,26 @@ const ProfilPage = ({
         progressPercentage: 100
       };
     }
+
+    const pts = Number(user?.Poin ?? (user as any)?.point ?? (user as any)?.poin ?? 0);
+
+    // If database RPC returned the computed level, use it directly!
+    if (rpcLevelData) {
+      const config = LEVELS.find(l => l.name === rpcLevelData.name) || LEVELS[0];
+      return {
+        customerLevel: {
+          ...config,
+          total: rpcLevelData.total,
+          name: rpcLevelData.name,
+          color: rpcLevelData.color || config.color
+        },
+        activePoints: pts,
+        progressPercentage: rpcLevelData.progress ?? 100
+      };
+    }
+
     const currentLevelConfig = LEVELS.find(l => l.name === (user?.Level || (user as any)?.level || 'Bronze')) || LEVELS[0];
     const customerLvl = { ...currentLevelConfig, total: 0 };
-    const pts = Number(user?.Poin ?? (user as any)?.point ?? (user as any)?.poin ?? 0);
     const currentLevelIndex = LEVELS.findIndex(l => l.name === customerLvl.name);
     const nextLevel = LEVELS[currentLevelIndex + 1];
     
@@ -22417,7 +22555,7 @@ const ProfilPage = ({
       activePoints: pts,
       progressPercentage: prog
     };
-  }, [user]);
+  }, [user, rpcLevelData]);
 
   const handlePhotoClick = () => {
     if (!user) {
@@ -29181,8 +29319,8 @@ export default function App() {
     if (p.startsWith('/notifikasi')) {
       return ['salesTransactions', 'savingTransactions', 'debtTransactions', 'customers'];
     }
-    if (p.startsWith('/pengaturan-profil')) {
-      return ['customers', 'salesTransactions', 'investmentTransactions', 'redeemedPoints'];
+    if (p.startsWith('/pengaturan-profil') || p.startsWith('/profil')) {
+      return loggedInUser ? ['customers', 'salesTransactions', 'investmentTransactions', 'redeemedPoints'] : [];
     }
     if (p.startsWith('/detail-belanja')) {
       return ['salesTransactions', 'customers'];
@@ -29214,7 +29352,7 @@ export default function App() {
     // Halaman Utama / Tabs
     if (tab === 'belanja' || tab === 'konfirmasi-pesanan') return ['stockItems'];
     if (tab === 'riwayat') return loggedInUser ? ['salesTransactions'] : [];
-    if (tab === 'settings') return ['customers', 'salesTransactions', 'investmentTransactions', 'redeemedPoints'];
+    if (tab === 'settings') return loggedInUser ? ['customers', 'salesTransactions', 'investmentTransactions', 'redeemedPoints'] : [];
     if (loggedInUser) {
       return ['stockItems', 'salesTransactions', 'savingTransactions', 'debtTransactions', 'investmentTransactions', 'customers'];
     }
@@ -29384,7 +29522,14 @@ export default function App() {
             const userFilterName = extraOptions?.userFilterKey || (loggedInUser?.Role === 'admin' ? undefined : loggedInUser?.Nama);
             if (userFilterName) custOptions.name = userFilterName;
 
-            if (p.startsWith('/login')) {
+            const isProfileOnly = (p.startsWith('/pengaturan-profil') || p.startsWith('/profil') || activeTab === 'settings') && loggedInUser;
+
+            if (isProfileOnly) {
+              custOptions.name = loggedInUser.Nama;
+              custOptions.customerId = loggedInUser.id_pelanggan || loggedInUser.id;
+              custOptions.limit = 1;
+              custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, level, point, foto, telepon, alamat, pin';
+            } else if (p.startsWith('/login')) {
               custOptions.select = 'id, id_pelanggan, nama, pin, foto';
             } else if (p.startsWith('/admin/debt') || p.startsWith('/hutang') || extraOptions?.debtOnly) {
               custOptions.debtOnly = true;
@@ -29396,7 +29541,7 @@ export default function App() {
               custOptions.select = 'id, id_pelanggan, nama, tabungan, investasi, lainnya, hutang, level, point, foto, telepon, alamat, pin';
             }
 
-            const isSpecificSubset = custOptions.name || custOptions.debtOnly || custOptions.withBalanceOnly;
+            const isSpecificSubset = Boolean(custOptions.name || custOptions.customerId || custOptions.debtOnly || custOptions.withBalanceOnly);
             if (lastSync && cached.length > 0 && !isSpecificSubset) {
               custOptions.since = lastSync;
             }
@@ -29420,7 +29565,23 @@ export default function App() {
                 Foto: c.foto || ''
               }));
 
-              if (lastSync && cached.length > 0 && !isSpecificSubset) {
+              if (isProfileOnly && mapped.length > 0) {
+                const singleUser = mapped[0];
+                setCustomers(prev => {
+                  const idx = prev.findIndex(c => (c.id_pelanggan && c.id_pelanggan === singleUser.id_pelanggan) || (c.Nama && c.Nama.toLowerCase() === singleUser.Nama.toLowerCase()));
+                  if (idx >= 0) {
+                    const next = [...prev];
+                    next[idx] = singleUser;
+                    return next;
+                  }
+                  return prev.length === 0 ? [singleUser] : [...prev, singleUser];
+                });
+                setLoggedInUser(prev => {
+                  if (!prev) return singleUser;
+                  return { ...prev, ...singleUser };
+                });
+                cData = mapped;
+              } else if (lastSync && cached.length > 0 && !isSpecificSubset) {
                 const merged = DeltaCache.mergeDelta(cached, mapped, ['id_pelanggan', 'id', 'Nama']);
                 DeltaCache.set('customers', merged, fetchTime);
                 cData = merged;
