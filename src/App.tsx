@@ -29771,7 +29771,6 @@ export default function App() {
             if (userFilterName) investOptions.name = userFilterName;
             if (isAdminDashboard || p.startsWith('/investasi')) {
               investOptions.activeOnly = true;
-              investOptions.select = 'id, id_investasi, id_pelanggan, tanggal, nama, nominal, tenor, jatuh_tempo, status, nisbah, keterangan';
             }
 
             const isFiltered = userFilterName || investOptions.activeOnly;

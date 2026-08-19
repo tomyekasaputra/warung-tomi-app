@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Database,
@@ -36,7 +37,16 @@ import {
   X,
   Plus,
   Save,
-  Info
+  Info,
+  Eye,
+  EyeOff,
+  MoveLeft,
+  MoveRight,
+  SlidersHorizontal,
+  Columns,
+  RotateCcw,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import {
   SupabaseQueryLogger,
@@ -142,13 +152,52 @@ export const formatDateForInput = (dateStr?: string): string => {
 };
 
 export const formatInputToDate = (isoStr: string): string => {
-  if (!isoStr) return "";
-  const parts = isoStr.split("-");
-  if (parts.length === 3) {
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-  }
-  return isoStr;
+  return formatDateForInput(isoStr);
 };
+
+export const getDefaultSortColumn = (tbl?: TableMeta | null): string => {
+  if (!tbl) return "";
+  const colKeys = tbl.columns.map((c) => c.key);
+  if (colKeys.includes("tanggal")) return "tanggal";
+  if (colKeys.includes("created_at")) return "created_at";
+  if (colKeys.includes("jatuh_tempo")) return "jatuh_tempo";
+  if (colKeys.includes("update_terakhir")) return "update_terakhir";
+  const dateCol = tbl.columns.find((c) => c.type === "date" || c.key.includes("date") || c.key.includes("tanggal"));
+  if (dateCol) return dateCol.key;
+  return colKeys[0] || "";
+};
+
+export const loadColumnPrefs = (tableId: string): { hidden: string[]; order: string[] } => {
+  try {
+    const raw = localStorage.getItem(`wt_admin_cols_${tableId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        hidden: Array.isArray(parsed.hidden) ? parsed.hidden : [],
+        order: Array.isArray(parsed.order) ? parsed.order : []
+      };
+    }
+  } catch (e) {
+    console.error("Gagal membaca preferensi kolom:", e);
+  }
+  return { hidden: [], order: [] };
+};
+
+export const saveColumnPrefs = (tableId: string, hidden: string[], order: string[]) => {
+  try {
+    localStorage.setItem(`wt_admin_cols_${tableId}`, JSON.stringify({ hidden, order }));
+  } catch (e) {
+    console.error("Gagal menyimpan preferensi kolom:", e);
+  }
+};
+
+export interface ColumnMeta {
+  key: string;
+  label: string;
+  type: "text" | "number" | "date" | "select";
+  options?: string[];
+  readOnly?: boolean;
+}
 
 // Database Table Definitions
 interface TableMeta {
@@ -160,13 +209,7 @@ interface TableMeta {
   color: string;
   primaryKey: string;
   searchColumn: string;
-  columns: Array<{
-    key: string;
-    label: string;
-    type: "text" | "number" | "date" | "select";
-    options?: string[];
-    readOnly?: boolean;
-  }>;
+  columns: ColumnMeta[];
 }
 
 const DATABASE_TABLES: TableMeta[] = [
@@ -174,42 +217,53 @@ const DATABASE_TABLES: TableMeta[] = [
     id: "customers",
     name: "customers",
     label: "Pelanggan",
-    description: "Data profil nasabah, no WhatsApp, level loyalitas, dan saldo poin",
+    description: "Data profil nasabah, PIN, no WhatsApp, alamat, loyalitas level, dan saldo",
     icon: Users,
     color: "from-blue-500/20 to-blue-600/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800",
     primaryKey: "id_pelanggan",
     searchColumn: "nama",
     columns: [
-      { key: "id_pelanggan", label: "ID Pelanggan", type: "text", readOnly: true },
+      { key: "id", label: "UUID (ID)", type: "text", readOnly: true },
+      { key: "id_pelanggan", label: "ID Pelanggan", type: "text" },
       { key: "nama", label: "Nama Lengkap", type: "text" },
-      { key: "nomor_hp", label: "No. WhatsApp / HP", type: "text" },
-      { key: "poin", label: "Poin Aktif", type: "number" },
+      { key: "pin", label: "PIN", type: "text" },
+      { key: "telepon", label: "No. HP / WA", type: "text" },
+      { key: "alamat", label: "Alamat", type: "text" },
+      { key: "tabungan", label: "Tabungan (Rp)", type: "number" },
+      { key: "investasi", label: "Investasi (Rp)", type: "number" },
+      { key: "lainnya", label: "Lainnya (Rp)", type: "number" },
+      { key: "hutang", label: "Hutang (Rp)", type: "number" },
+      { key: "point", label: "Poin Aktif", type: "number" },
       { key: "level", label: "Level Member", type: "select", options: ["Bronze", "Silver", "Gold", "Platinum", "VIP"] },
-      { key: "status", label: "Status Akun", type: "select", options: ["Aktif", "Non-Aktif", "Baru"] },
-      { key: "created_at", label: "Terdaftar", type: "text", readOnly: true }
+      { key: "foto", label: "Foto", type: "text" },
+      { key: "created_at", label: "Created At", type: "text", readOnly: true }
     ]
   },
   {
     id: "sales_transactions",
     name: "sales_transactions",
     label: "Transaksi Penjualan",
-    description: "Rekap transaksi kasir, pemasukan, modal, jenis layanan, dan status",
+    description: "Rekap transaksi kasir, pemasukan, modal, jenis layanan, metode, dan status",
     icon: ShoppingCart,
     color: "from-emerald-500/20 to-emerald-600/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800",
     primaryKey: "id_transaksi",
     searchColumn: "nama",
     columns: [
-      { key: "id_transaksi", label: "ID Transaksi", type: "text", readOnly: true },
-      { key: "tanggal", label: "Tanggal", type: "text" },
+      { key: "id", label: "UUID (ID)", type: "text", readOnly: true },
+      { key: "id_transaksi", label: "ID Transaksi", type: "text" },
+      { key: "id_pelanggan", label: "ID Pelanggan", type: "text" },
+      { key: "tanggal", label: "Tanggal", type: "date" },
       { key: "nama", label: "Nama Pelanggan", type: "text" },
       { key: "jenis", label: "Jenis Layanan", type: "select", options: JENIS_OPTIONS },
-      { key: "pemasukan", label: "Pemasukan (Rp)", type: "number" },
-      { key: "harga_modal", label: "Harga Modal (Rp)", type: "number" },
-      { key: "poin", label: "Poin Didapat", type: "number" },
       { key: "metode", label: "Metode", type: "text" },
-      { key: "melalui", label: "Melalui", type: "select", options: MELALUI_OPTIONS },
+      { key: "pemasukan", label: "Pemasukan (Rp)", type: "number" },
+      { key: "poin", label: "Poin", type: "number" },
       { key: "status", label: "Status", type: "select", options: STATUS_OPTIONS },
-      { key: "created_at", label: "Waktu Input", type: "text", readOnly: true }
+      { key: "melalui", label: "Melalui", type: "select", options: MELALUI_OPTIONS },
+      { key: "harga_admin", label: "Harga Admin (Rp)", type: "number" },
+      { key: "harga_modal", label: "Harga Modal (Rp)", type: "number" },
+      { key: "sebagian", label: "Sebagian (Rp)", type: "number" },
+      { key: "created_at", label: "Created At", type: "text", readOnly: true }
     ]
   },
   {
@@ -222,15 +276,18 @@ const DATABASE_TABLES: TableMeta[] = [
     primaryKey: "id_barang",
     searchColumn: "nama",
     columns: [
-      { key: "id_barang", label: "ID / Kode Barang", type: "text", readOnly: true },
+      { key: "id", label: "UUID (ID)", type: "text", readOnly: true },
+      { key: "id_barang", label: "ID / Kode Barang", type: "text" },
       { key: "nama", label: "Nama Barang", type: "text" },
       { key: "kategori", label: "Kategori", type: "text" },
       { key: "stok", label: "Jumlah Stok", type: "number" },
       { key: "satuan", label: "Satuan", type: "text" },
-      { key: "harga_modal", label: "Harga Beli/Modal (Rp)", type: "number" },
-      { key: "harga_jual", label: "Harga Jual (Rp)", type: "number" },
       { key: "min_stok", label: "Batas Min. Stok", type: "number" },
-      { key: "created_at", label: "Dibuat", type: "text", readOnly: true }
+      { key: "harga_modal", label: "Harga Modal (Rp)", type: "number" },
+      { key: "harga_jual", label: "Harga Jual (Rp)", type: "number" },
+      { key: "gambar", label: "Gambar", type: "text" },
+      { key: "update_terakhir", label: "Update Terakhir", type: "text" },
+      { key: "created_at", label: "Created At", type: "text", readOnly: true }
     ]
   },
   {
@@ -243,15 +300,19 @@ const DATABASE_TABLES: TableMeta[] = [
     primaryKey: "id_tabungan",
     searchColumn: "nama",
     columns: [
-      { key: "id_tabungan", label: "ID Tabungan", type: "text", readOnly: true },
+      { key: "id", label: "UUID (ID)", type: "text", readOnly: true },
+      { key: "id_tabungan", label: "ID Tabungan", type: "text" },
       { key: "id_pelanggan", label: "ID Pelanggan", type: "text" },
-      { key: "tanggal", label: "Tanggal", type: "text" },
+      { key: "tanggal", label: "Tanggal", type: "date" },
       { key: "nama", label: "Nama Nasabah", type: "text" },
+      { key: "nama_nasabah", label: "Nama Nasabah (Alt)", type: "text" },
       { key: "tipe", label: "Tipe Mutasi", type: "select", options: ["SETOR", "TARIK"] },
       { key: "nominal", label: "Nominal (Rp)", type: "number" },
       { key: "saldo_akhir", label: "Saldo Akhir (Rp)", type: "number" },
-      { key: "berita", label: "Keterangan / Berita", type: "text" },
-      { key: "created_at", label: "Waktu Input", type: "text", readOnly: true }
+      { key: "berita", label: "Berita / Keterangan", type: "text" },
+      { key: "keterangan", label: "Keterangan", type: "text" },
+      { key: "sebagian", label: "Sebagian (Rp)", type: "number" },
+      { key: "created_at", label: "Created At", type: "text", readOnly: true }
     ]
   },
   {
@@ -264,15 +325,18 @@ const DATABASE_TABLES: TableMeta[] = [
     primaryKey: "id_hutang",
     searchColumn: "nama",
     columns: [
-      { key: "id_hutang", label: "ID Hutang", type: "text", readOnly: true },
+      { key: "id", label: "UUID (ID)", type: "text", readOnly: true },
+      { key: "id_hutang", label: "ID Hutang", type: "text" },
       { key: "id_pelanggan", label: "ID Pelanggan", type: "text" },
-      { key: "tanggal", label: "Tanggal", type: "text" },
+      { key: "tanggal", label: "Tanggal", type: "date" },
       { key: "nama", label: "Nama Pelanggan", type: "text" },
+      { key: "nama_pelanggan", label: "Nama Pelanggan (Alt)", type: "text" },
       { key: "tipe", label: "Tipe Transaksi", type: "select", options: ["KASBON", "TAMBAH", "BAYAR", "LUNAS"] },
       { key: "jumlah", label: "Jumlah (Rp)", type: "number" },
-      { key: "saldo_akhir", label: "Sisa Hutang (Rp)", type: "number" },
       { key: "keterangan", label: "Keterangan", type: "text" },
-      { key: "created_at", label: "Waktu Input", type: "text", readOnly: true }
+      { key: "saldo_akhir", label: "Sisa Hutang (Rp)", type: "number" },
+      { key: "sebagian", label: "Sebagian (Rp)", type: "number" },
+      { key: "created_at", label: "Created At", type: "text", readOnly: true }
     ]
   },
   {
@@ -285,13 +349,14 @@ const DATABASE_TABLES: TableMeta[] = [
     primaryKey: "id_tukar",
     searchColumn: "nama",
     columns: [
-      { key: "id_tukar", label: "ID Klaim Tukar", type: "text", readOnly: true },
+      { key: "id", label: "UUID (ID)", type: "text", readOnly: true },
+      { key: "id_tukar", label: "ID Klaim Tukar", type: "text" },
       { key: "id_pelanggan", label: "ID Pelanggan", type: "text" },
-      { key: "tanggal", label: "Tanggal", type: "text" },
+      { key: "tanggal", label: "Tanggal", type: "date" },
       { key: "nama", label: "Nama Pelanggan", type: "text" },
       { key: "poin", label: "Poin Ditukar", type: "number" },
       { key: "hadiah", label: "Hadiah / Voucher", type: "text" },
-      { key: "created_at", label: "Waktu Klaim", type: "text", readOnly: true }
+      { key: "created_at", label: "Created At", type: "text", readOnly: true }
     ]
   },
   {
@@ -304,19 +369,27 @@ const DATABASE_TABLES: TableMeta[] = [
     primaryKey: "id_investasi",
     searchColumn: "nama",
     columns: [
-      { key: "id_investasi", label: "ID Investasi", type: "text", readOnly: true },
-      { key: "tanggal", label: "Tanggal", type: "text" },
+      { key: "id", label: "UUID (ID)", type: "text", readOnly: true },
+      { key: "id_investasi", label: "ID Investasi", type: "text" },
+      { key: "id_pelanggan", label: "ID Pelanggan", type: "text" },
+      { key: "tanggal", label: "Tanggal", type: "date" },
       { key: "nama", label: "Nama Investor", type: "text" },
-      { key: "tipe", label: "Tipe", type: "select", options: ["SETOR", "TARIK", "BAGI HASIL"] },
+      { key: "nama_investor", label: "Nama Investor (Alt)", type: "text" },
       { key: "nominal", label: "Nominal (Rp)", type: "number" },
-      { key: "saldo_akhir", label: "Saldo Akhir (Rp)", type: "number" },
+      { key: "tenor", label: "Tenor", type: "text" },
+      { key: "tenor_bulan", label: "Tenor Bulan", type: "number" },
+      { key: "jatuh_tempo", label: "Jatuh Tempo", type: "text" },
+      { key: "status", label: "Status", type: "select", options: ["Aktif", "Selesai", "Ditarik"] },
       { key: "keterangan", label: "Keterangan", type: "text" },
-      { key: "created_at", label: "Waktu Input", type: "text", readOnly: true }
+      { key: "nisbah", label: "Nisbah", type: "text" },
+      { key: "nisbah_persen", label: "Nisbah Persen", type: "number" },
+      { key: "sebagian", label: "Sebagian (Rp)", type: "number" },
+      { key: "created_at", label: "Created At", type: "text", readOnly: true }
     ]
   }
 ];
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200, 500, 1000];
 
 interface AdminDatabasePageProps {
   salesTransactions?: any[];
@@ -339,6 +412,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   debtTransactions = [],
   setDebtTransactions
 }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"data" | "analisa">("data");
   
   // Table Explorer States
@@ -346,6 +420,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const [tableRows, setTableRows] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(50);
   const [isLoadingTable, setIsLoadingTable] = useState<boolean>(false);
   const [tableSearchQuery, setTableSearchQuery] = useState<string>("");
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
@@ -358,21 +433,29 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const [newRowData, setNewRowData] = useState<Record<string, any>>({});
   const [isSavingNewRow, setIsSavingNewRow] = useState<boolean>(false);
 
-  // Sorting State: Default to "created_at" DESC (Data Terbaru ke Paling Lama)
-  const [sortColumn, setSortColumn] = useState<string>("created_at");
+  // Sorting State: Default to newest date DESC
+  const [sortColumn, setSortColumn] = useState<string>("");
   const [sortAscending, setSortAscending] = useState<boolean>(false);
 
+  // Column Customization States (Hide / Reorder)
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [isColumnManagerOpen, setIsColumnManagerOpen] = useState<boolean>(false);
+  const [columnSearchQuery, setColumnSearchQuery] = useState<string>("");
+
   // Inline & Modal Row Editing States
-  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [editingRowUniqueId, setEditingRowUniqueId] = useState<string | null>(null);
+  const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
   const [editRowValues, setEditRowValues] = useState<Record<string, any>>({});
   const [isSavingRow, setIsSavingRow] = useState<boolean>(false);
 
   // Edit Modal State
   const [editingModalRow, setEditingModalRow] = useState<any | null>(null);
+  const [editingModalIndex, setEditingModalIndex] = useState<number | null>(null);
   const [editingModalValues, setEditingModalValues] = useState<Record<string, any>>({});
   const [isSavingModalEdit, setIsSavingModalEdit] = useState<boolean>(false);
 
-  // Custom Delete Modal State (Replaces window.confirm for iframe reliability)
+  // Custom Delete Modal State
   const [rowToDelete, setRowToDelete] = useState<any | null>(null);
   const [isDeletingRow, setIsDeletingRow] = useState<boolean>(false);
 
@@ -382,6 +465,129 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const [searchLog, setSearchLog] = useState("");
   const [selectedTableFilter, setSelectedTableFilter] = useState("ALL");
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // 1. All Discovered Columns: Scans Supabase data & merges with predefined table metadata
+  const allDiscoveredColumns: ColumnMeta[] = useMemo(() => {
+    if (!selectedTable) return [];
+
+    const keySet = new Set<string>();
+    const keysInOrder: string[] = [];
+
+    // Scan all returned rows to preserve exact column sequence from Supabase
+    if (tableRows && tableRows.length > 0) {
+      for (const row of tableRows) {
+        if (row && typeof row === "object") {
+          for (const k of Object.keys(row)) {
+            if (!keySet.has(k)) {
+              keySet.add(k);
+              keysInOrder.push(k);
+            }
+          }
+        }
+      }
+    }
+
+    // If no rows loaded yet or some predefined columns not present, append them
+    if (keysInOrder.length === 0) {
+      selectedTable.columns.forEach((c) => {
+        if (!keySet.has(c.key)) {
+          keySet.add(c.key);
+          keysInOrder.push(c.key);
+        }
+      });
+    } else {
+      selectedTable.columns.forEach((c) => {
+        if (!keySet.has(c.key)) {
+          keySet.add(c.key);
+          keysInOrder.push(c.key);
+        }
+      });
+    }
+
+    return keysInOrder.map((key) => {
+      const predefined = selectedTable.columns.find((c) => c.key === key);
+      if (predefined) return predefined;
+
+      // Auto-detect types and labels for newly discovered columns from Supabase
+      let detectedType: "text" | "number" | "date" | "select" = "text";
+      if (
+        key.includes("tanggal") ||
+        key.includes("date") ||
+        key === "jatuh_tempo" ||
+        key === "created_at"
+      ) {
+        detectedType = "date";
+      } else if (
+        key.includes("pemasukan") ||
+        key.includes("harga") ||
+        key.includes("modal") ||
+        key.includes("nominal") ||
+        key.includes("saldo") ||
+        key.includes("jumlah") ||
+        key.includes("point") ||
+        key.includes("poin") ||
+        key.includes("stok") ||
+        key.includes("tabungan") ||
+        key.includes("hutang") ||
+        key.includes("investasi") ||
+        key === "sebagian" ||
+        key === "tenor_bulan" ||
+        key === "nisbah_persen"
+      ) {
+        detectedType = "number";
+      }
+
+      const formattedLabel = key
+        .split("_")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+
+      return {
+        key,
+        label: formattedLabel,
+        type: detectedType,
+        readOnly: key === "id" || key === "created_at"
+      };
+    });
+  }, [selectedTable, tableRows]);
+
+  // 2. Ordered All Columns: Applies user's custom sequence
+  const orderedAllColumns: ColumnMeta[] = useMemo(() => {
+    if (columnOrder.length === 0) return allDiscoveredColumns;
+
+    const colMap = new Map(allDiscoveredColumns.map((c) => [c.key, c]));
+    const ordered: ColumnMeta[] = [];
+
+    // Add columns in saved order
+    columnOrder.forEach((k) => {
+      const col = colMap.get(k);
+      if (col) {
+        ordered.push(col);
+        colMap.delete(k);
+      }
+    });
+
+    // Append newly discovered columns not yet in order
+    colMap.forEach((col) => {
+      ordered.push(col);
+    });
+
+    return ordered;
+  }, [allDiscoveredColumns, columnOrder]);
+
+  // 3. Effective Visible Columns: The columns actually rendered in the table view
+  const effectiveColumns: ColumnMeta[] = useMemo(() => {
+    return orderedAllColumns.filter((c) => !hiddenColumns.includes(c.key));
+  }, [orderedAllColumns, hiddenColumns]);
+
+  // Load column preferences when table changes
+  useEffect(() => {
+    if (selectedTable) {
+      const prefs = loadColumnPrefs(selectedTable.id);
+      setHiddenColumns(prefs.hidden);
+      setColumnOrder(prefs.order);
+    }
+  }, [selectedTable?.id]);
 
   // Subscribe to live Supabase traffic changes
   useEffect(() => {
@@ -407,14 +613,15 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Fetch Table Rows with Limit 20 + Delta Sync Caching + Default Newest First Sorting
+  // Fetch Table Rows: Directly keeps exact order from Supabase without client-side reshuffle
   const fetchTableData = useCallback(async (
     tbl: TableMeta,
     page: number = 1,
     query: string = "",
     isDeltaRefresh: boolean = false,
     orderColOverride?: string,
-    orderAscOverride?: boolean
+    orderAscOverride?: boolean,
+    limitOverride?: number
   ) => {
     const client = getSupabaseClient();
     if (!client) {
@@ -423,8 +630,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     }
 
     setIsLoadingTable(true);
-    const from = (page - 1) * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
+    const limit = limitOverride || pageSize;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
     const effectiveSortCol = orderColOverride !== undefined ? orderColOverride : sortColumn;
     const effectiveSortAsc = orderAscOverride !== undefined ? orderAscOverride : sortAscending;
 
@@ -434,10 +642,10 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         "SELECT",
         {
           page,
-          limit: PAGE_SIZE,
+          limit,
           search: query,
           deltaSync: isDeltaRefresh,
-          orderBy: `${effectiveSortCol} ${effectiveSortAsc ? "ASC" : "DESC"}`
+          orderBy: effectiveSortCol ? `${effectiveSortCol} ${effectiveSortAsc ? "ASC" : "DESC"}` : "Natural Supabase Order"
         },
         async () => {
           let req = client
@@ -449,21 +657,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             req = req.ilike(tbl.searchColumn, `%${query.trim()}%`);
           }
 
-          // Order by: Urutkan timestamp created_at (DESC) agar data hari ini masuk di Halaman 1
-          const hasCreatedAt = tbl.columns.some(c => c.key === "created_at");
-
-          if (effectiveSortCol === "created_at" || effectiveSortCol === "tanggal") {
-            if (hasCreatedAt) {
-              req = req.order("created_at", { ascending: effectiveSortAsc, nullsFirst: false });
-            }
-            req = req.order(tbl.primaryKey, { ascending: false });
-          } else {
-            req = req
-              .order(effectiveSortCol, { ascending: effectiveSortAsc, nullsFirst: false });
-            if (hasCreatedAt) {
-              req = req.order("created_at", { ascending: false, nullsFirst: false });
-            }
-            req = req.order(tbl.primaryKey, { ascending: false });
+          // Apply sort order if explicitly set
+          if (effectiveSortCol) {
+            req = req.order(effectiveSortCol, { ascending: effectiveSortAsc, nullsFirst: false });
           }
 
           req = req.range(from, to);
@@ -476,45 +672,13 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             return { data: null, error };
           }
 
-          // Sort rows: Tanggal transaksi riil terbaru -> Waktu input data terbaru (created_at) -> ID DESC
-          const sortedData = [...(data || [])].sort((a, b) => {
-            if (effectiveSortCol !== "tanggal" && effectiveSortCol !== "created_at" && a[effectiveSortCol] !== undefined) {
-              const valA = a[effectiveSortCol];
-              const valB = b[effectiveSortCol];
-              if (typeof valA === "number" && typeof valB === "number") {
-                if (valA !== valB) return effectiveSortAsc ? valA - valB : valB - valA;
-              } else {
-                const cmp = String(valA || "").localeCompare(String(valB || ""));
-                if (cmp !== 0) return effectiveSortAsc ? cmp : -cmp;
-              }
-            }
-
-            // 1. Tanggal transaksi riil (menggunakan nilai parsed numeric timestamp sehingga 18/08/2026 selalu > 31/01/2026)
-            const dtA = parseRowDateValue(a.tanggal) || parseRowCreatedAt(a.created_at);
-            const dtB = parseRowDateValue(b.tanggal) || parseRowCreatedAt(b.created_at);
-            if (dtA !== dtB) {
-              return effectiveSortAsc ? dtA - dtB : dtB - dtA;
-            }
-
-            // 2. Data terbaru masuk (created_at timestamp)
-            const crA = parseRowCreatedAt(a.created_at);
-            const crB = parseRowCreatedAt(b.created_at);
-            if (crA !== crB) {
-              return effectiveSortAsc ? crA - crB : crB - crA;
-            }
-
-            // 3. Primary Key
-            const pkA = String(a[tbl.primaryKey] || a.id || "");
-            const pkB = String(b[tbl.primaryKey] || b.id || "");
-            return effectiveSortAsc ? pkA.localeCompare(pkB) : pkB.localeCompare(pkA);
-          });
-
-          setTableRows(sortedData);
+          // Tampilkan semua data persis dalam urutan yang dikembalikan dari Supabase
+          setTableRows(data || []);
           if (count !== null && count !== undefined) {
             setTotalCount(count);
           }
 
-          // Calculate bandwidth savings with delta sync & limit 20
+          // Calculate bandwidth metrics
           const estimatedFullTableSize = (count || 50) * 450;
           const paginatedSize = (data?.length || 0) * 450;
           const saved = Math.max(0, estimatedFullTableSize - paginatedSize);
@@ -530,78 +694,178 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     } finally {
       setIsLoadingTable(false);
     }
-  }, [sortColumn, sortAscending]);
+  }, [pageSize, sortColumn, sortAscending]);
 
-  // When selectedTable, currentPage, sortColumn, or sortAscending changes, fetch table rows
+  // When selectedTable, currentPage, pageSize, sortColumn, or sortAscending changes, fetch table rows
   useEffect(() => {
     if (selectedTable) {
-      setEditingRowId(null);
+      setEditingRowUniqueId(null);
+      setEditingRowIndex(null);
       setEditRowValues({});
-      fetchTableData(selectedTable, currentPage, tableSearchQuery, false, sortColumn, sortAscending);
+      fetchTableData(selectedTable, currentPage, tableSearchQuery, false, sortColumn, sortAscending, pageSize);
     }
-  }, [selectedTable, currentPage, sortColumn, sortAscending, fetchTableData]);
+  }, [selectedTable, currentPage, pageSize, sortColumn, sortAscending, fetchTableData]);
 
   // Handle Search Input (debounce)
   useEffect(() => {
     if (!selectedTable) return;
     const timer = setTimeout(() => {
       setCurrentPage(1);
-      fetchTableData(selectedTable, 1, tableSearchQuery, false, sortColumn, sortAscending);
+      fetchTableData(selectedTable, 1, tableSearchQuery, false, sortColumn, sortAscending, pageSize);
     }, 400);
     return () => clearTimeout(timer);
-  }, [tableSearchQuery, selectedTable, sortColumn, sortAscending, fetchTableData]);
+  }, [tableSearchQuery, selectedTable, sortColumn, sortAscending, pageSize, fetchTableData]);
 
   // Toggle sort direction or change sort column
   const handleSortBy = (columnKey: string) => {
     if (sortColumn === columnKey) {
-      setSortAscending(prev => !prev);
+      setSortAscending((prev) => !prev);
     } else {
       setSortColumn(columnKey);
-      setSortAscending(false); // Default to DESC (terbaru ke terlama)
+      setSortAscending(false); // Newest / largest first by default
     }
     setCurrentPage(1);
   };
 
-  // Open Table Explorer View
+  // Column Actions: Toggle column visibility (hide/show)
+  const handleToggleColumn = (key: string) => {
+    if (!selectedTable) return;
+    setHiddenColumns((prev) => {
+      let next: string[];
+      if (prev.includes(key)) {
+        next = prev.filter((k) => k !== key);
+      } else {
+        // Prevent hiding all columns (keep at least 1)
+        if (prev.length >= orderedAllColumns.length - 1) {
+          showToast("Minimal satu kolom harus tetap ditampilkan.");
+          return prev;
+        }
+        next = [...prev, key];
+      }
+      saveColumnPrefs(selectedTable.id, next, columnOrder);
+      return next;
+    });
+  };
+
+  // Column Actions: Show all columns
+  const handleShowAllColumns = () => {
+    if (!selectedTable) return;
+    setHiddenColumns([]);
+    saveColumnPrefs(selectedTable.id, [], columnOrder);
+    showToast("Semua kolom ditampilkan.");
+  };
+
+  // Column Actions: Hide secondary non-essential columns for compact bandwidth-friendly view
+  const handleHideNonEssentialColumns = () => {
+    if (!selectedTable) return;
+    const essentialKeys = [
+      selectedTable.primaryKey,
+      "nama",
+      "tanggal",
+      "created_at",
+      "pemasukan",
+      "stok",
+      "harga_jual",
+      "status",
+      "jenis",
+      "saldo",
+      "nominal"
+    ];
+    const toHide = orderedAllColumns
+      .map((c) => c.key)
+      .filter((k) => !essentialKeys.includes(k) && k !== selectedTable.primaryKey);
+    
+    if (toHide.length === 0 || toHide.length >= orderedAllColumns.length) {
+      showToast("Tabel sudah dalam format ringkas.");
+      return;
+    }
+    setHiddenColumns(toHide);
+    saveColumnPrefs(selectedTable.id, toHide, columnOrder);
+    showToast(`Menyembunyikan ${toHide.length} kolom sekunder.`);
+  };
+
+  // Column Actions: Move column left/right (or up/down)
+  const handleMoveColumn = (key: string, direction: "left" | "right") => {
+    if (!selectedTable) return;
+    const currentKeys = orderedAllColumns.map((c) => c.key);
+    const idx = currentKeys.indexOf(key);
+    if (idx === -1) return;
+
+    const targetIdx = direction === "left" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= currentKeys.length) return;
+
+    const nextKeys = [...currentKeys];
+    const temp = nextKeys[idx];
+    nextKeys[idx] = nextKeys[targetIdx];
+    nextKeys[targetIdx] = temp;
+
+    setColumnOrder(nextKeys);
+    saveColumnPrefs(selectedTable.id, hiddenColumns, nextKeys);
+  };
+
+  // Column Actions: Reset columns to original default Supabase order & visibility
+  const handleResetColumns = () => {
+    if (!selectedTable) return;
+    setHiddenColumns([]);
+    setColumnOrder([]);
+    localStorage.removeItem(`wt_admin_cols_${selectedTable.id}`);
+    showToast("Urutan dan keterlihatan kolom dikembalikan ke standar Supabase.");
+  };
+
+  // Open Table Explorer View: Defaults to newest date on top (DESC)
   const handleOpenTable = (tbl: TableMeta) => {
     setSelectedTable(tbl);
     setCurrentPage(1);
     setTableSearchQuery("");
-    setSortColumn("created_at");
-    setSortAscending(false); // Selalu mulai dari Data Terbaru ke Terlama
-    setEditingRowId(null);
+    
+    // Default sorting: Newest date at the top (DESC)
+    const defaultDateCol = getDefaultSortColumn(tbl);
+    setSortColumn(defaultDateCol);
+    setSortAscending(false); // Terbaru paling atas!
+
+    setEditingRowUniqueId(null);
+    setEditingRowIndex(null);
     setEditRowValues({});
+
+    // Load saved column preferences
+    const prefs = loadColumnPrefs(tbl.id);
+    setHiddenColumns(prefs.hidden);
+    setColumnOrder(prefs.order);
   };
 
   // Back to Table Grid View
   const handleBackToGrid = () => {
     setSelectedTable(null);
     setTableRows([]);
-    setEditingRowId(null);
+    setEditingRowUniqueId(null);
+    setEditingRowIndex(null);
     setEditRowValues({});
   };
 
-  // Start Inline Editing for a Row
-  const handleStartInlineEdit = (row: any) => {
-    const rowId = String(row[selectedTable?.primaryKey || "id"] || row.id || row.id_pelanggan || row.id_transaksi || row.kode_barang);
-    setEditingRowId(rowId);
+  // Start Inline Editing for a Row (handles duplicate IDs via row index & unique keys)
+  const handleStartInlineEdit = (row: any, rIdx: number) => {
+    const rowUniqueKey = row.id ? String(row.id) : `row-idx-${(currentPage - 1) * pageSize + rIdx}`;
+    setEditingRowUniqueId(rowUniqueKey);
+    setEditingRowIndex(rIdx);
     setEditRowValues({ ...row });
   };
 
   // Cancel Inline Editing
   const handleCancelInlineEdit = () => {
-    setEditingRowId(null);
+    setEditingRowUniqueId(null);
+    setEditingRowIndex(null);
     setEditRowValues({});
   };
 
-  // Open Full Edit Modal
-  const handleOpenEditModal = (row: any) => {
+  // Open Full Edit Modal (handles duplicate IDs via row index)
+  const handleOpenEditModal = (row: any, rIdx: number) => {
     setEditingModalRow(row);
+    setEditingModalIndex(rIdx);
     setEditingModalValues({ ...row });
   };
 
   // Save Inline Row Edit directly to Supabase
-  const handleSaveInlineEdit = async (row: any) => {
+  const handleSaveInlineEdit = async (row: any, rIdx: number) => {
     if (!selectedTable) return;
     const client = getSupabaseClient();
     if (!client) {
@@ -619,12 +883,16 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         "UPDATE",
         { pkKey, pkVal, updatedFields: editRowValues },
         async () => {
-          // Prepare clean payload with only allowed editable columns
+          // Prepare clean payload for all non-read-only columns
           const cleanPayload: Record<string, any> = {};
-          selectedTable.columns.forEach((col) => {
+          effectiveColumns.forEach((col) => {
             if (col.key !== "created_at" && col.key !== "id" && !col.readOnly) {
               if (col.type === "number") {
-                cleanPayload[col.key] = Number(editRowValues[col.key] || 0);
+                cleanPayload[col.key] = editRowValues[col.key] !== "" && editRowValues[col.key] !== undefined
+                  ? Number(editRowValues[col.key])
+                  : 0;
+              } else if (col.type === "date" || col.key === "tanggal") {
+                cleanPayload[col.key] = formatDateForInput(editRowValues[col.key]);
               } else if (editRowValues[col.key] !== undefined) {
                 cleanPayload[col.key] = String(editRowValues[col.key]).trim();
               }
@@ -632,10 +900,10 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
           });
 
           let updateQuery = client.from(selectedTable.name).update(cleanPayload);
-          if (row[pkKey]) {
-            updateQuery = updateQuery.eq(pkKey, row[pkKey]);
-          } else if (row.id) {
+          if (row.id) {
             updateQuery = updateQuery.eq("id", row.id);
+          } else if (row[pkKey]) {
+            updateQuery = updateQuery.eq(pkKey, row[pkKey]);
           }
 
           const { data, error } = await updateQuery.select();
@@ -646,33 +914,34 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             return { data: null, error };
           }
 
-          // Update local state instantly
+          // Update local state specifically for this exact row index (handles duplicate IDs!)
           setTableRows((prev) =>
-            prev.map((r) => ((r[pkKey] || r.id) === pkVal ? { ...r, ...cleanPayload } : r))
+            prev.map((r, idx) => (idx === rIdx ? { ...r, ...cleanPayload } : r))
           );
 
-          // Update parent state
+          // Update parent state if applicable
           if (selectedTable.name === "sales_transactions" && setSalesTransactions) {
             setSalesTransactions((prev) =>
-              prev.map((r) => ((r[pkKey] || r.id) === pkVal ? { ...r, ...cleanPayload } : r))
+              prev.map((r, idx) => ((r.id ? r.id === row.id : (r[pkKey] || r.id) === pkVal) ? { ...r, ...cleanPayload } : r))
             );
           } else if (selectedTable.name === "customers" && setCustomers) {
             setCustomers((prev) =>
-              prev.map((r) => ((r[pkKey] || r.id) === pkVal ? { ...r, ...cleanPayload } : r))
+              prev.map((r, idx) => ((r.id ? r.id === row.id : (r[pkKey] || r.id) === pkVal) ? { ...r, ...cleanPayload } : r))
             );
           } else if (selectedTable.name === "savings_transactions" && setSavingsTransactions) {
             setSavingsTransactions((prev) =>
-              prev.map((r) => ((r[pkKey] || r.id) === pkVal ? { ...r, ...cleanPayload } : r))
+              prev.map((r, idx) => ((r.id ? r.id === row.id : (r[pkKey] || r.id) === pkVal) ? { ...r, ...cleanPayload } : r))
             );
           } else if (selectedTable.name === "debt_transactions" && setDebtTransactions) {
             setDebtTransactions((prev) =>
-              prev.map((r) => ((r[pkKey] || r.id) === pkVal ? { ...r, ...cleanPayload } : r))
+              prev.map((r, idx) => ((r.id ? r.id === row.id : (r[pkKey] || r.id) === pkVal) ? { ...r, ...cleanPayload } : r))
             );
           }
 
-          setEditingRowId(null);
+          setEditingRowUniqueId(null);
+          setEditingRowIndex(null);
           setEditRowValues({});
-          showToast(`✅ Baris [${pkVal}] berhasil diperbarui di database!`);
+          showToast(`✅ Baris berhasil diperbarui di database Supabase!`);
           return { data, error: null };
         }
       );
@@ -699,10 +968,14 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
     try {
       const cleanPayload: Record<string, any> = {};
-      selectedTable.columns.forEach((col) => {
+      effectiveColumns.forEach((col) => {
         if (col.key !== "created_at" && col.key !== "id" && !col.readOnly) {
           if (col.type === "number") {
-            cleanPayload[col.key] = Number(editingModalValues[col.key] || 0);
+            cleanPayload[col.key] = editingModalValues[col.key] !== "" && editingModalValues[col.key] !== undefined
+              ? Number(editingModalValues[col.key])
+              : 0;
+          } else if (col.type === "date" || col.key === "tanggal") {
+            cleanPayload[col.key] = formatDateForInput(editingModalValues[col.key]);
           } else if (editingModalValues[col.key] !== undefined) {
             cleanPayload[col.key] = String(editingModalValues[col.key]).trim();
           }
@@ -710,41 +983,42 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       });
 
       let q = client.from(selectedTable.name).update(cleanPayload);
-      if (editingModalRow[pkKey]) {
-        q = q.eq(pkKey, editingModalRow[pkKey]);
-      } else if (editingModalRow.id) {
+      if (editingModalRow.id) {
         q = q.eq("id", editingModalRow.id);
+      } else if (editingModalRow[pkKey]) {
+        q = q.eq(pkKey, editingModalRow[pkKey]);
       }
 
       const { error } = await q;
       if (error) throw error;
 
-      // Update local state instantly
+      // Update local state specifically for this exact row index (handles duplicate IDs!)
       setTableRows((prev) =>
-        prev.map((r) => ((r[pkKey] || r.id) === pkVal ? { ...r, ...cleanPayload } : r))
+        prev.map((r, idx) => (idx === editingModalIndex ? { ...r, ...cleanPayload } : r))
       );
 
       // Update parent state
       if (selectedTable.name === "sales_transactions" && setSalesTransactions) {
         setSalesTransactions((prev) =>
-          prev.map((r) => ((r[pkKey] || r.id) === pkVal ? { ...r, ...cleanPayload } : r))
+          prev.map((r) => ((r.id ? r.id === editingModalRow.id : (r[pkKey] || r.id) === pkVal) ? { ...r, ...cleanPayload } : r))
         );
       } else if (selectedTable.name === "customers" && setCustomers) {
         setCustomers((prev) =>
-          prev.map((r) => ((r[pkKey] || r.id) === pkVal ? { ...r, ...cleanPayload } : r))
+          prev.map((r) => ((r.id ? r.id === editingModalRow.id : (r[pkKey] || r.id) === pkVal) ? { ...r, ...cleanPayload } : r))
         );
       } else if (selectedTable.name === "savings_transactions" && setSavingsTransactions) {
         setSavingsTransactions((prev) =>
-          prev.map((r) => ((r[pkKey] || r.id) === pkVal ? { ...r, ...cleanPayload } : r))
+          prev.map((r) => ((r.id ? r.id === editingModalRow.id : (r[pkKey] || r.id) === pkVal) ? { ...r, ...cleanPayload } : r))
         );
       } else if (selectedTable.name === "debt_transactions" && setDebtTransactions) {
         setDebtTransactions((prev) =>
-          prev.map((r) => ((r[pkKey] || r.id) === pkVal ? { ...r, ...cleanPayload } : r))
+          prev.map((r) => ((r.id ? r.id === editingModalRow.id : (r[pkKey] || r.id) === pkVal) ? { ...r, ...cleanPayload } : r))
         );
       }
 
-      showToast(`✅ Data [${pkVal}] berhasil disimpan ke Supabase!`);
+      showToast(`✅ Data berhasil disimpan ke Supabase!`);
       setEditingModalRow(null);
+      setEditingModalIndex(null);
       setEditingModalValues({});
     } catch (err: any) {
       console.error("Gagal simpan edit modal:", err);
@@ -755,8 +1029,8 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   };
 
   // Open Delete Confirmation Modal
-  const handleDeleteRow = (row: any) => {
-    setRowToDelete(row);
+  const handleDeleteRow = (row: any, rIdx: number) => {
+    setRowToDelete({ ...row, _rIdx: rIdx });
   };
 
   // Confirm Delete Row from Supabase
@@ -771,18 +1045,19 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     setIsDeletingRow(true);
     const pkKey = selectedTable.primaryKey;
     const pkVal = rowToDelete[pkKey] || rowToDelete.id;
+    const targetIdx = rowToDelete._rIdx;
 
     try {
       await SupabaseQueryLogger.track(
         selectedTable.name,
         "DELETE",
-        { pkKey, pkVal },
+        { pkKey, pkVal, id: rowToDelete.id },
         async () => {
           let delQ = client.from(selectedTable.name).delete();
-          if (rowToDelete[pkKey]) {
-            delQ = delQ.eq(pkKey, rowToDelete[pkKey]);
-          } else if (rowToDelete.id) {
+          if (rowToDelete.id) {
             delQ = delQ.eq("id", rowToDelete.id);
+          } else if (rowToDelete[pkKey]) {
+            delQ = delQ.eq(pkKey, rowToDelete[pkKey]);
           }
 
           const { error } = await delQ;
@@ -793,21 +1068,22 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             return { data: null, error };
           }
 
-          setTableRows((prev) => prev.filter((r) => (r[pkKey] || r.id) !== pkVal));
+          // Delete specific row by index locally (handles duplicate IDs safely!)
+          setTableRows((prev) => prev.filter((_, idx) => idx !== targetIdx));
           setTotalCount((prev) => Math.max(0, prev - 1));
 
           // Update parent state
           if (selectedTable.name === "sales_transactions" && setSalesTransactions) {
-            setSalesTransactions((prev) => prev.filter((r) => (r[pkKey] || r.id) !== pkVal));
+            setSalesTransactions((prev) => prev.filter((r) => (rowToDelete.id ? r.id !== rowToDelete.id : (r[pkKey] || r.id) !== pkVal)));
           } else if (selectedTable.name === "customers" && setCustomers) {
-            setCustomers((prev) => prev.filter((r) => (r[pkKey] || r.id) !== pkVal));
+            setCustomers((prev) => prev.filter((r) => (rowToDelete.id ? r.id !== rowToDelete.id : (r[pkKey] || r.id) !== pkVal)));
           } else if (selectedTable.name === "savings_transactions" && setSavingsTransactions) {
-            setSavingsTransactions((prev) => prev.filter((r) => (r[pkKey] || r.id) !== pkVal));
+            setSavingsTransactions((prev) => prev.filter((r) => (rowToDelete.id ? r.id !== rowToDelete.id : (r[pkKey] || r.id) !== pkVal)));
           } else if (selectedTable.name === "debt_transactions" && setDebtTransactions) {
-            setDebtTransactions((prev) => prev.filter((r) => (r[pkKey] || r.id) !== pkVal));
+            setDebtTransactions((prev) => prev.filter((r) => (rowToDelete.id ? r.id !== rowToDelete.id : (r[pkKey] || r.id) !== pkVal)));
           }
 
-          showToast(`🗑️ Baris [${pkVal}] telah dihapus dari tabel ${selectedTable.label}.`);
+          showToast(`🗑️ Baris telah dihapus dari tabel ${selectedTable.label}.`);
           setRowToDelete(null);
           return { data: true, error: null };
         }
@@ -828,14 +1104,15 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     if (selectedTable.name === "sales_transactions") {
       const now = new Date();
       const timeSlice = Math.floor(Date.now() / 1000).toString().slice(-4);
-      initialValues["id_transaksi"] = `TRX-0000/${(totalCount || 0) + 1}-${timeSlice}`;
+      initialValues["id_transaksi"] = `TRX-${timeSlice}`;
       initialValues["id_pelanggan"] = "CUST-0000";
       initialValues["tanggal"] = now.toISOString().slice(0, 10);
       initialValues["nama"] = "Pelanggan Umum";
       initialValues["jenis"] = "TARIK TUNAI";
       initialValues["melalui"] = "EDC BNI";
-      initialValues["metode"] = "TUNAI";
+      initialValues["metode"] = "Tunai";
       initialValues["pemasukan"] = 100000;
+      initialValues["harga_admin"] = 0;
       initialValues["harga_modal"] = 97000;
       initialValues["sebagian"] = 0;
       initialValues["poin"] = 10;
@@ -843,15 +1120,25 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     } else if (selectedTable.name === "customers") {
       initialValues["id_pelanggan"] = `CUST-${String((totalCount || 0) + 1).padStart(4, "0")}`;
       initialValues["nama"] = "";
-      initialValues["no_hp"] = "-";
+      initialValues["pin"] = "";
+      initialValues["telepon"] = "-";
       initialValues["alamat"] = "-";
-      initialValues["hutang"] = 0;
+      initialValues["point"] = 0;
+      initialValues["level"] = "Bronze";
       initialValues["tabungan"] = 0;
-      initialValues["poin"] = 0;
+      initialValues["investasi"] = 0;
+      initialValues["lainnya"] = 0;
+      initialValues["hutang"] = 0;
     } else {
-      selectedTable.columns.forEach((c) => {
+      effectiveColumns.forEach((c) => {
         if (c.key !== "created_at" && c.key !== "id") {
-          initialValues[c.key] = c.type === "number" ? 0 : "";
+          if (c.type === "number") {
+            initialValues[c.key] = 0;
+          } else if (c.type === "date" || c.key === "tanggal") {
+            initialValues[c.key] = new Date().toISOString().slice(0, 10);
+          } else {
+            initialValues[c.key] = "";
+          }
         }
       });
     }
@@ -872,10 +1159,13 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     setIsSavingNewRow(true);
     try {
       const cleanPayload: Record<string, any> = {};
-      selectedTable.columns.forEach((c) => {
+      effectiveColumns.forEach((c) => {
+        if (c.key === "id" && !newRowData[c.key]) return;
         if (c.key === "created_at" && !newRowData[c.key]) return;
         if (c.type === "number") {
           cleanPayload[c.key] = Number(newRowData[c.key] || 0);
+        } else if (c.type === "date" || c.key === "tanggal") {
+          cleanPayload[c.key] = formatDateForInput(newRowData[c.key]);
         } else {
           cleanPayload[c.key] = newRowData[c.key] !== undefined ? String(newRowData[c.key]).trim() : "";
         }
@@ -890,7 +1180,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
       showToast(`✅ Berhasil menambahkan data baru ke tabel ${selectedTable.label}!`);
       setIsAddRowModalOpen(false);
-      await fetchTableData(selectedTable, 1, tableSearchQuery);
+      await fetchTableData(selectedTable, 1, tableSearchQuery, false, sortColumn, sortAscending, pageSize);
     } catch (err: any) {
       console.error("Gagal simpan baris baru ke Supabase:", err);
       showToast(`Gagal menyimpan: ${err.message || "Terjadi kesalahan."}`);
@@ -899,7 +1189,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     }
   };
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   // Analytics Helpers
   const handleClearLogs = () => {
@@ -937,7 +1227,13 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   }, [logs, selectedTableFilter, searchLog]);
 
   return (
-    <div id="admin-database-page-container" className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-3 sm:p-5 lg:p-6">
+    <motion.div
+      id="admin-database-page-container"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="min-h-screen bg-slate-50 dark:bg-slate-900 pb-24 text-slate-800 dark:text-slate-100"
+    >
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMessage && (
@@ -953,74 +1249,113 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         )}
       </AnimatePresence>
 
-      {/* TOPMOST TAB BAR */}
-      <div className="max-w-7xl mx-auto mb-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-          {/* Main 2 Tabs */}
-          <div className="flex items-center gap-2">
+      {/* Top Banner Header matching AdminCashFlowPage */}
+      <div className="bg-[#005E6A] text-white px-4 sm:px-8 pt-8 pb-16 relative overflow-hidden shadow-xl">
+        <div className="absolute -top-10 -right-10 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-teal-400/10 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
             <button
-              id="tab-btn-data"
-              onClick={() => {
-                setActiveTab("data");
-              }}
-              className={`flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+              onClick={() => navigate("/admin")}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/90 text-xs font-black uppercase tracking-wider transition-all backdrop-blur-md mb-2 group cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+              <span>Kembali ke Dashboard</span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-white shadow-inner">
+                <Database className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
+                  Kelola Database
+                </h1>
+                <p className="text-xs font-medium text-teal-100/80 uppercase tracking-widest">
+                  Live Supabase Inspector, Schema & Bandwidth Optimizer
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Metrics / Badges on Top Right */}
+          <div className="bg-white/10 p-1.5 rounded-2xl backdrop-blur-md flex items-center gap-2 overflow-x-auto no-scrollbar border border-white/15">
+            <div className="px-3.5 py-2 rounded-xl bg-white/10 text-white text-xs font-bold flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Supabase Connected</span>
+            </div>
+            <div className="px-3.5 py-2 rounded-xl bg-white/10 text-white text-xs font-bold font-mono">
+              <span>{DATABASE_TABLES.length} Tabel</span>
+            </div>
+            <div className="px-3.5 py-2 rounded-xl bg-amber-400 text-slate-900 text-xs font-black uppercase tracking-wider shadow-md">
+              <span>{formatByteSize(stats.totalBytesTransferred)} Traffic</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area with Sub-Tabs overlapping with -mt-8 */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-8 space-y-8 relative z-20">
+        {/* Navigation Sub-Tabs: Daftar Tabel vs Analisa Traffic */}
+        <div className="bg-white dark:bg-slate-800 p-2 rounded-2xl shadow-lg border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setActiveTab("data")}
+              className={`flex-1 sm:flex-initial px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 activeTab === "data"
-                  ? "bg-[#005E6A] text-white shadow-xs dark:bg-[#2dd4bf] dark:text-slate-950"
-                  : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white"
+                  ? "bg-[#005E6A] text-white shadow-md"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50"
               }`}
             >
               <Database className="w-4 h-4" />
-              Data
-              {selectedTable && (
-                <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/20 dark:bg-black/20">
-                  {selectedTable.label}
-                </span>
-              )}
+              <span>Daftar Tabel ({DATABASE_TABLES.length})</span>
             </button>
 
             <button
-              id="tab-btn-analisa"
               onClick={() => setActiveTab("analisa")}
-              className={`flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+              className={`flex-1 sm:flex-initial px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 activeTab === "analisa"
-                  ? "bg-[#005E6A] text-white shadow-xs dark:bg-[#2dd4bf] dark:text-slate-950"
-                  : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white"
+                  ? "bg-[#005E6A] text-white shadow-md"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50"
               }`}
             >
               <BarChart3 className="w-4 h-4" />
-              Analisa
+              <span>Analisa Traffic ({stats.totalQueries})</span>
             </button>
           </div>
 
-          {/* Action Tools */}
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             {activeTab === "analisa" && (
               <>
                 <button
                   onClick={() => setAutoRefresh(!autoRefresh)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 font-bold rounded-lg border transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-2 font-bold rounded-xl text-xs border transition-all cursor-pointer ${
                     autoRefresh
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
                       : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
                   }`}
                 >
                   <Radio className={`w-3.5 h-3.5 ${autoRefresh ? "animate-pulse" : ""}`} />
-                  {autoRefresh ? "Live" : "Jeda"}
+                  {autoRefresh ? "Live Sync" : "Jeda"}
                 </button>
                 <button
                   onClick={handleClearLogs}
-                  className="flex items-center gap-1.5 px-3 py-1.5 font-bold rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all"
+                  className="flex items-center gap-1.5 px-3 py-2 font-bold rounded-xl text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 transition-all cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  Reset
+                  Reset Log
                 </button>
               </>
             )}
+            {activeTab === "data" && selectedTable && (
+              <div className="hidden md:flex items-center gap-2 px-3 py-1 text-xs font-bold text-slate-500 dark:text-slate-400">
+                <span>Tabel Aktif: <strong className="text-[#005E6A] dark:text-teal-400 uppercase">{selectedTable.label}</strong></span>
+              </div>
+            )}
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto">
         <AnimatePresence mode="wait">
           {/* ========================================================================= */}
           {/* TAB 1: DATA (GRID KARTU TABEL + INLINE ROW EDITING + PAGINASI LIMIT 20)  */}
@@ -1113,8 +1448,49 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                       </div>
                     </div>
 
-                    {/* Right Tools: Tambah Data + Refresh + Search */}
-                    <div className="flex items-center gap-2">
+                    {/* Right Tools: Page Size + Kelola Kolom + Tambah Data + Refresh + Search */}
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      {/* Page Size Selector */}
+                      <div className="flex items-center gap-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1">
+                        <span className="text-slate-500 dark:text-slate-400 font-medium">Tampil:</span>
+                        <select
+                          value={pageSize}
+                          onChange={(e) => {
+                            const newSize = Number(e.target.value);
+                            setPageSize(newSize);
+                            setCurrentPage(1);
+                          }}
+                          className="bg-transparent font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                        >
+                          {PAGE_SIZE_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                              {opt === 1000 ? "1000 (Semua)" : `${opt} baris`}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Kelola Kolom Button */}
+                      <button
+                        onClick={() => setIsColumnManagerOpen(true)}
+                        title="Atur kolom yang ditampilkan dan urutan kolom"
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all ${
+                          hiddenColumns.length > 0
+                            ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                            : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        }`}
+                      >
+                        <Columns className="w-3.5 h-3.5 text-[#005E6A] dark:text-[#2dd4bf]" />
+                        <span className="hidden sm:inline">Kolom</span>
+                        <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-bold ${
+                          hiddenColumns.length > 0
+                            ? "bg-amber-500 text-white"
+                            : "bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                        }`}>
+                          {effectiveColumns.length}/{orderedAllColumns.length}
+                        </span>
+                      </button>
+
                       <button
                         onClick={handleOpenAddModal}
                         title={`Tambah data baru`}
@@ -1125,9 +1501,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                       </button>
 
                       <button
-                        onClick={() => fetchTableData(selectedTable, currentPage, tableSearchQuery, true)}
+                        onClick={() => fetchTableData(selectedTable, currentPage, tableSearchQuery, true, sortColumn, sortAscending, pageSize)}
                         disabled={isLoadingTable}
-                        title="Segarkan data"
+                        title="Segarkan data dari Supabase"
                         className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors disabled:opacity-50"
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTable ? "animate-spin text-[#005E6A]" : ""}`} />
@@ -1140,7 +1516,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                           placeholder={`Cari ${selectedTable.searchColumn || "nama"}...`}
                           value={tableSearchQuery}
                           onChange={(e) => setTableSearchQuery(e.target.value)}
-                          className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-7 pr-2.5 py-1.5 font-medium w-36 sm:w-48 focus:outline-none focus:border-[#005E6A]"
+                          className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-7 pr-2.5 py-1.5 font-medium w-32 sm:w-44 focus:outline-none focus:border-[#005E6A]"
                         />
                       </div>
                     </div>
@@ -1148,32 +1524,81 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
 
                   {/* Responsive Table Container */}
                   <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto max-h-[72vh]">
                       <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] tracking-wider">
-                            <th className="py-3 px-3 text-center w-12">No</th>
-                            {selectedTable.columns.map((col) => {
+                        <thead className="sticky top-0 z-10 shadow-xs">
+                          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px] tracking-wider">
+                            <th className="py-3 px-3 text-center w-12 bg-slate-100 dark:bg-slate-800">No</th>
+                            {effectiveColumns.map((col, cIdx) => {
                               const isSorted = sortColumn === col.key;
                               return (
                                 <th
                                   key={col.key}
-                                  onClick={() => handleSortBy(col.key)}
-                                  className="py-3 px-3.5 whitespace-nowrap cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors group select-none"
+                                  className="py-2.5 px-3.5 whitespace-nowrap select-none bg-slate-100 dark:bg-slate-800 group/th border-r border-slate-200/50 dark:border-slate-800/60"
                                 >
-                                  <div className="flex items-center gap-1.5">
-                                    <span>{col.label}</span>
-                                    <span className="text-[10px] font-mono text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200">
-                                      {isSorted ? (sortAscending ? "▲" : "▼") : "↕"}
+                                  <div className="flex items-center justify-between gap-1.5">
+                                    <div
+                                      onClick={() => handleSortBy(col.key)}
+                                      className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                                      title={`Klik untuk urutkan berdasarkan ${col.label}`}
+                                    >
+                                      <span>{col.label}</span>
+                                      <span className={`text-[10px] font-mono ${
+                                        isSorted ? "text-[#005E6A] dark:text-[#2dd4bf] font-black" : "text-slate-400 group-hover/th:text-slate-700 dark:group-hover/th:text-slate-200"
+                                      }`}>
+                                        {isSorted ? (sortAscending ? "▲" : "▼") : "↕"}
+                                      </span>
+                                    </div>
+
+                                    {/* Quick Column Shift (Left/Right) & Quick Hide */}
+                                    <div className="opacity-0 group-hover/th:opacity-100 flex items-center gap-0.5 transition-opacity ml-2">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleMoveColumn(col.key, "left");
+                                        }}
+                                        disabled={cIdx === 0}
+                                        title="Geser kolom ke kiri"
+                                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-20 transition-colors"
+                                      >
+                                        <MoveLeft className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleMoveColumn(col.key, "right");
+                                        }}
+                                        disabled={cIdx === effectiveColumns.length - 1}
+                                        title="Geser kolom ke kanan"
+                                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-20 transition-colors"
+                                      >
+                                        <MoveRight className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleToggleColumn(col.key);
+                                        }}
+                                        title="Sembunyikan kolom ini"
+                                        className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/40 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                                      >
+                                        <EyeOff className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[9px] font-mono font-normal text-slate-400 mt-0.5">
+                                    <span>{col.key}</span>
+                                    <span className="text-[8px] uppercase tracking-tighter opacity-60">
+                                      {col.type}
                                     </span>
                                   </div>
-                                  <span className="block font-mono text-[9px] font-normal text-slate-400">
-                                    {col.key}
-                                  </span>
                                 </th>
                               );
                             })}
-                            <th className="py-3 px-3.5 text-center whitespace-nowrap w-28">
+                            <th className="py-3 px-3.5 text-center whitespace-nowrap w-28 bg-slate-100 dark:bg-slate-800">
                               Aksi
                             </th>
                           </tr>
@@ -1182,16 +1607,16 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
                           {isLoadingTable ? (
                             <tr>
-                              <td colSpan={selectedTable.columns.length + 2} className="py-12 text-center text-slate-500 dark:text-slate-400">
+                              <td colSpan={effectiveColumns.length + 2} className="py-12 text-center text-slate-500 dark:text-slate-400">
                                 <div className="flex flex-col items-center justify-center gap-2">
                                   <RefreshCw className="w-6 h-6 animate-spin text-[#005E6A] dark:text-[#2dd4bf]" />
-                                  <span className="text-xs font-bold">Mengambil data dari Supabase (Limit 20 & Delta Sync)...</span>
+                                  <span className="text-xs font-bold">Memuat semua data dari Supabase (Limit {pageSize})...</span>
                                 </div>
                               </td>
                             </tr>
                           ) : tableRows.length === 0 ? (
                             <tr>
-                              <td colSpan={selectedTable.columns.length + 2} className="py-12 text-center text-slate-500 dark:text-slate-400">
+                              <td colSpan={effectiveColumns.length + 2} className="py-12 text-center text-slate-500 dark:text-slate-400">
                                 <div className="flex flex-col items-center justify-center gap-1">
                                   <Info className="w-6 h-6 text-slate-400" />
                                   <span className="text-xs font-bold">Tidak ada data ditemukan.</span>
@@ -1200,13 +1625,14 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                             </tr>
                           ) : (
                             tableRows.map((row, rIdx) => {
-                              const pkKey = selectedTable.primaryKey;
-                              const pkVal = String(row[pkKey] || row.id || rIdx);
-                              const isEditing = editingRowId === pkVal;
+                              const rowUniqueKey = row.id
+                                ? `id-${row.id}-${rIdx}`
+                                : `row-${(currentPage - 1) * pageSize + rIdx}-${row[selectedTable.primaryKey] || rIdx}`;
+                              const isEditing = editingRowIndex === rIdx;
 
                               return (
                                 <tr
-                                  key={pkVal}
+                                  key={rowUniqueKey}
                                   className={`transition-colors ${
                                     isEditing
                                       ? "bg-amber-500/10 dark:bg-amber-500/10 border-l-4 border-amber-500"
@@ -1215,17 +1641,17 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                 >
                                   {/* Row Number */}
                                   <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">
-                                    {(currentPage - 1) * PAGE_SIZE + rIdx + 1}
+                                    {(currentPage - 1) * pageSize + rIdx + 1}
                                   </td>
 
                                   {/* Columns / Fields */}
-                                  {selectedTable.columns.map((col) => {
+                                  {effectiveColumns.map((col) => {
                                     const cellVal = isEditing ? editRowValues[col.key] : row[col.key];
 
                                     return (
                                       <td key={col.key} className="py-2.5 px-3.5 whitespace-nowrap">
-                                        {isEditing && !col.readOnly ? (
-                                          /* INLINE EDIT MODE (NO MODAL) */
+                                        {isEditing && !col.readOnly && col.key !== "id" && col.key !== "created_at" ? (
+                                          /* INLINE EDIT MODE */
                                           col.type === "select" && col.options ? (
                                             <select
                                               value={cellVal ?? ""}
@@ -1235,7 +1661,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                                   [col.key]: e.target.value
                                                 }))
                                               }
-                                              className="w-full min-w-[130px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-lg px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                                              className="w-full min-w-[130px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-md px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
                                             >
                                               {col.options.map((opt) => (
                                                 <option key={opt} value={opt}>
@@ -1243,6 +1669,18 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                                 </option>
                                               ))}
                                             </select>
+                                          ) : col.type === "date" || col.key === "tanggal" || col.key === "jatuh_tempo" ? (
+                                            <input
+                                              type="date"
+                                              value={cellVal ? formatDateForInput(cellVal) : new Date().toISOString().slice(0, 10)}
+                                              onChange={(e) =>
+                                                setEditRowValues((prev) => ({
+                                                  ...prev,
+                                                  [col.key]: e.target.value
+                                                }))
+                                              }
+                                              className="w-full min-w-[130px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-md px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                                            />
                                           ) : (
                                             <input
                                               type={col.type === "number" ? "number" : "text"}
@@ -1253,7 +1691,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                                   [col.key]: e.target.value
                                                 }))
                                               }
-                                              className="w-full min-w-[120px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-lg px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                                              className="w-full min-w-[120px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-md px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
                                             />
                                           )
                                         ) : (
@@ -1262,14 +1700,22 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                             className={
                                               col.type === "number"
                                                 ? "font-mono font-bold text-slate-900 dark:text-slate-100"
+                                                : col.key === "id"
+                                                ? "font-mono text-[10px] text-slate-400 dark:text-slate-500 select-all"
                                                 : col.key === selectedTable.primaryKey
                                                 ? "font-mono font-bold text-[#005E6A] dark:text-[#2dd4bf]"
+                                                : col.type === "date" || col.key === "tanggal" || col.key === "created_at"
+                                                ? "font-mono text-slate-700 dark:text-slate-300"
                                                 : "text-slate-700 dark:text-slate-300"
                                             }
                                           >
                                             {cellVal !== null && cellVal !== undefined
                                               ? col.type === "number"
                                                 ? Number(cellVal).toLocaleString("id-ID")
+                                                : col.type === "date" || col.key === "tanggal"
+                                                ? formatDateForInput(String(cellVal))
+                                                : typeof cellVal === "object"
+                                                ? JSON.stringify(cellVal)
                                                 : String(cellVal)
                                               : "-"}
                                           </span>
@@ -1278,13 +1724,13 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                     );
                                   })}
 
-                                  {/* Action Buttons: Edit & Hapus (Inline) */}
+                                  {/* Action Buttons: Edit & Hapus (Inline & Modal) */}
                                   <td className="py-2.5 px-3.5 text-center">
                                     {isEditing ? (
                                       /* SAVE / CANCEL BUTTONS */
                                       <div className="flex items-center justify-center gap-1.5">
                                         <button
-                                          onClick={() => handleSaveInlineEdit(row)}
+                                          onClick={() => handleSaveInlineEdit(row, rIdx)}
                                           disabled={isSavingRow}
                                           title="Simpan Perubahan"
                                           className="p-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 font-bold transition-all shadow-sm disabled:opacity-50"
@@ -1304,7 +1750,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                       /* EDIT / DELETE BUTTONS */
                                       <div className="flex items-center justify-center gap-1.5">
                                         <button
-                                          onClick={() => handleOpenEditModal(row)}
+                                          onClick={() => handleOpenEditModal(row, rIdx)}
                                           title="Edit Data Baris Ini"
                                           className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold transition-all flex items-center gap-1"
                                         >
@@ -1312,7 +1758,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                           <span className="text-[10px] hidden xl:inline font-bold">Edit</span>
                                         </button>
                                         <button
-                                          onClick={() => handleDeleteRow(row)}
+                                          onClick={() => handleDeleteRow(row, rIdx)}
                                           title="Hapus Baris Ini"
                                           className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-semibold transition-all flex items-center gap-1"
                                         >
@@ -1330,16 +1776,16 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                       </table>
                     </div>
 
-                    {/* Pagination Bar (Limit 20) */}
+                    {/* Pagination Bar */}
                     <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
                       <div className="text-slate-500 dark:text-slate-400 font-medium">
                         Menampilkan{" "}
                         <strong className="text-slate-900 dark:text-white">
-                          {tableRows.length > 0 ? (currentPage - 1) * PAGE_SIZE + 1 : 0}
+                          {tableRows.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}
                         </strong>{" "}
                         -{" "}
                         <strong className="text-slate-900 dark:text-white">
-                          {Math.min(currentPage * PAGE_SIZE, totalCount)}
+                          {Math.min(currentPage * pageSize, totalCount)}
                         </strong>{" "}
                         dari <strong className="text-slate-900 dark:text-white">{totalCount}</strong> baris data
                       </div>
@@ -1679,7 +2125,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                 </div>
 
                 <div className="p-4 space-y-3 overflow-y-auto max-h-[65vh]">
-                  {selectedTable.columns
+                  {effectiveColumns
                     .filter((c) => c.key !== "created_at" && c.key !== "id")
                     .map((col) => (
                       <div key={col.key} className="space-y-1">
@@ -1716,7 +2162,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                               <option key={s} value={s}>{s}</option>
                             ))}
                           </select>
-                        ) : col.key === "tanggal" ? (
+                        ) : col.key === "tanggal" || col.key === "jatuh_tempo" || col.type === "date" ? (
                           <input
                             type="date"
                             value={newRowData[col.key] || new Date().toISOString().slice(0, 10)}
@@ -1806,7 +2252,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                 </div>
 
                 <div className="p-4 space-y-3 overflow-y-auto max-h-[65vh]">
-                  {selectedTable.columns.map((col) => {
+                  {effectiveColumns.map((col) => {
                     const isPk = col.key === selectedTable.primaryKey;
                     const isReadOnly = col.readOnly || col.key === "created_at" || col.key === "id";
                     const val = editingModalValues[col.key];
@@ -1857,7 +2303,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                             }
                             className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
                           />
-                        ) : col.type === "date" || col.key === "tanggal" ? (
+                        ) : col.type === "date" || col.key === "tanggal" || col.key === "jatuh_tempo" ? (
                           <input
                             type="date"
                             value={val ? String(val).slice(0, 10) : new Date().toISOString().slice(0, 10)}
@@ -2024,7 +2470,180 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             </div>
           )}
         </AnimatePresence>
+
+        {/* MODAL 4: KELOLA VISIBILITAS & URUTAN KOLOM */}
+        <AnimatePresence>
+          {isColumnManagerOpen && selectedTable && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]"
+              >
+                {/* Header */}
+                <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/50">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-[#005E6A] text-white">
+                      <Columns className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        Kelola Kolom Tabel
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {selectedTable.label} • {effectiveColumns.length} aktif dari {orderedAllColumns.length} kolom
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setIsColumnManagerOpen(false);
+                      setColumnSearchQuery("");
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Toolbar Presets & Search */}
+                <div className="p-3 border-b border-slate-200 dark:border-slate-800 space-y-2 bg-slate-50/40 dark:bg-slate-800/30">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={handleShowAllColumns}
+                      className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+                    >
+                      Tampilkan Semua ({orderedAllColumns.length})
+                    </button>
+                    <button
+                      onClick={handleHideNonEssentialColumns}
+                      className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/20 transition-colors"
+                    >
+                      Sederhanakan (Kolom Utama)
+                    </button>
+                    <button
+                      onClick={handleResetColumns}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 transition-colors"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset Standar
+                    </button>
+                  </div>
+
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Filter kolom..."
+                      value={columnSearchQuery}
+                      onChange={(e) => setColumnSearchQuery(e.target.value)}
+                      className="w-full text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-8 pr-3 py-1.5 font-medium text-slate-900 dark:text-white focus:outline-none focus:border-[#005E6A]"
+                    />
+                  </div>
+                </div>
+
+                {/* Column Items List */}
+                <div className="p-3 space-y-1.5 overflow-y-auto max-h-[55vh]">
+                  {orderedAllColumns
+                    .filter((col) => {
+                      if (!columnSearchQuery.trim()) return true;
+                      const q = columnSearchQuery.toLowerCase();
+                      return col.label.toLowerCase().includes(q) || col.key.toLowerCase().includes(q);
+                    })
+                    .map((col, idx) => {
+                      const isVisible = !hiddenColumns.includes(col.key);
+                      const isPk = col.key === selectedTable.primaryKey;
+                      const isOriginalFirst = idx === 0;
+                      const isOriginalLast = idx === orderedAllColumns.length - 1;
+
+                      return (
+                        <div
+                          key={col.key}
+                          className={`flex items-center justify-between p-2.5 rounded-lg border transition-all ${
+                            isVisible
+                              ? "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700"
+                              : "bg-slate-50 dark:bg-slate-900/60 border-slate-200/60 dark:border-slate-800 opacity-60"
+                          }`}
+                        >
+                          {/* Left: Visibility Checkbox & Details */}
+                          <label className="flex items-center gap-3 cursor-pointer flex-1 select-none mr-2">
+                            <input
+                              type="checkbox"
+                              checked={isVisible}
+                              onChange={() => handleToggleColumn(col.key)}
+                              className="w-4 h-4 rounded text-[#005E6A] focus:ring-[#005E6A] cursor-pointer"
+                            />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-xs font-bold ${isVisible ? "text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 line-through"}`}>
+                                  {col.label}
+                                </span>
+                                {isPk && (
+                                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-bold">
+                                    PK
+                                  </span>
+                                )}
+                                {col.readOnly && (
+                                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+                                    ReadOnly
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono mt-0.5">
+                                <span>{col.key}</span>
+                                <span>•</span>
+                                <span className="uppercase text-[9px]">{col.type}</span>
+                              </div>
+                            </div>
+                          </label>
+
+                          {/* Right: Reorder Up / Down Controls */}
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleMoveColumn(col.key, "left")}
+                              disabled={isOriginalFirst}
+                              title="Geser urutan ke atas (ke kiri pada tabel)"
+                              className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white disabled:opacity-20 transition-colors"
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleMoveColumn(col.key, "right")}
+                              disabled={isOriginalLast}
+                              title="Geser urutan ke bawah (ke kanan pada tabel)"
+                              className="p-1.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white disabled:opacity-20 transition-colors"
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Otomatis disimpan di browser
+                  </span>
+                  <button
+                    onClick={() => {
+                      setIsColumnManagerOpen(false);
+                      setColumnSearchQuery("");
+                    }}
+                    className="px-4 py-2 rounded-lg bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-bold shadow-xs transition-all"
+                  >
+                    Selesai
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
-    </div>
+    </motion.div>
   );
 };
