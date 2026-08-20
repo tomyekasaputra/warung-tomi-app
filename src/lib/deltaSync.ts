@@ -177,6 +177,26 @@ export const DeltaCache = {
   },
 
   /**
+   * Bersihkan cache dengan prefix tertentu (misal untuk satu tabel spesifik)
+   */
+  clearPrefix(prefix: string): void {
+    try {
+      const keysToRemove: string[] = [];
+      const cacheTarget = `${CACHE_PREFIX}${prefix}`;
+      const syncTarget = `${SYNC_TIME_PREFIX}${prefix}`;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith(cacheTarget) || k.startsWith(syncTarget))) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (e) {
+      console.warn(`Gagal membersihkan delta cache dengan prefix ${prefix}:`, e);
+    }
+  },
+
+  /**
    * Bersihkan semua cache untuk sinkronisasi ulang penuh
    */
   clearAll(): void {

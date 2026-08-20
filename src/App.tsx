@@ -1693,10 +1693,12 @@ const PROMO_SLIDES = [
   { id: 4, image: "https://lh3.googleusercontent.com/d/1q06qTXISxLvOMCQnTT4f3MATAmBo5is-", title: "Level" },
 ];
 
-const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
+const BansosPage = ({ transactions }: { transactions?: SalesTransaction[] }) => {
   const navigate = useNavigate();
   const currentMonth = new Date().getMonth();
+  const currentYear = React.useMemo(() => new Date().getFullYear(), []);
   const [activeMenu, setActiveMenu] = useState<'laporan' | 'riwayat' | 'cek_desil'>('laporan');
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
 
   const handleShare = async () => {
     try {
@@ -1722,7 +1724,142 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const [activeTahap, setActiveTahap] = useState(defaultTahap);
   const [searchQuery, setSearchQuery] = useState("");
   const [riwayatSearchQuery, setRiwayatSearchQuery] = useState("");
-  
+
+  // Initialize stage cache from DeltaCache for fast 0ms initial load
+  const [stageCache, setStageCache] = useState<Record<number, SalesTransaction[]>>(() => {
+    const initial: Record<number, SalesTransaction[]> = {};
+    for (let stg = 1; stg <= 4; stg++) {
+      const cached = DeltaCache.get<SalesTransaction>(`bansos_stage_${currentYear}_${stg}`);
+      if (cached && cached.length > 0) {
+        initial[stg] = cached;
+      }
+    }
+    return initial;
+  });
+  const [loadingStage, setLoadingStage] = useState<boolean>(false);
+
+  // Database-calculated summary for all 4 periods (PKH & BPNT)
+  const defaultEmptyTrend = [
+    { stage: "Tahap 1", stage_id: 1, period: "Jan-Mar", pkh: 0, bpnt: 0, pkhFunds: 0, bpntFunds: 0, totalFunds: 0, count: 0 },
+    { stage: "Tahap 2", stage_id: 2, period: "Apr-Jun", pkh: 0, bpnt: 0, pkhFunds: 0, bpntFunds: 0, totalFunds: 0, count: 0 },
+    { stage: "Tahap 3", stage_id: 3, period: "Jul-Sep", pkh: 0, bpnt: 0, pkhFunds: 0, bpntFunds: 0, totalFunds: 0, count: 0 },
+    { stage: "Tahap 4", stage_id: 4, period: "Okt-Des", pkh: 0, bpnt: 0, pkhFunds: 0, bpntFunds: 0, totalFunds: 0, count: 0 },
+  ];
+
+  const [dbTrendData, setDbTrendData] = useState<typeof defaultEmptyTrend>(() => {
+    const cached = DeltaCache.get<any>(`bansos_summary_${currentYear}`);
+    return (cached && cached.length === 4) ? cached : defaultEmptyTrend;
+  });
+  const [loadingChart, setLoadingChart] = useState<boolean>(false);
+
+  const getStageDateRange = (stage: number, year: number) => {
+    switch (stage) {
+      case 1:
+        return { startDate: `${year}-01-01`, endDate: `${year}-03-31`, label: "Tahap 1", period: "Jan - Mar" };
+      case 2:
+        return { startDate: `${year}-04-01`, endDate: `${year}-06-30`, label: "Tahap 2", period: "Apr - Jun" };
+      case 3:
+        return { startDate: `${year}-07-01`, endDate: `${year}-09-30`, label: "Tahap 3", period: "Jul - Sep" };
+      case 4:
+        return { startDate: `${year}-10-01`, endDate: `${year}-12-31`, label: "Tahap 4", period: "Okt - Des" };
+      default:
+        return { startDate: `${year}-01-01`, endDate: `${year}-03-31`, label: "Tahap 1", period: "Jan - Mar" };
+    }
+  };
+
+  // Delta sync stage data fetching with mergeDelta and since timestamp
+  const fetchStageData = useCallback(async (stage: number, year: number, force: boolean = false) => {
+    const cacheKey = `bansos_stage_${year}_${stage}`;
+    const localCached = DeltaCache.get<SalesTransaction>(cacheKey);
+    const lastSync = force ? null : DeltaCache.getLastSync(cacheKey);
+
+    // Only show full-table loading spinner if we have no local/cached data at all
+    setStageCache(prev => {
+      if (!prev[stage] || prev[stage].length === 0) {
+        setLoadingStage(true);
+      }
+      return prev;
+    });
+
+    try {
+      const { startDate, endDate } = getStageDateRange(stage, year);
+      const fetchTime = new Date().toISOString();
+
+      // Ambil hanya kolom nama, tanggal, jenis, nominal (pemasukan), dan status tanpa menyertakan id_pelanggan
+      const queryOptions: any = {
+        bansosOnly: true,
+        startDate,
+        endDate,
+        select: 'nama, tanggal, jenis, pemasukan, status'
+      };
+
+      const { data, error } = await SupabaseSalesService.getSales(queryOptions);
+
+      if (data) {
+        const mapped: SalesTransaction[] = data.map((item, idx) => ({
+          id: `${(item.nama || '').trim()}_${item.tanggal || ''}_${idx}`,
+          id_transaksi: `${(item.nama || '').trim()}_${item.tanggal || ''}_${idx}`,
+          id_pelanggan: '',
+          Tanggal: item.tanggal || '',
+          Nama: (item.nama || '').trim(),
+          Jenis: item.jenis || '',
+          Pemasukan: typeof item.pemasukan === 'number' ? item.pemasukan : parseFloat(String(item.pemasukan || '0').replace(/[^0-9.-]+/g, "")) || 0,
+          Status: item.status || 'SELESAI',
+          Metode: 'TUNAI',
+          Melalui: 'KASIR',
+          Poin: 0,
+          HargaModal: 0,
+          Sebagian: 0,
+          created_at: ''
+        }));
+
+        DeltaCache.set(cacheKey, mapped, fetchTime);
+        setStageCache(prev => ({ ...prev, [stage]: mapped }));
+      }
+    } catch (err) {
+      console.error(`Error loading bansos stage ${stage}:`, err);
+    } finally {
+      setLoadingStage(false);
+    }
+  }, []);
+
+  // Fetch chart summary directly calculated on the database for all 4 periods
+  const fetchBansosChartSummary = useCallback(async (year: number) => {
+    setLoadingChart(true);
+    try {
+      const { data } = await SupabaseSalesService.calculateBansosSummaryRpc(year);
+      if (data && Array.isArray(data) && data.length > 0) {
+        setDbTrendData(data as any);
+        DeltaCache.set(`bansos_summary_${year}`, data, new Date().toISOString());
+      }
+    } catch (e) {
+      console.error("Gagal menghitung grafik bansos di database:", e);
+    } finally {
+      setLoadingChart(false);
+    }
+  }, []);
+
+  // Sync year change: reload DeltaCache for stages and fetch database chart summary
+  useEffect(() => {
+    // Load cached stages for the selected year
+    const updatedStages: Record<number, SalesTransaction[]> = {};
+    for (let stg = 1; stg <= 4; stg++) {
+      const cached = DeltaCache.get<SalesTransaction>(`bansos_stage_${selectedYear}_${stg}`);
+      if (cached && cached.length > 0) {
+        updatedStages[stg] = cached;
+      }
+    }
+    setStageCache(updatedStages);
+
+    // Fetch database-calculated chart summary for all 4 periods
+    fetchBansosChartSummary(selectedYear);
+  }, [selectedYear, fetchBansosChartSummary]);
+
+  // When activeTahap or selectedYear changes, fetch/sync stage data smoothly
+  useEffect(() => {
+    fetchStageData(activeTahap, selectedYear);
+  }, [activeTahap, selectedYear, fetchStageData]);
+
   const getRelativeDay = (dateStr: string) => {
     const date = parseDate(dateStr);
     if (!date || date.getTime() === 0) return dateStr;
@@ -1748,66 +1885,54 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
     const stages: Record<number, Map<string, { nama: string, pkh: number, bpnt: number }>> = { 
       1: new Map(), 2: new Map(), 3: new Map(), 4: new Map() 
     };
-    
-    // Find the latest year that has PKH/BPNT transactions to focus on current program
-    let latestYear = 0;
-    transactions.forEach(t => {
-      const jenis = t.Jenis?.toUpperCase() || "";
-      if (jenis.includes("PKH") || jenis.includes("BPNT")) {
-        const date = parseDate(t.Tanggal);
-        if (date && date.getFullYear() > 1970 && date.getFullYear() > latestYear) {
-          latestYear = date.getFullYear();
+
+    [1, 2, 3, 4].forEach(stg => {
+      const txs = stageCache[stg] || [];
+      txs.forEach(t => {
+        const status = (t.Status || "").toLowerCase();
+        if (status.includes("batal") || status.includes("cancel")) return;
+
+        const jenis = (t.Jenis || "").toUpperCase();
+        if (jenis.includes("PKH") || jenis.includes("BPNT")) {
+          const rawName = (t.Nama || "").trim();
+          if (!rawName) return;
+
+          // Normalisasi nama (lowercase dan gabungkan spasi ganda) sebagai acuan tunggal
+          const nameKey = rawName.toLowerCase().replace(/\s+/g, ' ');
+          let kpm = stages[stg].get(nameKey);
+          if (!kpm) {
+            kpm = { nama: rawName, pkh: 0, bpnt: 0 };
+            stages[stg].set(nameKey, kpm);
+          }
+          
+          const amount = typeof t.Pemasukan === 'number' 
+            ? t.Pemasukan 
+            : parseFloat(String(t.Pemasukan || '0').replace(/[^0-9.-]+/g, "")) || 0;
+
+          if (jenis.includes("PKH")) {
+            kpm.pkh += amount;
+          }
+          if (jenis.includes("BPNT")) {
+            kpm.bpnt += amount;
+          }
         }
-      }
-    });
-
-    // If no transactions found, default to current year
-    const year = latestYear || new Date().getFullYear();
-
-    transactions.forEach(t => {
-      const status = (t.Status || "").toLowerCase();
-      if (status.includes("batal") || status.includes("cancel")) return;
-
-      const jenis = t.Jenis?.toUpperCase() || "";
-      if (jenis.includes("PKH") || jenis.includes("BPNT")) {
-        const date = parseDate(t.Tanggal);
-        if (!date || date.getTime() === 0) return;
-        
-        // Only process transactions from the target year
-        if (date.getFullYear() !== year) return;
-
-        const month = date.getMonth();
-        const stage = Math.floor(month / 3) + 1;
-        
-        if (stage < 1 || stage > 4) return;
-
-        const nameKey = t.Nama.trim().toLowerCase();
-        let kpm = stages[stage].get(nameKey);
-        if (!kpm) {
-          kpm = { nama: t.Nama.trim(), pkh: 0, bpnt: 0 };
-          stages[stage].set(nameKey, kpm);
-        }
-        
-        const amount = parseCurrency(t.Pemasukan) || 0;
-        if (jenis.includes("PKH")) {
-          kpm.pkh += amount;
-        }
-        if (jenis.includes("BPNT")) {
-          kpm.bpnt += amount;
-        }
-      }
+      });
     });
 
     const result: Record<number, { nama: string, pkh: number, bpnt: number }[]> = { 1: [], 2: [], 3: [], 4: [] };
     for (let i = 1; i <= 4; i++) {
       result[i] = Array.from(stages[i].values());
     }
-    return { result, targetYear: year };
-  }, [transactions]);
+    return { result, targetYear: selectedYear };
+  }, [stageCache, selectedYear]);
 
   const riwayatData = React.useMemo(() => {
-    return transactions
-      .filter(t => {
+    const allTxs: SalesTransaction[] = [1, 2, 3, 4].reduce<SalesTransaction[]>((acc, stg) => {
+      const list = stageCache[stg];
+      return list ? acc.concat(list) : acc;
+    }, []);
+    return allTxs
+      .filter((t) => {
         const jenis = t.Jenis?.toUpperCase() || "";
         const status = (t.Status || "").toLowerCase();
         const nama = (t.Nama || "").toLowerCase();
@@ -1829,7 +1954,7 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
         status: t.Status
       }))
       .sort((a, b) => parseDate(b.tanggal).getTime() - parseDate(a.tanggal).getTime());
-  }, [transactions, riwayatSearchQuery]);
+  }, [stageCache, riwayatSearchQuery]);
 
   const currentStageData = processedData[activeTahap] || [];
   const filteredData = currentStageData.filter(k => {
@@ -1842,26 +1967,32 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
   const totalDana = currentStageData.reduce((acc, k) => acc + k.pkh + k.bpnt, 0);
   const totalKPM = currentStageData.length;
 
+  // Trend data across all 4 periods computed directly from database
   const trendData = React.useMemo(() => {
     return [1, 2, 3, 4].map(id => {
+      const dbItem = dbTrendData.find(d => d.stage_id === id);
       const stageItems = processedData[id] || [];
-      const pkhCount = stageItems.filter(item => item.pkh > 0).length;
-      const bpntCount = stageItems.filter(item => item.bpnt > 0).length;
-      const pkhFunds = stageItems.reduce((acc, item) => acc + item.pkh, 0);
-      const bpntFunds = stageItems.reduce((acc, item) => acc + item.bpnt, 0);
+      const hasLocal = stageItems.length > 0;
+
+      const pkhCount = hasLocal ? stageItems.filter(item => item.pkh > 0).length : (dbItem?.pkh || 0);
+      const bpntCount = hasLocal ? stageItems.filter(item => item.bpnt > 0).length : (dbItem?.bpnt || 0);
+      const pkhFunds = hasLocal ? stageItems.reduce((acc, item) => acc + item.pkh, 0) : (dbItem?.pkhFunds || 0);
+      const bpntFunds = hasLocal ? stageItems.reduce((acc, item) => acc + item.bpnt, 0) : (dbItem?.bpntFunds || 0);
       const totalFunds = pkhFunds + bpntFunds;
+
       return {
         stage: `Tahap ${id}`,
+        stage_id: id,
         pkh: pkhCount,
         bpnt: bpntCount,
         pkhFunds: pkhFunds,
         bpntFunds: bpntFunds,
         totalFunds: totalFunds,
-        count: stageItems.length,
+        count: hasLocal ? stageItems.length : (dbItem?.count || (pkhCount + bpntCount)),
         period: id === 1 ? "Jan-Mar" : id === 2 ? "Apr-Jun" : id === 3 ? "Jul-Sep" : "Okt-Des"
       };
     });
-  }, [processedData]);
+  }, [processedData, dbTrendData]);
 
   const [showPKHInfo, setShowPKHInfo] = useState(false);
   const [expandedDesil, setExpandedDesil] = useState<number | null>(null);
@@ -2319,26 +2450,50 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
           </div>
         </div>
 
-        <div className="bg-[#005E6A] p-1 rounded-xl flex mb-6 border border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
+        <div className="bg-[#005E6A] p-1.5 rounded-xl flex items-center mb-6 border border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar gap-1">
           {[
             { id: 1, label: "Tahap 1", period: "Jan - Mar" },
             { id: 2, label: "Tahap 2", period: "Apr - Jun" },
             { id: 3, label: "Tahap 3", period: "Jul - Sep" },
             { id: 4, label: "Tahap 4", period: "Okt - Des" },
-          ].map((tahap) => (
-            <button
-              key={tahap.id}
-              onClick={() => setActiveTahap(tahap.id)}
-              className={`flex-1 min-w-[80px] py-2.5 rounded-lg transition-all flex flex-col items-center ${
-                activeTahap === tahap.id 
-                  ? "bg-white text-[#005E6A] shadow-sm" 
-                  : "text-white/60 hover:text-white"
-              }`}
-            >
-              <span className="text-[9px] font-black uppercase tracking-widest">{tahap.label}</span>
-              <span className={`text-[7px] font-bold uppercase tracking-widest opacity-60`}>{tahap.period}</span>
-            </button>
-          ))}
+          ].map((tahap) => {
+            const isCurrentPeriod = defaultTahap === tahap.id;
+            return (
+              <button
+                key={tahap.id}
+                onClick={() => {
+                  setActiveTahap(tahap.id);
+                  if (!stageCache[tahap.id]) {
+                    fetchStageData(tahap.id, selectedYear);
+                  }
+                }}
+                className={`flex-1 min-w-[80px] py-2.5 px-2 rounded-lg transition-all flex flex-col items-center relative ${
+                  activeTahap === tahap.id 
+                    ? "bg-white text-[#005E6A] shadow-sm font-black" 
+                    : "text-white/70 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] font-black uppercase tracking-widest">{tahap.label}</span>
+                  {isCurrentPeriod && (
+                    <span className={`w-1.5 h-1.5 rounded-full ${activeTahap === tahap.id ? 'bg-[#F15A24]' : 'bg-emerald-400'}`} title="Periode Berjalan" />
+                  )}
+                </div>
+                <span className={`text-[7px] font-bold uppercase tracking-widest opacity-70`}>{tahap.period}</span>
+              </button>
+            );
+          })}
+          <button
+            onClick={() => {
+              fetchStageData(activeTahap, selectedYear, true);
+              fetchBansosChartSummary(selectedYear);
+            }}
+            disabled={loadingStage || loadingChart}
+            title="Muat ulang data periode ini & grafik"
+            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingStage || loadingChart ? 'animate-spin' : ''}`} />
+          </button>
         </div>
 
         {/* Summary Cards */}
@@ -2365,7 +2520,15 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
         <div className="border border-slate-100 dark:border-slate-800 rounded-[2rem] overflow-hidden shadow-sm no-scrollbar bg-white mb-8">
           <div className="p-5 border-b border-slate-50 dark:border-slate-800/50 bg-slate-50/30">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Daftar Penerima</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[10px] font-black text-[#005E6A] uppercase tracking-widest">Daftar Penerima</h3>
+                {loadingStage && currentStageData.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-50 text-[#005E6A] text-[8px] font-bold animate-pulse">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    Menyinkronkan...
+                  </span>
+                )}
+              </div>
               <Search className="w-4 h-4 text-slate-300 dark:text-slate-200" />
             </div>
             <div className="relative">
@@ -2465,7 +2628,17 @@ const BansosPage = ({ transactions }: { transactions: SalesTransaction[] }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredData.length > 0 ? filteredData.map((item, index) => (
+                {loadingStage ? (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-12 text-center text-slate-400">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Loader2 className="w-6 h-6 animate-spin text-[#005E6A]" />
+                        <span className="text-[9px] font-black uppercase tracking-widest text-[#005E6A]">Memuat Data Bansos Tahap {activeTahap}...</span>
+                        <span className="text-[8px] font-bold text-slate-400">Hanya mengambil transaksi PKH & BPNT periode ini</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredData.length > 0 ? filteredData.map((item, index) => (
                   <tr key={index} className="hover:bg-slate-50 transition-colors">
                     <td className="px-3 py-3 text-[9px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 whitespace-nowrap">{index + 1}</td>
                     <td className="px-3 py-3 text-[9px] font-black text-black uppercase tracking-tight whitespace-nowrap">{item.nama}</td>
@@ -7232,10 +7405,14 @@ const AdminReportPage = ({
   const navigate = useNavigate();
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isDateSyncing, setIsDateSyncing] = useState(false);
 
   useEffect(() => {
     if (filterDate && fetchData) {
-      fetchData(false, 'salesTransactions', { dateFilter: filterDate });
+      setIsDateSyncing(true);
+      fetchData(false, 'salesTransactions', { dateFilter: filterDate }).finally(() => {
+        setIsDateSyncing(false);
+      });
     }
   }, [filterDate]);
   const [showSummary, setShowSummary] = useState(false);
@@ -7821,7 +7998,7 @@ const AdminReportPage = ({
     let modal = 0;
 
     const filtered = transactions.filter(t => {
-      const matchDate = t.Tanggal.startsWith(formattedFilterDate);
+      const matchDate = (t.Tanggal && (t.Tanggal.startsWith(formattedFilterDate) || t.Tanggal.startsWith(filterDate)));
       if (!matchDate) return false;
       
       if (!q) {
@@ -7843,14 +8020,28 @@ const AdminReportPage = ({
       return match;
     });
 
+    const sortedFiltered = [...filtered].sort((a, b) => {
+      if (a.created_at && b.created_at) {
+        const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        if (diff !== 0) return diff;
+      }
+      const dateA = parseDate(a.Tanggal).getTime();
+      const dateB = parseDate(b.Tanggal).getTime();
+      if (dateB !== dateA) return dateB - dateA;
+
+      const idA = String(a.id_transaksi || a.id || '');
+      const idB = String(b.id_transaksi || b.id || '');
+      return idB.localeCompare(idA, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
     return {
-      filteredTransactions: filtered,
+      filteredTransactions: sortedFiltered,
       totalPemasukan: pemasukan,
       totalModal: modal,
       totalKeuntungan: pemasukan - modal,
-      totalTransaksi: filtered.length
+      totalTransaksi: sortedFiltered.length
     };
-  }, [transactions, formattedFilterDate, searchQuery]);
+  }, [transactions, filterDate, formattedFilterDate, searchQuery]);
 
   // Group by Jenis (categories) and calculate totals for each
   interface GroupedReport {
@@ -8048,7 +8239,11 @@ const AdminReportPage = ({
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <div className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 dark:text-slate-200 shrink-0" />
+                {isDateSyncing ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-[#005E6A] animate-spin shrink-0" />
+                ) : (
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 dark:text-slate-200 shrink-0" />
+                )}
                 <input 
                   type="date" 
                   value={filterDate}
@@ -8136,11 +8331,11 @@ const AdminReportPage = ({
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-none shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden z-10 p-6 space-y-5"
+              className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden z-10 p-6 space-y-5"
             >
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-none bg-[#005E6A]/10 text-[#005E6A] dark:text-teal-300 flex items-center justify-center font-black">
+                  <div className="w-10 h-10 rounded-xl bg-[#005E6A]/10 text-[#005E6A] dark:text-teal-300 flex items-center justify-center font-black">
                     <Plus className="w-5 h-5" />
                   </div>
                   <div>
@@ -8154,7 +8349,7 @@ const AdminReportPage = ({
                 </div>
                 <button
                   onClick={() => setIsAddModalOpen(false)}
-                  className="p-2 rounded-none text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -8172,7 +8367,7 @@ const AdminReportPage = ({
                       type="text"
                       readOnly
                       value={addFormData.id_transaksi || ""}
-                      className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-mono font-bold text-slate-500 cursor-not-allowed"
+                      className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-500 cursor-not-allowed"
                     />
                   </div>
 
@@ -8184,7 +8379,7 @@ const AdminReportPage = ({
                       type="date"
                       value={formatDateForInput(addFormData.Tanggal || "")}
                       onChange={(e) => setAddFormData({ ...addFormData, Tanggal: formatInputToDate(e.target.value) })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
                     />
                   </div>
                 </div>
@@ -8199,7 +8394,7 @@ const AdminReportPage = ({
                       type="text"
                       readOnly
                       value={addFormData.id_pelanggan || "CUST-0000"}
-                      className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-mono font-bold text-slate-600 dark:text-slate-300 cursor-not-allowed"
+                      className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-600 dark:text-slate-300 cursor-not-allowed"
                     />
                   </div>
 
@@ -8230,7 +8425,7 @@ const AdminReportPage = ({
                           }
                         }}
                         onFocus={() => setShowCustomerSuggestions(true)}
-                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
+                        className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
                       />
                       {customerInputText && (
                         <button
@@ -8253,8 +8448,8 @@ const AdminReportPage = ({
 
                     {/* Floating Autocomplete Recommendation Suggestions */}
                     {showCustomerSuggestions && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-none z-[110] max-h-52 overflow-y-auto">
-                        <div className="p-1.5 text-[10px] font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-xl z-[110] max-h-52 overflow-y-auto">
+                        <div className="p-1.5 text-[10px] font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 rounded-t-xl flex justify-between items-center">
                           <span>Rekomendasi Pelanggan</span>
                           <span className="text-[9px] font-normal text-slate-400">Pilih untuk ambil ID</span>
                         </div>
@@ -8306,7 +8501,7 @@ const AdminReportPage = ({
                     <select
                       value={addFormData.Jenis || "TOPUP DANA"}
                       onChange={(e) => setAddFormData({ ...addFormData, Jenis: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
                     >
                       {JENIS_OPTIONS.map((opt) => (
                         <option key={`report_add_jenis_${opt}`} value={opt}>
@@ -8323,7 +8518,7 @@ const AdminReportPage = ({
                     <select
                       value={addFormData.Melalui || "DANA"}
                       onChange={(e) => setAddFormData({ ...addFormData, Melalui: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
                     >
                       {MELALUI_OPTIONS.map((opt) => (
                         <option key={`report_add_melalui_${opt}`} value={opt}>
@@ -8343,7 +8538,7 @@ const AdminReportPage = ({
                     <select
                       value={addFormData.Metode || "TUNAI"}
                       onChange={(e) => setAddFormData({ ...addFormData, Metode: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-semibold focus:outline-none focus:border-[#005E6A]"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#005E6A]"
                     >
                       <option value="TUNAI">TUNAI</option>
                       <option value="QRIS">QRIS</option>
@@ -8359,7 +8554,7 @@ const AdminReportPage = ({
                     <select
                       value={addFormData.Status || "SELESAI"}
                       onChange={(e) => setAddFormData({ ...addFormData, Status: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold focus:outline-none focus:border-[#005E6A] text-slate-800 dark:text-white cursor-pointer"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold focus:outline-none focus:border-[#005E6A] text-slate-800 dark:text-white cursor-pointer"
                     >
                       {STATUS_OPTIONS.map((st) => (
                         <option key={`report_add_st_${st}`} value={st}>
@@ -8372,7 +8567,7 @@ const AdminReportPage = ({
 
                 {/* Information Banner for Kasbon / Tabungan IDs */}
                 {addFormData.Metode === "KASBON" && (
-                  <div className="p-3 bg-red-50/80 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50 rounded-lg space-y-1 text-xs">
+                  <div className="p-3 bg-red-50/80 dark:bg-red-950/40 border border-red-200 dark:border-red-800/50 rounded-xl space-y-1 text-xs">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-red-700 dark:text-red-300">ID Hutang Otomatis:</span>
                       <span className="font-mono font-black text-red-800 dark:text-red-200">{selectedCustDetails.lastHutangId}</span>
@@ -8385,7 +8580,7 @@ const AdminReportPage = ({
                 )}
 
                 {addFormData.Metode === "TABUNGAN" && (
-                  <div className="p-3 bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/50 rounded-lg space-y-1 text-xs">
+                  <div className="p-3 bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/50 rounded-xl space-y-1 text-xs">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-[#005E6A] dark:text-teal-300">ID Tabungan Otomatis:</span>
                       <span className="font-mono font-black text-[#005E6A] dark:text-teal-200">{selectedCustDetails.lastTabunganId}</span>
@@ -8408,7 +8603,7 @@ const AdminReportPage = ({
                       placeholder="100000"
                       value={addFormData.Pemasukan || ""}
                       onChange={(e) => handlePemasukanChange(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold focus:outline-none focus:border-[#005E6A]"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold focus:outline-none focus:border-[#005E6A]"
                     />
                   </div>
 
@@ -8421,7 +8616,7 @@ const AdminReportPage = ({
                       placeholder="95000"
                       value={addFormData.HargaModal || ""}
                       onChange={(e) => handleHargaModalChange(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-teal-50/50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-none text-xs font-black text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A]"
+                      className="w-full px-3 py-2 bg-teal-50/50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-xl text-xs font-black text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A]"
                     />
                   </div>
                 </div>
@@ -8437,7 +8632,7 @@ const AdminReportPage = ({
                       placeholder="0"
                       value={addFormData.Sebagian || ""}
                       onChange={(e) => setAddFormData({ ...addFormData, Sebagian: Number(e.target.value) })}
-                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-none text-xs font-bold focus:outline-none focus:border-[#005E6A]"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold focus:outline-none focus:border-[#005E6A]"
                     />
                   </div>
 
@@ -8450,7 +8645,7 @@ const AdminReportPage = ({
                       placeholder="10"
                       value={addFormData.Poin ?? 0}
                       onChange={(e) => setAddFormData({ ...addFormData, Poin: Number(e.target.value) })}
-                      className="w-full px-3 py-2 bg-amber-50/50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-none text-xs font-black text-amber-800 dark:text-amber-300 focus:outline-none focus:border-[#005E6A]"
+                      className="w-full px-3 py-2 bg-amber-50/50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-black text-amber-800 dark:text-amber-300 focus:outline-none focus:border-[#005E6A]"
                     />
                   </div>
                 </div>
@@ -8461,7 +8656,7 @@ const AdminReportPage = ({
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2.5 rounded-none border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
@@ -8469,7 +8664,7 @@ const AdminReportPage = ({
                   type="button"
                   onClick={handleSaveAdd}
                   disabled={isAdding}
-                  className="px-5 py-2.5 rounded-none bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center gap-2"
                 >
                   {isAdding ? (
                     <>
@@ -8490,7 +8685,7 @@ const AdminReportPage = ({
       {toastMsg && (
         <div className="fixed bottom-6 right-6 z-[120] animate-bounce">
           <div
-            className={`px-4 py-3 rounded-none shadow-2xl flex items-center gap-3 border text-xs font-black uppercase tracking-wider text-white ${
+            className={`px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border text-xs font-black uppercase tracking-wider text-white ${
               toastMsg.type === "success"
                 ? "bg-[#005E6A] border-teal-400"
                 : "bg-rose-600 border-rose-400"
@@ -26489,7 +26684,7 @@ const KasirLayout = ({
   );
 };
 
-const KasirLaporanPage = ({ salesTransactions }: { salesTransactions: any[] }) => {
+const KasirLaporanPage = ({ salesTransactions, fetchData }: { salesTransactions: any[]; fetchData?: (showLoading?: boolean, collectionName?: string | string[], extraOptions?: any) => Promise<void> }) => {
   const kasirUser = localStorage.getItem("kasir_user") || "Tomi";
   const todayYmd = useMemo(() => new Date().toISOString().slice(0, 10), []);
   
@@ -26497,6 +26692,12 @@ const KasirLaporanPage = ({ salesTransactions }: { salesTransactions: any[] }) =
   const [filterDate, setFilterDate] = useState<string>(todayYmd);
   const [searchQuery, setSearchQuery] = useState("");
   const [displayLimit, setDisplayLimit] = useState<number>(20);
+
+  useEffect(() => {
+    if (filterDate && filterDate !== "semua" && fetchData) {
+      fetchData(false, 'salesTransactions', { dateFilter: filterDate });
+    }
+  }, [filterDate]);
 
   useEffect(() => {
     setDisplayLimit(20);
@@ -29290,7 +29491,7 @@ export default function App() {
     const p = pathname.toLowerCase();
     
     if (p.startsWith('/bansos')) {
-      return ['salesTransactions'];
+      return []; // BansosPage handles its own on-demand stage fetching directly for speed and reliability
     }
     if (p.startsWith('/login')) {
       return ['customers'];
@@ -29340,7 +29541,7 @@ export default function App() {
       if (p.includes('/cashflow')) return ['salesTransactions', 'savingTransactions', 'debtTransactions', 'investmentTransactions', 'customers'];
       if (p.includes('/report')) return ['salesTransactions', 'customers'];
       if (p.includes('/input-data')) return ['customers', 'stockItems'];
-      if (p.includes('/database')) return ['customers', 'salesTransactions'];
+      if (p.includes('/database')) return [];
       if (p.includes('/rewards')) return ['redeemedPoints', 'customers', 'salesTransactions'];
       if (p.includes('/management-lainnya')) return ['salesTransactions', 'customers'];
       if (p.includes('/digiflazz')) {
@@ -29401,7 +29602,7 @@ export default function App() {
       const isAdminDashboard = p === '/admin' || p === '/admin/' || p.startsWith('/admin/dashboard');
       const isAdminOrKasir = p.startsWith('/admin') || p.startsWith('/kasir');
       const isBansosPage = p.startsWith('/bansos');
-      const userFilterName = (!isAdminOrKasir && loggedInUser?.Nama) ? loggedInUser.Nama : undefined;
+      const userFilterName = (!isAdminOrKasir && !isBansosPage && loggedInUser?.Nama) ? loggedInUser.Nama : undefined;
       const isHomePage = p === '/' || p.startsWith('/home');
       const isHomeGuest = (isHomePage && !loggedInUser && activeTab !== 'belanja');
 
@@ -29616,7 +29817,8 @@ export default function App() {
             if (extraOptions?.pendingOnly) salesOptions.pendingOnly = true;
             if (extraOptions?.includePending) salesOptions.includePending = true;
 
-            const isFiltered = isBansosPage || isManagementLainnya || extraOptions?.pendingOnly || isAdminReportPage || extraOptions?.dateFilter || p.startsWith('/kasir') || p.startsWith('/admin/customers') || p.startsWith('/admin/cashflow') || isAdminDashboard || isRiwayatPage || extraOptions?.monthFilter || extraOptions?.currentMonthOnly || userFilterName;
+            const targetDateFilter = extraOptions?.dateFilter || (isAdminReportPage ? new Date().toISOString().split('T')[0] : undefined);
+            const isFiltered = isBansosPage || isManagementLainnya || extraOptions?.pendingOnly || p.startsWith('/kasir') || p.startsWith('/admin/customers') || p.startsWith('/admin/cashflow') || isAdminDashboard || isRiwayatPage || extraOptions?.monthFilter || extraOptions?.currentMonthOnly || userFilterName;
 
             if (isBansosPage) {
               salesOptions.bansosOnly = true;
@@ -29624,9 +29826,14 @@ export default function App() {
             } else if (isManagementLainnya || extraOptions?.pendingOnly) {
               salesOptions.pendingOnly = true;
               salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
-            } else if (isAdminReportPage || extraOptions?.dateFilter) {
-              salesOptions.date = extraOptions?.dateFilter || new Date().toISOString().split('T')[0];
+            } else if (targetDateFilter) {
+              salesOptions.date = targetDateFilter;
               salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
+              const dateSyncKey = `sales_date_${targetDateFilter}`;
+              const dateLastSync = extraOptions?.forceFullRefresh ? null : DeltaCache.getLastSync(dateSyncKey);
+              if (dateLastSync && cached.length > 0) {
+                salesOptions.since = dateLastSync;
+              }
             } else if (p.startsWith('/kasir')) {
               salesOptions.todayOnly = true;
               salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
@@ -29640,7 +29847,7 @@ export default function App() {
               salesOptions.select = 'id, id_transaksi, id_pelanggan, tanggal, nama, jenis, pemasukan, harga_modal, sebagian, status, melalui, created_at';
             }
 
-            if (lastSync && cached.length > 0 && !isFiltered) {
+            if (lastSync && cached.length > 0 && !isFiltered && !targetDateFilter) {
               salesOptions.since = lastSync;
             }
 
@@ -29664,32 +29871,46 @@ export default function App() {
                 created_at: item.created_at
               }));
 
-              salesData.sort((a, b) => {
-                if (a.created_at && b.created_at) {
-                  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-                }
-                return parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime();
-              });
+              const sortSalesNewestFirst = (list: SalesTransaction[]) => {
+                return [...list].sort((a, b) => {
+                  if (a.created_at && b.created_at) {
+                    const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                    if (diff !== 0) return diff;
+                  }
+                  const diffDate = parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime();
+                  if (diffDate !== 0) return diffDate;
+                  const idA = String(a.id_transaksi || a.id || '');
+                  const idB = String(b.id_transaksi || b.id || '');
+                  return idB.localeCompare(idA, undefined, { numeric: true, sensitivity: 'base' });
+                });
+              };
 
-              if (lastSync && cached.length > 0 && !isFiltered) {
-                const merged = DeltaCache.mergeDelta(cached, salesData, ['id_transaksi', 'id']);
+              const sortedSalesData = sortSalesNewestFirst(salesData);
+
+              if (targetDateFilter) {
+                const dateSyncKey = `sales_date_${targetDateFilter}`;
+                DeltaCache.setLastSync(dateSyncKey, fetchTime);
+                const currentCache = DeltaCache.get<SalesTransaction>('salesTransactions');
+                const mergedCache = sortSalesNewestFirst(DeltaCache.mergeDelta(currentCache, sortedSalesData, ['id_transaksi', 'id']));
+                DeltaCache.set('salesTransactions', mergedCache);
+
+                setSalesTransactions(prev => {
+                  const merged = DeltaCache.mergeDelta(prev, sortedSalesData, ['id_transaksi', 'id']);
+                  return sortSalesNewestFirst(merged);
+                });
+              } else if (lastSync && cached.length > 0 && !isFiltered) {
+                const merged = sortSalesNewestFirst(DeltaCache.mergeDelta(cached, sortedSalesData, ['id_transaksi', 'id']));
                 DeltaCache.set('salesTransactions', merged, fetchTime);
                 processedSales = merged;
                 setSalesTransactions(merged);
-              } else if (extraOptions?.dateFilter || extraOptions?.monthFilter) {
+              } else if (extraOptions?.monthFilter) {
                 setSalesTransactions(prev => {
-                  const merged = DeltaCache.mergeDelta(prev, salesData, ['id_transaksi', 'id']);
-                  merged.sort((a, b) => {
-                    if (a.created_at && b.created_at) {
-                      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                    }
-                    return parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime();
-                  });
-                  return merged;
+                  const merged = DeltaCache.mergeDelta(prev, sortedSalesData, ['id_transaksi', 'id']);
+                  return sortSalesNewestFirst(merged);
                 });
               } else {
-                if (!isFiltered) DeltaCache.set('salesTransactions', salesData, fetchTime);
-                processedSales = [...salesData].reverse();
+                if (!isFiltered) DeltaCache.set('salesTransactions', sortedSalesData, fetchTime);
+                processedSales = sortedSalesData;
                 setSalesTransactions(processedSales);
               }
               loadedCollectionsRef.current.add("salesTransactions");
@@ -30493,7 +30714,7 @@ export default function App() {
         } />
         <Route path="/kasir/laporan" element={
           <KasirLayout activeTab="laporan">
-            <KasirLaporanPage salesTransactions={salesTransactions} />
+            <KasirLaporanPage salesTransactions={salesTransactions} fetchData={fetchData} />
           </KasirLayout>
         } />
         <Route path="/kasir/profil" element={

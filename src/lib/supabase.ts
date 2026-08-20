@@ -757,7 +757,100 @@ BEGIN
 END;
 $;
 
-GRANT EXECUTE ON FUNCTION public.calculate_stock_valuation() TO anon, authenticated, service_role;`;
+GRANT EXECUTE ON FUNCTION public.calculate_stock_valuation() TO anon, authenticated, service_role;
+
+-- 13. FUNCTION RPC: HITUNG RINGKASAN GRAFIK BANSOS (PKH & BPNT) DI DATABASE
+CREATE OR REPLACE FUNCTION public.calculate_bansos_summary(p_year TEXT DEFAULT NULL)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $
+DECLARE
+  v_year INT;
+  v_result JSONB;
+BEGIN
+  IF p_year IS NOT NULL AND p_year ~ '^\d{4}' THEN
+    v_year := p_year::INT;
+  ELSE
+    v_year := EXTRACT(YEAR FROM CURRENT_DATE)::INT;
+  END IF;
+
+  WITH raw_bansos AS (
+    SELECT 
+      UPPER(COALESCE(jenis, '')) AS jenis_upper,
+      COALESCE(pemasukan, 0) AS nominal,
+      LOWER(TRIM(COALESCE(nama, ''))) AS nama_clean,
+      CASE 
+        WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'YYYY-MM-DD')
+        WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN TO_DATE(SUBSTRING(tanggal FROM 1 FOR 10), 'DD/MM/YYYY')
+        ELSE created_at::DATE
+      END AS tgl_parsed
+    FROM public.sales_transactions
+    WHERE (LOWER(status) NOT LIKE '%batal%' AND LOWER(status) NOT LIKE '%cancel%')
+      AND (UPPER(jenis) LIKE '%PKH%' OR UPPER(jenis) LIKE '%BPNT%')
+  ),
+  year_filtered AS (
+    SELECT 
+      jenis_upper,
+      nominal,
+      nama_clean,
+      EXTRACT(MONTH FROM tgl_parsed)::INT AS bln
+    FROM raw_bansos
+    WHERE tgl_parsed IS NOT NULL AND EXTRACT(YEAR FROM tgl_parsed) = v_year
+  ),
+  staged AS (
+    SELECT 
+      jenis_upper,
+      nominal,
+      nama_clean,
+      CASE 
+        WHEN bln BETWEEN 1 AND 3 THEN 1
+        WHEN bln BETWEEN 4 AND 6 THEN 2
+        WHEN bln BETWEEN 7 AND 9 THEN 3
+        WHEN bln BETWEEN 10 AND 12 THEN 4
+        ELSE 1
+      END AS stg
+    FROM year_filtered
+  ),
+  stage_metrics AS (
+    SELECT
+      s.stg AS stage_id,
+      COUNT(DISTINCT CASE WHEN s.jenis_upper LIKE '%PKH%' THEN s.nama_clean END) AS pkh_kpm_count,
+      COUNT(DISTINCT CASE WHEN s.jenis_upper LIKE '%BPNT%' THEN s.nama_clean END) AS bpnt_kpm_count,
+      COALESCE(SUM(CASE WHEN s.jenis_upper LIKE '%PKH%' THEN s.nominal ELSE 0 END), 0) AS pkh_funds,
+      COALESCE(SUM(CASE WHEN s.jenis_upper LIKE '%BPNT%' THEN s.nominal ELSE 0 END), 0) AS bpnt_funds,
+      COALESCE(SUM(s.nominal), 0) AS total_funds,
+      COUNT(DISTINCT s.nama_clean) AS total_kpm
+    FROM staged s
+    GROUP BY s.stg
+  ),
+  all_stages AS (
+    SELECT 1 AS stage_id, 'Tahap 1' AS stage, 'Jan-Mar' AS period
+    UNION ALL SELECT 2, 'Tahap 2', 'Apr-Jun'
+    UNION ALL SELECT 3, 'Tahap 3', 'Jul-Sep'
+    UNION ALL SELECT 4, 'Tahap 4', 'Okt-Des'
+  )
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'stage', a.stage,
+      'stage_id', a.stage_id,
+      'period', a.period,
+      'pkh', COALESCE(m.pkh_kpm_count, 0),
+      'bpnt', COALESCE(m.bpnt_kpm_count, 0),
+      'pkhFunds', COALESCE(m.pkh_funds, 0),
+      'bpntFunds', COALESCE(m.bpnt_funds, 0),
+      'totalFunds', COALESCE(m.total_funds, 0),
+      'count', COALESCE(m.total_kpm, 0)
+    ) ORDER BY a.stage_id ASC
+  ) INTO v_result
+  FROM all_stages a
+  LEFT JOIN stage_metrics m ON a.stage_id = m.stage_id;
+
+  RETURN COALESCE(v_result, '[]'::jsonb);
+END;
+$;
+
+GRANT EXECUTE ON FUNCTION public.calculate_bansos_summary(TEXT) TO anon, authenticated, service_role;`;
 
 export const SUPABASE_CREATE_PRODUCTS_TABLE_SQL = SUPABASE_MASTER_CREATE_TABLES_SQL;
 
@@ -2721,7 +2814,7 @@ export const SupabaseSalesService = {
     return !!getSupabaseClient();
   },
 
-  async getSales(options?: { name?: string; limit?: number; bansosOnly?: boolean; select?: string; month?: string; currentMonthOnly?: boolean; date?: string; todayOnly?: boolean; pendingOnly?: boolean; includePending?: boolean; since?: string }): Promise<{ data: SupabaseSalesTransaction[] | null; error: any }> {
+  async getSales(options?: { name?: string; limit?: number; bansosOnly?: boolean; select?: string; month?: string; currentMonthOnly?: boolean; date?: string; todayOnly?: boolean; pendingOnly?: boolean; includePending?: boolean; since?: string; startDate?: string; endDate?: string }): Promise<{ data: SupabaseSalesTransaction[] | null; error: any }> {
     return SupabaseQueryLogger.track('sales_transactions', 'SELECT', options, async () => {
       const client = getSupabaseClient();
       if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
@@ -2735,7 +2828,7 @@ export const SupabaseSalesService = {
       }
 
       let targetDate = options?.date;
-      if (!targetDate && options?.todayOnly && !options?.since) {
+      if (!targetDate && options?.todayOnly) {
         const now = new Date();
         const y = now.getFullYear();
         const m = String(now.getMonth() + 1).padStart(2, '0');
@@ -2744,7 +2837,7 @@ export const SupabaseSalesService = {
       }
 
       let targetMonth = options?.month;
-      if (!targetDate && !targetMonth && options?.currentMonthOnly && !options?.since) {
+      if (!targetDate && !targetMonth && !options?.startDate && options?.currentMonthOnly) {
         const now = new Date();
         targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       }
@@ -2753,14 +2846,20 @@ export const SupabaseSalesService = {
 
       if (options?.pendingOnly) {
         baseQuery = baseQuery.or(PENDING_CLAUSE);
-      } else if (targetDate && !options?.since) {
+      } else if (options?.startDate && options?.endDate) {
+        if (options?.includePending) {
+          baseQuery = baseQuery.or(`and(tanggal.gte.${options.startDate},tanggal.lte.${options.endDate}),${PENDING_CLAUSE}`);
+        } else {
+          baseQuery = baseQuery.gte('tanggal', options.startDate).lte('tanggal', options.endDate);
+        }
+      } else if (targetDate) {
         const formattedDate = formatDateYYYYMMDD(targetDate);
         if (options?.includePending) {
           baseQuery = baseQuery.or(`tanggal.eq.${formattedDate},${PENDING_CLAUSE}`);
         } else {
           baseQuery = baseQuery.eq('tanggal', formattedDate);
         }
-      } else if (targetMonth && !options?.since) {
+      } else if (targetMonth) {
         const parts = targetMonth.split('-');
         if (parts.length === 2) {
           const y = parts[0];
@@ -2775,7 +2874,7 @@ export const SupabaseSalesService = {
             baseQuery = baseQuery.gte('tanggal', startDate).lte('tanggal', endDate);
           }
         }
-      } else if (options?.includePending && !options?.since) {
+      } else if (options?.includePending) {
         baseQuery = baseQuery.or(PENDING_CLAUSE);
       }
 
@@ -2787,7 +2886,7 @@ export const SupabaseSalesService = {
         baseQuery = baseQuery.ilike('nama', options.name.trim());
       }
 
-      baseQuery = baseQuery.order('created_at', { ascending: true });
+      baseQuery = baseQuery.order('created_at', { ascending: false });
 
       if (options?.limit && options.limit > 0) {
         const { data, error } = await baseQuery.limit(options.limit);
@@ -2807,14 +2906,20 @@ export const SupabaseSalesService = {
         }
         if (options?.pendingOnly) {
           pageQuery = pageQuery.or(PENDING_CLAUSE);
-        } else if (targetDate && !options?.since) {
+        } else if (options?.startDate && options?.endDate) {
+          if (options?.includePending) {
+            pageQuery = pageQuery.or(`and(tanggal.gte.${options.startDate},tanggal.lte.${options.endDate}),${PENDING_CLAUSE}`);
+          } else {
+            pageQuery = pageQuery.gte('tanggal', options.startDate).lte('tanggal', options.endDate);
+          }
+        } else if (targetDate) {
           const formattedDate = formatDateYYYYMMDD(targetDate);
           if (options?.includePending) {
             pageQuery = pageQuery.or(`tanggal.eq.${formattedDate},${PENDING_CLAUSE}`);
           } else {
             pageQuery = pageQuery.eq('tanggal', formattedDate);
           }
-        } else if (targetMonth && !options?.since) {
+        } else if (targetMonth) {
           const parts = targetMonth.split('-');
           if (parts.length === 2) {
             const y = parts[0];
@@ -2829,7 +2934,7 @@ export const SupabaseSalesService = {
               pageQuery = pageQuery.gte('tanggal', startDate).lte('tanggal', endDate);
             }
           }
-        } else if (options?.includePending && !options?.since) {
+        } else if (options?.includePending) {
           pageQuery = pageQuery.or(PENDING_CLAUSE);
         }
         if (options?.bansosOnly) {
@@ -2840,7 +2945,7 @@ export const SupabaseSalesService = {
         }
 
         const { data, error } = await pageQuery
-          .order('created_at', { ascending: true })
+          .order('created_at', { ascending: false })
           .range(page * pageSize, (page + 1) * pageSize - 1);
 
         if (error) {
@@ -3111,6 +3216,116 @@ export const SupabaseSalesService = {
           return { data: data as any, error: null };
         }
         return { data: null, error };
+      } catch (err: any) {
+        return { data: null, error: err };
+      }
+    });
+  },
+
+  async calculateBansosSummaryRpc(year?: number | string): Promise<{
+    data: Array<{
+      stage: string;
+      stage_id: number;
+      period: string;
+      pkh: number;
+      bpnt: number;
+      pkhFunds: number;
+      bpntFunds: number;
+      totalFunds: number;
+      count: number;
+    }> | null;
+    error: any;
+  }> {
+    const targetYear = year ? String(year) : String(new Date().getFullYear());
+    return SupabaseQueryLogger.track('sales_transactions', 'SELECT', { function: 'calculate_bansos_summary', year: targetYear }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+      try {
+        // 1. Panggil Database RPC Function (dihitung 100% di Postgres server-side)
+        const { data, error } = await client.rpc('calculate_bansos_summary', {
+          p_year: targetYear
+        });
+        if (!error && Array.isArray(data) && data.length > 0) {
+          const mapped = data.map((item: any, idx: number) => ({
+            stage: item.stage || `Tahap ${item.stage_id || idx + 1}`,
+            stage_id: Number(item.stage_id || idx + 1),
+            period: item.period || (idx === 0 ? "Jan-Mar" : idx === 1 ? "Apr-Jun" : idx === 2 ? "Jul-Sep" : "Okt-Des"),
+            pkh: Number(item.pkh !== undefined ? item.pkh : (item.pkh_kpm_count || 0)),
+            bpnt: Number(item.bpnt !== undefined ? item.bpnt : (item.bpnt_kpm_count || 0)),
+            pkhFunds: Number(item.pkhFunds !== undefined ? item.pkhFunds : (item.pkh_funds || 0)),
+            bpntFunds: Number(item.bpntFunds !== undefined ? item.bpntFunds : (item.bpnt_funds || 0)),
+            totalFunds: Number(item.totalFunds !== undefined ? item.totalFunds : (item.total_funds || 0)),
+            count: Number(item.count !== undefined ? item.count : (item.total_kpm || 0)),
+          }));
+          return { data: mapped, error: null };
+        }
+
+        // 2. Fallback: Query minimal data bansos setahun (hanya kolom nama, jenis, pemasukan, tanggal, status)
+        const startDate = `${targetYear}-01-01`;
+        const endDate = `${targetYear}-12-31`;
+        const { data: rawSales, error: queryErr } = await client
+          .from('sales_transactions')
+          .select('nama, jenis, pemasukan, tanggal, status')
+          .gte('tanggal', startDate)
+          .lte('tanggal', endDate)
+          .or('jenis.ilike.%PKH%,jenis.ilike.%BPNT%');
+
+        if (queryErr) {
+          return { data: null, error: queryErr };
+        }
+
+        const stagesMap: Record<number, { pkhKpm: Set<string>; bpntKpm: Set<string>; allKpm: Set<string>; pkhFunds: number; bpntFunds: number; totalFunds: number }> = {
+          1: { pkhKpm: new Set(), bpntKpm: new Set(), allKpm: new Set(), pkhFunds: 0, bpntFunds: 0, totalFunds: 0 },
+          2: { pkhKpm: new Set(), bpntKpm: new Set(), allKpm: new Set(), pkhFunds: 0, bpntFunds: 0, totalFunds: 0 },
+          3: { pkhKpm: new Set(), bpntKpm: new Set(), allKpm: new Set(), pkhFunds: 0, bpntFunds: 0, totalFunds: 0 },
+          4: { pkhKpm: new Set(), bpntKpm: new Set(), allKpm: new Set(), pkhFunds: 0, bpntFunds: 0, totalFunds: 0 }
+        };
+
+        (rawSales || []).forEach((row: any) => {
+          const st = (row.status || '').toLowerCase();
+          if (st.includes('batal') || st.includes('cancel')) return;
+          const j = (row.jenis || '').toUpperCase();
+          if (!j.includes('PKH') && !j.includes('BPNT')) return;
+          
+          let month = 0;
+          if (row.tanggal) {
+            const parts = String(row.tanggal).split(/[-/]/);
+            if (parts.length === 3) {
+              if (parts[0].length === 4) month = parseInt(parts[1], 10) - 1;
+              else month = parseInt(parts[1], 10) - 1;
+            }
+          }
+          const stageId = Math.min(4, Math.max(1, Math.floor(month / 3) + 1));
+          const nameKey = (row.nama || '').trim().toLowerCase();
+          const amount = Number(row.pemasukan) || 0;
+
+          if (nameKey) {
+            stagesMap[stageId].allKpm.add(nameKey);
+            if (j.includes('PKH')) {
+              stagesMap[stageId].pkhKpm.add(nameKey);
+              stagesMap[stageId].pkhFunds += amount;
+            }
+            if (j.includes('BPNT')) {
+              stagesMap[stageId].bpntKpm.add(nameKey);
+              stagesMap[stageId].bpntFunds += amount;
+            }
+            stagesMap[stageId].totalFunds += amount;
+          }
+        });
+
+        const fallbackResult = [1, 2, 3, 4].map(id => ({
+          stage: `Tahap ${id}`,
+          stage_id: id,
+          period: id === 1 ? "Jan-Mar" : id === 2 ? "Apr-Jun" : id === 3 ? "Jul-Sep" : "Okt-Des",
+          pkh: stagesMap[id].pkhKpm.size,
+          bpnt: stagesMap[id].bpntKpm.size,
+          pkhFunds: stagesMap[id].pkhFunds,
+          bpntFunds: stagesMap[id].bpntFunds,
+          totalFunds: stagesMap[id].totalFunds,
+          count: stagesMap[id].allKpm.size
+        }));
+
+        return { data: fallbackResult, error: null };
       } catch (err: any) {
         return { data: null, error: err };
       }

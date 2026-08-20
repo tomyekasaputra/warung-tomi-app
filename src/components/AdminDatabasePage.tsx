@@ -55,6 +55,7 @@ import {
   formatByteSize,
   getSupabaseClient
 } from "../lib/supabase";
+import { DeltaCache } from "../lib/deltaSync";
 
 // Exported standard constants and helpers needed across the application
 export const JENIS_OPTIONS = [
@@ -157,6 +158,7 @@ export const formatInputToDate = (isoStr: string): string => {
 
 export const getDefaultSortColumn = (tbl?: TableMeta | null): string => {
   if (!tbl) return "";
+  if (tbl.id === "customers" || tbl.name === "customers") return "nama";
   const colKeys = tbl.columns.map((c) => c.key);
   if (colKeys.includes("tanggal")) return "tanggal";
   if (colKeys.includes("created_at")) return "created_at";
@@ -165,6 +167,13 @@ export const getDefaultSortColumn = (tbl?: TableMeta | null): string => {
   const dateCol = tbl.columns.find((c) => c.type === "date" || c.key.includes("date") || c.key.includes("tanggal"));
   if (dateCol) return dateCol.key;
   return colKeys[0] || "";
+};
+
+export const getDefaultSortAscending = (tbl?: TableMeta | null): boolean => {
+  if (!tbl) return false;
+  // Tabel Pelanggan secara default diurutkan berdasarkan nama A-Z (Ascending)
+  if (tbl.id === "customers" || tbl.name === "customers") return true;
+  return false; // Default terbaru paling atas (DESC) untuk tabel transaksi/riwayat
 };
 
 export const loadColumnPrefs = (tableId: string): { hidden: string[]; order: string[] } => {
@@ -389,7 +398,7 @@ const DATABASE_TABLES: TableMeta[] = [
   }
 ];
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100, 200, 500, 1000];
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200, 500];
 
 interface AdminDatabasePageProps {
   salesTransactions?: any[];
@@ -420,8 +429,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   const [tableRows, setTableRows] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(50);
+  const [pageSize, setPageSize] = useState<number>(20); // Default 20 baris per halaman
   const [isLoadingTable, setIsLoadingTable] = useState<boolean>(false);
+  const [isCachedData, setIsCachedData] = useState<boolean>(false);
   const [tableSearchQuery, setTableSearchQuery] = useState<string>("");
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [deltaSyncSavedBytes, setDeltaSyncSavedBytes] = useState<number>(0);
@@ -614,6 +624,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
   };
 
   // Fetch Table Rows: Directly keeps exact order from Supabase without client-side reshuffle
+  // Uses Database-level pagination (range from to) and Delta Cache to minimize bandwidth consumption
   const fetchTableData = useCallback(async (
     tbl: TableMeta,
     page: number = 1,
@@ -629,12 +640,43 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       return;
     }
 
-    setIsLoadingTable(true);
     const limit = limitOverride || pageSize;
     const from = (page - 1) * limit;
     const to = from + limit - 1;
     const effectiveSortCol = orderColOverride !== undefined ? orderColOverride : sortColumn;
     const effectiveSortAsc = orderAscOverride !== undefined ? orderAscOverride : sortAscending;
+
+    const cacheKey = `adm_tbl_${tbl.name}_p${page}_sz${limit}_${effectiveSortCol || 'def'}_${effectiveSortAsc ? 'asc' : 'desc'}_${query.trim()}`;
+    const countCacheKey = `adm_cnt_${tbl.name}_${query.trim()}`;
+
+    // 1. Delta Sync Cache Check: Jika data ada di cache, render langsung (0ms render time)
+    if (!isDeltaRefresh) {
+      const cached = DeltaCache.get<any>(cacheKey);
+      const cachedCountRaw = localStorage.getItem(`wt_delta_cache_v3_${countCacheKey}`);
+      if (cached && cached.length > 0) {
+        setTableRows(cached);
+        setIsCachedData(true);
+        if (cachedCountRaw) {
+          const parsedCount = parseInt(cachedCountRaw, 10);
+          if (!isNaN(parsedCount)) setTotalCount(parsedCount);
+        }
+        const cachedSync = DeltaCache.getLastSync(cacheKey);
+        if (cachedSync) {
+          try {
+            setLastSyncTime(new Date(cachedSync).toLocaleTimeString("id-ID"));
+          } catch (e) {
+            setLastSyncTime(new Date().toLocaleTimeString("id-ID"));
+          }
+        }
+        // Bandwidth saved from local cache
+        const savedFromCache = cached.length * 450;
+        setDeltaSyncSavedBytes(prev => prev + savedFromCache);
+      } else {
+        setIsLoadingTable(true);
+      }
+    } else {
+      setIsLoadingTable(true);
+    }
 
     try {
       await SupabaseQueryLogger.track(
@@ -644,7 +686,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
           page,
           limit,
           search: query,
-          deltaSync: isDeltaRefresh,
+          deltaSync: true,
           orderBy: effectiveSortCol ? `${effectiveSortCol} ${effectiveSortAsc ? "ASC" : "DESC"}` : "Natural Supabase Order"
         },
         async () => {
@@ -652,9 +694,30 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             .from(tbl.name)
             .select("*", { count: "exact" });
 
-          // Apply server-side search if user typed search query
+          // Apply server-side search directly on the database (only fetch matching records)
           if (query.trim() !== "") {
-            req = req.ilike(tbl.searchColumn, `%${query.trim()}%`);
+            const q = query.trim();
+            const searchCols: string[] = [];
+            
+            // Prioritize primary search column
+            if (tbl.searchColumn && tbl.columns.some(c => c.key === tbl.searchColumn)) {
+              searchCols.push(tbl.searchColumn);
+            }
+            
+            // Include potential name and identifier columns present in this table
+            const candidateKeys = ['nama', 'nama_nasabah', 'nama_pelanggan', 'nama_investor', 'id_pelanggan', 'id_transaksi', 'id_barang', tbl.primaryKey];
+            candidateKeys.forEach((key) => {
+              if (tbl.columns.some(c => c.key === key) && !searchCols.includes(key)) {
+                searchCols.push(key);
+              }
+            });
+
+            if (searchCols.length === 1) {
+              req = req.ilike(searchCols[0], `%${q}%`);
+            } else if (searchCols.length > 1) {
+              const orClause = searchCols.map((c) => `${c}.ilike.%${q}%`).join(",");
+              req = req.or(orClause);
+            }
           }
 
           // Apply sort order if explicitly set
@@ -662,6 +725,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             req = req.order(effectiveSortCol, { ascending: effectiveSortAsc, nullsFirst: false });
           }
 
+          // Database pagination: only request 20 rows per page directly from Supabase
           req = req.range(from, to);
 
           const { data, count, error } = await req;
@@ -672,18 +736,26 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             return { data: null, error };
           }
 
-          // Tampilkan semua data persis dalam urutan yang dikembalikan dari Supabase
-          setTableRows(data || []);
+          const cleanRows = data || [];
+          setTableRows(cleanRows);
+          setIsCachedData(false);
           if (count !== null && count !== undefined) {
             setTotalCount(count);
+            try {
+              localStorage.setItem(`wt_delta_cache_v3_${countCacheKey}`, String(count));
+            } catch (e) {}
           }
 
-          // Calculate bandwidth metrics
-          const estimatedFullTableSize = (count || 50) * 450;
-          const paginatedSize = (data?.length || 0) * 450;
+          // Simpan ke DeltaCache untuk paginasi berikutnya
+          const nowIso = new Date().toISOString();
+          DeltaCache.set(cacheKey, cleanRows, nowIso);
+          setLastSyncTime(new Date().toLocaleTimeString("id-ID"));
+
+          // Calculate bandwidth metrics: Full table vs 20 rows
+          const estimatedFullTableSize = (count || limit) * 450;
+          const paginatedSize = (cleanRows.length || 0) * 450;
           const saved = Math.max(0, estimatedFullTableSize - paginatedSize);
           setDeltaSyncSavedBytes(prev => prev + saved);
-          setLastSyncTime(new Date().toLocaleTimeString("id-ID"));
 
           return { data, error: null };
         }
@@ -722,7 +794,12 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       setSortAscending((prev) => !prev);
     } else {
       setSortColumn(columnKey);
-      setSortAscending(false); // Newest / largest first by default
+      // Kolom nama diurutkan A-Z (Ascending) terlebih dahulu saat pertama kali diklik
+      if (columnKey === "nama" || columnKey === "nama_pelanggan" || columnKey === "nama_nasabah" || columnKey === "nama_investor") {
+        setSortAscending(true);
+      } else {
+        setSortAscending(false); // Terbaru / nominal terbesar paling atas secara default
+      }
     }
     setCurrentPage(1);
   };
@@ -818,10 +895,11 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
     setCurrentPage(1);
     setTableSearchQuery("");
     
-    // Default sorting: Newest date at the top (DESC)
+    // Default sorting: Pelanggan -> Nama A-Z (ASC), Transaksi/Riwayat -> Tanggal terbaru (DESC)
     const defaultDateCol = getDefaultSortColumn(tbl);
+    const defaultAsc = getDefaultSortAscending(tbl);
     setSortColumn(defaultDateCol);
-    setSortAscending(false); // Terbaru paling atas!
+    setSortAscending(defaultAsc);
 
     setEditingRowUniqueId(null);
     setEditingRowIndex(null);
@@ -938,6 +1016,10 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             );
           }
 
+          // Invalidate cache for this table to ensure freshness
+          DeltaCache.clearPrefix(`adm_tbl_${selectedTable.name}`);
+          DeltaCache.clearPrefix(`adm_cnt_${selectedTable.name}`);
+
           setEditingRowUniqueId(null);
           setEditingRowIndex(null);
           setEditRowValues({});
@@ -1016,6 +1098,10 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
         );
       }
 
+      // Invalidate cache for this table
+      DeltaCache.clearPrefix(`adm_tbl_${selectedTable.name}`);
+      DeltaCache.clearPrefix(`adm_cnt_${selectedTable.name}`);
+
       showToast(`✅ Data berhasil disimpan ke Supabase!`);
       setEditingModalRow(null);
       setEditingModalIndex(null);
@@ -1082,6 +1168,10 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
           } else if (selectedTable.name === "debt_transactions" && setDebtTransactions) {
             setDebtTransactions((prev) => prev.filter((r) => (rowToDelete.id ? r.id !== rowToDelete.id : (r[pkKey] || r.id) !== pkVal)));
           }
+
+          // Invalidate cache for this table
+          DeltaCache.clearPrefix(`adm_tbl_${selectedTable.name}`);
+          DeltaCache.clearPrefix(`adm_cnt_${selectedTable.name}`);
 
           showToast(`🗑️ Baris telah dihapus dari tabel ${selectedTable.label}.`);
           setRowToDelete(null);
@@ -1177,6 +1267,10 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       if (selectedTable.name === "sales_transactions" && setSalesTransactions) {
         setSalesTransactions((prev) => [cleanPayload as any, ...prev]);
       }
+
+      // Invalidate cache for this table
+      DeltaCache.clearPrefix(`adm_tbl_${selectedTable.name}`);
+      DeltaCache.clearPrefix(`adm_cnt_${selectedTable.name}`);
 
       showToast(`✅ Berhasil menambahkan data baru ke tabel ${selectedTable.label}!`);
       setIsAddRowModalOpen(false);
@@ -1438,12 +1532,16 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                         <ArrowLeft className="w-4 h-4" />
                       </button>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <h2 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                           {selectedTable.label}
                         </h2>
                         <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                           {totalCount} baris
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                          <Zap className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                          Delta Sync (Paginasi {pageSize} Baris)
                         </span>
                       </div>
                     </div>
@@ -1525,25 +1623,25 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                   {/* Responsive Table Container */}
                   <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
                     <div className="overflow-x-auto max-h-[72vh]">
-                      <table className="w-full text-left border-collapse text-xs">
+                      <table className="w-auto text-left border-collapse text-xs">
                         <thead className="sticky top-0 z-10 shadow-xs">
                           <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px] tracking-wider">
-                            <th className="py-3 px-3 text-center w-12 bg-slate-100 dark:bg-slate-800">No</th>
+                            <th className="py-1 px-1.5 text-center w-8 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px]">No</th>
                             {effectiveColumns.map((col, cIdx) => {
                               const isSorted = sortColumn === col.key;
                               return (
                                 <th
                                   key={col.key}
-                                  className="py-2.5 px-3.5 whitespace-nowrap select-none bg-slate-100 dark:bg-slate-800 group/th border-r border-slate-200/50 dark:border-slate-800/60"
+                                  className="py-1 px-1.5 whitespace-nowrap select-none bg-slate-100 dark:bg-slate-800 group/th border-r border-slate-200/50 dark:border-slate-800/60"
                                 >
-                                  <div className="flex items-center justify-between gap-1.5">
+                                  <div className="flex items-center gap-1.5">
                                     <div
                                       onClick={() => handleSortBy(col.key)}
-                                      className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
+                                      className="flex items-center gap-1 cursor-pointer hover:text-slate-900 dark:hover:text-white transition-colors"
                                       title={`Klik untuk urutkan berdasarkan ${col.label}`}
                                     >
-                                      <span>{col.label}</span>
-                                      <span className={`text-[10px] font-mono ${
+                                      <span className="font-bold text-[11px]">{col.label}</span>
+                                      <span className={`text-[9px] font-mono ${
                                         isSorted ? "text-[#005E6A] dark:text-[#2dd4bf] font-black" : "text-slate-400 group-hover/th:text-slate-700 dark:group-hover/th:text-slate-200"
                                       }`}>
                                         {isSorted ? (sortAscending ? "▲" : "▼") : "↕"}
@@ -1551,7 +1649,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                     </div>
 
                                     {/* Quick Column Shift (Left/Right) & Quick Hide */}
-                                    <div className="opacity-0 group-hover/th:opacity-100 flex items-center gap-0.5 transition-opacity ml-2">
+                                    <div className="opacity-0 group-hover/th:opacity-100 flex items-center gap-0.5 transition-opacity ml-1">
                                       <button
                                         type="button"
                                         onClick={(e) => {
@@ -1560,9 +1658,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                         }}
                                         disabled={cIdx === 0}
                                         title="Geser kolom ke kiri"
-                                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-20 transition-colors"
+                                        className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-20 transition-colors"
                                       >
-                                        <MoveLeft className="w-3 h-3" />
+                                        <MoveLeft className="w-2.5 h-2.5" />
                                       </button>
                                       <button
                                         type="button"
@@ -1572,9 +1670,9 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                         }}
                                         disabled={cIdx === effectiveColumns.length - 1}
                                         title="Geser kolom ke kanan"
-                                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-20 transition-colors"
+                                        className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 disabled:opacity-20 transition-colors"
                                       >
-                                        <MoveRight className="w-3 h-3" />
+                                        <MoveRight className="w-2.5 h-2.5" />
                                       </button>
                                       <button
                                         type="button"
@@ -1583,22 +1681,16 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                           handleToggleColumn(col.key);
                                         }}
                                         title="Sembunyikan kolom ini"
-                                        className="p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-900/40 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                                        className="p-0.5 rounded hover:bg-rose-100 dark:hover:bg-rose-900/40 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
                                       >
-                                        <EyeOff className="w-3 h-3" />
+                                        <EyeOff className="w-2.5 h-2.5" />
                                       </button>
                                     </div>
-                                  </div>
-                                  <div className="flex items-center justify-between text-[9px] font-mono font-normal text-slate-400 mt-0.5">
-                                    <span>{col.key}</span>
-                                    <span className="text-[8px] uppercase tracking-tighter opacity-60">
-                                      {col.type}
-                                    </span>
                                   </div>
                                 </th>
                               );
                             })}
-                            <th className="py-3 px-3.5 text-center whitespace-nowrap w-28 bg-slate-100 dark:bg-slate-800">
+                            <th className="py-1 px-1.5 text-center whitespace-nowrap bg-slate-100 dark:bg-slate-800 font-bold uppercase text-[10px]">
                               Aksi
                             </th>
                           </tr>
@@ -1610,7 +1702,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                               <td colSpan={effectiveColumns.length + 2} className="py-12 text-center text-slate-500 dark:text-slate-400">
                                 <div className="flex flex-col items-center justify-center gap-2">
                                   <RefreshCw className="w-6 h-6 animate-spin text-[#005E6A] dark:text-[#2dd4bf]" />
-                                  <span className="text-xs font-bold">Memuat semua data dari Supabase (Limit {pageSize})...</span>
+                                  <span className="text-xs font-bold">Memuat data dari Supabase (Limit {pageSize})...</span>
                                 </div>
                               </td>
                             </tr>
@@ -1640,7 +1732,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                   }`}
                                 >
                                   {/* Row Number */}
-                                  <td className="py-3 px-3 text-center text-slate-400 font-mono text-[11px]">
+                                  <td className="py-1 px-1.5 text-center text-slate-400 font-mono text-[10px]">
                                     {(currentPage - 1) * pageSize + rIdx + 1}
                                   </td>
 
@@ -1649,7 +1741,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                     const cellVal = isEditing ? editRowValues[col.key] : row[col.key];
 
                                     return (
-                                      <td key={col.key} className="py-2.5 px-3.5 whitespace-nowrap">
+                                      <td key={col.key} className="py-1 px-1.5 whitespace-nowrap text-xs">
                                         {isEditing && !col.readOnly && col.key !== "id" && col.key !== "created_at" ? (
                                           /* INLINE EDIT MODE */
                                           col.type === "select" && col.options ? (
@@ -1661,7 +1753,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                                   [col.key]: e.target.value
                                                 }))
                                               }
-                                              className="w-full min-w-[130px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-md px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                                              className="w-full min-w-[100px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-md px-1.5 py-0.5 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
                                             >
                                               {col.options.map((opt) => (
                                                 <option key={opt} value={opt}>
@@ -1679,7 +1771,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                                   [col.key]: e.target.value
                                                 }))
                                               }
-                                              className="w-full min-w-[130px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-md px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                                              className="w-full min-w-[100px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-md px-1.5 py-0.5 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
                                             />
                                           ) : (
                                             <input
@@ -1691,7 +1783,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                                   [col.key]: e.target.value
                                                 }))
                                               }
-                                              className="w-full min-w-[120px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-md px-2 py-1 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                                              className="w-full min-w-[90px] bg-white dark:bg-slate-800 border border-[#005E6A] dark:border-[#2dd4bf] rounded-md px-1.5 py-0.5 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
                                             />
                                           )
                                         ) : (
@@ -1711,12 +1803,12 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                           >
                                             {cellVal !== null && cellVal !== undefined
                                               ? col.type === "number"
-                                                ? Number(cellVal).toLocaleString("id-ID")
-                                                : col.type === "date" || col.key === "tanggal"
-                                                ? formatDateForInput(String(cellVal))
-                                                : typeof cellVal === "object"
-                                                ? JSON.stringify(cellVal)
-                                                : String(cellVal)
+                                              ? Number(cellVal).toLocaleString("id-ID")
+                                              : col.type === "date" || col.key === "tanggal"
+                                              ? formatDateForInput(String(cellVal))
+                                              : typeof cellVal === "object"
+                                              ? JSON.stringify(cellVal)
+                                              : String(cellVal)
                                               : "-"}
                                           </span>
                                         )}
@@ -1725,45 +1817,45 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                   })}
 
                                   {/* Action Buttons: Edit & Hapus (Inline & Modal) */}
-                                  <td className="py-2.5 px-3.5 text-center">
+                                  <td className="py-1 px-1.5 text-center whitespace-nowrap">
                                     {isEditing ? (
                                       /* SAVE / CANCEL BUTTONS */
-                                      <div className="flex items-center justify-center gap-1.5">
+                                      <div className="flex items-center justify-center gap-1">
                                         <button
                                           onClick={() => handleSaveInlineEdit(row, rIdx)}
                                           disabled={isSavingRow}
                                           title="Simpan Perubahan"
-                                          className="p-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 font-bold transition-all shadow-sm disabled:opacity-50"
+                                          className="p-1 rounded-md bg-emerald-500 text-white hover:bg-emerald-600 font-bold transition-all shadow-sm disabled:opacity-50"
                                         >
-                                          <Check className="w-3.5 h-3.5" />
+                                          <Check className="w-3 h-3" />
                                         </button>
                                         <button
                                           onClick={handleCancelInlineEdit}
                                           disabled={isSavingRow}
                                           title="Batal"
-                                          className="p-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 transition-all disabled:opacity-50"
+                                          className="p-1 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 transition-all disabled:opacity-50"
                                         >
-                                          <X className="w-3.5 h-3.5" />
+                                          <X className="w-3 h-3" />
                                         </button>
                                       </div>
                                     ) : (
                                       /* EDIT / DELETE BUTTONS */
-                                      <div className="flex items-center justify-center gap-1.5">
+                                      <div className="flex items-center justify-center gap-1">
                                         <button
                                           onClick={() => handleOpenEditModal(row, rIdx)}
                                           title="Edit Data Baris Ini"
-                                          className="p-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold transition-all flex items-center gap-1"
+                                          className="p-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold transition-all flex items-center gap-0.5"
                                         >
-                                          <Edit2 className="w-3.5 h-3.5" />
-                                          <span className="text-[10px] hidden xl:inline font-bold">Edit</span>
+                                          <Edit2 className="w-3 h-3" />
+                                          <span className="text-[10px] font-bold">Edit</span>
                                         </button>
                                         <button
                                           onClick={() => handleDeleteRow(row, rIdx)}
                                           title="Hapus Baris Ini"
-                                          className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-semibold transition-all flex items-center gap-1"
+                                          className="p-1 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-semibold transition-all flex items-center gap-0.5"
                                         >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                          <span className="text-[10px] hidden xl:inline font-bold">Hapus</span>
+                                          <Trash2 className="w-3 h-3" />
+                                          <span className="text-[10px] font-bold">Hapus</span>
                                         </button>
                                       </div>
                                     )}
