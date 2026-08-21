@@ -46,7 +46,7 @@ import { AdminInputDataPage } from "./components/AdminInputDataPage";
 import { AdminCashFlowPage } from "./components/AdminCashFlowPage";
 import { DatabaseSuccessModal, SuccessModalData } from "./components/DatabaseSuccessModal";
 import { DeltaCache, formatImageUrl } from "./lib/deltaSync";
-import { SupabaseStockService, SupabaseCustomerService, SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseInvestmentService, SupabasePointsService, SUPABASE_CREATE_PRODUCTS_TABLE_SQL, SupabaseProduct, SupabaseSalesTransaction, formatDateDDMMYYYY } from "./lib/supabase";
+import { SupabaseStockService, SupabaseCustomerService, SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseInvestmentService, SupabasePointsService, SupabaseDashboardService, SUPABASE_CREATE_PRODUCTS_TABLE_SQL, SupabaseProduct, SupabaseSalesTransaction, formatDateDDMMYYYY } from "./lib/supabase";
 import { syncAllCustomerStatsToGoogleSheets } from "./lib/googleSheetsSync";
 import { 
   ShoppingBag, 
@@ -179,24 +179,51 @@ import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode";
 
 // --- Types ---
 
-const parseDate = (dateStr: string) => {
+const parseDate = (dateStr: any): Date => {
   if (!dateStr || dateStr === "-") return new Date(0);
+  if (dateStr instanceof Date) return dateStr;
+  const trimmed = String(dateStr).trim();
   
-  // Handle DD/MM/YYYY or DD-MM-YYYY
-  const parts = dateStr.split(/[/-]/);
-  if (parts.length === 3) {
-    // Check if it's YYYY-MM-DD
-    if (parts[0].length === 4) {
-      return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    }
-    // Assume DD/MM/YYYY
-    const day = parseInt(parts[0]);
-    const month = parseInt(parts[1]) - 1;
-    const year = parseInt(parts[2]);
-    return new Date(year, month, day);
+  if (trimmed.includes('T')) {
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) return d;
   }
+
+  const spaceIndex = trimmed.indexOf(' ');
+  let datePart = trimmed;
+  let timePart = '';
   
-  const d = new Date(dateStr);
+  if (spaceIndex !== -1) {
+    datePart = trimmed.substring(0, spaceIndex);
+    timePart = trimmed.substring(spaceIndex + 1).trim();
+  }
+
+  let h = 0, m = 0, s = 0;
+  if (timePart) {
+    const tParts = timePart.split(':');
+    h = parseInt(tParts[0], 10) || 0;
+    m = parseInt(tParts[1], 10) || 0;
+    s = parseInt(tParts[2], 10) || 0;
+  }
+
+  const parts = datePart.split(/[/-]/);
+  if (parts.length === 3) {
+    const p0 = parseInt(parts[0], 10) || 0;
+    const p1 = parseInt(parts[1], 10) || 0;
+    const p2 = parseInt(parts[2], 10) || 0;
+
+    // YYYY-MM-DD
+    if (parts[0].length === 4) {
+      return new Date(p0, p1 - 1, p2, h, m, s);
+    }
+    // DD/MM/YYYY or DD-MM-YYYY
+    if (parts[2].length === 4 || parts[2].length === 2) {
+      const year = parts[2].length === 2 ? 2000 + p2 : p2;
+      return new Date(year, p1 - 1, p0, h, m, s);
+    }
+  }
+
+  const d = new Date(trimmed);
   return isNaN(d.getTime()) ? new Date(0) : d;
 };
 
@@ -769,7 +796,18 @@ const TransactionCard: React.FC<{ t: SalesTransaction, index: number, isAdmin?: 
 
             {/* Row 3: Tanggal & Status */}
             <div className="flex items-center gap-2">
-              <p className="text-[7px] font-medium text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">{t.Tanggal}</p>
+              <p className="text-[7px] font-medium text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">
+                {t.Tanggal}
+                {(() => {
+                  if (t.created_at) {
+                    const d = new Date(t.created_at);
+                    if (!isNaN(d.getTime()) && d.getTime() > 0) {
+                      return ` • ${d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false })} WIB`;
+                    }
+                  }
+                  return '';
+                })()}
+              </p>
               <p className={`text-[6px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-full w-fit ${ribbonColor}`}>
                 {t.Status}
               </p>
@@ -7416,9 +7454,6 @@ const AdminReportPage = ({
     }
   }, [filterDate]);
   const [showSummary, setShowSummary] = useState(false);
-  const [listDirection, setListDirection] = useState<'left' | 'right'>('right');
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
   // Add Sales Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -7655,9 +7690,11 @@ const AdminReportPage = ({
     return Math.round(amount * 0.005);
   };
 
-  const handlePemasukanChange = (val: number) => {
+  const handlePemasukanChange = (val: number, customMelalui?: string) => {
     const adminFee = calculateWarungTomiFee(val);
-    const calculatedModal = Math.max(0, val - adminFee);
+    const channel = customMelalui !== undefined ? customMelalui : (addFormData.Melalui || "EDC BNI");
+    const edcExtra = channel === "EDC BNI" ? 1500 : 0;
+    const calculatedModal = Math.max(0, val - adminFee - edcExtra);
     const calculatedPoin = Math.max(0, Math.floor(val / 10000));
     setAddFormData((prev) => ({
       ...prev,
@@ -7670,7 +7707,8 @@ const AdminReportPage = ({
 
   const handleHargaModalChange = (modalVal: number) => {
     const jual = addFormData.Pemasukan || 0;
-    const adminFee = Math.max(0, jual - modalVal);
+    const edcExtra = (addFormData.Melalui || "EDC BNI") === "EDC BNI" ? 1500 : 0;
+    const adminFee = Math.max(0, jual - modalVal - edcExtra);
     setAddFormData((prev) => ({
       ...prev,
       HargaModal: modalVal,
@@ -7712,8 +7750,8 @@ const AdminReportPage = ({
       id_pelanggan: defaultCustId,
       Tanggal: formattedToday,
       Nama: defaultName,
-      Jenis: "TOPUP DANA",
-      Melalui: "DANA",
+      Jenis: "TARIK TUNAI",
+      Melalui: "EDC BNI",
       Metode: "TUNAI",
       Pemasukan: 0,
       hargaAdmin: 3000,
@@ -7732,6 +7770,9 @@ const AdminReportPage = ({
     }
     setIsAdding(true);
 
+    const now = new Date();
+    const nowIso = now.toISOString();
+
     const newTx: SalesTransaction = {
       id: addFormData.id_transaksi || `TRX-${Date.now()}`,
       id_transaksi: addFormData.id_transaksi || `TRX-${Date.now()}`,
@@ -7745,7 +7786,8 @@ const AdminReportPage = ({
       HargaModal: Number(addFormData.HargaModal) || 0,
       Sebagian: Number(addFormData.Sebagian) || 0,
       Poin: Number(addFormData.Poin) || 0,
-      Status: addFormData.Status || "SELESAI"
+      Status: addFormData.Status || "SELESAI",
+      created_at: nowIso
     };
 
     try {
@@ -7899,7 +7941,8 @@ const AdminReportPage = ({
           status: newTx.Status,
           melalui: newTx.Melalui,
           harga_modal: newTx.HargaModal,
-          sebagian: newTx.Sebagian
+          sebagian: newTx.Sebagian,
+          created_at: nowIso
         };
         await SupabaseSalesService.upsertSale(payload);
       }
@@ -7911,30 +7954,6 @@ const AdminReportPage = ({
       showToast("Gagal menyimpan data ke database.", "error");
     } finally {
       setIsAdding(false);
-    }
-  };
-
-  const minSwipeDistance = 50;
-
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-
-    if (isLeftSwipe) {
-      changeDate(1);
-    } else if (isRightSwipe) {
-      changeDate(-1);
     }
   };
 
@@ -7953,30 +7972,7 @@ const AdminReportPage = ({
     const d = String(currentDate.getDate()).padStart(2, '0');
     const newDateStr = `${y}-${m}-${d}`;
     
-    if (days > 0) {
-      setListDirection('right');
-    } else {
-      setListDirection('left');
-    }
-    
     setFilterDate(newDateStr);
-  };
-
-  const listSlideVariants = {
-    initial: (direction: 'left' | 'right') => ({
-      x: direction === 'right' ? 80 : -80,
-      opacity: 0
-    }),
-    animate: {
-      x: 0,
-      opacity: 1,
-      transition: { duration: 0.3, ease: 'easeOut' }
-    },
-    exit: (direction: 'left' | 'right') => ({
-      x: direction === 'right' ? -80 : 80,
-      opacity: 0,
-      transition: { duration: 0.25, ease: 'easeIn' }
-    })
   };
 
   useEffect(() => {
@@ -8020,14 +8016,68 @@ const AdminReportPage = ({
       return match;
     });
 
-    const sortedFiltered = [...filtered].sort((a, b) => {
-      if (a.created_at && b.created_at) {
-        const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        if (diff !== 0) return diff;
+    const getTxTime = (item: SalesTransaction): number => {
+      if (item.created_at) {
+        const t = new Date(item.created_at).getTime();
+        if (!isNaN(t) && t > 0) return t;
       }
-      const dateA = parseDate(a.Tanggal).getTime();
-      const dateB = parseDate(b.Tanggal).getTime();
-      if (dateB !== dateA) return dateB - dateA;
+      if (item.Tanggal) {
+        const t = parseDate(item.Tanggal).getTime();
+        if (!isNaN(t) && t > 0) return t;
+      }
+      return 0;
+    };
+
+    const extractTxSequence = (idStr?: string): number => {
+      if (!idStr) return 0;
+      const s = String(idStr).trim();
+      const slashMatch = s.match(/\/(\d+)/);
+      if (slashMatch) {
+        const num = parseInt(slashMatch[1], 10);
+        if (!isNaN(num)) return num;
+      }
+      const matchNum = s.match(/\d+/g);
+      if (matchNum && matchNum.length > 0) {
+        for (const seg of matchNum) {
+          if (seg.length >= 10) {
+            const val = parseInt(seg, 10);
+            if (!isNaN(val)) return val;
+          }
+        }
+        const lastNum = parseInt(matchNum[matchNum.length - 1], 10);
+        if (!isNaN(lastNum)) return lastNum;
+      }
+      return 0;
+    };
+
+    const txIndexMap = new Map<any, number>();
+    transactions.forEach((tx, idx) => {
+      const key = tx.id_transaksi || tx.id || tx;
+      if (!txIndexMap.has(key)) {
+        txIndexMap.set(key, idx);
+      }
+    });
+
+    const sortedFiltered = [...filtered].sort((a, b) => {
+      const timeA = getTxTime(a);
+      const timeB = getTxTime(b);
+      if (Math.abs(timeB - timeA) > 1000) {
+        return timeB - timeA;
+      }
+
+      const seqA = extractTxSequence(a.id_transaksi || a.id);
+      const seqB = extractTxSequence(b.id_transaksi || b.id);
+      if (seqB !== seqA) {
+        return seqB - seqA;
+      }
+
+      const keyA = a.id_transaksi || a.id || a;
+      const keyB = b.id_transaksi || b.id || b;
+      const idxA = txIndexMap.has(keyA) ? txIndexMap.get(keyA)! : 999999;
+      const idxB = txIndexMap.has(keyB) ? txIndexMap.get(keyB)! : 999999;
+      if (idxA !== idxB) {
+        return idxA - idxB;
+      }
 
       const idA = String(a.id_transaksi || a.id || '');
       const idB = String(b.id_transaksi || b.id || '');
@@ -8095,6 +8145,44 @@ const AdminReportPage = ({
       <div className="px-6 -mt-12 relative z-20 space-y-6">
         {/* Stats Card */}
         <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden relative">
+          {/* Date Selector Centered above Total Pemasukan without divider line */}
+          <div className="flex items-center justify-center mb-6">
+            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/60 rounded-2xl shadow-xs">
+              <button 
+                onClick={() => changeDate(-1)}
+                className="p-1.5 hover:bg-white dark:hover:bg-slate-700 hover:text-[#005E6A] text-slate-400 dark:text-slate-300 rounded-xl transition-all active:scale-90 cursor-pointer"
+                title="Sebelumnya"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-2 px-1">
+                {isDateSyncing ? (
+                  <RefreshCw className="w-3.5 h-3.5 text-[#005E6A] animate-spin shrink-0" />
+                ) : (
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 shrink-0" />
+                )}
+                <input 
+                  type="date" 
+                  value={filterDate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      setFilterDate(val);
+                    }
+                  }}
+                  className="bg-transparent border-none text-[11px] font-black text-[#005E6A] dark:text-teal-300 focus:outline-none appearance-none cursor-pointer p-0 w-28 text-center"
+                />
+              </div>
+              <button 
+                onClick={() => changeDate(1)}
+                className="p-1.5 hover:bg-white dark:hover:bg-slate-700 hover:text-[#005E6A] text-slate-400 dark:text-slate-300 rounded-xl transition-all active:scale-90 cursor-pointer"
+                title="Berikutnya"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
           <div className="text-center mb-8">
             <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] mb-3">Total Pemasukan</p>
             <h3 className="text-4xl font-black text-[#005E6A] tracking-tighter">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
@@ -8194,84 +8282,43 @@ const AdminReportPage = ({
           </div>
         </div>
 
-        {/* Action Button Input Data Penjualan */}
-        <div className="w-full">
-          <button
-            type="button"
-            onClick={handleOpenAdd}
-            className="w-full py-3.5 px-5 rounded-2xl text-xs font-black uppercase tracking-widest text-white bg-[#005E6A] hover:bg-[#004e58] shadow-lg shadow-[#005E6A]/20 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.99]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Tambah Data Penjualan</span>
-          </button>
-        </div>
-
         <div className="space-y-6 w-full">
-          {/* Unified Filter Card */}
-          <div className="bg-white px-2 py-3.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2 min-h-[56px]">
-            {/* Search Section */}
-            <div className="flex-1 min-w-0 flex items-center gap-3 pl-3 pr-3 border-r border-slate-100 dark:border-slate-800">
-              <Search className="w-4 h-4 text-slate-400 dark:text-slate-300 dark:text-slate-200 shrink-0" />
+          {/* Unified Search & Add Button Card */}
+          <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2 min-h-[56px]">
+            {/* Search Input on Left */}
+            <div className="flex-1 min-w-0 flex items-center gap-2.5 pl-2 pr-1">
+              <Search className="w-4 h-4 text-slate-400 dark:text-slate-300 shrink-0" />
               <input 
                 type="text"
                 placeholder="Cari transaksi..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 w-full min-w-0 bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none placeholder:text-slate-300 dark:text-slate-200 placeholder:font-bold"
+                className="flex-1 w-full min-w-0 bg-transparent border-none text-[11px] font-black text-[#005E6A] focus:outline-none placeholder:text-slate-300 dark:text-slate-400 placeholder:font-bold"
               />
               {searchQuery && (
                 <button 
                   onClick={() => setSearchQuery("")}
-                  className="p-1 px-2 hover:bg-slate-50 rounded-lg transition-colors group shrink-0"
+                  className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors group shrink-0 cursor-pointer"
+                  title="Hapus pencarian"
                 >
-                  <X className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 dark:text-slate-300 dark:text-slate-200" />
+                  <X className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:text-slate-300" />
                 </button>
               )}
             </div>
 
-            {/* Date Section with Chevron Navigation */}
-            <div className="flex items-center gap-1.5 px-3 shrink-0 bg-slate-50 border border-slate-100/80 dark:border-slate-800/80 rounded-xl py-1">
-              <button 
-                onClick={() => changeDate(-1)}
-                className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-lg transition-all active:scale-90"
-                title="Sebelumnya"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="flex items-center gap-1.5">
-                {isDateSyncing ? (
-                  <RefreshCw className="w-3.5 h-3.5 text-[#005E6A] animate-spin shrink-0" />
-                ) : (
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 dark:text-slate-200 shrink-0" />
-                )}
-                <input 
-                  type="date" 
-                  value={filterDate}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val) {
-                      if (val > filterDate) {
-                        setListDirection('right');
-                      } else {
-                        setListDirection('left');
-                      }
-                      setFilterDate(val);
-                    }
-                  }}
-                  className="bg-transparent border-none text-[10px] font-black text-[#005E6A] focus:outline-none appearance-none cursor-pointer p-0 w-24"
-                />
-              </div>
-              <button 
-                onClick={() => changeDate(1)}
-                className="p-1 hover:bg-white hover:text-[#005E6A] text-slate-400 dark:text-slate-300 dark:text-slate-200 rounded-lg transition-all active:scale-90"
-                title="Berikutnya"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+            {/* Tambah Data Button on Right */}
+            <button
+              type="button"
+              onClick={handleOpenAdd}
+              className="py-2.5 px-3.5 sm:px-4 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider text-white bg-[#005E6A] hover:bg-[#004e58] shadow-md shadow-[#005E6A]/20 flex items-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-95"
+              title="Tambah Data Penjualan"
+            >
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
+              <span className="whitespace-nowrap">Tambah Data</span>
+            </button>
           </div>
 
-          {/* Transaction List Cards with Swipe Support */}
+          {/* Transaction List Cards */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
               <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Transaksi</h3>
@@ -8280,36 +8327,21 @@ const AdminReportPage = ({
               </Badge>
             </div>
 
-            <div 
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={onTouchEnd}
-              className="relative min-h-[160px] touch-pan-y"
-            >
-              <AnimatePresence mode="wait" custom={listDirection}>
-                <motion.div
-                  key={filterDate}
-                  custom={listDirection}
-                  variants={listSlideVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4"
-                >
-                  {filteredTransactions.length > 0 ? (
-                    filteredTransactions.map((t, i) => (
-                      <TransactionCard key={i} t={t} index={i} isAdmin={true} />
-                    ))
-                  ) : (
-                    <div className="col-span-full bg-white rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
-                      <div className="flex flex-col items-center gap-2 opacity-20">
-                        <FileText className="w-8 h-8" />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi pada {formattedFilterDate}</p>
-                      </div>
+            <div className="relative min-h-[160px]">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
+                {filteredTransactions.length > 0 ? (
+                  filteredTransactions.map((t, i) => (
+                    <TransactionCard key={i} t={t} index={i} isAdmin={true} />
+                  ))
+                ) : (
+                  <div className="col-span-full bg-white rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
+                    <div className="flex flex-col items-center gap-2 opacity-20">
+                      <FileText className="w-8 h-8" />
+                      <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi pada {formattedFilterDate}</p>
                     </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -8499,7 +8531,7 @@ const AdminReportPage = ({
                       Jenis Transaksi
                     </label>
                     <select
-                      value={addFormData.Jenis || "TOPUP DANA"}
+                      value={addFormData.Jenis || "TARIK TUNAI"}
                       onChange={(e) => setAddFormData({ ...addFormData, Jenis: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
                     >
@@ -8516,8 +8548,19 @@ const AdminReportPage = ({
                       Melalui / Channel
                     </label>
                     <select
-                      value={addFormData.Melalui || "DANA"}
-                      onChange={(e) => setAddFormData({ ...addFormData, Melalui: e.target.value })}
+                      value={addFormData.Melalui || "EDC BNI"}
+                      onChange={(e) => {
+                        const newMelalui = e.target.value;
+                        const jual = addFormData.Pemasukan || 0;
+                        const adminFee = addFormData.hargaAdmin !== undefined ? addFormData.hargaAdmin : calculateWarungTomiFee(jual);
+                        const edcExtra = newMelalui === "EDC BNI" ? 1500 : 0;
+                        const calculatedModal = Math.max(0, jual - adminFee - edcExtra);
+                        setAddFormData((prev) => ({
+                          ...prev,
+                          Melalui: newMelalui,
+                          HargaModal: calculatedModal
+                        }));
+                      }}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] cursor-pointer"
                     >
                       {MELALUI_OPTIONS.map((opt) => (
@@ -8729,7 +8772,7 @@ const AdminDashboard = ({
 
   const customerAnalytics = useMemo(() => {
     const isGeneralCustomerName = (nameStr: string) => {
-      const lower = nameStr.trim().toLowerCase();
+      const lower = (nameStr || '').trim().toLowerCase();
       return !lower || lower === 'pelanggan umum' || lower === 'umum' || lower === 'unknown' || lower === 'kasir' || lower === '-';
     };
 
@@ -8779,59 +8822,45 @@ const AdminDashboard = ({
           savingsBalance: 0
         };
         if (idKey) customerStatsMap[idKey] = entry;
-        if (rawName) customerStatsMap[nameKey] = entry;
+        if (nameKey) customerStatsMap[nameKey] = entry;
       }
 
-      const spend = parseCurrency(t.Pemasukan || 0);
-      const hModal = parseCurrency(t.HargaModal || 0);
-      const profit = parseCurrency(t.Keuntungan || (spend - hModal) || 0);
-      const tDate = parseDate(t.Tanggal);
+      const spend = parseCurrency(t.Pemasukan) || 0;
+      const modal = parseCurrency(t.HargaModal) || 0;
+      const profit = modal > 0 ? spend - modal : Math.round(spend * 0.15);
+      const txDate = parseDate(t.Tanggal);
 
       entry.trxCount += 1;
       entry.totalSpend += spend;
       entry.totalProfit += profit;
-      if (tDate.getTime() > 0 && (!entry.lastTrxDate || tDate > entry.lastTrxDate)) {
-        entry.lastTrxDate = tDate;
-      }
-    });
-
-    // 3. Process savings transactions (excluding Pelanggan Umum)
-    (savingsTransactions || []).forEach((s: any) => {
-      const rawName = (s.Nama || '').trim();
-      const rawId = (s.id_pelanggan || '').trim();
-      if (isGeneralCustomerName(rawName)) return;
-
-      const nameKey = rawName.toLowerCase();
-      const idKey = rawId.toLowerCase();
-
-      const entry = (idKey ? customerStatsMap[idKey] : null) || customerStatsMap[nameKey];
-      if (entry) {
-        const amt = parseCurrency(s.Nominal || s.Jumlah || 0);
-        const type = (s.Tipe || '').toUpperCase();
-        if (type === 'SETOR') {
-          entry.savingsBalance += amt;
-        } else if (type === 'TARIK') {
-          entry.savingsBalance -= amt;
+      if (txDate.getTime() > 0) {
+        if (!entry.lastTrxDate || txDate > entry.lastTrxDate) {
+          entry.lastTrxDate = txDate;
         }
       }
     });
 
-    const entries = Array.from(new Set(Object.values(customerStatsMap)));
-    const totalPelanggan = entries.length;
+    // Deduplicate entries by ID or unique object reference
+    const uniqueMap = new Map<string, typeof customerStatsMap[string]>();
+    Object.values(customerStatsMap).forEach(item => {
+      const uKey = (item.id || item.name).toLowerCase();
+      if (!uniqueMap.has(uKey)) {
+        uniqueMap.set(uKey, item);
+      }
+    });
 
-    // Active transacting: customers with >= 2 transactions OR last transaction within 30 days
+    const entries = Array.from(uniqueMap.values());
+    const totalPelanggan = (customers || []).filter(c => !isGeneralCustomerName(c.Nama || c.nama || '')).length || entries.length;
+
+    // Active customer: >= 2 transactions OR last transaction within last 30 days
     const activeCount = entries.filter(c => c.trxCount >= 2 || (c.lastTrxDate && c.lastTrxDate >= thirtyDaysAgo)).length;
-    // Rare transacting: customers with 0 or 1 transaction and last transaction older than 30 days or never
     const rareCount = Math.max(0, totalPelanggan - activeCount);
+    const activeSavingsCount = (customers || []).filter(c => parseCurrency(c.Tabungan) > 0).length;
 
-    // Active savings: customers with savingsBalance > 0
-    const activeSavingsCount = entries.filter(c => c.savingsBalance > 0).length;
-
-    // Largest transaction volume / total spend
+    // Top Spender & Top Profit
     let topSpender = entries.length > 0 ? entries.reduce((max, c) => c.totalSpend > max.totalSpend ? c : max, entries[0]) : null;
     if (topSpender && topSpender.totalSpend <= 0) topSpender = null;
 
-    // Largest profit contribution
     let topProfit = entries.length > 0 ? entries.reduce((max, c) => c.totalProfit > max.totalProfit ? c : max, entries[0]) : null;
     if (topProfit && topProfit.totalProfit <= 0) topProfit = null;
 
@@ -8843,7 +8872,7 @@ const AdminDashboard = ({
       topSpender,
       topProfit
     };
-  }, [customers, transactions, savingsTransactions]);
+  }, [customers, transactions]);
 
   const filterOptions = useMemo(() => {
     if (transactions.length === 0) return { days: [], weeks: [], months: [], years: [] };
@@ -8921,8 +8950,8 @@ const AdminDashboard = ({
       return acc + (net > 0 ? net : 0);
     }, 0);
 
-  const totalAssets = totalTabungan + totalInvestasi + totalLainnya - totalHutang;
   const grossAssets = totalTabungan + totalInvestasi + totalLainnya;
+  const totalAssets = grossAssets - totalHutang;
 
   const assetData = [
     { name: 'Tabungan', value: totalTabungan, color: '#10b981', path: '/admin/savings' },
@@ -9120,8 +9149,8 @@ const AdminDashboard = ({
     return true;
   });
 
-  const totalPemasukan = filteredSales.reduce((acc, curr) => acc + curr.Pemasukan, 0);
-  const totalKeuntungan = filteredSales.reduce((acc, curr) => acc + (curr.Pemasukan - (curr.HargaModal || 0)), 0);
+  const totalPemasukan = filteredSales.reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
+  const totalKeuntungan = filteredSales.reduce((acc, curr) => acc + ((parseCurrency(curr.Pemasukan) || 0) - (parseCurrency(curr.HargaModal) || 0)), 0);
   const totalTransaksi = filteredSales.length;
   
   // 1. Calculate Growth (MTD: Month-to-Date comparison)
@@ -9136,12 +9165,12 @@ const AdminDashboard = ({
     const thisMonthRevenue = transactions.filter(t => {
       const d = parseDate(t.Tanggal);
       return d.getMonth() === thisMonth && d.getFullYear() === thisYear && d.getDate() <= todayDay;
-    }).reduce((acc, curr) => acc + curr.Pemasukan, 0);
+    }).reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
 
     const lastMonthRevenue = transactions.filter(t => {
       const d = parseDate(t.Tanggal);
       return d.getMonth() === lastMonth && d.getFullYear() === lastYear && d.getDate() <= todayDay;
-    }).reduce((acc, curr) => acc + curr.Pemasukan, 0);
+    }).reduce((acc, curr) => acc + (parseCurrency(curr.Pemasukan) || 0), 0);
 
     if (lastMonthRevenue === 0) return thisMonthRevenue > 0 ? 100 : 0;
     return Math.round(((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100);
@@ -9154,7 +9183,7 @@ const AdminDashboard = ({
     // Add physical products from sales
     filteredSales.forEach(t => {
       const items = (t.Jenis || "").split(",").map(i => i.trim()).filter(Boolean);
-      const valPerItem = items.length > 0 ? t.Pemasukan / items.length : t.Pemasukan;
+      const valPerItem = items.length > 0 ? (parseCurrency(t.Pemasukan) || 0) / items.length : (parseCurrency(t.Pemasukan) || 0);
       
       if (items.length > 0) {
         items.forEach(item => {
@@ -9166,7 +9195,7 @@ const AdminDashboard = ({
         const key = "Lainnya";
         if (!counts[key]) counts[key] = { count: 0, revenue: 0 };
         counts[key].count += 1;
-        counts[key].revenue += t.Pemasukan;
+        counts[key].revenue += (parseCurrency(t.Pemasukan) || 0);
       }
     });
 
@@ -9183,23 +9212,27 @@ const AdminDashboard = ({
   ];
 
   // Group by date for chart (Sales, Profit, and Transactions)
-  const statsByDate = filteredSales.reduce((acc: any, curr) => {
-    const dateStr = curr.Tanggal.split(' ')[0];
-    if (!acc[dateStr]) {
-      acc[dateStr] = { sales: 0, profit: 0, transactions: 0 };
-    }
-    acc[dateStr].sales += curr.Pemasukan;
-    acc[dateStr].profit += (curr.Pemasukan - (curr.HargaModal || 0));
-    acc[dateStr].transactions += 1;
-    return acc;
-  }, {});
+  const chartData = useMemo(() => {
+    const statsByDate = filteredSales.reduce((acc: any, curr) => {
+      const dateStr = (curr.Tanggal || '').split(' ')[0];
+      if (!acc[dateStr]) {
+        acc[dateStr] = { sales: 0, profit: 0, transactions: 0 };
+      }
+      const pem = parseCurrency(curr.Pemasukan) || 0;
+      const mod = parseCurrency(curr.HargaModal) || 0;
+      acc[dateStr].sales += pem;
+      acc[dateStr].profit += (pem - mod);
+      acc[dateStr].transactions += 1;
+      return acc;
+    }, {});
 
-  const chartData = Object.keys(statsByDate).map(date => ({
-    date,
-    total: statsByDate[date].sales,
-    profit: statsByDate[date].profit,
-    transactions: statsByDate[date].transactions
-  })).sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
+    return Object.keys(statsByDate).map(date => ({
+      date,
+      total: statsByDate[date].sales,
+      profit: statsByDate[date].profit,
+      transactions: statsByDate[date].transactions
+    })).sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
+  }, [filteredSales]);
 
   // Calculate statistics for the chartData
   const stats = useMemo(() => {
@@ -9373,14 +9406,24 @@ const AdminDashboard = ({
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/10 rounded-full -ml-24 -mb-24 blur-3xl" />
         
         <div className="relative z-10 space-y-3">
-          <div 
-            onClick={() => navigate("/admin")}
-            className="flex items-center gap-3 cursor-pointer group hover:opacity-90 transition-opacity"
-          >
-            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
-              <BarChart3 className="w-5 h-5 text-white" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div 
+              onClick={() => navigate("/admin")}
+              className="flex items-center gap-3 cursor-pointer group hover:opacity-90 transition-opacity"
+            >
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center transition-transform group-hover:scale-105">
+                <BarChart3 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black tracking-tight uppercase">Dashboard Admin</h1>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-md text-teal-100">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Data Real-Time Akurat
+                  </span>
+                </div>
+              </div>
             </div>
-            <h1 className="text-2xl font-black tracking-tight uppercase">Dashboard Admin</h1>
           </div>
 
           {/* Dropdown Filter Periode Utama - Acuan Seluruh Elemen Dashboard */}
@@ -29871,14 +29914,54 @@ export default function App() {
                 created_at: item.created_at
               }));
 
+              const getTxTimestamp = (item: SalesTransaction): number => {
+                if (item.created_at) {
+                  const t = new Date(item.created_at).getTime();
+                  if (!isNaN(t) && t > 0) return t;
+                }
+                if (item.Tanggal) {
+                  const t = parseDate(item.Tanggal).getTime();
+                  if (!isNaN(t) && t > 0) return t;
+                }
+                return 0;
+              };
+
+              const extractTxSeq = (idStr?: string): number => {
+                if (!idStr) return 0;
+                const s = String(idStr).trim();
+                const slashMatch = s.match(/\/(\d+)/);
+                if (slashMatch) {
+                  const num = parseInt(slashMatch[1], 10);
+                  if (!isNaN(num)) return num;
+                }
+                const matchNum = s.match(/\d+/g);
+                if (matchNum && matchNum.length > 0) {
+                  for (const seg of matchNum) {
+                    if (seg.length >= 10) {
+                      const val = parseInt(seg, 10);
+                      if (!isNaN(val)) return val;
+                    }
+                  }
+                  const lastNum = parseInt(matchNum[matchNum.length - 1], 10);
+                  if (!isNaN(lastNum)) return lastNum;
+                }
+                return 0;
+              };
+
               const sortSalesNewestFirst = (list: SalesTransaction[]) => {
                 return [...list].sort((a, b) => {
-                  if (a.created_at && b.created_at) {
-                    const diff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-                    if (diff !== 0) return diff;
+                  const timeA = getTxTimestamp(a);
+                  const timeB = getTxTimestamp(b);
+                  if (Math.abs(timeB - timeA) > 1000) {
+                    return timeB - timeA;
                   }
-                  const diffDate = parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime();
-                  if (diffDate !== 0) return diffDate;
+
+                  const seqA = extractTxSeq(a.id_transaksi || a.id);
+                  const seqB = extractTxSeq(b.id_transaksi || b.id);
+                  if (seqB !== seqA) {
+                    return seqB - seqA;
+                  }
+
                   const idA = String(a.id_transaksi || a.id || '');
                   const idB = String(b.id_transaksi || b.id || '');
                   return idB.localeCompare(idA, undefined, { numeric: true, sensitivity: 'base' });

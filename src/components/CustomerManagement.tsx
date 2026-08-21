@@ -97,7 +97,7 @@ export default function CustomerManagement({
     }
     return [];
   });
-  const [loading, setLoading] = useState(!initialCustomers || initialCustomers.length === 0);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [filterLevel, setFilterLevel] = useState('Semua');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -111,51 +111,131 @@ export default function CustomerManagement({
   const [activeTab, setActiveTab] = useState<'analisa' | 'daftar'>('analisa');
   const [isDeltaChecking, setIsDeltaChecking] = useState(false);
 
-  // Delta Sync check function on tab switch
-  const runDeltaSyncCheck = async () => {
-    setIsDeltaChecking(true);
+  // Pagination & Database Search States (20 baris per halaman)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [totalCustomerCount, setTotalCustomerCount] = useState(0);
+  const [pagedCustomers, setPagedCustomers] = useState<Customer[]>([]);
+  const [loadingPaged, setLoadingPaged] = useState(false);
+
+  // Database RPC Analytics State
+  const [analyticsRpcData, setAnalyticsRpcData] = useState<{
+    currentMonthName: string;
+    topSpenders: any[];
+    mostFrequent: any[];
+    topProfit: any[];
+    activeCustomerCount: number;
+  }>({
+    currentMonthName: '',
+    topSpenders: [],
+    mostFrequent: [],
+    topProfit: [],
+    activeCustomerCount: 0
+  });
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+
+  // RPC Customer Analytics Fetcher
+  const fetchAnalyticsRpc = async () => {
+    setLoadingAnalytics(true);
     try {
-      if (SupabaseCustomerService.isConnected()) {
-        const { data, error } = await SupabaseCustomerService.getCustomersMinimal();
-        if (!error && data && data.length > 0) {
-          const map = new Map<string, Customer>(customers.map(c => [c.id_pelanggan, c]));
-          const merged: Customer[] = data.map((c: any, index: number) => {
-            const existing = map.get(c.id_pelanggan);
-            return {
-              id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
-              nama: c.nama || existing?.nama || 'Pelanggan',
-              pin: c.pin || existing?.pin || '',
-              telepon: c.telepon || existing?.telepon || '',
-              alamat: c.alamat || existing?.alamat || '',
-              foto: c.foto || existing?.foto || '',
-              poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? existing?.poin ?? 0),
-              level: c.level || c.Level || existing?.level || 'Bronze',
-              tabungan: Number(c.tabungan ?? c.Tabungan ?? existing?.tabungan ?? 0),
-              investasi: Number(c.investasi ?? c.Investasi ?? existing?.investasi ?? 0),
-              lainnya: Number(c.lainnya ?? c.Lainnya ?? existing?.lainnya ?? 0),
-              hutang: Number(c.hutang ?? c.Hutang ?? existing?.hutang ?? 0)
-            };
-          });
-          setCustomers(merged);
-          if (setGlobalCustomers) {
-            setGlobalCustomers(merged);
-          }
-          if (onSyncComplete) {
-            onSyncComplete(merged);
-          }
-        }
+      const res = await SupabaseCustomerService.calculateCustomerAnalyticsRpc();
+      if (res.data) {
+        setAnalyticsRpcData({
+          currentMonthName: res.data.currentMonthName || '',
+          topSpenders: res.data.topSpenders || [],
+          mostFrequent: res.data.mostFrequent || [],
+          topProfit: res.data.topProfit || [],
+          activeCustomerCount: res.data.activeCustomerCount || 0
+        });
       }
-    } catch (err) {
-      console.warn('Delta sync error:', err);
+    } catch (e) {
+      console.warn("RPC Customer Analytics Error, using fallback:", e);
     } finally {
-      setTimeout(() => setIsDeltaChecking(false), 600);
+      setLoadingAnalytics(false);
     }
   };
 
+  // Paged Customers Fetcher (20 baris per panggilan basis database)
+  const fetchPagedCustomers = async (pageToFetch = 1, searchQuery = search, level = filterLevel) => {
+    setLoadingPaged(true);
+    try {
+      if (SupabaseCustomerService.isConnected()) {
+        const { data, totalCount, error } = await SupabaseCustomerService.getCustomersPaged({
+          page: pageToFetch,
+          pageSize: 20,
+          search: searchQuery,
+          filterLevel: level
+        });
+
+        if (!error && data) {
+          const formatted = data.map((c: any, index: number) => ({
+            id_pelanggan: c.id_pelanggan || `CUST-${String((pageToFetch - 1) * 20 + index + 1).padStart(4, '0')}`,
+            id: c.id_pelanggan || c.id || `CUST-${String((pageToFetch - 1) * 20 + index + 1).padStart(4, '0')}`,
+            nama: c.nama || 'Pelanggan',
+            Nama: c.nama || 'Pelanggan',
+            pin: c.pin || '',
+            telepon: c.telepon || '',
+            alamat: c.alamat || '',
+            foto: c.foto || '',
+            poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
+            Poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
+            level: c.level || c.Level || 'Bronze',
+            Level: c.level || c.Level || 'Bronze',
+            tabungan: Number(c.tabungan ?? c.Tabungan ?? 0),
+            investasi: Number(c.investasi ?? c.Investasi ?? 0),
+            lainnya: Number(c.lainnya ?? c.Lainnya ?? 0),
+            hutang: Number(c.hutang ?? c.Hutang ?? 0)
+          }));
+          setPagedCustomers(formatted);
+          setTotalCustomerCount(totalCount ?? formatted.length);
+          setCustomers(formatted);
+          if (onSyncComplete) onSyncComplete(formatted);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching paged customers from Supabase:', err);
+    } finally {
+      setLoadingPaged(false);
+    }
+  };
+
+  // Tab switch handler: lazy load data only when tab is clicked
   const handleTabSwitch = (tab: 'analisa' | 'daftar') => {
     setActiveTab(tab);
-    runDeltaSyncCheck();
+    if (tab === 'daftar') {
+      fetchPagedCustomers(currentPage, search, filterLevel);
+    } else if (tab === 'analisa') {
+      fetchAnalyticsRpc();
+    }
   };
+
+  // Search debouncing for database query
+  const searchTimeoutRef = useRef<any>(null);
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    setCurrentPage(1);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      fetchPagedCustomers(1, val, filterLevel);
+    }, 300);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const totalPages = Math.max(1, Math.ceil(totalCustomerCount / pageSize));
+    if (newPage < 1 || newPage > totalPages) return;
+    setCurrentPage(newPage);
+    fetchPagedCustomers(newPage, search, filterLevel);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Load RPC analytics on initial mount (default tab is Analisa)
+  useEffect(() => {
+    if (activeTab === 'analisa') {
+      fetchAnalyticsRpc();
+    } else {
+      fetchPagedCustomers(1, '', 'Semua');
+    }
+  }, []);
 
   // Sync initialCustomers if prop updates from outside
   useEffect(() => {
@@ -213,7 +293,11 @@ export default function CustomerManagement({
     setShowConfigModal(false);
     setSuccessMessage('Konfigurasi Supabase berhasil disimpan!');
     setShowSuccess(true);
-    fetchCustomers();
+    if (activeTab === 'daftar') {
+      fetchPagedCustomers(1);
+    } else if (activeTab === 'analisa') {
+      fetchAnalyticsRpc();
+    }
   };
 
   const resetForm = () => {
@@ -1048,44 +1132,13 @@ export default function CustomerManagement({
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
-  const fetchCustomers = async () => {
-    setLoading(true);
-    try {
-      if (SupabaseCustomerService.isConnected()) {
-        const { data, error } = await SupabaseCustomerService.getCustomers();
-        if (!error && data) {
-          const formatted = data.map((c: any, index: number) => ({
-            id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
-            id: c.id_pelanggan || c.id || `CUST-${String(index + 1).padStart(4, '0')}`,
-            nama: c.nama || 'Pelanggan',
-            Nama: c.nama || 'Pelanggan',
-            pin: c.pin || '',
-            telepon: c.telepon || '',
-            alamat: c.alamat || '',
-            foto: c.foto || '',
-            poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
-            Poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
-            level: c.level || c.Level || 'Bronze',
-            Level: c.level || c.Level || 'Bronze',
-            tabungan: Number(c.tabungan ?? c.Tabungan ?? 0),
-            investasi: Number(c.investasi ?? c.Investasi ?? 0),
-            lainnya: Number(c.lainnya ?? c.Lainnya ?? 0),
-            hutang: Number(c.hutang ?? c.Hutang ?? 0)
-          }));
-          setCustomers(formatted);
-          if (onSyncComplete) onSyncComplete(formatted);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching customers from Supabase:', err);
-    } finally {
-      setLoading(false);
+  const refreshActiveTabData = () => {
+    if (activeTab === 'daftar') {
+      fetchPagedCustomers(currentPage, search, filterLevel);
+    } else {
+      fetchAnalyticsRpc();
     }
   };
-
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
 
   useEffect(() => {
     if (showSuccess) {
@@ -1454,7 +1507,7 @@ export default function CustomerManagement({
             transition={{ duration: 0.25 }}
             className="space-y-6"
           >
-            {/* 3 KARTU ANALISA UTAMA BULAN INI (HANYA PELANGGAN BERNAMA & TOP 3) */}
+            {/* 3 KARTU ANALISA UTAMA BULAN INI (DIHITUNG DATABASE DENGAN RPC) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
               {/* 1. Transaksi Terbesar (Top Spenders) */}
               <div className="bg-white rounded-[2.5rem] p-6 border border-amber-100 shadow-sm flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow">
@@ -1466,7 +1519,9 @@ export default function CustomerManagement({
                       </div>
                       <div>
                         <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Transaksi Terbesar</h3>
-                        <p className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">Top Spender Bulan Ini</p>
+                        <p className="text-[9px] font-bold text-amber-600 uppercase tracking-wider">
+                          {analyticsRpcData.currentMonthName || analyticsThisMonth.currentMonthName || "Bulan Ini"} (RPC Database)
+                        </p>
                       </div>
                     </div>
                     <span className="text-[10px] font-black bg-amber-50 text-amber-800 px-2.5 py-1 rounded-xl border border-amber-200/60">
@@ -1474,15 +1529,20 @@ export default function CustomerManagement({
                     </span>
                   </div>
 
-                  {analyticsThisMonth.topSpenders.length === 0 ? (
+                  {loadingAnalytics ? (
+                    <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
+                      <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                      <span>Menghitung di Supabase RPC...</span>
+                    </div>
+                  ) : (analyticsRpcData.topSpenders.length > 0 ? analyticsRpcData.topSpenders : analyticsThisMonth.topSpenders).length === 0 ? (
                     <div className="py-8 text-center text-slate-400 text-xs font-medium">
                       Belum ada transaksi di bulan ini
                     </div>
                   ) : (
                     <div className="space-y-2.5">
-                      {analyticsThisMonth.topSpenders.map((cust, idx) => (
+                      {(analyticsRpcData.topSpenders.length > 0 ? analyticsRpcData.topSpenders : analyticsThisMonth.topSpenders).map((cust: any, idx: number) => (
                         <div
-                          key={`top-spender-${cust.key}-${idx}`}
+                          key={`top-spender-${cust.id_pelanggan || cust.key || idx}`}
                           onClick={() => navigate(`/admin/customers/${encodeURIComponent(cust.nama)}`)}
                           className="p-3 bg-amber-50/40 hover:bg-amber-50/80 rounded-2xl border border-amber-100/80 flex items-center justify-between gap-3 cursor-pointer transition-all group"
                         >
@@ -1512,7 +1572,7 @@ export default function CustomerManagement({
                           </div>
                           <div className="text-right shrink-0">
                             <span className="text-xs font-black text-amber-700 block">
-                              Rp {cust.totalSpending.toLocaleString('id-ID')}
+                              Rp {Number(cust.totalSpending || 0).toLocaleString('id-ID')}
                             </span>
                           </div>
                         </div>
@@ -1532,7 +1592,9 @@ export default function CustomerManagement({
                       </div>
                       <div>
                         <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Transaksi Tersering</h3>
-                        <p className="text-[9px] font-bold text-teal-600 uppercase tracking-wider">Paling Sering Belanja</p>
+                        <p className="text-[9px] font-bold text-teal-600 uppercase tracking-wider">
+                          Paling Sering Belanja (RPC Database)
+                        </p>
                       </div>
                     </div>
                     <span className="text-[10px] font-black bg-teal-50 text-teal-800 px-2.5 py-1 rounded-xl border border-teal-200/60">
@@ -1540,15 +1602,20 @@ export default function CustomerManagement({
                     </span>
                   </div>
 
-                  {analyticsThisMonth.mostFrequent.length === 0 ? (
+                  {loadingAnalytics ? (
+                    <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
+                      <Loader2 className="w-6 h-6 animate-spin text-teal-600" />
+                      <span>Menghitung di Supabase RPC...</span>
+                    </div>
+                  ) : (analyticsRpcData.mostFrequent.length > 0 ? analyticsRpcData.mostFrequent : analyticsThisMonth.mostFrequent).length === 0 ? (
                     <div className="py-8 text-center text-slate-400 text-xs font-medium">
                       Belum ada transaksi di bulan ini
                     </div>
                   ) : (
                     <div className="space-y-2.5">
-                      {analyticsThisMonth.mostFrequent.map((cust, idx) => (
+                      {(analyticsRpcData.mostFrequent.length > 0 ? analyticsRpcData.mostFrequent : analyticsThisMonth.mostFrequent).map((cust: any, idx: number) => (
                         <div
-                          key={`most-frequent-${cust.key}-${idx}`}
+                          key={`most-frequent-${cust.id_pelanggan || cust.key || idx}`}
                           onClick={() => navigate(`/admin/customers/${encodeURIComponent(cust.nama)}`)}
                           className="p-3 bg-teal-50/40 hover:bg-teal-50/80 rounded-2xl border border-teal-100/80 flex items-center justify-between gap-3 cursor-pointer transition-all group"
                         >
@@ -1572,7 +1639,7 @@ export default function CustomerManagement({
                                 {cust.nama}
                               </p>
                               <p className="text-[9px] font-bold text-slate-400 tracking-wider">
-                                Total: Rp {cust.totalSpending.toLocaleString('id-ID')}
+                                Total: Rp {Number(cust.totalSpending || 0).toLocaleString('id-ID')}
                               </p>
                             </div>
                           </div>
@@ -1598,7 +1665,9 @@ export default function CustomerManagement({
                       </div>
                       <div>
                         <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Paling Menguntungkan</h3>
-                        <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Laba Bersih Terbesar</p>
+                        <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">
+                          Laba Bersih Terbesar (RPC Database)
+                        </p>
                       </div>
                     </div>
                     <span className="text-[10px] font-black bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-xl border border-emerald-200/60">
@@ -1606,15 +1675,20 @@ export default function CustomerManagement({
                     </span>
                   </div>
 
-                  {analyticsThisMonth.topProfit.length === 0 ? (
+                  {loadingAnalytics ? (
+                    <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400 text-xs">
+                      <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+                      <span>Menghitung di Supabase RPC...</span>
+                    </div>
+                  ) : (analyticsRpcData.topProfit.length > 0 ? analyticsRpcData.topProfit : analyticsThisMonth.topProfit).length === 0 ? (
                     <div className="py-8 text-center text-slate-400 text-xs font-medium">
                       Belum ada transaksi di bulan ini
                     </div>
                   ) : (
                     <div className="space-y-2.5">
-                      {analyticsThisMonth.topProfit.map((cust, idx) => (
+                      {(analyticsRpcData.topProfit.length > 0 ? analyticsRpcData.topProfit : analyticsThisMonth.topProfit).map((cust: any, idx: number) => (
                         <div
-                          key={`top-profit-${cust.key}-${idx}`}
+                          key={`top-profit-${cust.id_pelanggan || cust.key || idx}`}
                           onClick={() => navigate(`/admin/customers/${encodeURIComponent(cust.nama)}`)}
                           className="p-3 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-2xl border border-emerald-100/80 flex items-center justify-between gap-3 cursor-pointer transition-all group"
                         >
@@ -1638,13 +1712,13 @@ export default function CustomerManagement({
                                 {cust.nama}
                               </p>
                               <p className="text-[9px] font-bold text-slate-400 tracking-wider">
-                                Omset: Rp {cust.totalSpending.toLocaleString('id-ID')}
+                                Omset: Rp {Number(cust.totalSpending || 0).toLocaleString('id-ID')}
                               </p>
                             </div>
                           </div>
                           <div className="text-right shrink-0">
                             <span className="text-xs font-black text-emerald-700 block">
-                              +Rp {cust.totalProfit.toLocaleString('id-ID')}
+                              +Rp {Number(cust.totalProfit || 0).toLocaleString('id-ID')}
                             </span>
                           </div>
                         </div>
@@ -1723,7 +1797,7 @@ export default function CustomerManagement({
                     Format Data yang Disinkronkan Otomatis:
                   </p>
                   <span className="text-[10px] font-black text-[#005E6A] uppercase bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-100">
-                    {customers.length} Data Pelanggan Terintegrasi
+                    {totalCustomerCount || customers.length} Data Pelanggan Terintegrasi
                   </span>
                 </div>
 
@@ -1758,7 +1832,7 @@ export default function CustomerManagement({
           </motion.div>
         )}
 
-        {/* TAB CONTENT: DAFTAR PELANGGAN */}
+        {/* TAB CONTENT: DAFTAR PELANGGAN (DIPANGGIL HANYA SAAT TAB DIKLIK - 20 BARIS PAGINATION BASIS DATABASE) */}
         {activeTab === 'daftar' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -1766,17 +1840,39 @@ export default function CustomerManagement({
             transition={{ duration: 0.25 }}
             className="space-y-4"
           >
-            {/* 1. Kolom Pencarian Pelanggan */}
-            <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm">
-              <div className="relative w-full">
+            {/* 1. Kolom Pencarian Pelanggan Berbasis Database */}
+            <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center gap-3">
+              <div className="relative w-full flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                 <input 
                   type="text"
-                  placeholder="CARI NAMA / ID PELANGGAN..."
+                  placeholder="CARI NAMA / ID PELANGGAN (BERBASIS DATABASE)..."
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-[#005E6A] placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#005E6A]/5 transition-all"
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                 />
+              </div>
+
+              {/* Filter Level */}
+              <div className="flex items-center gap-1.5 self-end sm:self-auto overflow-x-auto max-w-full pb-1 sm:pb-0">
+                {['Semua', 'Bronze', 'Silver', 'Gold', 'Platinum'].map((lvl) => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    onClick={() => {
+                      setFilterLevel(lvl);
+                      setCurrentPage(1);
+                      fetchPagedCustomers(1, search, lvl);
+                    }}
+                    className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      filterLevel === lvl
+                        ? 'bg-[#005E6A] text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {lvl}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -1798,31 +1894,31 @@ export default function CustomerManagement({
               </motion.button>
 
               <button 
-                onClick={fetchCustomers}
+                onClick={() => fetchPagedCustomers(currentPage, search, filterLevel)}
                 className="p-4 sm:p-5 bg-white rounded-[2rem] border border-slate-100 text-slate-400 hover:text-[#005E6A] transition-all shadow-sm flex items-center justify-center cursor-pointer group shrink-0"
-                title="Segarkan Data Pelanggan"
+                title="Segarkan Data Halaman Ini"
               >
-                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin text-[#005E6A]' : 'group-hover:rotate-180 transition-transform'}`} />
+                <RefreshCw className={`w-5 h-5 ${loadingPaged ? 'animate-spin text-[#005E6A]' : 'group-hover:rotate-180 transition-transform'}`} />
               </button>
             </div>
 
-            {/* 3. Daftar List Pelanggan Aktif */}
+            {/* 3. Daftar List Pelanggan Aktif (Paginasi 20 Baris) */}
             <div className="space-y-4 pt-1">
               <div className="flex items-center justify-between px-2">
                 <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider flex items-center gap-2">
-                  <User className="w-4 h-4" /> Daftar Pelanggan Aktif
+                  <User className="w-4 h-4" /> Daftar Pelanggan Aktif (Urutan A-Z)
                 </h3>
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Total: {filteredCustomers.length} Pelanggan
+                  Total Database: {totalCustomerCount} Pelanggan
                 </span>
               </div>
 
-              {loading && customers.length === 0 ? (
+              {loadingPaged ? (
                 <div className="bg-white rounded-[2rem] p-12 text-center border border-slate-100">
                   <Loader2 className="w-8 h-8 text-[#005E6A] animate-spin mx-auto mb-4" />
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sedang memuat data...</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Memuat 20 baris data dari database...</p>
                 </div>
-              ) : filteredCustomers.length === 0 ? (
+              ) : pagedCustomers.length === 0 ? (
                 <div className="bg-white rounded-[2rem] p-12 text-center border border-dashed border-slate-200">
                   <Search className="w-8 h-8 text-slate-200 mx-auto mb-4" />
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tidak ada pelanggan ditemukan</p>
@@ -1830,7 +1926,7 @@ export default function CustomerManagement({
               ) : (
                 <div>
                   <div className="bg-white rounded-3xl border border-slate-100 divide-y divide-slate-100 shadow-sm overflow-hidden">
-                    {displayedCustomers.map((customer, i) => (
+                    {pagedCustomers.map((customer, i) => (
                       <motion.div 
                         layout
                         key={`cust-${customer.id_pelanggan}-${i}`}
@@ -1880,20 +1976,36 @@ export default function CustomerManagement({
                     ))}
                   </div>
 
-                  {filteredCustomers.length > displayLimit && (
-                    <div className="mt-8 text-center flex flex-col items-center gap-2 pb-6">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        Menampilkan {displayedCustomers.length} dari {filteredCustomers.length} Pelanggan
-                      </p>
+                  {/* Paginasi Berbasis Database (20 baris per halaman) */}
+                  <div className="mt-6 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <p className="text-xs font-bold text-slate-500">
+                      Menampilkan <span className="text-[#005E6A] font-black">{totalCustomerCount > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> - <span className="text-[#005E6A] font-black">{Math.min(currentPage * pageSize, totalCustomerCount)}</span> dari <span className="text-[#005E6A] font-black">{totalCustomerCount}</span> Pelanggan
+                    </p>
+
+                    <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setDisplayLimit(prev => prev + 12)}
-                        className="px-6 py-3 bg-[#005E6A] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-teal-700 active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                        type="button"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage <= 1 || loadingPaged}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl text-xs font-bold transition-all"
                       >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        Muat ({Math.min(12, filteredCustomers.length - displayLimit)}) Pelanggan Lagi
+                        ← Sebelumnya
+                      </button>
+
+                      <span className="px-3 py-1.5 bg-teal-50 text-[#005E6A] border border-teal-100 rounded-xl text-xs font-black">
+                        Hal {currentPage} / {Math.max(1, Math.ceil(totalCustomerCount / pageSize))}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage >= Math.ceil(totalCustomerCount / pageSize) || loadingPaged}
+                        className="px-4 py-2 bg-[#005E6A] hover:bg-teal-700 text-white disabled:opacity-30 disabled:cursor-not-allowed rounded-xl text-xs font-bold transition-all shadow-xs"
+                      >
+                        Selanjutnya →
                       </button>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
             </div>

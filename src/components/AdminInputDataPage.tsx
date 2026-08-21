@@ -224,9 +224,11 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
     return Math.round(amount * 0.005);
   };
 
-  const handleSalesPemasukanChange = (val: number) => {
+  const handleSalesPemasukanChange = (val: number, customMelalui?: string) => {
     const adminFee = calculateWarungTomiFee(val);
-    const modalVal = Math.max(0, val - adminFee);
+    const channel = customMelalui !== undefined ? customMelalui : (addSalesForm.Melalui || "EDC BNI");
+    const edcExtra = channel === "EDC BNI" ? 1500 : 0;
+    const modalVal = Math.max(0, val - adminFee - edcExtra);
     const autoPoin = Math.floor(val / 10000);
 
     setAddSalesForm((prev) => ({
@@ -240,7 +242,8 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
 
   const handleSalesHargaModalChange = (modalVal: number) => {
     const jual = addSalesForm.Pemasukan || 0;
-    const adminFee = Math.max(0, jual - modalVal);
+    const edcExtra = (addSalesForm.Melalui || "EDC BNI") === "EDC BNI" ? 1500 : 0;
+    const adminFee = Math.max(0, jual - modalVal - edcExtra);
     setAddSalesForm((prev) => ({
       ...prev,
       HargaModal: modalVal,
@@ -254,6 +257,9 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
       return;
     }
     setIsSavingSales(true);
+
+    const now = new Date();
+    const nowIso = now.toISOString();
 
     const newTx: SalesTransaction = {
       id: addSalesForm.id_transaksi || `TRX-${Date.now()}`,
@@ -269,7 +275,8 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
       HargaModal: Number(addSalesForm.HargaModal) || 0,
       Sebagian: Number(addSalesForm.Sebagian) || 0,
       Poin: Number(addSalesForm.Poin) || 0,
-      Status: addSalesForm.Status || "SELESAI"
+      Status: addSalesForm.Status || "SELESAI",
+      created_at: nowIso
     };
 
     startProcessing(
@@ -293,7 +300,8 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
           pemasukan: newTx.Pemasukan,
           harga_admin: newTx.hargaAdmin,
           harga_modal: newTx.HargaModal,
-          sebagian: newTx.Sebagian
+          sebagian: newTx.Sebagian,
+          created_at: nowIso
         };
         await SupabaseSalesService.upsertSale(payload);
       }
@@ -1028,7 +1036,18 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
                   </label>
                   <select
                     value={addSalesForm.Melalui || "EDC BNI"}
-                    onChange={(e) => setAddSalesForm({ ...addSalesForm, Melalui: e.target.value })}
+                    onChange={(e) => {
+                      const newMelalui = e.target.value;
+                      const jual = addSalesForm.Pemasukan || 0;
+                      const adminFee = addSalesForm.hargaAdmin !== undefined ? addSalesForm.hargaAdmin : calculateWarungTomiFee(jual);
+                      const edcExtra = newMelalui === "EDC BNI" ? 1500 : 0;
+                      const calculatedModal = Math.max(0, jual - adminFee - edcExtra);
+                      setAddSalesForm((prev) => ({
+                        ...prev,
+                        Melalui: newMelalui,
+                        HargaModal: calculatedModal
+                      }));
+                    }}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
                   >
                     {MELALUI_OPTIONS.map((opt) => (
