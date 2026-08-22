@@ -36,6 +36,7 @@ import {
   Cell
 } from 'recharts';
 import CustomerManagement from "./components/CustomerManagement";
+import GoogleSheetsPreviewPage from "./components/GoogleSheetsPreviewPage";
 import { DetailBelanjaPage } from "./components/DetailBelanjaPage";
 import { DetailTabunganPage } from "./components/DetailTabunganPage";
 import { sendDigiflazzPLNInquiry, sendDigiflazzTransaction, fetchDigiflazzPricelist } from "./lib/digiflazz";
@@ -168,6 +169,7 @@ import {
   Monitor,
   List,
   Menu,
+  Tag,
   PieChart as PieChartIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -401,12 +403,17 @@ export const isCustomerSavingMatch = (t: any, customer: { id_pelanggan?: string;
   // 1. Strict name equality if names match
   if (custName && tName && custName === tName) return true;
 
-  // If both have explicit, non-generic names that do NOT match, they are strictly different customers
-  if (!isGenericName(custName) && !isGenericName(tName) && custName !== tName) {
+  // Clean alphanumeric name comparison (e.g. "doni eeng", "doni  eeng", "doni-eeng")
+  if (custName && tName) {
     const cleanCust = custName.replace(/[^a-z0-9]/g, '');
     const cleanT = tName.replace(/[^a-z0-9]/g, '');
-    if (cleanCust && cleanT && cleanCust !== cleanT) {
-      return false;
+    if (cleanCust && cleanT && cleanCust === cleanT) return true;
+
+    // Matching substring if non-generic and length >= 4 (e.g. "doni eeng" & "doni")
+    if (!isGenericName(custName) && !isGenericName(tName)) {
+      if ((cleanCust.length >= 4 && cleanT.includes(cleanCust)) || (cleanT.length >= 4 && cleanCust.includes(cleanT))) {
+        return true;
+      }
     }
   }
 
@@ -7465,6 +7472,17 @@ const AdminReportPage = ({
   // Customer Autocomplete & On-Demand States
   const [customerInputText, setCustomerInputText] = useState("Pelanggan Umum");
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+
+  // Selected Transaction for Detail, Edit & Delete Modal
+  const [selectedTransaction, setSelectedTransaction] = useState<SalesTransaction | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<Partial<SalesTransaction> & { hargaAdmin?: number }>({});
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingTx, setIsDeletingTx] = useState(false);
+  const [editCustomerInputText, setEditCustomerInputText] = useState("");
+  const [showEditCustomerSuggestions, setShowEditCustomerSuggestions] = useState(false);
+
   const [selectedCustDetails, setSelectedCustDetails] = useState<{
     id_pelanggan: string;
     Nama: string;
@@ -7957,6 +7975,202 @@ const AdminReportPage = ({
     }
   };
 
+  const handleOpenEditModal = (t: SalesTransaction) => {
+    setSelectedTransaction(t);
+    const initialJual = parseCurrency(t.Pemasukan) || 0;
+    const initialModal = parseCurrency(t.HargaModal) || 0;
+    const adminFee = Math.max(0, initialJual - initialModal - (t.Melalui === 'EDC BNI' ? 1500 : 0));
+    setEditFormData({
+      ...t,
+      Pemasukan: initialJual,
+      HargaModal: initialModal,
+      hargaAdmin: adminFee,
+      Sebagian: parseCurrency(t.Sebagian) || 0,
+      Poin: Number(t.Poin) || 0,
+      Tanggal: t.Tanggal || formatInputToDate(new Date().toISOString().split('T')[0]),
+      Jenis: t.Jenis || 'TARIK TUNAI',
+      Melalui: t.Melalui || 'EDC BNI',
+      Metode: t.Metode || 'TUNAI',
+      Status: t.Status || 'SELESAI',
+      Nama: t.Nama || 'Pelanggan Umum',
+      id_pelanggan: t.id_pelanggan || 'CUST-0000',
+      id_transaksi: t.id_transaksi || t.id,
+    });
+    setEditCustomerInputText(t.Nama || 'Pelanggan Umum');
+    setShowEditCustomerSuggestions(false);
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditPemasukanChange = (val: number, customMelalui?: string) => {
+    const adminFee = calculateWarungTomiFee(val);
+    const channel = customMelalui !== undefined ? customMelalui : (editFormData.Melalui || "EDC BNI");
+    const edcExtra = channel === "EDC BNI" ? 1500 : 0;
+    const calculatedModal = Math.max(0, val - adminFee - edcExtra);
+    const calculatedPoin = Math.max(0, Math.floor(val / 10000));
+    setEditFormData((prev) => ({
+      ...prev,
+      Pemasukan: val,
+      hargaAdmin: adminFee,
+      HargaModal: calculatedModal,
+      Poin: calculatedPoin
+    }));
+  };
+
+  const handleEditHargaModalChange = (modalVal: number) => {
+    const jual = editFormData.Pemasukan || 0;
+    const edcExtra = (editFormData.Melalui || "EDC BNI") === "EDC BNI" ? 1500 : 0;
+    const adminFee = Math.max(0, jual - modalVal - edcExtra);
+    setEditFormData((prev) => ({
+      ...prev,
+      HargaModal: modalVal,
+      hargaAdmin: adminFee
+    }));
+  };
+
+  const handleSelectEditCustomerSuggestion = (cust: { id_pelanggan?: string; id?: string; Nama?: string; nama?: string }) => {
+    const name = cust.Nama || cust.nama || "Pelanggan Umum";
+    const id = cust.id_pelanggan || cust.id || "CUST-0000";
+    setEditCustomerInputText(name);
+    setShowEditCustomerSuggestions(false);
+    setEditFormData((prev) => ({
+      ...prev,
+      Nama: name,
+      id_pelanggan: id
+    }));
+  };
+
+  const filteredEditSuggestions = useMemo(() => {
+    const q = (editCustomerInputText || "").toLowerCase().trim();
+    const generalOption = {
+      id_pelanggan: "CUST-0000",
+      id: "CUST-0000",
+      Nama: "Pelanggan Umum",
+      nama: "Pelanggan Umum",
+      hutang: 0,
+      tabungan: 0
+    };
+
+    if (!q) {
+      return [generalOption, ...customerList.slice(0, 10)];
+    }
+
+    const matches = customerList.filter((c) => {
+      const name = (c.nama || c.Nama || "").toLowerCase();
+      const id = (c.id_pelanggan || c.id || "").toLowerCase();
+      return name.includes(q) || id.includes(q);
+    });
+
+    if ("pelanggan umum".includes(q) || "cust-0000".includes(q)) {
+      return [generalOption, ...matches.filter(c => (c.nama || c.Nama) !== "Pelanggan Umum").slice(0, 10)];
+    }
+
+    return matches.slice(0, 12);
+  }, [editCustomerInputText, customerList]);
+
+  const handleSaveEdit = async () => {
+    if (!editFormData || !selectedTransaction) return;
+    setIsSavingEdit(true);
+    try {
+      const updatedTx: SalesTransaction = {
+        ...selectedTransaction,
+        ...editFormData,
+        Tanggal: editFormData.Tanggal || selectedTransaction.Tanggal,
+        Nama: editFormData.Nama || selectedTransaction.Nama || 'Pelanggan Umum',
+        id_pelanggan: editFormData.id_pelanggan || selectedTransaction.id_pelanggan || 'CUST-0000',
+        Jenis: editFormData.Jenis || selectedTransaction.Jenis || 'TARIK TUNAI',
+        Melalui: editFormData.Melalui || selectedTransaction.Melalui || 'Tunai',
+        Metode: editFormData.Metode || selectedTransaction.Metode || 'TUNAI',
+        Status: editFormData.Status || selectedTransaction.Status || 'SELESAI',
+        Pemasukan: Number(editFormData.Pemasukan) || 0,
+        HargaModal: Number(editFormData.HargaModal) || 0,
+        Sebagian: Number(editFormData.Sebagian) || 0,
+        Poin: Number(editFormData.Poin) || 0,
+      };
+
+      if (setSalesTransactions) {
+        setSalesTransactions((prev) =>
+          prev.map((t) => {
+            const matchId = (t.id_transaksi && t.id_transaksi === (selectedTransaction.id_transaksi || selectedTransaction.id)) ||
+                            (t.id && t.id === (selectedTransaction.id || selectedTransaction.id_transaksi)) ||
+                            (t === selectedTransaction);
+            return matchId ? updatedTx : t;
+          })
+        );
+      }
+
+      if (SupabaseSalesService.isConnected()) {
+        const payload: SupabaseSalesTransaction = {
+          id: (selectedTransaction as any).id,
+          id_transaksi: updatedTx.id_transaksi || updatedTx.id,
+          id_pelanggan: updatedTx.id_pelanggan || "",
+          tanggal: updatedTx.Tanggal,
+          nama: updatedTx.Nama,
+          jenis: updatedTx.Jenis,
+          metode: updatedTx.Metode,
+          pemasukan: updatedTx.Pemasukan,
+          poin: updatedTx.Poin,
+          status: updatedTx.Status,
+          melalui: updatedTx.Melalui,
+          harga_modal: updatedTx.HargaModal,
+          sebagian: updatedTx.Sebagian,
+          created_at: (selectedTransaction as any).created_at || new Date().toISOString()
+        };
+        await SupabaseSalesService.upsertSale(payload);
+      }
+
+      if (fetchData) {
+        fetchData(false, 'salesTransactions', { dateFilter: filterDate });
+      }
+
+      showToast("Transaksi berhasil diperbarui di database!");
+      setSelectedTransaction(updatedTx);
+      setIsEditModalOpen(false);
+    } catch (err: any) {
+      console.error("Gagal mengupdate transaksi:", err);
+      showToast("Gagal memperbarui transaksi di database.", "error");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleDeleteTx = async () => {
+    if (!selectedTransaction) return;
+    setIsDeletingTx(true);
+    try {
+      const txId = selectedTransaction.id_transaksi || selectedTransaction.id;
+      const altId = (selectedTransaction as any).id;
+
+      if (SupabaseSalesService.isConnected() && (txId || altId)) {
+        await SupabaseSalesService.deleteSale(txId || altId, altId);
+      }
+
+      if (setSalesTransactions) {
+        setSalesTransactions((prev) =>
+          prev.filter((t) => {
+            const matchId = (t.id_transaksi && txId && t.id_transaksi === txId) ||
+                            (t.id && txId && t.id === txId) ||
+                            (altId && t.id === altId) ||
+                            (t === selectedTransaction);
+            return !matchId;
+          })
+        );
+      }
+
+      if (fetchData) {
+        fetchData(false, 'salesTransactions', { dateFilter: filterDate });
+      }
+
+      showToast("Transaksi berhasil dihapus dari database!");
+      setShowDeleteConfirm(false);
+      setSelectedTransaction(null);
+    } catch (err: any) {
+      console.error("Gagal menghapus transaksi:", err);
+      showToast("Gagal menghapus transaksi dari database.", "error");
+    } finally {
+      setIsDeletingTx(false);
+    }
+  };
+
   const changeDate = (days: number) => {
     const parts = filterDate.split('-');
     if (parts.length !== 3) return;
@@ -8318,7 +8532,7 @@ const AdminReportPage = ({
             </button>
           </div>
 
-          {/* Transaction List Cards */}
+          {/* Unified Transaction List separated only by divider lines */}
           <div className="space-y-4">
             <div className="flex items-center justify-between px-2">
               <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Transaksi</h3>
@@ -8327,21 +8541,119 @@ const AdminReportPage = ({
               </Badge>
             </div>
 
-            <div className="relative min-h-[160px]">
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
-                {filteredTransactions.length > 0 ? (
-                  filteredTransactions.map((t, i) => (
-                    <TransactionCard key={i} t={t} index={i} isAdmin={true} />
-                  ))
-                ) : (
-                  <div className="col-span-full bg-white rounded-2xl p-12 text-center border border-slate-100 dark:border-slate-800 border-dashed">
-                    <div className="flex flex-col items-center gap-2 opacity-20">
-                      <FileText className="w-8 h-8" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">Tidak ada transaksi pada {formattedFilterDate}</p>
-                    </div>
+            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+              {filteredTransactions.length > 0 ? (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                  {filteredTransactions.map((t, i) => {
+                    const jenisLower = (t.Jenis || '').toLowerCase().trim();
+                    const service = MAIN_SERVICES.find(s => 
+                      s.name.toLowerCase().trim() === jenisLower ||
+                      (jenisLower.includes('qris') && s.name.toLowerCase() === 'qris') ||
+                      (jenisLower.includes('tarik') && s.name.toLowerCase() === 'tarik') ||
+                      (jenisLower.includes('kirim') && s.name.toLowerCase() === 'kirim') ||
+                      (jenisLower.includes('transfer') && s.name.toLowerCase() === 'kirim') ||
+                      (jenisLower.includes('dana') && s.name.toLowerCase() === 'e-walet') ||
+                      (jenisLower.includes('ovo') && s.name.toLowerCase() === 'e-walet') ||
+                      (jenisLower.includes('gopay') && s.name.toLowerCase() === 'e-walet') ||
+                      (jenisLower.includes('shopeepay') && s.name.toLowerCase() === 'e-walet') ||
+                      (jenisLower.includes('pulsa') && s.name.toLowerCase() === 'pulsa') ||
+                      (jenisLower.includes('data') && s.name.toLowerCase() === 'data') ||
+                      (jenisLower.includes('listrik') && s.name.toLowerCase() === 'listrik') ||
+                      (jenisLower.includes('belanja') && s.name.toLowerCase() === 'belanja') ||
+                      (jenisLower.includes('fisik') && s.name.toLowerCase() === 'belanja')
+                    );
+                    const statusLower = (t.Status || '').toLowerCase();
+                    const displayName = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
+                    
+                    let ribbonColor = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+                    if (statusLower.includes('selesai') || statusLower.includes('sukses')) ribbonColor = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400';
+                    else if (statusLower.includes('kasbon')) ribbonColor = 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400';
+                    else if (statusLower.includes('proses')) ribbonColor = 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400';
+                    else if (statusLower.includes('belum') || statusLower.includes('ambil')) ribbonColor = 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400';
+
+                    const profit = (parseCurrency(t.Pemasukan) || 0) - (parseCurrency(t.HargaModal) || 0);
+
+                    const timeStr = (() => {
+                      const rawTime = t.created_at || t.Tanggal;
+                      if (rawTime) {
+                        const d = new Date(rawTime);
+                        if (!isNaN(d.getTime()) && d.getTime() > 0) {
+                          return `${d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false })} WIB`;
+                        }
+                        const timeMatch = String(rawTime).match(/\b\d{2}:\d{2}(?::\d{2})?\b/);
+                        if (timeMatch) return `${timeMatch[0].slice(0, 5)} WIB`;
+                      }
+                      return '';
+                    })();
+
+                    const handleClick = () => {
+                      setSelectedTransaction(t);
+                    };
+
+                    return (
+                      <div
+                        key={t.id || t.id_transaksi || i}
+                        onClick={handleClick}
+                        className="p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40 cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                          {/* Service Icon */}
+                          <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${service?.bgColor || 'bg-slate-50 dark:bg-slate-800'}`}>
+                            {service ? service.icon : <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-slate-400 dark:text-slate-300" />}
+                          </div>
+
+                          {/* Transaction Info */}
+                          <div className="space-y-1 min-w-0 flex-1">
+                            {/* Baris 1: Nama & Jam di samping kanannya */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-xs sm:text-sm font-black text-[#005E6A] dark:text-teal-300 uppercase truncate">
+                                {displayName}
+                              </p>
+                              {timeStr && (
+                                <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                                  • {timeStr}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Baris 2: Jenis, Melalui & Status di samping kanannya */}
+                            <div className="flex items-center gap-2 text-[8px] sm:text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase flex-wrap">
+                              <span className="text-slate-700 dark:text-slate-200">{t.Jenis}</span>
+                              <span>•</span>
+                              <span className="text-slate-400 dark:text-slate-500">via {t.Melalui || 'Tunai'}</span>
+                              <span className={`text-[7px] sm:text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${ribbonColor}`}>
+                                {t.Status || 'Selesai'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Amount & Profit */}
+                        <div className="text-right shrink-0 pl-2">
+                          <p className="text-sm sm:text-base font-black text-[#005E6A] dark:text-teal-300 tracking-tight">
+                            Rp {(parseCurrency(t.Pemasukan) || 0).toLocaleString('id-ID')}
+                          </p>
+                          <div className="mt-0.5 flex items-center justify-end gap-1">
+                            <span className="text-[8px] font-bold text-slate-400 uppercase">Laba:</span>
+                            <span className="text-[9px] sm:text-[10px] font-black text-[#F15A24]">
+                              Rp {profit.toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-12 text-center">
+                  <div className="flex flex-col items-center gap-2 text-slate-300 dark:text-slate-600">
+                    <FileText className="w-10 h-10 stroke-[1.5]" />
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                      Tidak ada transaksi pada {formattedFilterDate}
+                    </p>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -8716,6 +9028,499 @@ const AdminReportPage = ({
                     </>
                   ) : (
                     <span>Simpan Penjualan</span>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Detail Transaksi */}
+      <AnimatePresence>
+        {selectedTransaction && !isEditModalOpen && !showDeleteConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Header */}
+              <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-500/10 dark:bg-teal-500/20 text-[#005E6A] dark:text-teal-400 flex items-center justify-center font-bold">
+                    <Receipt className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
+                      Detail Transaksi
+                    </h3>
+                    <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                      #{selectedTransaction.id_transaksi || selectedTransaction.id || '-'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedTransaction(null)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body Content */}
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+                {/* Pelanggan Info Box */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-900/40 text-[#005E6A] dark:text-teal-300 flex items-center justify-center">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase">Pelanggan</p>
+                      <p className="text-sm font-black text-[#005E6A] dark:text-teal-300 uppercase">
+                        {selectedTransaction.Nama || 'Pelanggan Umum'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      {selectedTransaction.id_pelanggan || 'CUST-0000'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Grid Attributes */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Tanggal & Waktu</span>
+                    </div>
+                    <p className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                      {selectedTransaction.Tanggal || '-'}
+                    </p>
+                    {selectedTransaction.created_at && (
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {new Date(selectedTransaction.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                      <Tag className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Jenis Layanan</span>
+                    </div>
+                    <p className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                      {selectedTransaction.Jenis || '-'}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                      <CreditCard className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Saluran (Melalui)</span>
+                    </div>
+                    <p className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                      {selectedTransaction.Melalui || 'Tunai'}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                      <Wallet className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">Metode Pembayaran</span>
+                    </div>
+                    <p className="font-bold text-slate-800 dark:text-slate-100 text-xs">
+                      {selectedTransaction.Metode || 'TUNAI'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Status Row */}
+                <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status Transaksi</span>
+                  <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-teal-50 text-[#005E6A] dark:bg-teal-950/60 dark:text-teal-300">
+                    {selectedTransaction.Status || 'SELESAI'}
+                  </span>
+                </div>
+
+                {/* Financial Overview Card */}
+                <div className="p-4 rounded-2xl bg-teal-50/70 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900/50 space-y-2.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-600 dark:text-slate-400 font-medium">Nominal Jual (Pemasukan)</span>
+                    <span className="font-black text-[#005E6A] dark:text-teal-300 text-sm">
+                      Rp {(parseCurrency(selectedTransaction.Pemasukan) || 0).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-600 dark:text-slate-400 font-medium">Harga Modal</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300">
+                      Rp {(parseCurrency(selectedTransaction.HargaModal) || 0).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-teal-200/60 dark:border-teal-900/80 flex justify-between items-center">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">Laba / Keuntungan</span>
+                    <span className="font-black text-[#F15A24] text-base">
+                      Rp {((parseCurrency(selectedTransaction.Pemasukan) || 0) - (parseCurrency(selectedTransaction.HargaModal) || 0)).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  {parseCurrency(selectedTransaction.Sebagian) > 0 && (
+                    <div className="flex justify-between items-center text-xs pt-1">
+                      <span className="text-slate-500">Bayar Sebagian (DP)</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                        Rp {(parseCurrency(selectedTransaction.Sebagian) || 0).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  )}
+                  {Number(selectedTransaction.Poin) > 0 && (
+                    <div className="flex justify-between items-center text-xs pt-1">
+                      <span className="text-slate-500">Poin Diperoleh</span>
+                      <span className="font-bold text-amber-600">
+                        +{Number(selectedTransaction.Poin)} Poin
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Hapus</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTransaction(null)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditModal(selectedTransaction)}
+                    className="px-5 py-2.5 rounded-xl bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center gap-2"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    <span>Edit Transaksi</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Konfirmasi Hapus */}
+      <AnimatePresence>
+        {showDeleteConfirm && selectedTransaction && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 text-center space-y-4"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-black text-slate-800 dark:text-slate-100">
+                  Hapus Transaksi?
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Transaksi <span className="font-bold text-slate-700 dark:text-slate-200">{selectedTransaction.id_transaksi || selectedTransaction.id || selectedTransaction.Nama}</span> akan dihapus langsung dari database. Tindakan ini tidak dapat dibatalkan.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={isDeletingTx}
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeletingTx}
+                  onClick={handleDeleteTx}
+                  className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center gap-2"
+                >
+                  {isDeletingTx ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Menghapus...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Ya, Hapus</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Edit Transaksi */}
+      <AnimatePresence>
+        {isEditModalOpen && selectedTransaction && (
+          <div className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              {/* Header */}
+              <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-500/10 dark:bg-teal-500/20 text-[#005E6A] dark:text-teal-400 flex items-center justify-center font-bold">
+                    <Edit3 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-800 dark:text-slate-100">
+                      Edit Transaksi
+                    </h3>
+                    <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                      #{selectedTransaction.id_transaksi || selectedTransaction.id}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Form Body */}
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+                {/* ID Transaksi & Tanggal */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      ID Transaksi
+                    </label>
+                    <input
+                      type="text"
+                      disabled
+                      value={editFormData.id_transaksi || editFormData.id || ''}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Tanggal (DD/MM/YYYY)
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.Tanggal || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, Tanggal: e.target.value })}
+                      placeholder="DD/MM/YYYY"
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Pelanggan Autocomplete */}
+                <div className="relative">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Nama Pelanggan
+                  </label>
+                  <input
+                    type="text"
+                    value={editCustomerInputText}
+                    onChange={(e) => {
+                      setEditCustomerInputText(e.target.value);
+                      setShowEditCustomerSuggestions(true);
+                    }}
+                    onFocus={() => setShowEditCustomerSuggestions(true)}
+                    placeholder="Ketik nama pelanggan..."
+                    className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
+                  />
+                  {showEditCustomerSuggestions && (
+                    <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                      {filteredEditSuggestions.map((c, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => handleSelectEditCustomerSuggestion(c)}
+                          className="p-2.5 hover:bg-teal-50 dark:hover:bg-slate-700 cursor-pointer flex justify-between items-center text-xs"
+                        >
+                          <span className="font-bold text-slate-800 dark:text-slate-100">{c.Nama || c.nama}</span>
+                          <span className="text-[10px] text-slate-400">{c.id_pelanggan || c.id}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Jenis & Melalui */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Jenis Layanan
+                    </label>
+                    <select
+                      value={editFormData.Jenis || 'TARIK TUNAI'}
+                      onChange={(e) => setEditFormData({ ...editFormData, Jenis: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
+                    >
+                      {JENIS_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Melalui (Saluran)
+                    </label>
+                    <select
+                      value={editFormData.Melalui || 'EDC BNI'}
+                      onChange={(e) => {
+                        const newChannel = e.target.value;
+                        setEditFormData({ ...editFormData, Melalui: newChannel });
+                        handleEditPemasukanChange(editFormData.Pemasukan || 0, newChannel);
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
+                    >
+                      {MELALUI_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Metode & Status */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Metode Pembayaran
+                    </label>
+                    <select
+                      value={editFormData.Metode || 'TUNAI'}
+                      onChange={(e) => setEditFormData({ ...editFormData, Metode: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
+                    >
+                      <option value="TUNAI">TUNAI</option>
+                      <option value="QRIS">QRIS</option>
+                      <option value="KASBON">KASBON</option>
+                      <option value="TABUNGAN">TABUNGAN</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Status Transaksi
+                    </label>
+                    <select
+                      value={editFormData.Status || 'SELESAI'}
+                      onChange={(e) => setEditFormData({ ...editFormData, Status: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
+                    >
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Nominal Jual & Harga Modal */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Nominal Jual (Pemasukan)
+                    </label>
+                    <input
+                      type="number"
+                      value={editFormData.Pemasukan || ''}
+                      onChange={(e) => handleEditPemasukanChange(Number(e.target.value))}
+                      placeholder="0"
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#005E6A] dark:text-teal-300 font-black text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Harga Modal
+                    </label>
+                    <input
+                      type="number"
+                      value={editFormData.HargaModal || ''}
+                      onChange={(e) => handleEditHargaModalChange(Number(e.target.value))}
+                      placeholder="0"
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Sebagian & Poin */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Bayar Sebagian (DP)
+                    </label>
+                    <input
+                      type="number"
+                      value={editFormData.Sebagian || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, Sebagian: Number(e.target.value) })}
+                      placeholder="0"
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Poin Reward
+                    </label>
+                    <input
+                      type="number"
+                      value={editFormData.Poin || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, Poin: Number(e.target.value) })}
+                      placeholder="0"
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-amber-600 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingEdit}
+                  onClick={handleSaveEdit}
+                  className="px-5 py-2.5 rounded-xl bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center gap-2"
+                >
+                  {isSavingEdit ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Simpan Perubahan</span>
+                    </>
                   )}
                 </button>
               </div>
@@ -9399,7 +10204,8 @@ const AdminDashboard = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="min-h-screen bg-slate-50 pb-24"
+      className="min-h-screen bg-slate-50 pb-24 select-none"
+      data-admin-dashboard="true"
     >
       <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
@@ -11041,6 +11847,9 @@ const AdminManagementPage = ({
                               <p className="text-[8.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">{item.subtext}</p>
                             ) : null}
                           </div>
+                          {item.countLabel && item.subtext && (
+                            <p className="text-[8px] font-medium text-slate-400 dark:text-slate-400 tracking-tight leading-tight">{item.subtext}</p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -11332,6 +12141,28 @@ const AdminSavingsManagement = ({
   const [processingTitle, setProcessingTitle] = useState("");
   const [processingMessage, setProcessingMessage] = useState("");
 
+  const [dbSummary, setDbSummary] = useState<any>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
+  const [timeframe, setTimeframe] = useState<'all' | 'month'>('all');
+
+  const fetchSummary = useCallback(async () => {
+    setIsLoadingSummary(true);
+    try {
+      const res = await SupabaseSavingsService.calculateSavingsManagementSummary();
+      if (res?.data) {
+        setDbSummary(res.data);
+      }
+    } catch (err) {
+      console.error("Gagal load savings management summary RPC:", err);
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
+
   useEffect(() => {
     const isAdmin = localStorage.getItem("admin_session") === "true";
     if (!isAdmin) {
@@ -11402,6 +12233,9 @@ const AdminSavingsManagement = ({
       }
     }
 
+    // Segera refresh perhitungan agregat database via RPC
+    fetchSummary();
+
     setIsProcessingModal(false);
     setSuccessModalData({
       title: `${type === 'SETOR' ? 'SETOR' : 'TARIK'} TABUNGAN BERHASIL DISIMPAN`,
@@ -11412,25 +12246,59 @@ const AdminSavingsManagement = ({
     setIsSuccessModalOpen(true);
   };
   
-  // 1. Calculate Monthly Cash Flow (MTD)
+  // 1. Calculate Cash Flow (Database RPC with local fallback)
   const cashFlow = useMemo(() => {
+    if (dbSummary) {
+      return {
+        setorMonth: dbSummary.setor_bulan_ini ?? 0,
+        tarikMonth: dbSummary.tarik_bulan_ini ?? 0,
+        mutasiMonth: dbSummary.mutasi_bulan_ini ?? 0,
+        setorAll: dbSummary.total_setor_all_time ?? 0,
+        tarikAll: dbSummary.total_tarik_all_time ?? 0,
+        mutasiAll: dbSummary.total_mutasi_all_time ?? 0,
+      };
+    }
+
     const now = new Date();
     const thisMonth = now.getMonth();
     const thisYear = now.getFullYear();
 
-    const monthlyTxs = transactions.filter(t => {
+    let totalSetorMonth = 0;
+    let totalTarikMonth = 0;
+    let mutasiMonth = 0;
+    let totalSetorAll = 0;
+    let totalTarikAll = 0;
+    let mutasiAll = transactions.length;
+
+    transactions.forEach(t => {
       const d = parseDate(t.Tanggal);
-      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+      const isSetor = t.Tipe === "SETOR";
+      const isTarik = t.Tipe === "TARIK";
+      if (isSetor) totalSetorAll += t.Nominal;
+      if (isTarik) totalTarikAll += t.Nominal;
+
+      if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) {
+        if (isSetor) totalSetorMonth += t.Nominal;
+        if (isTarik) totalTarikMonth += t.Nominal;
+        mutasiMonth++;
+      }
     });
 
-    const totalSetor = monthlyTxs.filter(t => t.Tipe === "SETOR").reduce((acc, curr) => acc + curr.Nominal, 0);
-    const totalTarik = monthlyTxs.filter(t => t.Tipe === "TARIK").reduce((acc, curr) => acc + curr.Nominal, 0);
-    
-    return { setor: totalSetor, tarik: totalTarik };
-  }, [transactions]);
+    return { 
+      setorMonth: totalSetorMonth, 
+      tarikMonth: totalTarikMonth,
+      mutasiMonth,
+      setorAll: totalSetorAll,
+      tarikAll: totalTarikAll,
+      mutasiAll
+    };
+  }, [dbSummary, transactions]);
 
   // 2. Calculate Active Member Rate (last 30 days)
   const activeRate = useMemo(() => {
+    if (dbSummary && typeof dbSummary.active_rate === 'number') {
+      return dbSummary.active_rate;
+    }
     if (customers.length === 0) return 0;
     const now = new Date();
     const thirtyDaysAgo = new Date();
@@ -11443,14 +12311,27 @@ const AdminSavingsManagement = ({
     );
 
     return Math.round((activeCustomerNames.size / customers.length) * 100);
-  }, [transactions, customers]);
+  }, [dbSummary, transactions, customers]);
 
   // 3. Global Recent Transactions
   const recentGlobalTransactions = useMemo(() => {
+    if (dbSummary?.recent_activities && dbSummary.recent_activities.length > 0) {
+      return dbSummary.recent_activities.map((t: any) => ({
+        id: t.id_tabungan || t.id,
+        id_tabungan: t.id_tabungan,
+        id_pelanggan: t.id_pelanggan,
+        Tanggal: t.tanggal || formatDateDDMMYYYY(t.created_at),
+        Nama: t.nama,
+        Tipe: (t.tipe || 'SETOR') as ('SETOR' | 'TARIK'),
+        Nominal: Number(t.nominal || 0),
+        SaldoAkhir: Number(t.saldo_akhir || 0),
+        Berita: t.berita || '-'
+      }));
+    }
     return [...transactions]
       .sort((a, b) => parseDate(b.Tanggal).getTime() - parseDate(a.Tanggal).getTime())
       .slice(0, 5);
-  }, [transactions]);
+  }, [dbSummary, transactions]);
 
   const CHART_COLORS = [
     "#FF00ED", "#00F0FF", "#FFE600", "#00FF00", "#FF5C00", 
@@ -11466,37 +12347,106 @@ const AdminSavingsManagement = ({
   }, []);
 
   const { items, stats, total } = useMemo(() => {
-    const txCountMap = new Map<string, number>();
-    transactions.forEach(t => {
-      if (t.id_pelanggan) {
-        txCountMap.set(t.id_pelanggan, (txCountMap.get(t.id_pelanggan) || 0) + 1);
-      }
-      if (t.Nama) {
-        const lower = t.Nama.toLowerCase();
-        txCountMap.set(lower, (txCountMap.get(lower) || 0) + 1);
-      }
-    });
+    const isAll = timeframe === 'all';
+
+    if (dbSummary && dbSummary.customer_savings && dbSummary.customer_savings.length > 0) {
+      // Filter hanya pelanggan dengan saldo tabungan > 0
+      const activeSavings = dbSummary.customer_savings.filter((c: any) => Number(c.value || 0) > 0);
+
+      const itms = activeSavings.map((c: any, idx: number) => {
+        const color = CHART_COLORS[idx % CHART_COLORS.length];
+        const txCount = isAll ? (c.tx_count || 0) : (c.month_tx_count ?? c.tx_count ?? 0);
+        const totalSetor = isAll ? (c.total_setor || 0) : (c.month_setor ?? 0);
+        const totalTarik = isAll ? (c.total_tarik || 0) : (c.month_tarik ?? 0);
+        const totalMutasiNominal = totalSetor + totalTarik;
+
+        return {
+          name: c.name,
+          value: Number(c.value || 0),
+          color,
+          photo: savedPhotos[c.name] || c.foto,
+          countLabel: `${txCount} Mutasi (${isAll ? 'Dari Awal' : 'Bulan Ini'})`,
+          subtext: totalMutasiNominal > 0
+            ? `Setor: Rp ${totalSetor.toLocaleString('id-ID')} • Tarik: Rp ${totalTarik.toLocaleString('id-ID')}`
+            : (c.subtext || `Setor: Rp 0 • Tarik: Rp 0`)
+        };
+      });
+
+      const sts = itms.map((item: any) => ({
+        label: item.name,
+        value: item.value,
+        count: 1,
+        color: item.color
+      }));
+
+      return {
+        items: itms,
+        stats: sts,
+        total: typeof dbSummary.total_tabungan === 'number' 
+          ? dbSummary.total_tabungan 
+          : itms.reduce((acc: number, i: any) => acc + i.value, 0)
+      };
+    }
+
+    const now = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear = now.getFullYear();
 
     let totalSum = 0;
+    // Filter hanya nasabah dengan saldo di atas 0
     const filtered = customers.filter(c => {
       const val = parseCurrency(c.Tabungan);
-      totalSum += val;
-      return val > 0;
+      if (val > 0) {
+        totalSum += val;
+        return true;
+      }
+      return false;
     }).sort((a, b) => parseCurrency(b.Tabungan) - parseCurrency(a.Tabungan));
 
     const itms = filtered.map((c, idx) => {
       const val = parseCurrency(c.Tabungan);
       const color = CHART_COLORS[idx % CHART_COLORS.length];
-      const countById = c.id_pelanggan ? txCountMap.get(c.id_pelanggan) : 0;
-      const countByName = c.Nama ? txCountMap.get(c.Nama.toLowerCase()) : 0;
-      const txCount = countById || countByName || 0;
+
+      // Ambil transaksi nasabah ini menggunakan pencocokan cerdas Nama dan ID (isCustomerSavingMatch)
+      const userTxs = transactions.filter(t => isCustomerSavingMatch(t, c));
+      let allCount = userTxs.length;
+      let monthCount = 0;
+      let allSetor = 0;
+      let allTarik = 0;
+      let monthSetor = 0;
+      let monthTarik = 0;
+
+      userTxs.forEach(t => {
+        const d = parseDate(t.Tanggal);
+        const isThisMonth = d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+        const isSetor = String(t.Tipe || '').toUpperCase() === 'SETOR';
+        const isTarik = String(t.Tipe || '').toUpperCase() === 'TARIK';
+        const nominal = t.Nominal || 0;
+
+        if (isSetor) allSetor += nominal;
+        if (isTarik) allTarik += nominal;
+
+        if (isThisMonth) {
+          monthCount++;
+          if (isSetor) monthSetor += nominal;
+          if (isTarik) monthTarik += nominal;
+        }
+      });
+      
+      const txCount = isAll ? allCount : monthCount;
+      const totalSetor = isAll ? allSetor : monthSetor;
+      const totalTarik = isAll ? allTarik : monthTarik;
+      const totalMutasiNominal = totalSetor + totalTarik;
 
       return { 
         name: c.Nama, 
         value: val, 
         color, 
         photo: savedPhotos[c.Nama] || c.Foto || c.foto, 
-        countLabel: `${txCount} Mutasi` 
+        countLabel: `${txCount} Mutasi (${isAll ? 'Dari Awal' : 'Bulan Ini'})`,
+        subtext: totalMutasiNominal > 0
+          ? `Setor: Rp ${totalSetor.toLocaleString('id-ID')} • Tarik: Rp ${totalTarik.toLocaleString('id-ID')}`
+          : `Setor: Rp 0 • Tarik: Rp 0`
       };
     });
 
@@ -11508,7 +12458,7 @@ const AdminSavingsManagement = ({
     }));
 
     return { items: itms, stats: sts, total: totalSum };
-  }, [customers, transactions, savedPhotos]);
+  }, [dbSummary, timeframe, customers, transactions, savedPhotos]);
 
   const handleItemClick = (name: string) => {
     const cust = customers.find(c => c.Nama.toLowerCase() === name.toLowerCase());
@@ -11518,27 +12468,80 @@ const AdminSavingsManagement = ({
 
   const extraContent = (
     <div className="w-full space-y-4">
-      {/* Cash Flow Summary */}
-      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 dark:border-slate-800/50 pt-4 mt-2">
-        <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.1em] mb-1">Setoran Bulan Ini</p>
-          <p className="text-xs font-black text-green-600">+ Rp {cashFlow.setor.toLocaleString('id-ID')}</p>
+      {/* Timeframe selector & RPC Database Indicator */}
+      <div className="px-4 pt-1 flex items-center justify-between">
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setTimeframe('all')}
+            className={`px-3 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all ${
+              timeframe === 'all'
+                ? 'bg-white dark:bg-slate-700 text-[#005E6A] dark:text-teal-300 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+            }`}
+          >
+            Dari Awal Menabung
+          </button>
+          <button
+            type="button"
+            onClick={() => setTimeframe('month')}
+            className={`px-3 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all ${
+              timeframe === 'month'
+                ? 'bg-white dark:bg-slate-700 text-[#005E6A] dark:text-teal-300 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+            }`}
+          >
+            Bulan Ini
+          </button>
         </div>
-        <div className="w-[1px] h-8 bg-slate-100 flex-shrink-0 mx-2" />
-        <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.1em] mb-1">Tarikan Bulan Ini</p>
-          <p className="text-xs font-black text-red-600">- Rp {cashFlow.tarik.toLocaleString('id-ID')}</p>
+
+        <div className="flex items-center gap-1 text-[8px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-md border border-teal-200/50">
+          <Database className="w-2.5 h-2.5" />
+          <span>RPC Database</span>
         </div>
       </div>
 
-      {/* Active Rate Indicator */}
-      <div className="px-4 pb-2">
-        <div className="bg-slate-50 rounded-2xl p-3 flex items-center justify-between">
+      {/* Cash Flow Summary */}
+      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 dark:border-slate-800/50 pt-3 mt-1">
+        <div className="text-center flex-1">
+          <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-[0.1em] mb-1">
+            {timeframe === 'all' ? 'Total Setoran (Dari Awal)' : 'Setoran Bulan Ini'}
+          </p>
+          <p className="text-xs font-black text-green-600">
+            + Rp {(timeframe === 'all' ? cashFlow.setorAll : cashFlow.setorMonth).toLocaleString('id-ID')}
+          </p>
+        </div>
+        <div className="w-[1px] h-8 bg-slate-100 dark:bg-slate-800 flex-shrink-0 mx-2" />
+        <div className="text-center flex-1">
+          <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-[0.1em] mb-1">
+            {timeframe === 'all' ? 'Total Tarikan (Dari Awal)' : 'Tarikan Bulan Ini'}
+          </p>
+          <p className="text-xs font-black text-red-600">
+            - Rp {(timeframe === 'all' ? cashFlow.tarikAll : cashFlow.tarikMonth).toLocaleString('id-ID')}
+          </p>
+        </div>
+      </div>
+
+      {/* Active Rate Indicator & Total Mutation Counter */}
+      <div className="px-4 pb-2 space-y-2">
+        <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-            <span className="text-[9px] font-black text-slate-500 dark:text-slate-300 dark:text-slate-200 uppercase tracking-widest">Keaktifan Menabung</span>
+            <span className="text-[9px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">
+              Total Mutasi Terhitung (RPC)
+            </span>
           </div>
-          <span className="text-[10px] font-black text-[#005E6A]">{activeRate}% Aktif (30hr)</span>
+          <span className="text-[10px] font-black text-[#005E6A] dark:text-teal-300">
+            {timeframe === 'all' ? `${cashFlow.mutasiAll} Mutasi (Dari Awal)` : `${cashFlow.mutasiMonth} Mutasi (Bulan Ini)`}
+          </span>
+        </div>
+
+        <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+            <span className="text-[9px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">Keaktifan Menabung</span>
+          </div>
+          <span className="text-[10px] font-black text-[#005E6A] dark:text-teal-300">{activeRate}% Aktif (30hr)</span>
         </div>
       </div>
     </div>
@@ -17608,8 +18611,18 @@ const AdminDebtManagement = ({
       const t = transactions[i];
       const d = parseDate(t.Tanggal);
       if (d.getMonth() === thisMonth && d.getFullYear() === thisYear) {
-        if (t.Tipe === "TAMBAH") totalKasbon += (t.Jumlah || 0);
-        else if (t.Tipe === "BAYAR") totalBayar += (t.Jumlah || 0);
+        const tipeUpper = String(t.Tipe || (t as any).tipe || '').toUpperCase().trim();
+        const isBayar = 
+          tipeUpper === 'BAYAR' || 
+          tipeUpper === 'LUNAS' || 
+          tipeUpper === 'PEMBAYARAN' || 
+          tipeUpper === 'SETOR' || 
+          tipeUpper.includes('BAYAR') || 
+          tipeUpper.includes('LUNAS') ||
+          tipeUpper.includes('KURANG');
+        const amt = Number(t.Jumlah || (t as any).jumlah || (t as any).nominal || 0);
+        if (isBayar) totalBayar += amt;
+        else totalKasbon += amt;
       }
     }
     
@@ -17874,11 +18887,24 @@ const AdminDebtManagement = ({
               <History className="w-4 h-4 text-slate-400 dark:text-slate-300" />
             </div>
             <div className="bg-white dark:bg-slate-900 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/80">
-              {recentGlobalDebts.length > 0 ? recentGlobalDebts.map((t, i) => (
+              {recentGlobalDebts.length > 0 ? recentGlobalDebts.map((t, i) => {
+                const tipeUpper = String(t.Tipe || (t as any).tipe || '').toUpperCase().trim();
+                const isBayar = 
+                  tipeUpper === 'BAYAR' || 
+                  tipeUpper === 'LUNAS' || 
+                  tipeUpper === 'PEMBAYARAN' || 
+                  tipeUpper === 'SETOR' || 
+                  tipeUpper.includes('BAYAR') || 
+                  tipeUpper.includes('LUNAS') ||
+                  tipeUpper.includes('KURANG');
+                const isKasbon = !isBayar;
+                const amt = Number(t.Jumlah || (t as any).jumlah || (t as any).nominal || 0);
+
+                return (
                 <div key={i} className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${t.Tipe === 'TAMBAH' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-                      {t.Tipe === 'TAMBAH' ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isKasbon ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400' : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400'}`}>
+                      {isKasbon ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                     </div>
                     <div>
                       <p className="text-[11px] font-black text-[#005E6A] dark:text-slate-100 uppercase tracking-tight truncate max-w-[150px]">{t.Nama || "Pelanggan Umum"}</p>
@@ -17886,13 +18912,16 @@ const AdminDebtManagement = ({
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`text-xs font-black ${t.Tipe === 'TAMBAH' ? 'text-red-600' : 'text-green-600'}`}>
-                      {t.Tipe === 'TAMBAH' ? '+' : '-'}{t.Jumlah.toLocaleString('id-ID')}
+                    <p className={`text-xs font-black ${isKasbon ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {isKasbon ? '+' : '-'}Rp {amt.toLocaleString('id-ID')}
                     </p>
-                    <p className="text-[7.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest">{t.Tipe === 'TAMBAH' ? 'Kasbon' : 'Pelunasan'}</p>
+                    <p className={`text-[7.5px] font-bold uppercase tracking-widest ${isKasbon ? 'text-rose-500/90 dark:text-rose-400' : 'text-emerald-600/90 dark:text-emerald-400'}`}>
+                      {isKasbon ? 'Tambah Hutang / Kasbon' : 'Bayar / Pelunasan'}
+                    </p>
                   </div>
                 </div>
-              )) : (
+              );
+              }) : (
                 <div className="p-12 text-center">
                   <p className="text-[10px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">Belum ada aktivitas</p>
                 </div>
@@ -30723,6 +31752,36 @@ export default function App() {
               investmentTransactions={investmentTransactions}
               debtTransactions={debtTransactions}
               redeemedPoints={redeemedPoints}
+            />
+          </AdminLayout>
+        } />
+        <Route path="/admin/sheets-preview" element={
+          <AdminLayout activeTab="customers">
+            <GoogleSheetsPreviewPage 
+              customers={customers}
+              salesTransactions={salesTransactions}
+              savingsTransactions={savingsTransactions}
+              investmentTransactions={investmentTransactions}
+              debtTransactions={debtTransactions}
+              redeemedPoints={redeemedPoints}
+              onSyncComplete={() => {
+                fetchData(false, "customers");
+              }}
+            />
+          </AdminLayout>
+        } />
+        <Route path="/admin/google-sheets-preview" element={
+          <AdminLayout activeTab="customers">
+            <GoogleSheetsPreviewPage 
+              customers={customers}
+              salesTransactions={salesTransactions}
+              savingsTransactions={savingsTransactions}
+              investmentTransactions={investmentTransactions}
+              debtTransactions={debtTransactions}
+              redeemedPoints={redeemedPoints}
+              onSyncComplete={() => {
+                fetchData(false, "customers");
+              }}
             />
           </AdminLayout>
         } />

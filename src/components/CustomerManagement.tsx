@@ -8,7 +8,7 @@ import {
   PieChart as PieChartIcon, Calculator, Database, ArrowRight,
   Key, Settings, CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Copy,
   BarChart3, Users, Flame, Zap, Trophy, Crown, ExternalLink, FileSpreadsheet,
-  ArrowUpRight, Sparkles
+  ArrowUpRight, Sparkles, Eye
 } from 'lucide-react';
 
 const SUPABASE_CREATE_TABLE_SQL = `CREATE TABLE IF NOT EXISTS public.customers (
@@ -804,7 +804,7 @@ export default function CustomerManagement({
       rawActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
       const aktivitas_terakhir = rawActivities.slice(0, 6).map(a => a.text).join('\n') || 'Belum ada aktivitas';
 
-      // 8. 10 MUTASI TABUNGAN TERAKHIR (Semua Waktu / All Time)
+      // 8. 10 MUTASI TABUNGAN TERAKHIR (Semua Waktu / All Time - Semua Bulan, Limit 10 Baris)
       const mappedSavings = userSavings.map(t => {
         const tDate = t.Tanggal || t.tanggal || t.created_at || t.CreatedAt || t.waktu || t.Waktu;
         const d = parseDate(tDate);
@@ -814,10 +814,12 @@ export default function CustomerManagement({
         const nominal = parseCurrency(t.Nominal || t.nominal || t.Jumlah || t.jumlah || t.Setor || t.setor || t.Tarik || t.tarik || 0);
         const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
         const rawKet = (t.Berita || t.berita || t.Keterangan || t.keterangan || t.Catatan || t.catatan || '').trim();
+        const rawId = String(t.id_tabungan || t.id || t.ID || '');
 
         if (isSetor) {
           return {
             d,
+            rawId,
             text: `* ${dateStr}: Setor ${formatNominal}`.replace(/\s+/g, ' ').trim()
           };
         } else {
@@ -841,14 +843,15 @@ export default function CustomerManagement({
           }
           return {
             d,
+            rawId,
             text: `* ${dateStr}: Tarik ${formatNominal}${reasonTag}`.replace(/\s+/g, ' ').trim()
           };
         }
       });
-      mappedSavings.sort((a, b) => b.d.getTime() - a.d.getTime());
+      mappedSavings.sort((a, b) => b.d.getTime() - a.d.getTime() || b.rawId.localeCompare(a.rawId));
       const mutasi_tabungan = mappedSavings.slice(0, 10).map(s => s.text).join('\n') || 'Belum ada mutasi tabungan';
 
-      // 9. 10 CATATAN HUTANG TERAKHIR (Semua Waktu / All Time)
+      // 9. 10 CATATAN HUTANG TERAKHIR (Semua Waktu / All Time - Semua Bulan, Limit 10 Baris)
       const mappedDebts = userDebts.map(t => {
         const tDate = t.Tanggal || t.tanggal || t.created_at || t.CreatedAt || t.waktu || t.Waktu;
         const d = parseDate(tDate);
@@ -860,16 +863,19 @@ export default function CustomerManagement({
         const rawKet = (t.Keterangan || t.keterangan || t.Berita || t.berita || t.Catatan || t.catatan || t.Kategori || t.kategori || t.MetodePembayaran || t.metode_pembayaran || t.Metode || t.metode || '').trim();
         const upperKet = rawKet.toUpperCase();
         const isFromTabungan = upperKet.includes('TABUNGAN') || String(t.Metode || t.metode || '').toUpperCase().includes('TABUNGAN');
+        const rawId = String(t.id_hutang || t.id || t.ID || '');
 
         if (isBayar) {
           if (isFromTabungan) {
             return {
               d,
+              rawId,
               text: `* ${dateStr}: Bayar ${formatNominal} (Tabungan)`.replace(/\s+/g, ' ').trim()
             };
           } else {
             return {
               d,
+              rawId,
               text: `* ${dateStr}: Bayar ${formatNominal}`.replace(/\s+/g, ' ').trim()
             };
           }
@@ -879,11 +885,12 @@ export default function CustomerManagement({
           const ketTag = cleanReason ? ` (${cleanReason})` : '';
           return {
             d,
+            rawId,
             text: `* ${dateStr}: Hutang ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
           };
         }
       });
-      mappedDebts.sort((a, b) => b.d.getTime() - a.d.getTime());
+      mappedDebts.sort((a, b) => b.d.getTime() - a.d.getTime() || b.rawId.localeCompare(a.rawId));
       const catatan_hutang = mappedDebts.slice(0, 10).map(d => d.text).join('\n') || 'Belum ada catatan hutang';
 
       // 10. Total Belanja Bulan Ini (YYYY-MM)
@@ -1755,6 +1762,15 @@ export default function CustomerManagement({
                 {/* Tombol Aksi Singkronisasi */}
                 <div className="flex flex-wrap items-center gap-2.5">
                   <button
+                    onClick={() => navigate("/admin/sheets-preview")}
+                    className="px-4 py-3 bg-[#005E6A] hover:bg-[#004e58] text-white rounded-2xl text-xs font-black uppercase tracking-wider shadow-md hover:shadow-teal-200/50 transition-all flex items-center gap-2 cursor-pointer"
+                    title="Buka halaman preview lengkap data yang akan masuk ke Google Sheets"
+                  >
+                    <Eye className="w-4 h-4 text-teal-200" />
+                    <span>Preview Data Google Sheets</span>
+                  </button>
+
+                  <button
                     onClick={handleDirectSyncToAppsScript}
                     disabled={isSyncingDirect}
                     className="px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider shadow-md hover:shadow-emerald-200/50 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
@@ -2351,7 +2367,19 @@ export default function CustomerManagement({
                 )}
               </div>
 
-              <div className="mt-6 flex justify-end">
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSyncModalOpen(false);
+                    navigate("/admin/sheets-preview");
+                  }}
+                  className="px-5 py-3 bg-[#005E6A] hover:bg-[#004e58] text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2"
+                >
+                  <Eye className="w-4 h-4 text-teal-200" />
+                  <span>Buka Preview Data Lengkap</span>
+                </button>
+
                 <button
                   onClick={() => setIsSyncModalOpen(false)}
                   className="px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-slate-200 transition-colors"

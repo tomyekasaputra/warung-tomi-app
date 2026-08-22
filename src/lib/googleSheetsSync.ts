@@ -133,21 +133,32 @@ export const syncCustomersToGoogleSheets = async (customers: CustomerSyncPayload
 
 export const parseDate = (dateStr: any): Date => {
   if (!dateStr || dateStr === "-") return new Date(0);
-  if (dateStr instanceof Date) return dateStr;
+  if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? new Date(0) : dateStr;
+  if (typeof dateStr === 'number') return new Date(dateStr);
   const trimmed = String(dateStr).trim();
-  
-  const spaceIndex = trimmed.indexOf(' ');
-  let datePart = trimmed;
-  let timePart = '';
-  
-  if (spaceIndex !== -1) {
-    datePart = trimmed.substring(0, spaceIndex);
-    timePart = trimmed.substring(spaceIndex + 1).trim();
+  if (!trimmed) return new Date(0);
+
+  // If it's a numeric timestamp string
+  if (/^\d{10,13}$/.test(trimmed)) {
+    const num = Number(trimmed);
+    return new Date(trimmed.length === 10 ? num * 1000 : num);
   }
+
+  // If standard ISO string or parseable by new Date
+  if (trimmed.includes('T')) {
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // Split date and time by space or T
+  const delimiter = trimmed.includes('T') ? 'T' : ' ';
+  const partsWithTime = trimmed.split(delimiter);
+  const datePart = partsWithTime[0].trim();
+  const timePart = (partsWithTime[1] || '').trim();
 
   let h = 0, m = 0, s = 0;
   if (timePart) {
-    const tParts = timePart.split(':');
+    const tParts = timePart.replace(/[Zz]/, '').split(':');
     h = parseInt(tParts[0], 10) || 0;
     m = parseInt(tParts[1], 10) || 0;
     s = parseInt(tParts[2], 10) || 0;
@@ -160,9 +171,11 @@ export const parseDate = (dateStr: any): Date => {
     const p2 = parseInt(parts[2], 10) || 0;
 
     if (parts[0].length === 4) {
+      // YYYY-MM-DD
       return new Date(p0, p1 - 1, p2, h, m, s);
     }
     if (parts[2].length === 4) {
+      // DD-MM-YYYY
       return new Date(p2, p1 - 1, p0, h, m, s);
     }
     const fullYear = p2 < 100 ? 2000 + p2 : p2;
@@ -607,7 +620,7 @@ export const computeCustomerStatsForSheets = (
     rawActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
     const aktivitas_terakhir = rawActivities.slice(0, 6).map(a => a.text).join('\n') || 'Belum ada aktivitas';
 
-    // 8. 10 MUTASI TABUNGAN TERAKHIR (Semua Waktu / All Time)
+    // 8. 10 MUTASI TABUNGAN TERAKHIR (Semua Waktu / All Time - Termasuk Bulan Sebelumnya, Limit 10 Baris)
     const mappedSavings = userSavings.map(t => {
       const tDate = t.Tanggal || t.tanggal || t.created_at || t.CreatedAt || t.waktu || t.Waktu;
       const d = parseDate(tDate);
@@ -617,10 +630,12 @@ export const computeCustomerStatsForSheets = (
       const nominal = parseCurrency(t.Nominal || t.nominal || t.Jumlah || t.jumlah || t.Setor || t.setor || t.Tarik || t.tarik || 0);
       const formatNominal = nominal ? `Rp ${nominal.toLocaleString('id-ID')}` : 'Rp 0';
       const rawKet = (t.Berita || t.berita || t.Keterangan || t.keterangan || t.Catatan || t.catatan || '').trim();
+      const rawId = String(t.id_tabungan || t.id || t.ID || '');
 
       if (isSetor) {
         return {
           d,
+          rawId,
           text: `* ${dateStr}: Setor ${formatNominal}`.replace(/\s+/g, ' ').trim()
         };
       } else {
@@ -645,14 +660,16 @@ export const computeCustomerStatsForSheets = (
         }
         return {
           d,
+          rawId,
           text: `* ${dateStr}: Tarik ${formatNominal}${reasonTag}`.replace(/\s+/g, ' ').trim()
         };
       }
     });
-    mappedSavings.sort((a, b) => b.d.getTime() - a.d.getTime());
+    // Urutkan dari transaksi terbaru (semua bulan) dan ambil limit 10 baris
+    mappedSavings.sort((a, b) => b.d.getTime() - a.d.getTime() || b.rawId.localeCompare(a.rawId));
     const mutasi_tabungan = mappedSavings.slice(0, 10).map(s => s.text).join('\n') || 'Belum ada mutasi tabungan';
 
-    // 9. 10 CATATAN HUTANG TERAKHIR (Semua Waktu / All Time)
+    // 9. 10 CATATAN HUTANG TERAKHIR (Semua Waktu / All Time - Termasuk Bulan Sebelumnya, Limit 10 Baris)
     const mappedDebts = userDebts.map(t => {
       const tDate = t.Tanggal || t.tanggal || t.created_at || t.CreatedAt || t.waktu || t.Waktu;
       const d = parseDate(tDate);
@@ -664,16 +681,19 @@ export const computeCustomerStatsForSheets = (
       const rawKet = (t.Keterangan || t.keterangan || t.Berita || t.berita || t.Catatan || t.catatan || t.Kategori || t.kategori || t.MetodePembayaran || t.metode_pembayaran || t.Metode || t.metode || '').trim();
       const upperKet = rawKet.toUpperCase();
       const isFromTabungan = upperKet.includes('TABUNGAN') || String(t.Metode || t.metode || '').toUpperCase().includes('TABUNGAN');
+      const rawId = String(t.id_hutang || t.id || t.ID || '');
 
       if (isBayar) {
         if (isFromTabungan) {
           return {
             d,
+            rawId,
             text: `* ${dateStr}: Bayar ${formatNominal} (Tabungan)`.replace(/\s+/g, ' ').trim()
           };
         } else {
           return {
             d,
+            rawId,
             text: `* ${dateStr}: Bayar ${formatNominal}`.replace(/\s+/g, ' ').trim()
           };
         }
@@ -683,11 +703,13 @@ export const computeCustomerStatsForSheets = (
         const ketTag = cleanReason ? ` (${cleanReason})` : '';
         return {
           d,
+          rawId,
           text: `* ${dateStr}: Hutang ${formatNominal}${ketTag}`.replace(/\s+/g, ' ').trim()
         };
       }
     });
-    mappedDebts.sort((a, b) => b.d.getTime() - a.d.getTime());
+    // Urutkan dari transaksi terbaru (semua bulan) dan ambil limit 10 baris
+    mappedDebts.sort((a, b) => b.d.getTime() - a.d.getTime() || b.rawId.localeCompare(a.rawId));
     const catatan_hutang = mappedDebts.slice(0, 10).map(d => d.text).join('\n') || 'Belum ada catatan hutang';
 
     // 10. Total Belanja Bulan Ini (YYYY-MM)
@@ -832,6 +854,60 @@ export const syncAllCustomerStatsToGoogleSheets = async (
       }
     } catch (custErr) {
       console.warn('Could not fetch all customers from Supabase in syncAllCustomerStatsToGoogleSheets:', custErr);
+    }
+  }
+
+  // Fetch full savings history (all months) if Supabase connected
+  if (SupabaseSavingsService.isConnected()) {
+    try {
+      const { data: supaAllSavings } = await SupabaseSavingsService.getSavings({ limit: 50000 });
+      if (supaAllSavings && supaAllSavings.length > 0) {
+        targetSavings = supaAllSavings.map((item: any) => ({
+          id: item.id_tabungan || item.id,
+          id_tabungan: item.id_tabungan,
+          id_pelanggan: item.id_pelanggan || 'CUST-0000',
+          Tanggal: item.tanggal || '',
+          tanggal: item.tanggal || '',
+          Nama: item.nama || 'Nasabah',
+          nama: item.nama || 'Nasabah',
+          Tipe: String(item.tipe || 'SETOR').toUpperCase(),
+          tipe: String(item.tipe || 'SETOR').toUpperCase(),
+          Nominal: Number(item.nominal) || 0,
+          nominal: Number(item.nominal) || 0,
+          SaldoAkhir: Number(item.saldo_akhir) || 0,
+          saldo_akhir: Number(item.saldo_akhir) || 0,
+          Berita: item.berita || '-'
+        }));
+      }
+    } catch (savingsErr) {
+      console.warn('Could not fetch all savings from Supabase in syncAllCustomerStatsToGoogleSheets:', savingsErr);
+    }
+  }
+
+  // Fetch full debt history (all months) if Supabase connected
+  if (SupabaseDebtService.isConnected()) {
+    try {
+      const { data: supaAllDebts } = await SupabaseDebtService.getDebts({ allHistory: true, limit: 50000 });
+      if (supaAllDebts && supaAllDebts.length > 0) {
+        targetDebt = supaAllDebts.map((item: any) => ({
+          id: item.id_hutang || item.id,
+          id_hutang: item.id_hutang,
+          id_pelanggan: item.id_pelanggan || 'CUST-0000',
+          Tanggal: item.tanggal || '',
+          tanggal: item.tanggal || '',
+          Nama: item.nama || 'Pelanggan',
+          nama: item.nama || 'Pelanggan',
+          Tipe: String(item.tipe || 'HUTANG').toUpperCase(),
+          tipe: String(item.tipe || 'HUTANG').toUpperCase(),
+          Jumlah: Number(item.jumlah) || 0,
+          jumlah: Number(item.jumlah) || 0,
+          SaldoAkhir: Number(item.saldo_akhir) || 0,
+          saldo_akhir: Number(item.saldo_akhir) || 0,
+          Keterangan: item.keterangan || '-'
+        }));
+      }
+    } catch (debtErr) {
+      console.warn('Could not fetch all debts from Supabase in syncAllCustomerStatsToGoogleSheets:', debtErr);
     }
   }
 

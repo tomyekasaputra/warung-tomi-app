@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   FileSpreadsheet, RefreshCw, CheckCircle2, AlertCircle, LogOut, 
   ExternalLink, Zap, Check, Table, Sparkles, Eye, Columns, Database, Grid
@@ -29,6 +30,7 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
   autoSyncOnLoad = true,
   variant = "card"
 }) => {
+  const navigate = useNavigate();
   const [authStatus, setAuthStatus] = useState<GoogleSheetsAuthStatus>({ authenticated: false });
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
@@ -313,7 +315,16 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
         </div>
 
         {/* Action Toggle or Login */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => navigate("/admin/sheets-preview")}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200 dark:border-slate-700"
+            title="Lihat seluruh data yang akan disinkronisasikan dan tanda data yang terupdate"
+          >
+            <Eye className="w-3.5 h-3.5 text-[#005E6A] dark:text-teal-400" />
+            <span>Preview Data</span>
+          </button>
+
           {authStatus.authenticated ? (
             <div className="flex items-center gap-2">
               <button

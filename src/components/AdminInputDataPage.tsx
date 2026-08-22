@@ -71,6 +71,7 @@ interface SalesTransaction {
   Sebagian?: number;
   Poin?: number;
   Status?: string;
+  created_at?: string;
 }
 
 export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({

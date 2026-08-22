@@ -1211,7 +1211,181 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.calculate_customer_analytics_summary(INT, INT) TO anon, authenticated, service_role;`;
+GRANT EXECUTE ON FUNCTION public.calculate_customer_analytics_summary(INT, INT) TO anon, authenticated, service_role;
+
+-- 16. FUNCTION RPC: HITUNG RINGKASAN MANAJEMEN TABUNGAN LENGKAP DI DATABASE (RPC)
+CREATE OR REPLACE FUNCTION public.calculate_savings_management_summary()
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_now TIMESTAMPTZ := CURRENT_TIMESTAMP;
+  v_start_month TIMESTAMPTZ := DATE_TRUNC('month', CURRENT_TIMESTAMP);
+  v_thirty_days_ago TIMESTAMPTZ := (CURRENT_TIMESTAMP - INTERVAL '30 days');
+  
+  v_total_tabungan NUMERIC := 0;
+  v_total_setor_month NUMERIC := 0;
+  v_total_tarik_month NUMERIC := 0;
+  v_total_mutasi_month INT := 0;
+  
+  v_total_setor_all NUMERIC := 0;
+  v_total_tarik_all NUMERIC := 0;
+  v_total_mutasi_all INT := 0;
+  
+  v_total_customers INT := 0;
+  v_active_savers_30d INT := 0;
+  v_active_rate NUMERIC := 0;
+  
+  v_customer_savings JSONB := '[]'::jsonb;
+  v_recent_activities JSONB := '[]'::jsonb;
+BEGIN
+  -- 1. Total nasabah terdaftar
+  SELECT COUNT(*)::INT INTO v_total_customers FROM public.customers;
+  
+  -- 2. Total saldo tabungan seluruh pelanggan (dari tabel customers)
+  SELECT COALESCE(SUM(COALESCE(tabungan, 0)), 0)::NUMERIC INTO v_total_tabungan FROM public.customers;
+
+  -- 3. Mutasi bulan ini (MTD)
+  SELECT 
+    COALESCE(SUM(CASE WHEN UPPER(TRIM(COALESCE(tipe, ''))) = 'SETOR' THEN COALESCE(nominal, 0) ELSE 0 END), 0)::NUMERIC,
+    COALESCE(SUM(CASE WHEN UPPER(TRIM(COALESCE(tipe, ''))) = 'TARIK' THEN COALESCE(nominal, 0) ELSE 0 END), 0)::NUMERIC,
+    COUNT(*)::INT
+  INTO v_total_setor_month, v_total_tarik_month, v_total_mutasi_month
+  FROM public.savings_transactions
+  WHERE (created_at >= v_start_month) 
+     OR (created_at IS NULL AND (
+          (tanggal ~ '^\d{4}-\d{2}-\d{2}' AND tanggal::date >= v_start_month::date)
+          OR (tanggal ~ '^\d{2}/\d{2}/\d{4}' AND TO_DATE(tanggal, 'DD/MM/YYYY') >= v_start_month::date)
+        ));
+
+  -- 4. Mutasi all-time (DARI AWAL MENABUNG HINGGA SAAT INI)
+  SELECT 
+    COALESCE(SUM(CASE WHEN UPPER(TRIM(COALESCE(tipe, ''))) = 'SETOR' THEN COALESCE(nominal, 0) ELSE 0 END), 0)::NUMERIC,
+    COALESCE(SUM(CASE WHEN UPPER(TRIM(COALESCE(tipe, ''))) = 'TARIK' THEN COALESCE(nominal, 0) ELSE 0 END), 0)::NUMERIC,
+    COUNT(*)::INT
+  INTO v_total_setor_all, v_total_tarik_all, v_total_mutasi_all
+  FROM public.savings_transactions;
+
+  -- 5. Keaktifan Menabung (30 hari terakhir)
+  SELECT COUNT(DISTINCT LOWER(TRIM(nama)))::INT INTO v_active_savers_30d
+  FROM public.savings_transactions
+  WHERE (created_at >= v_thirty_days_ago) 
+     OR (created_at IS NULL AND (
+          (tanggal ~ '^\d{4}-\d{2}-\d{2}' AND tanggal::date >= v_thirty_days_ago::date)
+          OR (tanggal ~ '^\d{2}/\d{2}/\d{4}' AND TO_DATE(tanggal, 'DD/MM/YYYY') >= v_thirty_days_ago::date)
+        ));
+
+  IF v_total_customers > 0 THEN
+    v_active_rate := ROUND((v_active_savers_30d::NUMERIC / v_total_customers::NUMERIC) * 100);
+  ELSE
+    v_active_rate := 0;
+  END IF;
+
+  -- 6. Total Mutasi All-Time & MTD per Pelanggan (HANYA PELANGGAN DENGAN SALDO DI ATAS 0)
+  -- Menggunakan acuan nama (case-insensitive & pembersihan karakter/spasi) serta ID pelanggan
+  WITH merged_customers AS (
+    SELECT 
+      c.id_pelanggan,
+      c.nama,
+      COALESCE(c.foto, '') AS foto,
+      COALESCE(c.tabungan, 0)::NUMERIC AS tabungan,
+      COUNT(s.id)::INT AS tx_count,
+      COALESCE(SUM(CASE WHEN UPPER(TRIM(COALESCE(s.tipe, ''))) = 'SETOR' THEN COALESCE(s.nominal, 0) ELSE 0 END), 0)::NUMERIC AS total_setor,
+      COALESCE(SUM(CASE WHEN UPPER(TRIM(COALESCE(s.tipe, ''))) = 'TARIK' THEN COALESCE(s.nominal, 0) ELSE 0 END), 0)::NUMERIC AS total_tarik,
+      COUNT(CASE WHEN (s.created_at >= v_start_month) OR (s.created_at IS NULL AND ((s.tanggal ~ '^\d{4}-\d{2}-\d{2}' AND s.tanggal::date >= v_start_month::date) OR (s.tanggal ~ '^\d{2}/\d{2}/\d{4}' AND TO_DATE(s.tanggal, 'DD/MM/YYYY') >= v_start_month::date))) THEN 1 END)::INT AS month_tx_count,
+      COALESCE(SUM(CASE WHEN ((s.created_at >= v_start_month) OR (s.created_at IS NULL AND ((s.tanggal ~ '^\d{4}-\d{2}-\d{2}' AND s.tanggal::date >= v_start_month::date) OR (s.tanggal ~ '^\d{2}/\d{2}/\d{4}' AND TO_DATE(s.tanggal, 'DD/MM/YYYY') >= v_start_month::date)))) AND UPPER(TRIM(COALESCE(s.tipe, ''))) = 'SETOR' THEN COALESCE(s.nominal, 0) ELSE 0 END), 0)::NUMERIC AS month_setor,
+      COALESCE(SUM(CASE WHEN ((s.created_at >= v_start_month) OR (s.created_at IS NULL AND ((s.tanggal ~ '^\d{4}-\d{2}-\d{2}' AND s.tanggal::date >= v_start_month::date) OR (s.tanggal ~ '^\d{2}/\d{2}/\d{4}' AND TO_DATE(s.tanggal, 'DD/MM/YYYY') >= v_start_month::date)))) AND UPPER(TRIM(COALESCE(s.tipe, ''))) = 'TARIK' THEN COALESCE(s.nominal, 0) ELSE 0 END), 0)::NUMERIC AS month_tarik
+    FROM public.customers c
+    LEFT JOIN public.savings_transactions s ON (
+      -- Acuan 1: Nama sama persis (case-insensitive & trimmed)
+      LOWER(TRIM(s.nama)) = LOWER(TRIM(c.nama))
+      -- Acuan 2: Nama bersih tanpa spasi/karakter khusus (cth: "doni eeng", "doni  eeng", "doni-eeng")
+      OR (
+        LENGTH(REGEXP_REPLACE(LOWER(TRIM(c.nama)), '[^a-z0-9]', '', 'g')) >= 3
+        AND REGEXP_REPLACE(LOWER(TRIM(s.nama)), '[^a-z0-9]', '', 'g') = REGEXP_REPLACE(LOWER(TRIM(c.nama)), '[^a-z0-9]', '', 'g')
+      )
+      -- Acuan 3: Substring nama jika nasabah memiliki nama panggilan (cth: "doni" dalam "doni eeng")
+      OR (
+        LENGTH(REGEXP_REPLACE(LOWER(TRIM(s.nama)), '[^a-z0-9]', '', 'g')) >= 4
+        AND LENGTH(REGEXP_REPLACE(LOWER(TRIM(c.nama)), '[^a-z0-9]', '', 'g')) >= 4
+        AND (
+          REGEXP_REPLACE(LOWER(TRIM(c.nama)), '[^a-z0-9]', '', 'g') LIKE '%' || REGEXP_REPLACE(LOWER(TRIM(s.nama)), '[^a-z0-9]', '', 'g') || '%'
+          OR REGEXP_REPLACE(LOWER(TRIM(s.nama)), '[^a-z0-9]', '', 'g') LIKE '%' || REGEXP_REPLACE(LOWER(TRIM(c.nama)), '[^a-z0-9]', '', 'g') || '%'
+        )
+      )
+      -- Acuan 4: ID Pelanggan jika tersedia dan bukan id generik
+      OR (
+        NULLIF(TRIM(c.id_pelanggan), '') IS NOT NULL 
+        AND NULLIF(TRIM(s.id_pelanggan), '') IS NOT NULL 
+        AND LOWER(TRIM(s.id_pelanggan)) = LOWER(TRIM(c.id_pelanggan))
+        AND LOWER(TRIM(s.id_pelanggan)) NOT IN ('cust-0000', 'cust-xxxx', '0000', '-', 'null')
+      )
+    )
+    WHERE COALESCE(c.tabungan, 0) > 0
+    GROUP BY c.id_pelanggan, c.nama, c.foto, c.tabungan
+    ORDER BY COALESCE(c.tabungan, 0) DESC
+  )
+  SELECT COALESCE(jsonb_agg(
+    jsonb_build_object(
+      'id_pelanggan', id_pelanggan,
+      'name', nama,
+      'value', tabungan,
+      'foto', foto,
+      'tx_count', tx_count,
+      'total_setor', total_setor,
+      'total_tarik', total_tarik,
+      'total_mutasi_nominal', (total_setor + total_tarik),
+      'month_tx_count', month_tx_count,
+      'month_setor', month_setor,
+      'month_tarik', month_tarik,
+      'countLabel', tx_count::TEXT || ' Mutasi',
+      'subtext', 'Setor: Rp ' || TO_CHAR(total_setor, 'FM999,999,999,999') || ' • Tarik: Rp ' || TO_CHAR(total_tarik, 'FM999,999,999,999')
+    )
+  ), '[]'::jsonb) INTO v_customer_savings
+  FROM merged_customers;
+
+  -- 7. Aktivitas Terakhir (5 Transaksi Terkini)
+  SELECT COALESCE(jsonb_agg(sub), '[]'::jsonb) INTO v_recent_activities
+  FROM (
+    SELECT 
+      COALESCE(id_tabungan, id::TEXT, '') AS id_tabungan,
+      COALESCE(id_pelanggan, '') AS id_pelanggan,
+      COALESCE(nama, '') AS nama,
+      COALESCE(tipe, 'SETOR') AS tipe,
+      COALESCE(nominal, 0)::NUMERIC AS nominal,
+      COALESCE(saldo_akhir, 0)::NUMERIC AS saldo_akhir,
+      COALESCE(berita, '') AS berita,
+      CASE 
+        WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN tanggal
+        WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN TO_CHAR(tanggal::date, 'DD/MM/YYYY')
+        WHEN created_at IS NOT NULL THEN TO_CHAR(created_at, 'DD/MM/YYYY')
+        ELSE TO_CHAR(CURRENT_DATE, 'DD/MM/YYYY')
+      END AS tanggal,
+      created_at
+    FROM public.savings_transactions
+    ORDER BY COALESCE(created_at, CASE WHEN tanggal ~ '^\d{4}-\d{2}-\d{2}' THEN tanggal::timestamptz ELSE NULL END, CURRENT_TIMESTAMP) DESC
+    LIMIT 5
+  ) sub;
+
+  RETURN jsonb_build_object(
+    'total_tabungan', v_total_tabungan,
+    'setor_bulan_ini', v_total_setor_month,
+    'tarik_bulan_ini', v_total_tarik_month,
+    'mutasi_bulan_ini', v_total_mutasi_month,
+    'total_setor_all_time', v_total_setor_all,
+    'total_tarik_all_time', v_total_tarik_all,
+    'total_mutasi_all_time', v_total_mutasi_all,
+    'total_customers', v_total_customers,
+    'active_savers_30d', v_active_savers_30d,
+    'active_rate', v_active_rate,
+    'customer_savings', v_customer_savings,
+    'recent_activities', v_recent_activities
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.calculate_savings_management_summary() TO anon, authenticated, service_role;`;
 
 export const SUPABASE_CREATE_PRODUCTS_TABLE_SQL = SUPABASE_MASTER_CREATE_TABLES_SQL;
 
@@ -2904,6 +3078,34 @@ export function formatDateYYYYMMDD(val?: any): string {
 }
 
 /**
+ * Helper Parse Tanggal dari berbagai format
+ */
+export function parseDate(val: any): Date {
+  if (!val || val === '-' || val === 'null' || val === 'undefined') return new Date(0);
+  if (val instanceof Date) return val;
+  const str = String(val).trim();
+  if (str.includes('T')) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) return d;
+  }
+  const parts = str.split(' ');
+  const datePart = parts[0] || '';
+  const timePart = parts[1] || '00:00:00';
+  const [hh, mm, ss] = timePart.split(':').map(Number);
+
+  if (datePart.includes('-')) {
+    const [y, m, d] = datePart.split('-').map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, ss || 0);
+  }
+  if (datePart.includes('/')) {
+    const [d, m, y] = datePart.split('/').map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, ss || 0);
+  }
+  const fallback = new Date(val);
+  return isNaN(fallback.getTime()) ? new Date(0) : fallback;
+}
+
+/**
  * Helper Format Tanggal ke dd/mm/yyyy untuk keperluan display
  */
 export function formatDateDDMMYYYY(val?: any): string {
@@ -3175,8 +3377,246 @@ export const SupabaseSavingsService = {
       await new Promise(res => setTimeout(res, 5));
     }
     return { successCount, skippedCount, failedCount, errors };
+  },
+
+  async calculateSavingsManagementSummary(): Promise<{ data: SavingsManagementSummary | null; error: any }> {
+    return SupabaseQueryLogger.track('savings_transactions', 'SELECT', { function: 'calculate_savings_management_summary' }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+
+      try {
+        // 1. Coba jalankan Database Function RPC di Supabase
+        const { data, error } = await client.rpc('calculate_savings_management_summary');
+
+        if (!error && data && typeof data === 'object') {
+          return { data: data as SavingsManagementSummary, error: null };
+        }
+
+        // 2. Fallback Agregasi Cepat Server/Client jika RPC belum di-create di DB
+        const [
+          { data: custData },
+          { data: savingsData }
+        ] = await Promise.all([
+          client.from('customers').select('id_pelanggan, nama, tabungan, foto'),
+          client.from('savings_transactions').select('id, id_tabungan, id_pelanggan, nama, tipe, nominal, saldo_akhir, berita, tanggal, created_at').order('created_at', { ascending: false })
+        ]);
+
+        const customersList = (custData || []) as any[];
+        const savingsList = (savingsData || []) as any[];
+
+        const now = new Date();
+        const thisMonth = now.getMonth();
+        const thisYear = now.getFullYear();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+
+        let totalSetorMonth = 0;
+        let totalTarikMonth = 0;
+        let mutasiMonthCount = 0;
+
+        let totalSetorAll = 0;
+        let totalTarikAll = 0;
+        let mutasiAllCount = savingsList.length;
+
+        const txCountMap = new Map<string, { 
+          count: number; 
+          setor: number; 
+          tarik: number;
+          monthCount: number;
+          monthSetor: number;
+          monthTarik: number;
+        }>();
+        const activeSaversSet = new Set<string>();
+
+        savingsList.forEach(t => {
+          const rawDate = t.created_at || t.tanggal;
+          const d = parseDate(rawDate);
+          const nominal = typeof t.nominal === 'number' ? t.nominal : parseFloat(String(t.nominal || '0').replace(/[^0-9.-]+/g, "")) || 0;
+          const isSetor = String(t.tipe || '').toUpperCase() === 'SETOR';
+          const isTarik = String(t.tipe || '').toUpperCase() === 'TARIK';
+          const isThisMonth = d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+
+          if (isSetor) totalSetorAll += nominal;
+          if (isTarik) totalTarikAll += nominal;
+
+          if (isThisMonth) {
+            if (isSetor) totalSetorMonth += nominal;
+            if (isTarik) totalTarikMonth += nominal;
+            mutasiMonthCount++;
+          }
+
+          if (d >= thirtyDaysAgo && t.nama) {
+            activeSaversSet.add(t.nama.toLowerCase());
+          }
+
+          const normName = (t.nama || '').toLowerCase().trim();
+          if (normName) {
+            const curr = txCountMap.get(normName) || { 
+              count: 0, 
+              setor: 0, 
+              tarik: 0,
+              monthCount: 0,
+              monthSetor: 0,
+              monthTarik: 0
+            };
+            curr.count++;
+            if (isSetor) curr.setor += nominal;
+            if (isTarik) curr.tarik += nominal;
+
+            if (isThisMonth) {
+              curr.monthCount++;
+              if (isSetor) curr.monthSetor += nominal;
+              if (isTarik) curr.monthTarik += nominal;
+            }
+
+            txCountMap.set(normName, curr);
+          }
+        });
+
+        const totalTabungan = customersList.reduce((acc, c) => acc + (typeof c.tabungan === 'number' ? c.tabungan : parseFloat(String(c.tabungan || '0').replace(/[^0-9.-]+/g, "")) || 0), 0);
+        const totalCustomers = customersList.length;
+        const activeRate = totalCustomers > 0 ? Math.round((activeSaversSet.size / totalCustomers) * 100) : 0;
+
+        const customerSavings = customersList
+          .map(c => {
+            const custName = (c.nama || '').toLowerCase().trim();
+            const custClean = custName.replace(/[^a-z0-9]/g, '');
+            const custId = (c.id_pelanggan || '').toLowerCase().trim();
+
+            let count = 0;
+            let setor = 0;
+            let tarik = 0;
+            let monthCount = 0;
+            let monthSetor = 0;
+            let monthTarik = 0;
+
+            savingsList.forEach(t => {
+              const tName = (t.nama || '').toLowerCase().trim();
+              const tClean = tName.replace(/[^a-z0-9]/g, '');
+              const tId = (t.id_pelanggan || '').toLowerCase().trim();
+
+              const isNameMatch = (custName && tName && custName === tName) ||
+                                  (custClean && tClean && custClean === tClean) ||
+                                  (custClean.length >= 4 && tClean.length >= 4 && (custClean.includes(tClean) || tClean.includes(custClean)));
+              
+              const isIdMatch = !['cust-0000', 'cust-xxxx', '0000', '-', 'null', ''].includes(custId) &&
+                                !['cust-0000', 'cust-xxxx', '0000', '-', 'null', ''].includes(tId) &&
+                                custId === tId;
+
+              if (isNameMatch || isIdMatch) {
+                const rawDate = t.created_at || t.tanggal;
+                const d = parseDate(rawDate);
+                const nominal = typeof t.nominal === 'number' ? t.nominal : parseFloat(String(t.nominal || '0').replace(/[^0-9.-]+/g, "")) || 0;
+                const isSetor = String(t.tipe || '').toUpperCase() === 'SETOR';
+                const isTarik = String(t.tipe || '').toUpperCase() === 'TARIK';
+                const isThisMonth = d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+
+                count++;
+                if (isSetor) setor += nominal;
+                if (isTarik) tarik += nominal;
+
+                if (isThisMonth) {
+                  monthCount++;
+                  if (isSetor) monthSetor += nominal;
+                  if (isTarik) monthTarik += nominal;
+                }
+              }
+            });
+
+            const tabVal = typeof c.tabungan === 'number' ? c.tabungan : parseFloat(String(c.tabungan || '0').replace(/[^0-9.-]+/g, "")) || 0;
+            return {
+              id_pelanggan: c.id_pelanggan || '',
+              name: c.nama || '',
+              value: tabVal,
+              foto: c.foto || '',
+              tx_count: count,
+              total_setor: setor,
+              total_tarik: tarik,
+              total_mutasi_nominal: setor + tarik,
+              month_tx_count: monthCount,
+              month_setor: monthSetor,
+              month_tarik: monthTarik,
+              countLabel: `${count} Mutasi`,
+              subtext: `Setor: Rp ${setor.toLocaleString('id-ID')} • Tarik: Rp ${tarik.toLocaleString('id-ID')}`
+            };
+          })
+          .filter(c => c.value > 0)
+          .sort((a, b) => b.value - a.value || b.tx_count - a.tx_count);
+
+        const recentActivities = savingsList.slice(0, 5).map(t => ({
+          id_tabungan: t.id_tabungan || t.id,
+          id_pelanggan: t.id_pelanggan || '',
+          nama: t.nama || '',
+          tipe: t.tipe || 'SETOR',
+          nominal: typeof t.nominal === 'number' ? t.nominal : parseFloat(String(t.nominal || '0').replace(/[^0-9.-]+/g, "")) || 0,
+          saldo_akhir: typeof t.saldo_akhir === 'number' ? t.saldo_akhir : parseFloat(String(t.saldo_akhir || '0').replace(/[^0-9.-]+/g, "")) || 0,
+          berita: t.berita || '',
+          tanggal: t.tanggal || formatDateDDMMYYYY(t.created_at),
+          created_at: t.created_at
+        }));
+
+        const result: SavingsManagementSummary = {
+          total_tabungan: totalTabungan,
+          setor_bulan_ini: totalSetorMonth,
+          tarik_bulan_ini: totalTarikMonth,
+          mutasi_bulan_ini: mutasiMonthCount,
+          total_setor_all_time: totalSetorAll,
+          total_tarik_all_time: totalTarikAll,
+          total_mutasi_all_time: mutasiAllCount,
+          total_customers: totalCustomers,
+          active_savers_30d: activeSaversSet.size,
+          active_rate: activeRate,
+          customer_savings: customerSavings,
+          recent_activities: recentActivities
+        };
+
+        return { data: result, error: null };
+      } catch (err: any) {
+        console.error("Gagal menghitung summary tabungan via RPC:", err);
+        return { data: null, error: err };
+      }
+    });
   }
 };
+
+export interface SavingsManagementSummary {
+  total_tabungan: number;
+  setor_bulan_ini: number;
+  tarik_bulan_ini: number;
+  mutasi_bulan_ini: number;
+  total_setor_all_time: number;
+  total_tarik_all_time: number;
+  total_mutasi_all_time: number;
+  total_customers: number;
+  active_savers_30d: number;
+  active_rate: number;
+  customer_savings: Array<{
+    id_pelanggan?: string;
+    name: string;
+    value: number;
+    foto?: string;
+    tx_count: number;
+    total_setor?: number;
+    total_tarik?: number;
+    total_mutasi_nominal?: number;
+    month_tx_count?: number;
+    month_setor?: number;
+    month_tarik?: number;
+    countLabel: string;
+    subtext?: string;
+  }>;
+  recent_activities: Array<{
+    id_tabungan?: string;
+    id_pelanggan?: string;
+    nama: string;
+    tipe: string;
+    nominal: number;
+    saldo_akhir?: number;
+    berita?: string;
+    tanggal: string;
+    created_at?: string;
+  }>;
+}
 
 /**
  * Service Investasi Supabase
@@ -3869,11 +4309,15 @@ export const SupabaseSalesService = {
     });
   },
 
-  async deleteSale(idTransaksi: string): Promise<{ data: any; error: any }> {
-    return SupabaseQueryLogger.track('sales_transactions', 'DELETE', { idTransaksi }, async () => {
+  async deleteSale(idTransaksi: string, altId?: string): Promise<{ data: any; error: any }> {
+    return SupabaseQueryLogger.track('sales_transactions', 'DELETE', { idTransaksi, altId }, async () => {
       const client = getSupabaseClient();
       if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
-      const { data, error } = await client.from('sales_transactions').delete().eq('id_transaksi', idTransaksi);
+      let { data, error } = await client.from('sales_transactions').delete().eq('id_transaksi', idTransaksi);
+      if (!error && altId && altId !== idTransaksi) {
+        const res = await client.from('sales_transactions').delete().eq('id', altId);
+        if (res.error) error = res.error;
+      }
       return { data, error };
     });
   },

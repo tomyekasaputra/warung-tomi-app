@@ -269,7 +269,6 @@ const DATABASE_TABLES: TableMeta[] = [
       { key: "poin", label: "Poin", type: "number" },
       { key: "status", label: "Status", type: "select", options: STATUS_OPTIONS },
       { key: "melalui", label: "Melalui", type: "select", options: MELALUI_OPTIONS },
-      { key: "harga_admin", label: "Harga Admin (Rp)", type: "number" },
       { key: "harga_modal", label: "Harga Modal (Rp)", type: "number" },
       { key: "sebagian", label: "Sebagian (Rp)", type: "number" },
       { key: "created_at", label: "Created At", type: "text", readOnly: true }
@@ -314,12 +313,10 @@ const DATABASE_TABLES: TableMeta[] = [
       { key: "id_pelanggan", label: "ID Pelanggan", type: "text" },
       { key: "tanggal", label: "Tanggal", type: "date" },
       { key: "nama", label: "Nama Nasabah", type: "text" },
-      { key: "nama_nasabah", label: "Nama Nasabah (Alt)", type: "text" },
       { key: "tipe", label: "Tipe Mutasi", type: "select", options: ["SETOR", "TARIK"] },
       { key: "nominal", label: "Nominal (Rp)", type: "number" },
       { key: "saldo_akhir", label: "Saldo Akhir (Rp)", type: "number" },
       { key: "berita", label: "Berita / Keterangan", type: "text" },
-      { key: "keterangan", label: "Keterangan", type: "text" },
       { key: "sebagian", label: "Sebagian (Rp)", type: "number" },
       { key: "created_at", label: "Created At", type: "text", readOnly: true }
     ]
@@ -339,7 +336,6 @@ const DATABASE_TABLES: TableMeta[] = [
       { key: "id_pelanggan", label: "ID Pelanggan", type: "text" },
       { key: "tanggal", label: "Tanggal", type: "date" },
       { key: "nama", label: "Nama Pelanggan", type: "text" },
-      { key: "nama_pelanggan", label: "Nama Pelanggan (Alt)", type: "text" },
       { key: "tipe", label: "Tipe Transaksi", type: "select", options: ["KASBON", "TAMBAH", "BAYAR", "LUNAS"] },
       { key: "jumlah", label: "Jumlah (Rp)", type: "number" },
       { key: "keterangan", label: "Keterangan", type: "text" },
@@ -383,15 +379,12 @@ const DATABASE_TABLES: TableMeta[] = [
       { key: "id_pelanggan", label: "ID Pelanggan", type: "text" },
       { key: "tanggal", label: "Tanggal", type: "date" },
       { key: "nama", label: "Nama Investor", type: "text" },
-      { key: "nama_investor", label: "Nama Investor (Alt)", type: "text" },
       { key: "nominal", label: "Nominal (Rp)", type: "number" },
       { key: "tenor", label: "Tenor", type: "text" },
-      { key: "tenor_bulan", label: "Tenor Bulan", type: "number" },
       { key: "jatuh_tempo", label: "Jatuh Tempo", type: "text" },
       { key: "status", label: "Status", type: "select", options: ["Aktif", "Selesai", "Ditarik"] },
       { key: "keterangan", label: "Keterangan", type: "text" },
       { key: "nisbah", label: "Nisbah", type: "text" },
-      { key: "nisbah_persen", label: "Nisbah Persen", type: "number" },
       { key: "sebagian", label: "Sebagian (Rp)", type: "number" },
       { key: "created_at", label: "Created At", type: "text", readOnly: true }
     ]
@@ -705,7 +698,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
             }
             
             // Include potential name and identifier columns present in this table
-            const candidateKeys = ['nama', 'nama_nasabah', 'nama_pelanggan', 'nama_investor', 'id_pelanggan', 'id_transaksi', 'id_barang', tbl.primaryKey];
+            const candidateKeys = ['nama', 'id_pelanggan', 'id_transaksi', 'id_barang', tbl.primaryKey];
             candidateKeys.forEach((key) => {
               if (tbl.columns.some(c => c.key === key) && !searchCols.includes(key)) {
                 searchCols.push(key);
