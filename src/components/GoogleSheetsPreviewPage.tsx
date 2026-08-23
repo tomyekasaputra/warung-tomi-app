@@ -16,7 +16,8 @@ import {
   DEFAULT_APPS_SCRIPT_URL
 } from "../lib/googleSheetsSync";
 import { getCachedAccessToken } from "../lib/firebaseAuth";
-import { SupabaseSavingsService, SupabaseDebtService, SupabaseCustomerService } from "../lib/supabase";
+import { SupabaseSavingsService, SupabaseDebtService, SupabaseSalesService, SupabaseCustomerService } from "../lib/supabase";
+import { idbGet, idbSet } from "../lib/idbStorage";
 
 interface GoogleSheetsPreviewPageProps {
   customers: any[];
@@ -68,9 +69,14 @@ export default function GoogleSheetsPreviewPage({
   const [activeTab, setActiveTab] = useState<"table" | "analysis" | "raw_json">("table");
 
   // Full historical data states (semua bulan / all-time)
+  const [fullSales, setFullSales] = useState<any[]>(salesTransactions);
   const [fullSavings, setFullSavings] = useState<any[]>(savingsTransactions);
   const [fullDebts, setFullDebts] = useState<any[]>(debtTransactions);
   const [isFetchingFullHistory, setIsFetchingFullHistory] = useState<boolean>(false);
+
+  useEffect(() => {
+    setFullSales(salesTransactions);
+  }, [salesTransactions]);
 
   useEffect(() => {
     setFullSavings(savingsTransactions);
@@ -88,16 +94,32 @@ export default function GoogleSheetsPreviewPage({
     return localStorage.getItem("LAST_SHEETS_SYNC") || "Belum Pernah";
   });
 
-  // Snapshot map from localStorage to detect changed vs unchanged data
-  const [snapshotMap, setSnapshotMap] = useState<Record<string, any>>(() => {
-    try {
-      const raw = localStorage.getItem("SHEETS_LAST_SYNCED_SNAPSHOT");
-      if (raw) return JSON.parse(raw);
-    } catch (e) {
-      console.warn("Failed to load sheets snapshot:", e);
-    }
-    return {};
-  });
+  // Snapshot map to detect changed vs unchanged data
+  const [snapshotMap, setSnapshotMap] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    // Load snapshot asynchronously from IndexedDB (or fallback from localStorage)
+    idbGet<Record<string, any>>("SHEETS_LAST_SYNCED_SNAPSHOT").then((data) => {
+      if (data && Object.keys(data).length > 0) {
+        setSnapshotMap(data);
+      } else {
+        try {
+          const raw = localStorage.getItem("SHEETS_LAST_SYNCED_SNAPSHOT");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            setSnapshotMap(parsed);
+            // Migrate to IndexedDB to free up localStorage memory
+            idbSet("SHEETS_LAST_SYNCED_SNAPSHOT", parsed);
+            localStorage.removeItem("SHEETS_LAST_SYNCED_SNAPSHOT");
+          }
+        } catch (e) {
+          console.warn("Failed to parse legacy sheets snapshot:", e);
+        }
+      }
+    }).catch((e) => {
+      console.warn("Failed to load snapshot from IDB:", e);
+    });
+  }, []);
 
   // Load Auth Status & Full Historical Transactions across all months
   useEffect(() => {
@@ -107,25 +129,68 @@ export default function GoogleSheetsPreviewPage({
 
     let isMounted = true;
     const fetchAllHistory = async () => {
-      if (SupabaseSavingsService.isConnected() || SupabaseDebtService.isConnected()) {
+      if (SupabaseSalesService.isConnected() || SupabaseSavingsService.isConnected() || SupabaseDebtService.isConnected()) {
         try {
           setIsFetchingFullHistory(true);
           const promises: Promise<any>[] = [];
 
+          if (SupabaseSalesService.isConnected()) {
+            promises.push(SupabaseSalesService.getSales({ 
+              select: 'id_transaksi, id_pelanggan, nama, tanggal, pemasukan, jenis, metode, status, melalui, harga_modal, sebagian, created_at',
+              limit: 3000 
+            }));
+          } else {
+            promises.push(Promise.resolve({ data: null }));
+          }
+
           if (SupabaseSavingsService.isConnected()) {
-            promises.push(SupabaseSavingsService.getSavings({ limit: 50000 }));
+            promises.push(SupabaseSavingsService.getSavings({ 
+              select: 'id_tabungan, id_pelanggan, nama, tanggal, tipe, nominal, saldo_akhir, berita, created_at',
+              limit: 3000 
+            }));
           } else {
             promises.push(Promise.resolve({ data: null }));
           }
 
           if (SupabaseDebtService.isConnected()) {
-            promises.push(SupabaseDebtService.getDebts({ allHistory: true, limit: 50000 }));
+            promises.push(SupabaseDebtService.getDebts({ 
+              select: 'id_hutang, id_pelanggan, nama, tanggal, tipe, jumlah, saldo_akhir, keterangan, created_at',
+              allHistory: true, 
+              limit: 3000 
+            }));
           } else {
             promises.push(Promise.resolve({ data: null }));
           }
 
-          const [savingsRes, debtsRes] = await Promise.all(promises);
+          const [salesRes, savingsRes, debtsRes] = await Promise.all(promises);
           if (!isMounted) return;
+
+          if (salesRes?.data && salesRes.data.length > 0) {
+            const mapped = salesRes.data.map((item: any) => ({
+              ...item,
+              id: item.id_transaksi || item.id,
+              id_pelanggan: item.id_pelanggan,
+              Tanggal: item.tanggal,
+              tanggal: item.tanggal,
+              Nama: item.nama,
+              nama: item.nama,
+              Metode: item.metode,
+              metode: item.metode,
+              MetodePembayaran: item.metode,
+              metode_pembayaran: item.metode,
+              paymentMethod: item.metode,
+              Status: item.status,
+              status: item.status,
+              Total: Number(item.pemasukan) || 0,
+              total: Number(item.pemasukan) || 0,
+              Pemasukan: Number(item.pemasukan) || 0,
+              pemasukan: Number(item.pemasukan) || 0,
+              Kategori: item.jenis || '',
+              kategori: item.jenis || '',
+              Catatan: item.melalui || ''
+            }));
+            setFullSales(mapped);
+          }
 
           if (savingsRes?.data && savingsRes.data.length > 0) {
             const mapped = savingsRes.data.map((item: any) => ({
@@ -182,14 +247,14 @@ export default function GoogleSheetsPreviewPage({
   const computedData: SyncedCustomerRow[] = useMemo(() => {
     const rawList = computeCustomerStatsForSheets(
       customers,
-      salesTransactions,
+      fullSales.length > 0 ? fullSales : salesTransactions,
       fullSavings.length > 0 ? fullSavings : savingsTransactions,
       fullDebts.length > 0 ? fullDebts : debtTransactions,
       investmentTransactions,
       redeemedPoints
     );
     return rawList as SyncedCustomerRow[];
-  }, [customers, salesTransactions, fullSavings, fullDebts, savingsTransactions, debtTransactions, investmentTransactions, redeemedPoints]);
+  }, [customers, fullSales, salesTransactions, fullSavings, fullDebts, savingsTransactions, debtTransactions, investmentTransactions, redeemedPoints]);
 
   // Analyze each row to determine if it has changed (GREEN) or unchanged (NORMAL)
   const rowsWithDiff = useMemo(() => {
@@ -349,11 +414,18 @@ export default function GoogleSheetsPreviewPage({
     });
 
     const timeStr = new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" });
+    
+    // Save to IndexedDB (asynchronous with massive storage capacity)
+    idbSet("SHEETS_LAST_SYNCED_SNAPSHOT", newSnapshot).catch((err) => {
+      console.warn("Failed to persist snapshot to IDB:", err);
+    });
+
     try {
-      localStorage.setItem("SHEETS_LAST_SYNCED_SNAPSHOT", JSON.stringify(newSnapshot));
+      // Clear legacy large payload from localStorage so it never runs out of quota
+      localStorage.removeItem("SHEETS_LAST_SYNCED_SNAPSHOT");
       localStorage.setItem("LAST_SHEETS_SYNC", timeStr);
     } catch (e) {
-      console.error("Error saving snapshot to localStorage:", e);
+      console.warn("Error updating LAST_SHEETS_SYNC:", e);
     }
 
     setSnapshotMap(newSnapshot);
@@ -979,9 +1051,14 @@ export default function GoogleSheetsPreviewPage({
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                                       {/* Kolom 1: Aktivitas Terakhir */}
                                       <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 space-y-2">
-                                        <div className="flex items-center gap-2 text-[#005E6A] dark:text-teal-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700 pb-1.5">
-                                          <Clock className="w-3.5 h-3.5" />
-                                          <span>Kolom: Aktivitas Terakhir (6 Transaksi)</span>
+                                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-1.5">
+                                          <div className="flex items-center gap-2 text-[#005E6A] dark:text-teal-400 font-bold uppercase text-[10px] tracking-wider">
+                                            <Clock className="w-3.5 h-3.5" />
+                                            <span>Kolom: 10 Aktivitas Terakhir</span>
+                                          </div>
+                                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/60 text-[#005E6A] dark:text-teal-300 font-bold">
+                                            Semua Bulan (Max 10)
+                                          </span>
                                         </div>
                                         <pre className="text-[11px] font-sans text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
                                           {row.aktivitas_terakhir || "Belum ada aktivitas"}

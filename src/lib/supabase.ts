@@ -2626,8 +2626,8 @@ export const SupabaseDashboardService = {
           client.from('customers').select('id_pelanggan, nama, tabungan, investasi, hutang, point, level'),
           client.from('investment_transactions').select('nominal, status, nisbah, tanggal, jatuh_tempo'),
           client.from('sales_transactions').select('id_transaksi, nama, id_pelanggan, pemasukan, harga_modal, status, jenis, tanggal, melalui, sebagian, created_at').order('created_at', { ascending: false }).limit(1000),
-          client.from('savings_transactions').select('id_tabungan, nama, id_pelanggan, tipe, nominal, jumlah, tanggal, created_at').order('created_at', { ascending: false }).limit(500),
-          client.from('debt_transactions').select('id_hutang, nama, id_pelanggan, tipe, nominal, jumlah, tanggal, created_at').order('created_at', { ascending: false }).limit(500)
+          client.from('savings_transactions').select('id_tabungan, nama, id_pelanggan, tipe, nominal, tanggal, created_at').order('created_at', { ascending: false }).limit(500),
+          client.from('debt_transactions').select('id_hutang, nama, id_pelanggan, tipe, jumlah, tanggal, created_at').order('created_at', { ascending: false }).limit(500)
         ]);
 
         const customersList = (custData || []) as any[];

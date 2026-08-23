@@ -594,43 +594,45 @@ export default function CustomerManagement({
       const name = (c.nama || c.Nama || "").toLowerCase().trim();
       const idPelanggan = c.id_pelanggan || (c as any).id;
 
-      // 1. Savings (All time)
+      // 1. Tabungan: Saldo Otentik Langsung dari Database Pelanggan Supabase
       const userSavings = getMergedUserList(savingsByCustId, savingsByCustName, idPelanggan, name);
-      const tabungan = userSavings.length > 0 ? (userSavings[userSavings.length - 1].SaldoAkhir ?? userSavings[userSavings.length - 1].saldo_akhir ?? 0) : 0;
-
-      // 2. Investment (All time active)
-      const userInvestments = getMergedUserList(investmentsByCustId, investmentsByCustName, idPelanggan, name);
-      const investasi = userInvestments.filter(t => (t.Status || t.status || '') !== "Selesai").reduce((acc, curr) => acc + (curr.Nominal || curr.nominal || 0), 0);
-
-      // 3. Debt (All time)
-      const userDebts = getMergedUserList(debtsByCustId, debtsByCustName, idPelanggan, name);
-      const hutang = userDebts.length > 0 ? (userDebts[userDebts.length - 1].SaldoAkhir ?? userDebts[userDebts.length - 1].saldo_akhir ?? 0) : 0;
-
-      // 4. Sales (All time)
-      const userSales = getMergedUserList(salesByCustId, salesByCustName, idPelanggan, name);
-
-      // 5. Lainnya (All time active)
-      const userLainnyaTransactions = userSales.filter(t => {
-        const s = (t.Status || t.status || "").toUpperCase().trim();
-        return s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING";
+      userSavings.sort((a, b) => {
+        const timeA = parseDate(a.Tanggal || a.tanggal || a.created_at || a.CreatedAt).getTime();
+        const timeB = parseDate(b.Tanggal || b.tanggal || b.created_at || b.CreatedAt).getTime();
+        return timeA - timeB;
       });
+      const tabungan = Number(
+        c.tabungan ?? (c as any).Tabungan ?? 
+        (userSavings.length > 0 ? (userSavings[userSavings.length - 1].SaldoAkhir ?? userSavings[userSavings.length - 1].saldo_akhir) : 0) ?? 
+        0
+      );
 
-      const lainnya = userLainnyaTransactions.reduce((acc, curr) => {
-        const s = (curr.Status || curr.status || "").toUpperCase().trim();
-        if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
-          return acc + (parseCurrency(curr.Pemasukan || curr.pemasukan || curr.Total || curr.total || curr.Nominal || curr.nominal) || parseCurrency(curr.HargaModal || curr.harga_modal) || 0);
-        }
-        let base = parseCurrency(curr.HargaModal || curr.harga_modal || curr.Pemasukan || curr.pemasukan || curr.Total || curr.total || curr.Nominal || curr.nominal || 0);
-        if ((curr.Melalui || curr.melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
-          base -= 1500;
-        }
-        const net = base - (parseCurrency(curr.Sebagian || curr.sebagian) || 0);
-        return acc + (net > 0 ? net : 0);
-      }, 0);
+      // 2. Investasi: Saldo Otentik Langsung dari Database Pelanggan Supabase
+      const investasi = Number(c.investasi ?? (c as any).Investasi ?? 0);
 
-      // Level & Point directly from Supabase / customer data without recalculation
+      // 3. Lainnya: Saldo Otentik Langsung dari Database Pelanggan Supabase
+      const lainnya = Number(c.lainnya ?? (c as any).Lainnya ?? 0);
+
+      // 4. Hutang: Saldo Otentik Langsung dari Database Pelanggan Supabase
+      const userDebts = getMergedUserList(debtsByCustId, debtsByCustName, idPelanggan, name);
+      userDebts.sort((a, b) => {
+        const timeA = parseDate(a.Tanggal || a.tanggal || a.created_at || a.CreatedAt).getTime();
+        const timeB = parseDate(b.Tanggal || b.tanggal || b.created_at || b.CreatedAt).getTime();
+        return timeA - timeB;
+      });
+      const hutang = Number(
+        c.hutang ?? (c as any).Hutang ?? 
+        (userDebts.length > 0 ? (userDebts[userDebts.length - 1].SaldoAkhir ?? userDebts[userDebts.length - 1].saldo_akhir) : 0) ?? 
+        0
+      );
+
+      // 5. Level & Point: Saldo Otentik Langsung dari Database Pelanggan Supabase
       const poin = Number(c.poin ?? (c as any).point ?? (c as any).Poin ?? (c as any).Point ?? 0);
       const level = String(c.level ?? (c as any).Level ?? 'Bronze');
+
+      // 6. Sales (All time)
+      const userSales = getMergedUserList(salesByCustId, salesByCustName, idPelanggan, name);
+      const userInvestments = getMergedUserList(investmentsByCustId, investmentsByCustName, idPelanggan, name);
 
       // 7. 6 AKTIVITAS TERAKHIR (Semua Waktu / All Time)
       const rawActivities: any[] = [];
@@ -647,19 +649,41 @@ export default function CustomerManagement({
         let rawJenis = t.Kategori || t.kategori || t.Jenis || t.jenis || t.Keterangan || t.keterangan || t.NamaBarang || t.nama_barang || t.Produk || t.produk || t.Barang || t.barang;
         if (!rawJenis || rawJenis === 'Umum' || rawJenis === '-' || rawJenis === 'Transaksi') rawJenis = 'Belanja';
         const jenisClean = String(rawJenis).replace(/^Transaksi\s+/i, '').trim().toUpperCase() || 'BELANJA';
-        const rawMetode = String(t.MetodePembayaran || t.metode_pembayaran || t.Metode || t.metode || t.MetodeBayar || t.metode_bayar || '').trim().toUpperCase();
-        const statusUpper = String(t.Status || t.status || '').trim().toUpperCase();
-        const isKasbon = statusUpper.includes('KASBON') || Boolean(t.Kasbon) || Boolean(t.IsKasbon) || rawMetode.includes('KASBON') || rawMetode.includes('HUTANG');
-        const isTabungan = rawMetode.includes('TABUNGAN');
+        const rawMetode = String(
+          t.MetodePembayaran || t.metode_pembayaran || 
+          t.Metode || t.metode || 
+          t.MetodeBayar || t.metode_bayar || 
+          t.Metode_Bayar ||
+          t.paymentMethod || t.payment_method || 
+          ''
+        ).trim().toUpperCase();
+        const statusUpper = String(t.Status || t.status || t.StatusPembayaran || t.status_pembayaran || '').trim().toUpperCase();
+        const rawCatatan = String(t.Catatan || t.catatan || t.Keterangan || t.keterangan || t.Berita || t.berita || '').trim().toUpperCase();
+
+        const isKasbon = 
+          statusUpper.includes('KASBON') || 
+          statusUpper.includes('HUTANG') || 
+          rawMetode.includes('KASBON') || 
+          rawMetode.includes('HUTANG') || 
+          rawCatatan.includes('KASBON') || 
+          rawCatatan.includes('HUTANG') || 
+          Boolean(t.Kasbon) || Boolean(t.kasbon) || 
+          Boolean(t.IsKasbon) || Boolean(t.isKasbon) || Boolean(t.is_kasbon);
+
+        const isTabungan = rawMetode.includes('TABUNGAN') || rawCatatan.includes('TABUNGAN') || statusUpper.includes('TABUNGAN');
 
         if (isKasbon) salesKasbonTimes.push(d.getTime());
         if (isTabungan) salesTabunganTimes.push(d.getTime());
 
         let tag = '';
         if (isKasbon) {
-          tag = ' (Kasbon)';
+          if (!jenisClean.includes('KASBON') && !jenisClean.includes('HUTANG')) {
+            tag = ' (Kasbon)';
+          }
         } else if (isTabungan) {
-          tag = ' (Tabungan)';
+          if (!jenisClean.includes('TABUNGAN')) {
+            tag = ' (Tabungan)';
+          }
         } else if (rawMetode && !rawMetode.includes('TUNAI') && !rawMetode.includes('CASH')) {
           const titleMetode = rawMetode.charAt(0) + rawMetode.slice(1).toLowerCase();
           tag = ` (${titleMetode})`;
@@ -708,9 +732,9 @@ export default function CustomerManagement({
             });
           }
         } else {
-          // Cek apakah kasbon ini berasal dari penjualan belanja/virtual yang sudah dicatat di userSales
-          const isFromSales = /belanja|virtual|trx|pos|inv/i.test(rawKet) || salesKasbonTimes.some(st => Math.abs(st - d.getTime()) <= 300000);
-          if (!isFromSales) {
+          // Cek apakah kasbon ini adalah duplikasi dari sales_transactions yang sudah dicatat di userSales
+          const isDuplicateFromSales = salesKasbonTimes.some(st => Math.abs(st - d.getTime()) <= 300000);
+          if (!isDuplicateFromSales) {
             const itemReason = extractCleanItemOrReason(rawKet, salesMap);
             const tag = itemReason ? ` (${itemReason})` : '';
             rawActivities.push({
@@ -802,7 +826,7 @@ export default function CustomerManagement({
       });
 
       rawActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
-      const aktivitas_terakhir = rawActivities.slice(0, 6).map(a => a.text).join('\n') || 'Belum ada aktivitas';
+      const aktivitas_terakhir = rawActivities.slice(0, 10).map(a => a.text).join('\n') || 'Belum ada aktivitas';
 
       // 8. 10 MUTASI TABUNGAN TERAKHIR (Semua Waktu / All Time - Semua Bulan, Limit 10 Baris)
       const mappedSavings = userSavings.map(t => {

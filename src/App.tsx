@@ -8340,76 +8340,76 @@ const AdminReportPage = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="min-h-screen bg-slate-50 pb-24"
+      className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32"
     >
-      <div className="bg-[#005E6A] text-white px-6 pt-12 pb-20 rounded-none shadow-xl relative overflow-hidden">
+      <div className="bg-[#005E6A] text-white px-6 pt-10 pb-16 rounded-none shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
-              <FileText className="w-5 h-5 text-white" />
+        <div className="relative z-10 space-y-4">
+          <div>
+            <div className="flex items-center gap-3 mb-1.5">
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center">
+                <FileText className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-2xl font-black tracking-tight uppercase whitespace-nowrap">Laporan Transaksi</h1>
             </div>
-            <h1 className="text-2xl font-black tracking-tight uppercase whitespace-nowrap">Laporan Transaksi</h1>
+            <p className="text-xs font-medium text-white/70 uppercase tracking-widest">Data Penjualan Harian</p>
           </div>
-          <p className="text-xs font-medium text-white/60 uppercase tracking-widest">Data Penjualan Harian</p>
+
+          {/* Date Selector Full Width Left to Right */}
+          <div className="w-full flex items-center justify-between bg-black/20 backdrop-blur-md border border-white/20 rounded-2xl px-2.5 py-2 shadow-inner text-white">
+            <button 
+              onClick={() => changeDate(-1)}
+              className="p-2 hover:bg-white/20 active:scale-90 rounded-xl transition-all cursor-pointer text-white flex items-center justify-center shrink-0"
+              title="Hari Sebelumnya"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center justify-center gap-2 flex-1 min-w-0 px-2">
+              {isDateSyncing ? (
+                <RefreshCw className="w-4 h-4 text-teal-200 animate-spin shrink-0" />
+              ) : (
+                <Calendar className="w-4 h-4 text-teal-200 shrink-0" />
+              )}
+              <input 
+                type="date" 
+                value={filterDate}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val) {
+                    setFilterDate(val);
+                  }
+                }}
+                className="bg-transparent border-none text-xs sm:text-sm font-black text-white focus:outline-none appearance-none cursor-pointer p-0 text-center tracking-wider max-w-[150px]"
+              />
+            </div>
+            <button 
+              onClick={() => changeDate(1)}
+              className="p-2 hover:bg-white/20 active:scale-90 rounded-xl transition-all cursor-pointer text-white flex items-center justify-center shrink-0"
+              title="Hari Berikutnya"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="px-6 -mt-12 relative z-20 space-y-6">
+      <div className="px-6 -mt-8 relative z-20 space-y-6">
         {/* Stats Card */}
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden relative">
-          {/* Date Selector Centered above Total Pemasukan without divider line */}
-          <div className="flex items-center justify-center mb-6">
-            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/60 rounded-2xl shadow-xs">
-              <button 
-                onClick={() => changeDate(-1)}
-                className="p-1.5 hover:bg-white dark:hover:bg-slate-700 hover:text-[#005E6A] text-slate-400 dark:text-slate-300 rounded-xl transition-all active:scale-90 cursor-pointer"
-                title="Sebelumnya"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="flex items-center gap-2 px-1">
-                {isDateSyncing ? (
-                  <RefreshCw className="w-3.5 h-3.5 text-[#005E6A] animate-spin shrink-0" />
-                ) : (
-                  <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-300 shrink-0" />
-                )}
-                <input 
-                  type="date" 
-                  value={filterDate}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val) {
-                      setFilterDate(val);
-                    }
-                  }}
-                  className="bg-transparent border-none text-[11px] font-black text-[#005E6A] dark:text-teal-300 focus:outline-none appearance-none cursor-pointer p-0 w-28 text-center"
-                />
-              </div>
-              <button 
-                onClick={() => changeDate(1)}
-                className="p-1.5 hover:bg-white dark:hover:bg-slate-700 hover:text-[#005E6A] text-slate-400 dark:text-slate-300 rounded-xl transition-all active:scale-90 cursor-pointer"
-                title="Berikutnya"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="text-center mb-8">
-            <p className="text-[10px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.2em] mb-3">Total Pemasukan</p>
-            <h3 className="text-4xl font-black text-[#005E6A] tracking-tighter">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
+        <div className="bg-white dark:bg-slate-900 p-7 sm:p-8 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden relative">
+          <div className="text-center mb-7">
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-[0.2em] mb-2.5">Total Pemasukan</p>
+            <h3 className="text-4xl font-black text-[#005E6A] dark:text-teal-300 tracking-tighter">Rp {totalPemasukan.toLocaleString('id-ID')}</h3>
           </div>
           
-          <div className="grid grid-cols-2 border-t border-slate-50 dark:border-slate-800/50 pt-8 mt-2">
+          <div className="grid grid-cols-2 border-t border-slate-100 dark:border-slate-800/80 pt-6 mt-1">
             <div className="text-center border-r border-slate-100 dark:border-slate-800">
-              <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.15em] mb-2">Total Transaksi</p>
+              <p className="text-[8px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-[0.15em] mb-1.5">Total Transaksi</p>
               <h4 className="text-xl font-black text-[#F15A24] tracking-tight">{totalTransaksi}</h4>
             </div>
             <div className="text-center">
-              <p className="text-[8px] font-black text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-[0.15em] mb-2">Total Keuntungan</p>
-              <h4 className="text-xl font-black text-green-600 tracking-tight">Rp {totalKeuntungan.toLocaleString('id-ID')}</h4>
+              <p className="text-[8px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-[0.15em] mb-1.5">Total Keuntungan</p>
+              <h4 className="text-xl font-black text-green-600 dark:text-emerald-400 tracking-tight">Rp {totalKeuntungan.toLocaleString('id-ID')}</h4>
             </div>
           </div>
 
@@ -8423,21 +8423,21 @@ const AdminReportPage = ({
                 <div className="w-6 h-6 rounded-lg bg-[#005E6A]/10 flex items-center justify-center">
                   <ClipboardList className="w-3.5 h-3.5 text-[#005E6A]" />
                 </div>
-                <span className="text-[9px] font-black text-slate-600 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider group-hover:text-[#005E6A] transition-colors">
+                <span className="text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wider group-hover:text-[#005E6A] transition-colors">
                   Ringkasan Kategori
                 </span>
-                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase">
+                <span className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase">
                   ({groupedSummary.length} Jenis)
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 bg-slate-50 group-hover:bg-[#005E6A]/5 px-2.5 py-1 rounded-xl transition-colors">
-                <span className="text-[8px] font-black text-[#005E6A] uppercase tracking-wider">
+              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 group-hover:bg-[#005E6A]/5 px-2.5 py-1 rounded-xl transition-colors">
+                <span className="text-[8px] font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-wider">
                   {showSummary ? "Tutup" : "Buka"}
                 </span>
                 {showSummary ? (
-                  <ChevronUp className="w-3 w-3 text-[#005E6A]" />
+                  <ChevronUp className="w-3 h-3 text-[#005E6A] dark:text-teal-400" />
                 ) : (
-                  <ChevronDown className="w-3 w-3 text-[#005E6A]" />
+                  <ChevronDown className="w-3 h-3 text-[#005E6A] dark:text-teal-400" />
                 )}
               </div>
             </button>
@@ -8457,26 +8457,26 @@ const AdminReportPage = ({
                         {groupedSummary.map((item, idx) => (
                           <div 
                             key={idx} 
-                            className="bg-slate-50/40 hover:bg-slate-50/80 p-3 rounded-2xl border border-slate-100/70 dark:border-slate-800/70 transition-colors flex flex-col justify-between"
+                            className="bg-slate-50/40 dark:bg-slate-800/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/80 p-3 rounded-2xl border border-slate-100/70 dark:border-slate-800/70 transition-colors flex flex-col justify-between"
                           >
                             <div className="flex items-center justify-between mb-1.5">
-                              <span className="text-[10px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wide truncate max-w-[150px]">
+                              <span className="text-[10px] font-black text-[#F15A24] dark:text-orange-400 uppercase tracking-wide truncate max-w-[150px]">
                                 {item.jenis}
                               </span>
-                              <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 bg-white border border-slate-100 dark:border-slate-800 px-2 py-0.5 rounded-lg shrink-0">
+                              <span className="text-[8px] font-bold text-slate-400 dark:text-slate-300 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 px-2 py-0.5 rounded-lg shrink-0">
                                 {item.count} Transaksi
                               </span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-[9px] border-t border-slate-100/60 dark:border-slate-800/60 pt-2 mt-1">
                               <div>
-                                <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Pemasukan</p>
-                                <p className="text-[10px] font-black text-[#005E6A] mt-0.5">
+                                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Pemasukan</p>
+                                <p className="text-[10px] font-black text-[#005E6A] dark:text-teal-300 mt-0.5">
                                   Rp {item.pemasukan.toLocaleString('id-ID')}
                                 </p>
                               </div>
                               <div className="border-l border-slate-200/50 dark:border-slate-700/50 pl-2">
-                                <p className="text-[7px] font-bold text-slate-400 dark:text-slate-300 dark:text-slate-200 uppercase tracking-wider">Keuntungan</p>
-                                <p className="text-[10px] font-black text-green-600 mt-0.5">
+                                <p className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Keuntungan</p>
+                                <p className="text-[10px] font-black text-green-600 dark:text-emerald-400 mt-0.5">
                                   Rp {item.keuntungan.toLocaleString('id-ID')}
                                 </p>
                               </div>
@@ -8485,7 +8485,7 @@ const AdminReportPage = ({
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-6 text-slate-400 dark:text-slate-300 dark:text-slate-200 text-[8px] font-black uppercase tracking-widest">
+                      <div className="text-center py-6 text-slate-400 text-[8px] font-black uppercase tracking-widest">
                         Tidak ada transaksi pada tanggal ini
                       </div>
                     )}
@@ -8496,188 +8496,209 @@ const AdminReportPage = ({
           </div>
         </div>
 
-        <div className="space-y-6 w-full">
-          {/* Unified Search & Add Button Card */}
-          <div className="bg-white p-2.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2 min-h-[56px]">
-            {/* Search Input on Left */}
-            <div className="flex-1 min-w-0 flex items-center gap-2.5 pl-2 pr-1">
-              <Search className="w-4 h-4 text-slate-400 dark:text-slate-300 shrink-0" />
-              <input 
-                type="text"
-                placeholder="Cari transaksi..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 w-full min-w-0 bg-transparent border-none text-[11px] font-black text-[#005E6A] focus:outline-none placeholder:text-slate-300 dark:text-slate-400 placeholder:font-bold"
-              />
-              {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery("")}
-                  className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors group shrink-0 cursor-pointer"
-                  title="Hapus pencarian"
-                >
-                  <X className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 dark:text-slate-300" />
-                </button>
-              )}
-            </div>
-
-            {/* Tambah Data Button on Right */}
-            <button
-              type="button"
-              onClick={handleOpenAdd}
-              className="py-2.5 px-3.5 sm:px-4 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider text-white bg-[#005E6A] hover:bg-[#004e58] shadow-md shadow-[#005E6A]/20 flex items-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-95"
-              title="Tambah Data Penjualan"
-            >
-              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
-              <span className="whitespace-nowrap">Tambah Data</span>
-            </button>
-          </div>
-
-          {/* Unified Transaction List separated only by divider lines */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between px-2">
-              <h3 className="text-sm font-black text-[#005E6A] uppercase tracking-wider">Daftar Transaksi</h3>
-              <Badge className="bg-slate-100 text-slate-500 dark:text-slate-300 dark:text-slate-200 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 shrink-0">
+        {/* Transaction List Card with Header & Search embedded inside */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+          {/* Card Header: Title & Search */}
+          <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 space-y-3 bg-slate-50/50 dark:bg-slate-800/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-[#005E6A]/10 dark:bg-teal-500/20 text-[#005E6A] dark:text-teal-300 flex items-center justify-center font-bold">
+                  <Receipt className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-black text-[#005E6A] dark:text-teal-300 uppercase tracking-wider">
+                  Daftar Transaksi
+                </h3>
+              </div>
+              <Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 shrink-0">
                 {filteredTransactions.length} Data
               </Badge>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
-              {filteredTransactions.length > 0 ? (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                  {filteredTransactions.map((t, i) => {
-                    const jenisLower = (t.Jenis || '').toLowerCase().trim();
-                    const service = MAIN_SERVICES.find(s => 
-                      s.name.toLowerCase().trim() === jenisLower ||
-                      (jenisLower.includes('qris') && s.name.toLowerCase() === 'qris') ||
-                      (jenisLower.includes('tarik') && s.name.toLowerCase() === 'tarik') ||
-                      (jenisLower.includes('kirim') && s.name.toLowerCase() === 'kirim') ||
-                      (jenisLower.includes('transfer') && s.name.toLowerCase() === 'kirim') ||
-                      (jenisLower.includes('dana') && s.name.toLowerCase() === 'e-walet') ||
-                      (jenisLower.includes('ovo') && s.name.toLowerCase() === 'e-walet') ||
-                      (jenisLower.includes('gopay') && s.name.toLowerCase() === 'e-walet') ||
-                      (jenisLower.includes('shopeepay') && s.name.toLowerCase() === 'e-walet') ||
-                      (jenisLower.includes('pulsa') && s.name.toLowerCase() === 'pulsa') ||
-                      (jenisLower.includes('data') && s.name.toLowerCase() === 'data') ||
-                      (jenisLower.includes('listrik') && s.name.toLowerCase() === 'listrik') ||
-                      (jenisLower.includes('belanja') && s.name.toLowerCase() === 'belanja') ||
-                      (jenisLower.includes('fisik') && s.name.toLowerCase() === 'belanja')
-                    );
-                    const statusLower = (t.Status || '').toLowerCase();
-                    const displayName = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
-                    
-                    let ribbonColor = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
-                    if (statusLower.includes('selesai') || statusLower.includes('sukses')) ribbonColor = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400';
-                    else if (statusLower.includes('kasbon')) ribbonColor = 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400';
-                    else if (statusLower.includes('proses')) ribbonColor = 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400';
-                    else if (statusLower.includes('belum') || statusLower.includes('ambil')) ribbonColor = 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400';
-
-                    const profit = (parseCurrency(t.Pemasukan) || 0) - (parseCurrency(t.HargaModal) || 0);
-
-                    const timeStr = (() => {
-                      const rawTime = t.created_at || t.Tanggal;
-                      if (rawTime) {
-                        const d = new Date(rawTime);
-                        if (!isNaN(d.getTime()) && d.getTime() > 0) {
-                          return `${d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false })} WIB`;
-                        }
-                        const timeMatch = String(rawTime).match(/\b\d{2}:\d{2}(?::\d{2})?\b/);
-                        if (timeMatch) return `${timeMatch[0].slice(0, 5)} WIB`;
-                      }
-                      return '';
-                    })();
-
-                    const handleClick = () => {
-                      setSelectedTransaction(t);
-                    };
-
-                    return (
-                      <div
-                        key={t.id || t.id_transaksi || i}
-                        onClick={handleClick}
-                        className="p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40 cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                          {/* Service Icon */}
-                          <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${service?.bgColor || 'bg-slate-50 dark:bg-slate-800'}`}>
-                            {service ? service.icon : <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-slate-400 dark:text-slate-300" />}
-                          </div>
-
-                          {/* Transaction Info */}
-                          <div className="space-y-1 min-w-0 flex-1">
-                            {/* Baris 1: Nama & Jam di samping kanannya */}
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-xs sm:text-sm font-black text-[#005E6A] dark:text-teal-300 uppercase truncate">
-                                {displayName}
-                              </p>
-                              {timeStr && (
-                                <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                                  • {timeStr}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Baris 2: Jenis, Melalui & Status di samping kanannya */}
-                            <div className="flex items-center gap-2 text-[8px] sm:text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase flex-wrap">
-                              <span className="text-slate-700 dark:text-slate-200">{t.Jenis}</span>
-                              <span>•</span>
-                              <span className="text-slate-400 dark:text-slate-500">via {t.Melalui || 'Tunai'}</span>
-                              <span className={`text-[7px] sm:text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${ribbonColor}`}>
-                                {t.Status || 'Selesai'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Amount & Profit */}
-                        <div className="text-right shrink-0 pl-2">
-                          <p className="text-sm sm:text-base font-black text-[#005E6A] dark:text-teal-300 tracking-tight">
-                            Rp {(parseCurrency(t.Pemasukan) || 0).toLocaleString('id-ID')}
-                          </p>
-                          <div className="mt-0.5 flex items-center justify-end gap-1">
-                            <span className="text-[8px] font-bold text-slate-400 uppercase">Laba:</span>
-                            <span className="text-[9px] sm:text-[10px] font-black text-[#F15A24]">
-                              Rp {profit.toLocaleString('id-ID')}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="p-12 text-center">
-                  <div className="flex flex-col items-center gap-2 text-slate-300 dark:text-slate-600">
-                    <FileText className="w-10 h-10 stroke-[1.5]" />
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-                      Tidak ada transaksi pada {formattedFilterDate}
-                    </p>
-                  </div>
-                </div>
+            {/* Kolom Cari Transaksi */}
+            <div className="w-full flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-2xl shadow-xs">
+              <Search className="w-4 h-4 text-slate-400 dark:text-slate-400 shrink-0" />
+              <input 
+                type="text"
+                placeholder="Cari transaksi berdasarkan nama, jenis, atau melalui..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="flex-1 w-full min-w-0 bg-transparent border-none text-xs font-bold text-[#005E6A] dark:text-teal-300 focus:outline-none placeholder:text-slate-300 dark:placeholder:text-slate-500 placeholder:font-medium"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery("")}
+                  className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors group shrink-0 cursor-pointer"
+                  title="Hapus pencarian"
+                >
+                  <X className="w-4 h-4 text-slate-400 group-hover:text-slate-600 dark:text-slate-300" />
+                </button>
               )}
             </div>
           </div>
+
+          {/* Transaction List Items */}
+          {filteredTransactions.length > 0 ? (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
+              {filteredTransactions.map((t, i) => {
+                const jenisLower = (t.Jenis || '').toLowerCase().trim();
+                const service = MAIN_SERVICES.find(s => 
+                  s.name.toLowerCase().trim() === jenisLower ||
+                  (jenisLower.includes('qris') && s.name.toLowerCase() === 'qris') ||
+                  (jenisLower.includes('tarik') && s.name.toLowerCase() === 'tarik') ||
+                  (jenisLower.includes('kirim') && s.name.toLowerCase() === 'kirim') ||
+                  (jenisLower.includes('transfer') && s.name.toLowerCase() === 'kirim') ||
+                  (jenisLower.includes('dana') && s.name.toLowerCase() === 'e-walet') ||
+                  (jenisLower.includes('ovo') && s.name.toLowerCase() === 'e-walet') ||
+                  (jenisLower.includes('gopay') && s.name.toLowerCase() === 'e-walet') ||
+                  (jenisLower.includes('shopeepay') && s.name.toLowerCase() === 'e-walet') ||
+                  (jenisLower.includes('pulsa') && s.name.toLowerCase() === 'pulsa') ||
+                  (jenisLower.includes('data') && s.name.toLowerCase() === 'data') ||
+                  (jenisLower.includes('listrik') && s.name.toLowerCase() === 'listrik') ||
+                  (jenisLower.includes('belanja') && s.name.toLowerCase() === 'belanja') ||
+                  (jenisLower.includes('fisik') && s.name.toLowerCase() === 'belanja')
+                );
+                const statusLower = (t.Status || '').toLowerCase();
+                const displayName = (!t.Nama || t.Nama === "Unknown" || t.Nama.trim() === "") ? "Pelanggan Umum" : t.Nama;
+                
+                let ribbonColor = 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+                if (statusLower.includes('selesai') || statusLower.includes('sukses')) ribbonColor = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400';
+                else if (statusLower.includes('kasbon')) ribbonColor = 'bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400';
+                else if (statusLower.includes('proses')) ribbonColor = 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400';
+                else if (statusLower.includes('belum') || statusLower.includes('ambil')) ribbonColor = 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400';
+
+                const profit = (parseCurrency(t.Pemasukan) || 0) - (parseCurrency(t.HargaModal) || 0);
+
+                const timeStr = (() => {
+                  const rawTime = t.created_at || t.Tanggal;
+                  if (rawTime) {
+                    const d = new Date(rawTime);
+                    if (!isNaN(d.getTime()) && d.getTime() > 0) {
+                      return `${d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false })} WIB`;
+                    }
+                    const timeMatch = String(rawTime).match(/\b\d{2}:\d{2}(?::\d{2})?\b/);
+                    if (timeMatch) return `${timeMatch[0].slice(0, 5)} WIB`;
+                  }
+                  return '';
+                })();
+
+                const handleClick = () => {
+                  setSelectedTransaction(t);
+                };
+
+                return (
+                  <div
+                    key={t.id || t.id_transaksi || i}
+                    onClick={handleClick}
+                    className="p-4 sm:p-5 flex items-center justify-between gap-3 sm:gap-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                      {/* Service Icon */}
+                      <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${service?.bgColor || 'bg-slate-50 dark:bg-slate-800'}`}>
+                        {service ? service.icon : <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6 text-slate-400 dark:text-slate-300" />}
+                      </div>
+
+                      {/* Transaction Info */}
+                      <div className="space-y-1 min-w-0 flex-1">
+                        {/* Baris 1: Nama & Jam di samping kanannya */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-xs sm:text-sm font-black text-[#F15A24] dark:text-orange-400 uppercase truncate">
+                            {displayName}
+                          </p>
+                          {timeStr && (
+                            <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                              • {timeStr}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Baris 2: Jenis, Melalui & Status di samping kanannya */}
+                        <div className="flex items-center gap-2 text-[8px] sm:text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase flex-wrap">
+                          <span className="text-slate-700 dark:text-slate-200">{t.Jenis}</span>
+                          <span>•</span>
+                          <span className="text-slate-400 dark:text-slate-500">via {t.Melalui || 'Tunai'}</span>
+                          <span className={`text-[7px] sm:text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${ribbonColor}`}>
+                            {t.Status || 'Selesai'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Amount & Profit */}
+                    <div className="text-right shrink-0 pl-2">
+                      <p className="text-sm sm:text-base font-black text-[#005E6A] dark:text-teal-300 tracking-tight">
+                        Rp {(parseCurrency(t.Pemasukan) || 0).toLocaleString('id-ID')}
+                      </p>
+                      <div className="mt-0.5 flex items-center justify-end gap-1">
+                        <span className="text-[8px] font-bold text-slate-400 uppercase">Laba:</span>
+                        <span className="text-[9px] sm:text-[10px] font-black text-[#F15A24]">
+                          Rp {profit.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-12 text-center">
+              <div className="flex flex-col items-center gap-2 text-slate-300 dark:text-slate-600">
+                <FileText className="w-10 h-10 stroke-[1.5]" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                  Tidak ada transaksi pada {formattedFilterDate}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Modal Tambah Data Penjualan Virtual */}
+      {/* Fixed Bottom Navbar - Tambah Data */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800 px-6 py-3.5 shadow-[0_-4px_25px_rgba(0,0,0,0.08)]">
+        <button
+          type="button"
+          onClick={handleOpenAdd}
+          className="w-full py-3.5 px-6 rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider text-white bg-[#F15A24] hover:bg-[#d94e1d] shadow-lg shadow-[#F15A24]/25 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.98]"
+          title="Tambah Data Penjualan"
+        >
+          <Plus className="w-4 h-4 sm:w-5 sm:h-5 stroke-[3]" />
+          <span>Tambah Data Penjualan</span>
+        </button>
+      </div>
+
+      {/* Bottom Sheet Tambah Data Penjualan Virtual */}
       <AnimatePresence>
         {isAddModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-end justify-center">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsAddModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
             />
 
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden z-10 p-6 space-y-5"
+              drag="y"
+              dragDirectionLock
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.6 }}
+              onDragEnd={(_e, info) => {
+                if (info.offset.y > 90 || info.velocity.y > 350) {
+                  setIsAddModalOpen(false);
+                }
+              }}
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-t-[2.25rem] shadow-2xl border-t border-x border-slate-200/80 dark:border-slate-800 overflow-hidden z-10 p-5 sm:p-6 space-y-4 max-h-[90vh] flex flex-col touch-pan-y"
             >
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              {/* Drag Handle Bar */}
+              <div className="w-full flex items-center justify-center pt-0 pb-1 cursor-grab active:cursor-grabbing shrink-0 select-none">
+                <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+              </div>
+
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#005E6A]/10 text-[#005E6A] dark:text-teal-300 flex items-center justify-center font-black">
                     <Plus className="w-5 h-5" />
@@ -8686,12 +8707,10 @@ const AdminReportPage = ({
                     <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
                       Tambah Penjualan Virtual
                     </h3>
-                    <p className="text-[10px] font-mono text-[#005E6A] dark:text-teal-400 font-bold">
-                      Otomatis: {addFormData.id_transaksi}
-                    </p>
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsAddModalOpen(false)}
                   className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
@@ -8700,7 +8719,7 @@ const AdminReportPage = ({
               </div>
 
               {/* Add Form Body */}
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+              <div className="space-y-4 overflow-y-auto pr-1 flex-1 overscroll-contain">
                 {/* ID Transaksi (Auto) & Tanggal (Kalender Popup) */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -9007,11 +9026,11 @@ const AdminReportPage = ({
               </div>
 
               {/* Modal Action Buttons */}
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="w-full py-3 px-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer text-center"
                 >
                   Batal
                 </button>
@@ -9019,7 +9038,7 @@ const AdminReportPage = ({
                   type="button"
                   onClick={handleSaveAdd}
                   disabled={isAdding}
-                  className="px-5 py-2.5 rounded-xl bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center justify-center gap-2"
                 >
                   {isAdding ? (
                     <>
@@ -9036,21 +9055,43 @@ const AdminReportPage = ({
         )}
       </AnimatePresence>
 
-      {/* Modal Detail Transaksi */}
+      {/* Bottom Sheet Detail Transaksi */}
       <AnimatePresence>
         {selectedTransaction && !isEditModalOpen && !showDeleteConfirm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-[100] flex items-end justify-center">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedTransaction(null)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
+            />
+
+            <motion.div
+              drag="y"
+              dragDirectionLock
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.6 }}
+              onDragEnd={(_e, info) => {
+                if (info.offset.y > 90 || info.velocity.y > 350) {
+                  setSelectedTransaction(null);
+                }
+              }}
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-t-[2.25rem] shadow-2xl border-t border-x border-slate-200/80 dark:border-slate-800 overflow-hidden z-10 p-5 sm:p-6 space-y-4 max-h-[90vh] flex flex-col touch-pan-y"
             >
+              {/* Drag Handle Bar */}
+              <div className="w-full flex items-center justify-center pt-0 pb-1 cursor-grab active:cursor-grabbing shrink-0 select-none">
+                <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+              </div>
+
               {/* Header */}
-              <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-teal-500/10 dark:bg-teal-500/20 text-[#005E6A] dark:text-teal-400 flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-xl bg-teal-500/10 dark:bg-teal-500/20 text-[#005E6A] dark:text-teal-400 flex items-center justify-center font-bold">
                     <Receipt className="w-5 h-5" />
                   </div>
                   <div>
@@ -9063,6 +9104,7 @@ const AdminReportPage = ({
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setSelectedTransaction(null)}
                   className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
@@ -9071,7 +9113,7 @@ const AdminReportPage = ({
               </div>
 
               {/* Body Content */}
-              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+              <div className="space-y-4 overflow-y-auto flex-1 text-xs pr-1 overscroll-contain">
                 {/* Pelanggan Info Box */}
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -9188,33 +9230,25 @@ const AdminReportPage = ({
               </div>
 
               {/* Actions Footer */}
-              <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between gap-3">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer flex items-center justify-center gap-2"
+                  title="Hapus Transaksi"
                 >
                   <Trash2 className="w-4 h-4" />
-                  <span>Hapus</span>
+                  <span>Hapus Data</span>
                 </button>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTransaction(null)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors cursor-pointer"
-                  >
-                    Tutup
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEditModal(selectedTransaction)}
-                    className="px-5 py-2.5 rounded-xl bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center gap-2"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    <span>Edit Transaksi</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenEditModal(selectedTransaction)}
+                  className="w-full py-3 px-4 rounded-xl bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center justify-center gap-2"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  <span>Edit Data</span>
+                </button>
               </div>
             </motion.div>
           </div>
@@ -9247,7 +9281,7 @@ const AdminReportPage = ({
                   type="button"
                   disabled={isDeletingTx}
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
@@ -9275,19 +9309,41 @@ const AdminReportPage = ({
         )}
       </AnimatePresence>
 
-      {/* Modal Edit Transaksi */}
+      {/* Bottom Sheet Edit Transaksi */}
       <AnimatePresence>
         {isEditModalOpen && selectedTransaction && (
-          <div className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="fixed inset-0 z-[105] flex items-end justify-center">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditModalOpen(false)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
+            />
+
+            <motion.div
+              drag="y"
+              dragDirectionLock
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.6 }}
+              onDragEnd={(_e, info) => {
+                if (info.offset.y > 90 || info.velocity.y > 350) {
+                  setIsEditModalOpen(false);
+                }
+              }}
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-t-[2.25rem] shadow-2xl border-t border-x border-slate-200/80 dark:border-slate-800 overflow-hidden z-10 p-5 sm:p-6 space-y-4 max-h-[90vh] flex flex-col touch-pan-y"
             >
+              {/* Drag Handle Bar */}
+              <div className="w-full flex items-center justify-center pt-0 pb-1 cursor-grab active:cursor-grabbing shrink-0 select-none">
+                <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full" />
+              </div>
+
               {/* Header */}
-              <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-teal-500/10 dark:bg-teal-500/20 text-[#005E6A] dark:text-teal-400 flex items-center justify-center font-bold">
                     <Edit3 className="w-5 h-5" />
@@ -9302,6 +9358,7 @@ const AdminReportPage = ({
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsEditModalOpen(false)}
                   className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
@@ -9310,7 +9367,7 @@ const AdminReportPage = ({
               </div>
 
               {/* Form Body */}
-              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+              <div className="space-y-4 overflow-y-auto flex-1 text-xs pr-1 overscroll-contain">
                 {/* ID Transaksi & Tanggal */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -9497,11 +9554,11 @@ const AdminReportPage = ({
               </div>
 
               {/* Actions Footer */}
-              <div className="p-4 sm:p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-end gap-3">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-50 transition-colors cursor-pointer"
+                  className="w-full py-3 px-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/30 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider transition-colors cursor-pointer text-center"
                 >
                   Batal
                 </button>
@@ -9509,7 +9566,7 @@ const AdminReportPage = ({
                   type="button"
                   disabled={isSavingEdit}
                   onClick={handleSaveEdit}
-                  className="px-5 py-2.5 rounded-xl bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center gap-2"
+                  className="w-full py-3 px-4 rounded-xl bg-[#005E6A] hover:bg-[#004e58] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer shadow-md flex items-center justify-center gap-2"
                 >
                   {isSavingEdit ? (
                     <>
@@ -9519,7 +9576,7 @@ const AdminReportPage = ({
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      <span>Simpan Perubahan</span>
+                      <span>Simpan Data</span>
                     </>
                   )}
                 </button>
@@ -16140,17 +16197,26 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
 const AdminOtherManagement = ({ 
   salesTransactions, 
   setSalesTransactions, 
-  fetchData 
+  fetchData,
+  customers = [],
+  setCustomers,
+  debtTransactions = [],
+  setDebtTransactions
 }: { 
   salesTransactions: SalesTransaction[];
   setSalesTransactions?: React.Dispatch<React.SetStateAction<SalesTransaction[]>>;
   fetchData?: (showLoading?: boolean, collectionName?: string | string[], extraOptions?: any) => Promise<void>;
+  customers?: Customer[];
+  setCustomers?: React.Dispatch<React.SetStateAction<Customer[]>>;
+  debtTransactions?: DebtTransaction[];
+  setDebtTransactions?: React.Dispatch<React.SetStateAction<DebtTransaction[]>>;
 }) => {
   const navigate = useNavigate();
 
   const [selectedTransaction, setSelectedTransaction] = useState<SalesTransaction | null>(null);
   const [editStatus, setEditStatus] = useState<string>("BELUM DIAMBIL");
   const [editSebagian, setEditSebagian] = useState<string>("0");
+  const [isDeductDebt, setIsDeductDebt] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
@@ -16163,7 +16229,7 @@ const AdminOtherManagement = ({
 
   useEffect(() => {
     if (fetchData) {
-      fetchData(false, "salesTransactions", { pendingOnly: true });
+      fetchData(false, ["salesTransactions", "debtTransactions", "customers"], { pendingOnly: true });
     }
   }, []);
 
@@ -16301,11 +16367,58 @@ const AdminOtherManagement = ({
     color: item.color || "#ccc"
   }));
 
+  // Find target customer & debt calculations for selectedTransaction
+  const targetCustomer = useMemo(() => {
+    if (!selectedTransaction) return null;
+    const tName = (selectedTransaction.Nama || "").toLowerCase().trim();
+    const tId = (selectedTransaction.id_pelanggan || "").toLowerCase().trim();
+    if (tName === "pelanggan umum" || tName === "unknown" || !tName) return null;
+    return (customers || []).find(c => {
+      const cId = (c.id_pelanggan || c.id || "").toLowerCase().trim();
+      const cName = (c.Nama || c.nama || "").toLowerCase().trim();
+      if (tId && cId && tId === cId) return true;
+      if (tName && cName && tName === cName) return true;
+      return false;
+    }) || null;
+  }, [selectedTransaction, customers]);
+
+  const customerHutang = useMemo(() => {
+    if (!targetCustomer) return 0;
+    return parseCurrency(targetCustomer.Hutang) || 0;
+  }, [targetCustomer]);
+
+  const netDanaTarik = useMemo(() => {
+    if (!selectedTransaction) return 0;
+    const modal = parseCurrency(selectedTransaction.HargaModal || selectedTransaction.Pemasukan || 0);
+    const status = (selectedTransaction.Status || "").toUpperCase().trim();
+    const melalui = (selectedTransaction.Melalui || "").toUpperCase().trim();
+    let base = modal;
+    if (melalui === "EDC BNI" && status === "BELUM DIAMBIL") {
+      base -= 1500;
+    }
+    const sebagian = parseCurrency(selectedTransaction.Sebagian) || 0;
+    return Math.max(0, base - sebagian);
+  }, [selectedTransaction]);
+
+  const potongHutangNominal = useMemo(() => {
+    if (customerHutang <= 0 || netDanaTarik <= 0) return 0;
+    return Math.min(netDanaTarik, customerHutang);
+  }, [netDanaTarik, customerHutang]);
+
+  const sisaUangDiterima = useMemo(() => {
+    return Math.max(0, netDanaTarik - potongHutangNominal);
+  }, [netDanaTarik, potongHutangNominal]);
+
+  const sisaHutangPelanggan = useMemo(() => {
+    return Math.max(0, customerHutang - potongHutangNominal);
+  }, [customerHutang, potongHutangNominal]);
+
   const handleItemClick = (name: string, item?: any) => {
     if (item && item.rawTransaction) {
       setSelectedTransaction(item.rawTransaction);
       setEditStatus((item.rawTransaction.Status || "BELUM DIAMBIL").toUpperCase().trim());
       setEditSebagian(String(item.rawTransaction.Sebagian || 0));
+      setIsDeductDebt(false);
     } else {
       navigate(`/lainnya/${encodeURIComponent(name)}`);
     }
@@ -16322,7 +16435,79 @@ const AdminOtherManagement = ({
       Sebagian: numericSebagian
     };
 
-    // 1. Update Supabase if connected
+    // 1. If deduct debt is checked and applicable, record repayment in debt database & update customer balance
+    if (isDeductDebt && customerHutang > 0 && potongHutangNominal > 0 && targetCustomer) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${y}-${m}-${d}`;
+
+      const idHutang = generateNextHutangId(targetCustomer, debtTransactions || [], customers || []);
+      const newSaldoHutang = sisaHutangPelanggan;
+      const keteranganBayar = `Potong Penjualan / Dana Lainnya (${selectedTransaction.Jenis || 'Lainnya'} - ${selectedTransaction.id_transaksi || selectedTransaction.id || ''})`;
+
+      const newDebtTx: DebtTransaction = {
+        id: idHutang,
+        id_hutang: idHutang,
+        id_pelanggan: targetCustomer.id_pelanggan || targetCustomer.id || '',
+        Tanggal: todayStr,
+        Nama: targetCustomer.Nama,
+        Tipe: 'BAYAR',
+        Jumlah: potongHutangNominal,
+        Keterangan: keteranganBayar,
+        SaldoAkhir: newSaldoHutang
+      };
+
+      // Update debt local state
+      if (setDebtTransactions) {
+        setDebtTransactions(prev => [newDebtTx, ...prev]);
+      }
+
+      // Update customer local state
+      if (setCustomers) {
+        setCustomers(prev => prev.map(c => {
+          const isMatch = (c.id_pelanggan && targetCustomer.id_pelanggan && c.id_pelanggan === targetCustomer.id_pelanggan) ||
+                          (c.Nama && targetCustomer.Nama && c.Nama.toLowerCase().trim() === targetCustomer.Nama.toLowerCase().trim());
+          if (isMatch) {
+            return { ...c, Hutang: newSaldoHutang };
+          }
+          return c;
+        }));
+      }
+
+      // Sync debt transaction to Supabase
+      if (SupabaseDebtService.isConnected()) {
+        try {
+          await SupabaseDebtService.addDebtTransaction({
+            id_hutang: idHutang,
+            id_pelanggan: targetCustomer.id_pelanggan || targetCustomer.id || '',
+            tanggal: todayStr,
+            nama: targetCustomer.Nama,
+            tipe: 'BAYAR',
+            jumlah: potongHutangNominal,
+            keterangan: keteranganBayar,
+            saldo_akhir: newSaldoHutang
+          });
+        } catch (err) {
+          console.error("Gagal simpan pelunasan hutang ke Supabase:", err);
+        }
+      }
+
+      // Sync customer balance to Supabase
+      if (SupabaseCustomerService.isConnected()) {
+        try {
+          await SupabaseCustomerService.upsertCustomer({
+            ...targetCustomer,
+            hutang: newSaldoHutang
+          });
+        } catch (err) {
+          console.error("Gagal update saldo hutang customer di Supabase:", err);
+        }
+      }
+    }
+
+    // 2. Update Supabase Sales
     if (SupabaseSalesService.isConnected()) {
       try {
         const payload: SupabaseSalesTransaction = {
@@ -16345,7 +16530,7 @@ const AdminOtherManagement = ({
       }
     }
 
-    // 2. Update local state
+    // 3. Update local state Sales
     if (setSalesTransactions) {
       setSalesTransactions(prev => prev.map(t => {
         const matchId = (t.id_transaksi || t.id) === (selectedTransaction.id_transaksi || selectedTransaction.id);
@@ -16361,7 +16546,7 @@ const AdminOtherManagement = ({
     }
 
     if (fetchData) {
-      fetchData(false, "salesTransactions", { pendingOnly: true });
+      fetchData(false, ["salesTransactions", "debtTransactions", "customers"], { pendingOnly: true });
     }
 
     setIsSaving(false);
@@ -16392,20 +16577,24 @@ const AdminOtherManagement = ({
         listTitle="Antrean Transaksi"
       />
 
-      {/* Transaction Detail & Edit Modal */}
+      {/* Transaction Detail & Edit Bottom Sheet */}
       <AnimatePresence>
         {selectedTransaction && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 dark:border-slate-800 relative space-y-5"
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="bg-white dark:bg-slate-900 rounded-t-[2.5rem] sm:rounded-3xl p-5 sm:p-6 w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl border border-slate-100 dark:border-slate-800 relative space-y-4"
             >
+              {/* Drag handle bar for mobile */}
+              <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto -mt-1 sm:hidden shrink-0" />
+
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
                 <div>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-full border border-teal-200 dark:border-teal-800">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-[#005E6A] dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-full border border-teal-200 dark:border-teal-800">
                     Detail Transaksi
                   </span>
                   <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 mt-1">
@@ -16413,6 +16602,7 @@ const AdminOtherManagement = ({
                   </h3>
                 </div>
                 <button 
+                  type="button"
                   onClick={() => setSelectedTransaction(null)}
                   className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                 >
@@ -16420,75 +16610,176 @@ const AdminOtherManagement = ({
                 </button>
               </div>
 
-              {/* Detail Info Card */}
-              <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl space-y-2.5 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Pelanggan</span>
-                  <span className="font-black text-slate-800 dark:text-slate-100">{selectedTransaction.Nama || 'Pelanggan Umum'}</span>
+              {/* Scrollable Content Body */}
+              <div className="flex-1 overflow-y-auto space-y-4 pr-1 py-1">
+                {/* Detail Info Card */}
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl space-y-2.5 text-xs border border-slate-100 dark:border-slate-800">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Pelanggan</span>
+                    <span className="font-black text-[#F15A24] dark:text-orange-400">{selectedTransaction.Nama || 'Pelanggan Umum'}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Tanggal</span>
+                    <span className="font-black text-slate-800 dark:text-slate-100">{selectedTransaction.Tanggal}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Jenis / Melalui</span>
+                    <span className="font-black text-slate-800 dark:text-slate-100">{selectedTransaction.Jenis || 'Lainnya'} ({selectedTransaction.Melalui || '-'})</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Total Nominal (Modal)</span>
+                    <span className="font-black text-[#005E6A] dark:text-teal-400">
+                      Rp {(parseCurrency(selectedTransaction.HargaModal || selectedTransaction.Pemasukan || 0)).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
+                    <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Sebagian (Saat Ini)</span>
+                    <span className="font-black text-amber-600 dark:text-amber-400">
+                      Rp {(parseCurrency(selectedTransaction.Sebagian || 0)).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center border-t border-slate-200/60 dark:border-slate-700/60 pt-2 bg-teal-50/50 dark:bg-teal-950/20 -mx-4 -mb-4 p-3 rounded-b-2xl">
+                    <span className="text-teal-700 dark:text-teal-300 font-black uppercase tracking-wider text-[10px]">Sisa Dana Bersih</span>
+                    <span className="font-black text-sm text-[#005E6A] dark:text-teal-400">
+                      Rp {netDanaTarik.toLocaleString('id-ID')}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Tanggal</span>
-                  <span className="font-black text-slate-800 dark:text-slate-100">{selectedTransaction.Tanggal}</span>
+
+                {/* Hutang Section & Saran Pemotongan (Hanya jika pelanggan punya hutang) */}
+                {customerHutang > 0 && targetCustomer && (
+                  <div className="bg-gradient-to-br from-rose-50 to-orange-50 dark:from-rose-950/30 dark:to-orange-950/20 p-4 rounded-2xl border border-rose-200 dark:border-rose-900/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-rose-500 text-white flex items-center justify-center">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-300">
+                          Status Hutang Pelanggan
+                        </span>
+                      </div>
+                      <span className="text-xs font-black text-rose-600 dark:text-rose-400">
+                        Rp {customerHutang.toLocaleString('id-ID')}
+                      </span>
+                    </div>
+
+                    {/* Saran Box */}
+                    <div className="bg-white/90 dark:bg-slate-900/90 p-3 rounded-xl border border-rose-100 dark:border-rose-900/30 space-y-2 text-xs">
+                      <div className="flex items-start gap-1.5 text-slate-700 dark:text-slate-300">
+                        <span className="text-amber-500 font-bold shrink-0">💡</span>
+                        <p className="text-[11px] leading-relaxed">
+                          {netDanaTarik >= customerHutang ? (
+                            <>
+                              Dana mengendap (<strong>Rp {netDanaTarik.toLocaleString('id-ID')}</strong>) dapat melunasi seluruh hutang (<strong>Rp {customerHutang.toLocaleString('id-ID')}</strong>). Sisa uang tunai yang diberikan ke pelanggan adalah <strong className="text-teal-600 dark:text-teal-400">Rp {sisaUangDiterima.toLocaleString('id-ID')}</strong> dan status hutang menjadi <strong className="text-teal-600 dark:text-teal-400">LUNAS (Rp 0)</strong>.
+                            </>
+                          ) : (
+                            <>
+                              Dana mengendap (<strong>Rp {netDanaTarik.toLocaleString('id-ID')}</strong>) dipotongkan untuk mengurangi hutang. Sisa hutang pelanggan menjadi <strong className="text-rose-600 dark:text-rose-400">Rp {sisaHutangPelanggan.toLocaleString('id-ID')}</strong> dan uang tunai yang diserahkan adalah <strong>Rp 0</strong>.
+                            </>
+                          )}
+                        </p>
+                      </div>
+
+                      {/* Simulasi Ringkas */}
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px]">
+                        <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg">
+                          <span className="text-slate-400 font-bold block uppercase">Potong Hutang:</span>
+                          <span className="font-black text-rose-600 dark:text-rose-400">Rp {potongHutangNominal.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div className="bg-slate-50 dark:bg-slate-800/60 p-2 rounded-lg">
+                          <span className="text-slate-400 font-bold block uppercase">Sisa Diterima:</span>
+                          <span className="font-black text-teal-600 dark:text-teal-400">Rp {sisaUangDiterima.toLocaleString('id-ID')}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Checkbox Ambil Uang & Potong Hutang */}
+                    <label className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                      isDeductDebt 
+                        ? 'bg-rose-100/70 dark:bg-rose-900/40 border-rose-500 text-rose-950 dark:text-rose-100 shadow-sm' 
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-rose-300'
+                    }`}>
+                      <input 
+                        type="checkbox"
+                        checked={isDeductDebt}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setIsDeductDebt(checked);
+                          if (checked && editStatus === "BELUM DIAMBIL") {
+                            setEditStatus("SELESAI");
+                          }
+                        }}
+                        className="w-5 h-5 mt-0.5 rounded text-[#F15A24] focus:ring-rose-500 cursor-pointer accent-[#F15A24] shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-black uppercase tracking-tight text-rose-700 dark:text-rose-300">
+                            Ambil Uang & Potong Hutang
+                          </span>
+                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-200 dark:bg-rose-800 text-rose-800 dark:text-rose-200">
+                            - Rp {potongHutangNominal.toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                        <p className="text-[10px] opacity-80 mt-0.5 leading-tight text-slate-600 dark:text-slate-300">
+                          {isDeductDebt 
+                            ? "Status penjualan diubah & pelunasan otomatis dicatat di buku hutang."
+                            : "Centang untuk melunasi/memotong hutang pelanggan dari transaksi ini."}
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                )}
+
+                {/* Dropdown Status */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                    Status Transaksi
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-black text-slate-800 dark:text-slate-100 outline-none focus:border-[#005E6A] dark:focus:border-teal-400 transition-colors cursor-pointer"
+                  >
+                    <option value="BELUM DIAMBIL">BELUM DIAMBIL</option>
+                    <option value="DIPROSES">DIPROSES</option>
+                    <option value="SELESAI">SELESAI</option>
+                  </select>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Jenis / Melalui</span>
-                  <span className="font-black text-slate-800 dark:text-slate-100">{selectedTransaction.Jenis || 'Lainnya'} ({selectedTransaction.Melalui || '-'})</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Total Nominal (Modal)</span>
-                  <span className="font-black text-[#005E6A] dark:text-teal-400">
-                    Rp {(parseCurrency(selectedTransaction.HargaModal || selectedTransaction.Pemasukan || 0)).toLocaleString('id-ID')}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center border-t border-slate-200/60 dark:border-slate-700/60 pt-2">
-                  <span className="text-slate-400 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">Sebagian (Saat Ini)</span>
-                  <span className="font-black text-amber-600 dark:text-amber-400">
-                    Rp {(parseCurrency(selectedTransaction.Sebagian || 0)).toLocaleString('id-ID')}
-                  </span>
+
+                {/* Input Diambil Sebagian */}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
+                    Diambil Sebagian (Rp)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
+                      Rp
+                    </span>
+                    <input 
+                      type="number"
+                      value={editSebagian}
+                      onChange={(e) => setEditSebagian(e.target.value)}
+                      placeholder="0"
+                      className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-black text-slate-800 dark:text-slate-100 outline-none focus:border-[#005E6A] dark:focus:border-teal-400 transition-colors"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Dropdown Status */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
-                  Status Transaksi
-                </label>
-                <select
-                  value={editStatus}
-                  onChange={(e) => setEditStatus(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs font-black text-slate-800 dark:text-slate-100 outline-none focus:border-[#005E6A] dark:focus:border-teal-400 transition-colors cursor-pointer"
-                >
-                  <option value="BELUM DIAMBIL">BELUM DIAMBIL</option>
-                  <option value="DIPROSES">DIPROSES</option>
-                  <option value="SELESAI">SELESAI</option>
-                </select>
-              </div>
-
-              {/* Input Diambil Sebagian */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 block">
-                  Diambil Sebagian (Rp)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">
-                    Rp
-                  </span>
-                  <input 
-                    type="number"
-                    value={editSebagian}
-                    onChange={(e) => setEditSebagian(e.target.value)}
-                    placeholder="0"
-                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-black text-slate-800 dark:text-slate-100 outline-none focus:border-[#005E6A] dark:focus:border-teal-400 transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Button Simpan */}
-              <div className="pt-2">
+              {/* Symmetrical Action Buttons (Batal Merah, Simpan Teal) */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3 shrink-0">
                 <button
+                  type="button"
+                  onClick={() => setSelectedTransaction(null)}
+                  className="w-full py-3 px-4 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider transition-all cursor-pointer text-center active:scale-[0.99]"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
                   onClick={handleSave}
                   disabled={isSaving}
-                  className="w-full bg-[#005E6A] hover:bg-[#004d57] active:scale-[0.99] text-white font-black text-xs uppercase tracking-wider py-3 px-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="w-full py-3 px-4 rounded-xl bg-[#005E6A] hover:bg-[#004e58] active:scale-[0.99] text-white font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-lg shadow-teal-900/10"
                 >
                   {isSaving ? (
                     <>
@@ -16496,7 +16787,10 @@ const AdminOtherManagement = ({
                       <span>Menyimpan...</span>
                     </>
                   ) : (
-                    <span>Simpan</span>
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Simpan</span>
+                    </>
                   )}
                 </button>
               </div>
@@ -30615,7 +30909,7 @@ export default function App() {
       if (p.includes('/input-data')) return ['customers', 'stockItems'];
       if (p.includes('/database')) return [];
       if (p.includes('/rewards')) return ['redeemedPoints', 'customers', 'salesTransactions'];
-      if (p.includes('/management-lainnya')) return ['salesTransactions', 'customers'];
+      if (p.includes('/management-lainnya')) return ['salesTransactions', 'customers', 'debtTransactions'];
       if (p.includes('/digiflazz')) {
         return ['customers'];
       }
@@ -31816,6 +32110,10 @@ export default function App() {
               salesTransactions={salesTransactions} 
               setSalesTransactions={setSalesTransactions} 
               fetchData={fetchData} 
+              customers={customers}
+              setCustomers={setCustomers}
+              debtTransactions={debtTransactions}
+              setDebtTransactions={setDebtTransactions}
             />
           </AdminLayout>
         } />

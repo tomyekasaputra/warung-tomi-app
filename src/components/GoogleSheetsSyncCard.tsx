@@ -11,7 +11,8 @@ import {
   syncCustomersToGoogleSheets, 
   updateGoogleSheetsConfig, 
   GoogleSheetsAuthStatus,
-  CustomerSyncPayload
+  CustomerSyncPayload,
+  getDeltaSyncChanges
 } from "../lib/googleSheetsSync";
 import { signInWithGoogle, logoutGoogle, getCachedAccessToken, getCachedUserData } from "../lib/firebaseAuth";
 
@@ -91,6 +92,10 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
   }, []);
 
   // Deep fingerprint of customer data to detect ANY edit, addition, or deletion
+  const deltaStatus = React.useMemo(() => {
+    return getDeltaSyncChanges(customers);
+  }, [customers]);
+
   const customersFingerprint = React.useMemo(() => {
     return JSON.stringify(
       customers.map((c) => [
@@ -294,7 +299,7 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
             <FileSpreadsheet className="w-6 h-6" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-wider">
                 Google Sheets Auto-Sync
               </h3>
@@ -305,6 +310,15 @@ export const GoogleSheetsSyncCard: React.FC<GoogleSheetsSyncCardProps> = ({
               ) : (
                 <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" /> Belum Login
+                </span>
+              )}
+              {deltaStatus.changedCount > 0 ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800 flex items-center gap-1">
+                  <Zap className="w-3 h-3 text-indigo-600 animate-pulse" /> {deltaStatus.changedCount} Data Berubah
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800 flex items-center gap-1">
+                  <Check className="w-3 h-3 text-teal-600" /> Delta: 100% Up to Date
                 </span>
               )}
             </div>

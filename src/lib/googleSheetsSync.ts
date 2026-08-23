@@ -410,45 +410,47 @@ export const computeCustomerStatsForSheets = (
     const name = (c.nama || c.Nama || "").toLowerCase().trim();
     const idPelanggan = c.id_pelanggan || c.id;
 
-    // 1. Savings (All time)
+    // 1. Tabungan: Saldo Otentik Langsung dari Database Pelanggan Supabase
     const userSavings = getMergedUserList(savingsByCustId, savingsByCustName, idPelanggan, name);
-    const tabungan = userSavings.length > 0 ? (userSavings[userSavings.length - 1].SaldoAkhir ?? userSavings[userSavings.length - 1].saldo_akhir ?? 0) : 0;
-
-    // 2. Investment (All time active)
-    const userInvestments = getMergedUserList(investmentsByCustId, investmentsByCustName, idPelanggan, name);
-    const investasi = userInvestments.filter(t => (t.Status || t.status || '') !== "Selesai").reduce((acc, curr) => acc + (curr.Nominal || curr.nominal || 0), 0);
-
-    // 3. Debt (All time)
-    const userDebts = getMergedUserList(debtsByCustId, debtsByCustName, idPelanggan, name);
-    const hutang = userDebts.length > 0 ? (userDebts[userDebts.length - 1].SaldoAkhir ?? userDebts[userDebts.length - 1].saldo_akhir ?? 0) : 0;
-
-    // 4. Sales (All time)
-    const userSales = getMergedUserList(salesByCustId, salesByCustName, idPelanggan, name);
-
-    // 5. Lainnya (All time active)
-    const userLainnyaTransactions = userSales.filter(t => {
-      const s = (t.Status || t.status || "").toUpperCase().trim();
-      return s === "BELUM DIAMBIL" || s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING";
+    userSavings.sort((a, b) => {
+      const timeA = parseDate(a.Tanggal || a.tanggal || a.created_at || a.CreatedAt).getTime();
+      const timeB = parseDate(b.Tanggal || b.tanggal || b.created_at || b.CreatedAt).getTime();
+      return timeA - timeB;
     });
+    const tabungan = Number(
+      c.tabungan ?? (c as any).Tabungan ?? 
+      (userSavings.length > 0 ? (userSavings[userSavings.length - 1].SaldoAkhir ?? userSavings[userSavings.length - 1].saldo_akhir) : 0) ?? 
+      0
+    );
 
-    const lainnya = userLainnyaTransactions.reduce((acc, curr) => {
-      const s = (curr.Status || curr.status || "").toUpperCase().trim();
-      if (s === "DIPROSES" || s === "PROSES" || s === "DI PROSES" || s === "PENDING") {
-        return acc + (parseCurrency(curr.Pemasukan || curr.pemasukan || curr.Total || curr.total || curr.Nominal || curr.nominal) || parseCurrency(curr.HargaModal || curr.harga_modal) || 0);
-      }
-      let base = parseCurrency(curr.HargaModal || curr.harga_modal || curr.Pemasukan || curr.pemasukan || curr.Total || curr.total || curr.Nominal || curr.nominal || 0);
-      if ((curr.Melalui || curr.melalui || "").toUpperCase().trim() === "EDC BNI" && s === "BELUM DIAMBIL") {
-        base -= 1500;
-      }
-      const net = base - (parseCurrency(curr.Sebagian || curr.sebagian) || 0);
-      return acc + (net > 0 ? net : 0);
-    }, 0);
+    // 2. Investasi: Saldo Otentik Langsung dari Database Pelanggan Supabase
+    const investasi = Number(c.investasi ?? (c as any).Investasi ?? 0);
 
-    // Direct from Supabase / customer data without recalculation
-    const poin = Number(c.poin ?? (c as any).point ?? (c as any).Poin ?? (c as any).Point ?? 0);
+    // 3. Lainnya: Saldo Otentik Langsung dari Database Pelanggan Supabase
+    const lainnya = Number(c.lainnya ?? (c as any).Lainnya ?? 0);
+
+    // 4. Hutang: Saldo Otentik Langsung dari Database Pelanggan Supabase
+    const userDebts = getMergedUserList(debtsByCustId, debtsByCustName, idPelanggan, name);
+    userDebts.sort((a, b) => {
+      const timeA = parseDate(a.Tanggal || a.tanggal || a.created_at || a.CreatedAt).getTime();
+      const timeB = parseDate(b.Tanggal || b.tanggal || b.created_at || b.CreatedAt).getTime();
+      return timeA - timeB;
+    });
+    const hutang = Number(
+      c.hutang ?? (c as any).Hutang ?? 
+      (userDebts.length > 0 ? (userDebts[userDebts.length - 1].SaldoAkhir ?? userDebts[userDebts.length - 1].saldo_akhir) : 0) ?? 
+      0
+    );
+
+    // 5. Poin & Level: Saldo Otentik Langsung dari Database Pelanggan Supabase
+    const poin = Number(c.point ?? (c as any).Point ?? (c as any).poin ?? (c as any).Poin ?? 0);
     const level = String(c.level ?? (c as any).Level ?? 'Bronze');
 
-    // 7. 6 AKTIVITAS TERAKHIR (Semua Waktu / All Time)
+    // 6. Sales (All time)
+    const userSales = getMergedUserList(salesByCustId, salesByCustName, idPelanggan, name);
+    const userInvestments = getMergedUserList(investmentsByCustId, investmentsByCustName, idPelanggan, name);
+
+    // 7. 10 AKTIVITAS TERAKHIR (Semua Waktu / All Time - Lintas Bulan, Limit 10)
     const rawActivities: any[] = [];
     const salesKasbonTimes: number[] = [];
     const salesTabunganTimes: number[] = [];
@@ -463,19 +465,41 @@ export const computeCustomerStatsForSheets = (
       let rawJenis = t.Kategori || t.kategori || t.Jenis || t.jenis || t.Keterangan || t.keterangan || t.NamaBarang || t.nama_barang || t.Produk || t.produk || t.Barang || t.barang;
       if (!rawJenis || rawJenis === 'Umum' || rawJenis === '-' || rawJenis === 'Transaksi') rawJenis = 'Belanja';
       const jenisClean = String(rawJenis).replace(/^Transaksi\s+/i, '').trim().toUpperCase() || 'BELANJA';
-      const rawMetode = String(t.MetodePembayaran || t.metode_pembayaran || t.Metode || t.metode || t.MetodeBayar || t.metode_bayar || '').trim().toUpperCase();
-      const statusUpper = String(t.Status || t.status || '').trim().toUpperCase();
-      const isKasbon = statusUpper.includes('KASBON') || Boolean(t.Kasbon) || Boolean(t.IsKasbon) || rawMetode.includes('KASBON') || rawMetode.includes('HUTANG');
-      const isTabungan = rawMetode.includes('TABUNGAN');
+      const rawMetode = String(
+        t.MetodePembayaran || t.metode_pembayaran || 
+        t.Metode || t.metode || 
+        t.MetodeBayar || t.metode_bayar || 
+        t.Metode_Bayar ||
+        t.paymentMethod || t.payment_method || 
+        ''
+      ).trim().toUpperCase();
+      const statusUpper = String(t.Status || t.status || t.StatusPembayaran || t.status_pembayaran || '').trim().toUpperCase();
+      const rawCatatan = String(t.Catatan || t.catatan || t.Keterangan || t.keterangan || t.Berita || t.berita || '').trim().toUpperCase();
+      
+      const isKasbon = 
+        statusUpper.includes('KASBON') || 
+        statusUpper.includes('HUTANG') ||
+        rawMetode.includes('KASBON') || 
+        rawMetode.includes('HUTANG') || 
+        rawCatatan.includes('KASBON') || 
+        rawCatatan.includes('HUTANG') || 
+        Boolean(t.Kasbon) || Boolean(t.kasbon) || 
+        Boolean(t.IsKasbon) || Boolean(t.isKasbon) || Boolean(t.is_kasbon);
+
+      const isTabungan = rawMetode.includes('TABUNGAN') || rawCatatan.includes('TABUNGAN') || statusUpper.includes('TABUNGAN');
 
       if (isKasbon) salesKasbonTimes.push(d.getTime());
       if (isTabungan) salesTabunganTimes.push(d.getTime());
 
       let tag = '';
       if (isKasbon) {
-        tag = ' (Kasbon)';
+        if (!jenisClean.includes('KASBON') && !jenisClean.includes('HUTANG')) {
+          tag = ' (Kasbon)';
+        }
       } else if (isTabungan) {
-        tag = ' (Tabungan)';
+        if (!jenisClean.includes('TABUNGAN')) {
+          tag = ' (Tabungan)';
+        }
       } else if (rawMetode && !rawMetode.includes('TUNAI') && !rawMetode.includes('CASH')) {
         const titleMetode = rawMetode.charAt(0) + rawMetode.slice(1).toLowerCase();
         tag = ` (${titleMetode})`;
@@ -524,9 +548,9 @@ export const computeCustomerStatsForSheets = (
           });
         }
       } else {
-        // Cek apakah kasbon ini berasal dari penjualan belanja/virtual yang sudah dicatat di userSales
-        const isFromSales = /belanja|virtual|trx|pos|inv/i.test(rawKet) || salesKasbonTimes.some(st => Math.abs(st - d.getTime()) <= 300000);
-        if (!isFromSales) {
+        // Cek apakah kasbon ini adalah duplikasi dari sales_transactions yang sudah masuk di userSales
+        const isDuplicateFromSales = salesKasbonTimes.some(st => Math.abs(st - d.getTime()) <= 300000);
+        if (!isDuplicateFromSales) {
           const itemReason = extractCleanItemOrReason(rawKet, salesMap);
           const tag = itemReason ? ` (${itemReason})` : '';
           rawActivities.push({
@@ -618,7 +642,7 @@ export const computeCustomerStatsForSheets = (
     });
 
     rawActivities.sort((a, b) => b.date.getTime() - a.date.getTime());
-    const aktivitas_terakhir = rawActivities.slice(0, 6).map(a => a.text).join('\n') || 'Belum ada aktivitas';
+    const aktivitas_terakhir = rawActivities.slice(0, 10).map(a => a.text).join('\n') || 'Belum ada aktivitas';
 
     // 8. 10 MUTASI TABUNGAN TERAKHIR (Semua Waktu / All Time - Termasuk Bulan Sebelumnya, Limit 10 Baris)
     const mappedSavings = userSavings.map(t => {
@@ -804,6 +828,113 @@ export const computeCustomerStatsForSheets = (
   });
 };
 
+/**
+ * Helper Delta Sync: Menghitung compact hash fingerprint untuk mendeteksi perubahan data pelanggan secara efisien
+ */
+const hashString = (str: string): string => {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(36);
+};
+
+export const computeCustomerRowFingerprint = (row: any): string => {
+  const id = row.id_pelanggan || row.id || '';
+  const nama = row.nama || row.Nama || '';
+  const tabungan = Number(row.tabungan ?? row.Tabungan ?? 0);
+  const investasi = Number(row.investasi ?? row.Investasi ?? 0);
+  const lainnya = Number(row.lainnya ?? row.Lainnya ?? 0);
+  const hutang = Number(row.hutang ?? row.Hutang ?? 0);
+  const poin = Number(row.poin ?? row.point ?? row.Poin ?? row.Point ?? 0);
+  const level = row.level || row.Level || 'Bronze';
+  const belanja = Number(row.total_belanja_bulan_ini ?? row.TotalBelanjaBulanIni ?? row.belanja_bulan_ini ?? 0);
+  const aktivitas = String(row.aktivitas_terakhir || row.AktivitasTerakhir || '').trim();
+  const mutasi = String(row.mutasi_tabungan || row.MutasiTabungan || '').trim();
+  const catatan = String(row.catatan_hutang || row.CatatanHutang || '').trim();
+
+  const raw = `${id}::${nama}::${tabungan}::${investasi}::${lainnya}::${hutang}::${poin}::${level}::${belanja}::${aktivitas}::${mutasi}::${catatan}`;
+  return hashString(raw);
+};
+
+/**
+ * Mengambil status perubahan data pelanggan dibandingkan sinkronisasi sebelumnya
+ */
+export const getDeltaSyncChanges = (currentRows: any[]) => {
+  try {
+    const rawSaved = localStorage.getItem('GOOGLE_SHEETS_CUSTOMER_FINGERPRINTS');
+    const savedMap: Record<string, string> = rawSaved ? JSON.parse(rawSaved) : {};
+    
+    const changedRows: any[] = [];
+    const unchangedRows: any[] = [];
+
+    currentRows.forEach(row => {
+      const key = (row.id_pelanggan || row.id || row.nama || '').trim().toLowerCase();
+      const currentFp = computeCustomerRowFingerprint(row);
+      const prevFp = savedMap[key];
+
+      if (!prevFp || prevFp !== currentFp) {
+        changedRows.push(row);
+      } else {
+        unchangedRows.push(row);
+      }
+    });
+
+    return {
+      changedRows,
+      unchangedRows,
+      changedCount: changedRows.length,
+      unchangedCount: unchangedRows.length,
+      isAllUnchanged: changedRows.length === 0,
+      totalCount: currentRows.length
+    };
+  } catch {
+    return {
+      changedRows: currentRows,
+      unchangedRows: [],
+      changedCount: currentRows.length,
+      unchangedCount: 0,
+      isAllUnchanged: false,
+      totalCount: currentRows.length
+    };
+  }
+};
+
+/**
+ * Menyimpan fingerprint data yang telah sukses disinkronkan
+ */
+export const saveDeltaSyncFingerprints = (rows: any[]) => {
+  try {
+    const fpMap: Record<string, string> = {};
+    rows.forEach(row => {
+      const key = (row.id_pelanggan || row.id || row.nama || '').trim().toLowerCase();
+      if (key) {
+        fpMap[key] = computeCustomerRowFingerprint(row);
+      }
+    });
+    localStorage.setItem('GOOGLE_SHEETS_CUSTOMER_FINGERPRINTS', JSON.stringify(fpMap));
+  } catch (e) {
+    console.warn('Gagal menyimpan delta fingerprint:', e);
+  }
+};
+
+/**
+ * In-Memory Transaction Cache untuk Delta Fetch (Menghemat Egress Bandwidth Supabase)
+ */
+interface DeltaSyncMemoryCache {
+  lastFetchTime: string | null;
+  sales: any[];
+  savings: any[];
+  debts: any[];
+}
+
+const memoryDeltaCache: DeltaSyncMemoryCache = {
+  lastFetchTime: null,
+  sales: [],
+  savings: [],
+  debts: []
+};
+
 export const syncAllCustomerStatsToGoogleSheets = async (
   custList: any[],
   salesList: any[] = [],
@@ -811,7 +942,8 @@ export const syncAllCustomerStatsToGoogleSheets = async (
   debtList: any[] = [],
   investList: any[] = [],
   redeemList: any[] = [],
-  scriptUrl: string = DEFAULT_APPS_SCRIPT_URL
+  scriptUrl: string = DEFAULT_APPS_SCRIPT_URL,
+  options?: { deltaOnly?: boolean; forceFull?: boolean; isAutoSync?: boolean }
 ) => {
   let targetCustList = custList || [];
   let targetSales = salesList || [];
@@ -820,10 +952,14 @@ export const syncAllCustomerStatsToGoogleSheets = async (
   let targetInvest = investList || [];
   let targetRedeem = redeemList || [];
 
-  // Always fetch the complete customer database from Supabase if connected to ensure 100% of customers are synced
+  const nowIso = new Date().toISOString();
+
+  // 1. Ambil data master pelanggan dari Supabase secara hemat bandwidth (seleksi kolom ringan tanpa foto besar)
   if (SupabaseCustomerService.isConnected()) {
     try {
-      const { data: supaAllCust } = await SupabaseCustomerService.getCustomers();
+      const { data: supaAllCust } = await SupabaseCustomerService.getCustomers({
+        select: 'id_pelanggan, nama, pin, telepon, alamat, tabungan, investasi, lainnya, hutang, point, level, created_at'
+      });
       if (supaAllCust && supaAllCust.length > 0) {
         targetCustList = supaAllCust.map((c: any, index: number) => ({
           id_pelanggan: c.id_pelanggan || `CUST-${String(index + 1).padStart(4, '0')}`,
@@ -836,8 +972,6 @@ export const syncAllCustomerStatsToGoogleSheets = async (
           Telepon: c.telepon || '',
           alamat: c.alamat || '',
           Alamat: c.alamat || '',
-          foto: c.foto || '',
-          Foto: c.foto || '',
           poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
           Poin: Number(c.point ?? c.poin ?? c.Poin ?? c.Point ?? 0),
           level: c.level || c.Level || 'Bronze',
@@ -857,12 +991,66 @@ export const syncAllCustomerStatsToGoogleSheets = async (
     }
   }
 
-  // Fetch full savings history (all months) if Supabase connected
+  // 2. Fetch Riwayat Transaksi Penjualan menggunakan Teknik Delta / Incremental Cache
+  if (SupabaseSalesService.isConnected()) {
+    try {
+      const salesQueryOptions: any = {
+        select: 'id_transaksi, id_pelanggan, nama, tanggal, pemasukan, jenis, metode, status, melalui, harga_modal, sebagian, created_at',
+        limit: memoryDeltaCache.lastFetchTime ? 1000 : 3000
+      };
+      if (memoryDeltaCache.lastFetchTime) {
+        salesQueryOptions.since = memoryDeltaCache.lastFetchTime;
+      }
+      const { data: supaSales } = await SupabaseSalesService.getSales(salesQueryOptions);
+      if (supaSales && supaSales.length > 0) {
+        const mapped = supaSales.map((item: any) => ({
+          ...item,
+          id: item.id_transaksi || item.id,
+          id_pelanggan: item.id_pelanggan,
+          Tanggal: item.tanggal,
+          tanggal: item.tanggal,
+          Nama: item.nama,
+          nama: item.nama,
+          Metode: item.metode,
+          metode: item.metode,
+          MetodePembayaran: item.metode,
+          metode_pembayaran: item.metode,
+          paymentMethod: item.metode,
+          Status: item.status,
+          status: item.status,
+          Total: Number(item.pemasukan) || 0,
+          total: Number(item.pemasukan) || 0,
+          Pemasukan: Number(item.pemasukan) || 0,
+          pemasukan: Number(item.pemasukan) || 0,
+          Kategori: item.jenis || '',
+          kategori: item.jenis || '',
+          Catatan: item.melalui || ''
+        }));
+        
+        // Merge into delta cache
+        const existingIds = new Set(memoryDeltaCache.sales.map(s => s.id));
+        const newOnly = mapped.filter(m => !existingIds.has(m.id));
+        memoryDeltaCache.sales = [...newOnly, ...memoryDeltaCache.sales].slice(0, 5000);
+      }
+      targetSales = memoryDeltaCache.sales.length > 0 ? memoryDeltaCache.sales : targetSales;
+    } catch (salesErr) {
+      console.warn('Could not fetch sales in delta sync:', salesErr);
+    }
+  }
+
+  // 3. Fetch Riwayat Transaksi Tabungan menggunakan Teknik Delta / Incremental Cache
   if (SupabaseSavingsService.isConnected()) {
     try {
-      const { data: supaAllSavings } = await SupabaseSavingsService.getSavings({ limit: 50000 });
-      if (supaAllSavings && supaAllSavings.length > 0) {
-        targetSavings = supaAllSavings.map((item: any) => ({
+      const savingsQueryOptions: any = {
+        select: 'id_tabungan, id_pelanggan, nama, tanggal, tipe, nominal, saldo_akhir, berita, created_at',
+        limit: memoryDeltaCache.lastFetchTime ? 1000 : 3000
+      };
+      if (memoryDeltaCache.lastFetchTime) {
+        savingsQueryOptions.since = memoryDeltaCache.lastFetchTime;
+      }
+      const { data: supaSavings } = await SupabaseSavingsService.getSavings(savingsQueryOptions);
+      if (supaSavings && supaSavings.length > 0) {
+        const mapped = supaSavings.map((item: any) => ({
           id: item.id_tabungan || item.id,
           id_tabungan: item.id_tabungan,
           id_pelanggan: item.id_pelanggan || 'CUST-0000',
@@ -878,18 +1066,30 @@ export const syncAllCustomerStatsToGoogleSheets = async (
           saldo_akhir: Number(item.saldo_akhir) || 0,
           Berita: item.berita || '-'
         }));
+        const existingIds = new Set(memoryDeltaCache.savings.map(s => s.id));
+        const newOnly = mapped.filter(m => !existingIds.has(m.id));
+        memoryDeltaCache.savings = [...newOnly, ...memoryDeltaCache.savings].slice(0, 5000);
       }
+      targetSavings = memoryDeltaCache.savings.length > 0 ? memoryDeltaCache.savings : targetSavings;
     } catch (savingsErr) {
-      console.warn('Could not fetch all savings from Supabase in syncAllCustomerStatsToGoogleSheets:', savingsErr);
+      console.warn('Could not fetch savings in delta sync:', savingsErr);
     }
   }
 
-  // Fetch full debt history (all months) if Supabase connected
+  // 4. Fetch Riwayat Transaksi Hutang menggunakan Teknik Delta / Incremental Cache
   if (SupabaseDebtService.isConnected()) {
     try {
-      const { data: supaAllDebts } = await SupabaseDebtService.getDebts({ allHistory: true, limit: 50000 });
-      if (supaAllDebts && supaAllDebts.length > 0) {
-        targetDebt = supaAllDebts.map((item: any) => ({
+      const debtQueryOptions: any = {
+        select: 'id_hutang, id_pelanggan, nama, tanggal, tipe, jumlah, saldo_akhir, keterangan, created_at',
+        allHistory: true,
+        limit: memoryDeltaCache.lastFetchTime ? 1000 : 3000
+      };
+      if (memoryDeltaCache.lastFetchTime) {
+        debtQueryOptions.since = memoryDeltaCache.lastFetchTime;
+      }
+      const { data: supaDebts } = await SupabaseDebtService.getDebts(debtQueryOptions);
+      if (supaDebts && supaDebts.length > 0) {
+        const mapped = supaDebts.map((item: any) => ({
           id: item.id_hutang || item.id,
           id_hutang: item.id_hutang,
           id_pelanggan: item.id_pelanggan || 'CUST-0000',
@@ -905,13 +1105,22 @@ export const syncAllCustomerStatsToGoogleSheets = async (
           saldo_akhir: Number(item.saldo_akhir) || 0,
           Keterangan: item.keterangan || '-'
         }));
+        const existingIds = new Set(memoryDeltaCache.debts.map(s => s.id));
+        const newOnly = mapped.filter(m => !existingIds.has(m.id));
+        memoryDeltaCache.debts = [...newOnly, ...memoryDeltaCache.debts].slice(0, 5000);
       }
+      targetDebt = memoryDeltaCache.debts.length > 0 ? memoryDeltaCache.debts : targetDebt;
     } catch (debtErr) {
-      console.warn('Could not fetch all debts from Supabase in syncAllCustomerStatsToGoogleSheets:', debtErr);
+      console.warn('Could not fetch debts in delta sync:', debtErr);
     }
   }
 
-  if (!targetCustList || targetCustList.length === 0) return { success: false, message: 'Tidak ada data pelanggan' };
+  // Update timestamp cache
+  memoryDeltaCache.lastFetchTime = nowIso;
+
+  if (!targetCustList || targetCustList.length === 0) {
+    return { success: false, message: 'Tidak ada data pelanggan' };
+  }
 
   try {
     const formattedStats = computeCustomerStatsForSheets(
@@ -923,9 +1132,29 @@ export const syncAllCustomerStatsToGoogleSheets = async (
       targetRedeem
     );
 
+    // 5. Periksa apakah ada perubahan data (Delta Check)
+    const deltaStatus = getDeltaSyncChanges(formattedStats);
+
+    // Jika deltaOnly aktif atau proses otomatis dan TIDAK ada data yang berubah sama sekali:
+    if ((options?.deltaOnly || options?.isAutoSync) && !options?.forceFull && deltaStatus.isAllUnchanged) {
+      return {
+        success: true,
+        skipped: true,
+        changedCount: 0,
+        unchangedCount: deltaStatus.unchangedCount,
+        count: targetCustList.length,
+        message: 'Semua data pelanggan sudah mutakhir (Delta Sync: 0 data berubah, bandwidth dihemat 100%)'
+      };
+    }
+
     const payload = {
       action: 'syncCustomers',
-      customers: formattedStats
+      customers: formattedStats,
+      deltaInfo: {
+        changedCount: deltaStatus.changedCount,
+        totalCount: deltaStatus.totalCount,
+        isDeltaSync: true
+      }
     };
 
     let syncSuccess = false;
@@ -983,6 +1212,9 @@ export const syncAllCustomerStatsToGoogleSheets = async (
     }
 
     if (syncSuccess) {
+      // Simpan fingerprint data terbaru agar sinkronisasi selanjutnya hanya mengirim data yang berubah
+      saveDeltaSyncFingerprints(formattedStats);
+
       const timeNow = new Date().toLocaleTimeString('id-ID', {
         hour: '2-digit',
         minute: '2-digit',
@@ -995,7 +1227,13 @@ export const syncAllCustomerStatsToGoogleSheets = async (
       });
       const fullTimeStr = `${dateNow} ${timeNow}`;
       localStorage.setItem('LAST_SHEETS_SYNC', fullTimeStr);
-      return { success: true, timestamp: fullTimeStr, count: targetCustList.length };
+      return { 
+        success: true, 
+        timestamp: fullTimeStr, 
+        count: targetCustList.length,
+        changedCount: deltaStatus.changedCount,
+        unchangedCount: deltaStatus.unchangedCount
+      };
     } else {
       return { success: false, error: errorMsg || 'Gagal menyinkronkan data' };
     }
