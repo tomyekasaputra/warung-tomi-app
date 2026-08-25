@@ -39,6 +39,7 @@ import CustomerManagement from "./components/CustomerManagement";
 import GoogleSheetsPreviewPage from "./components/GoogleSheetsPreviewPage";
 import { DetailBelanjaPage } from "./components/DetailBelanjaPage";
 import { DetailTabunganPage } from "./components/DetailTabunganPage";
+import { AdminSavingsDetailPage } from "./components/AdminSavingsDetailPage";
 import { sendDigiflazzPLNInquiry, sendDigiflazzTransaction, fetchDigiflazzPricelist } from "./lib/digiflazz";
 import { AdminDigiflazzPage } from "./components/AdminDigiflazzPage";
 import { DetailHutangPage } from "./components/DetailHutangPage";
@@ -181,7 +182,7 @@ import { Html5Qrcode, Html5QrcodeScanner } from "html5-qrcode";
 
 // --- Types ---
 
-const parseDate = (dateStr: any): Date => {
+export const parseDate = (dateStr: any): Date => {
   if (!dateStr || dateStr === "-") return new Date(0);
   if (dateStr instanceof Date) return dateStr;
   const trimmed = String(dateStr).trim();
@@ -263,13 +264,13 @@ const formatIndonesianDateWithDay = (dateStr: string) => {
   return `${relativeLabel}, ${dateNum} ${monthName} ${yearNum}`;
 };
 
-const parseCurrency = (val: string | number | undefined) => {
+export const parseCurrency = (val: string | number | undefined) => {
   if (val === undefined || val === null) return 0;
   if (typeof val === 'number') return val;
   return parseInt(String(val).replace(/[^\d]/g, '')) || 0;
 };
 
-const formatCurrency = (val: number | string | undefined) => {
+export const formatCurrency = (val: number | string | undefined) => {
   const num = typeof val === 'number' ? val : parseCurrency(val);
   return num.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
@@ -709,9 +710,12 @@ export interface SalesTransaction {
   id_pelanggan?: string;
   Tanggal: string;
   Nama: string;
+  nama?: string;
   Jenis: string;
   Metode: string;
   Pemasukan: number;
+  pemasukan?: number;
+  hargaAdmin?: number;
   Poin?: number;
   Status: string;
   Melalui: string;
@@ -8601,7 +8605,7 @@ const AdminReportPage = ({
                       <div className="space-y-1 min-w-0 flex-1">
                         {/* Baris 1: Nama & Jam di samping kanannya */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-xs sm:text-sm font-black text-[#F15A24] dark:text-orange-400 uppercase truncate">
+                          <p className="text-xs sm:text-sm font-black text-[#005E6A] dark:text-teal-300 uppercase truncate">
                             {displayName}
                           </p>
                           {timeStr && (
@@ -8973,10 +8977,11 @@ const AdminReportPage = ({
                       Nominal Jual (Rp) *
                     </label>
                     <input
-                      type="number"
-                      placeholder="100000"
-                      value={addFormData.Pemasukan || ""}
-                      onChange={(e) => handlePemasukanChange(Number(e.target.value))}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="100.000"
+                      value={addFormData.Pemasukan ? formatCurrency(addFormData.Pemasukan) : ""}
+                      onChange={(e) => handlePemasukanChange(parseCurrency(e.target.value))}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold focus:outline-none focus:border-[#005E6A]"
                     />
                   </div>
@@ -8986,10 +8991,11 @@ const AdminReportPage = ({
                       Harga Modal (Otomatis)
                     </label>
                     <input
-                      type="number"
-                      placeholder="95000"
-                      value={addFormData.HargaModal || ""}
-                      onChange={(e) => handleHargaModalChange(Number(e.target.value))}
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="95.000"
+                      value={addFormData.HargaModal ? formatCurrency(addFormData.HargaModal) : ""}
+                      onChange={(e) => handleHargaModalChange(parseCurrency(e.target.value))}
                       className="w-full px-3 py-2 bg-teal-50/50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 rounded-xl text-xs font-black text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A]"
                     />
                   </div>
@@ -9002,10 +9008,11 @@ const AdminReportPage = ({
                       Sebagian / DP (Rp)
                     </label>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="numeric"
                       placeholder="0"
-                      value={addFormData.Sebagian || ""}
-                      onChange={(e) => setAddFormData({ ...addFormData, Sebagian: Number(e.target.value) })}
+                      value={addFormData.Sebagian ? formatCurrency(addFormData.Sebagian) : ""}
+                      onChange={(e) => setAddFormData({ ...addFormData, Sebagian: parseCurrency(e.target.value) })}
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold focus:outline-none focus:border-[#005E6A]"
                     />
                   </div>
@@ -9503,9 +9510,10 @@ const AdminReportPage = ({
                       Nominal Jual (Pemasukan)
                     </label>
                     <input
-                      type="number"
-                      value={editFormData.Pemasukan || ''}
-                      onChange={(e) => handleEditPemasukanChange(Number(e.target.value))}
+                      type="text"
+                      inputMode="numeric"
+                      value={editFormData.Pemasukan ? formatCurrency(editFormData.Pemasukan) : ''}
+                      onChange={(e) => handleEditPemasukanChange(parseCurrency(e.target.value))}
                       placeholder="0"
                       className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[#005E6A] dark:text-teal-300 font-black text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                     />
@@ -9515,9 +9523,10 @@ const AdminReportPage = ({
                       Harga Modal
                     </label>
                     <input
-                      type="number"
-                      value={editFormData.HargaModal || ''}
-                      onChange={(e) => handleEditHargaModalChange(Number(e.target.value))}
+                      type="text"
+                      inputMode="numeric"
+                      value={editFormData.HargaModal ? formatCurrency(editFormData.HargaModal) : ''}
+                      onChange={(e) => handleEditHargaModalChange(parseCurrency(e.target.value))}
                       placeholder="0"
                       className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
                     />
@@ -9531,9 +9540,10 @@ const AdminReportPage = ({
                       Bayar Sebagian (DP)
                     </label>
                     <input
-                      type="number"
-                      value={editFormData.Sebagian || ''}
-                      onChange={(e) => setEditFormData({ ...editFormData, Sebagian: Number(e.target.value) })}
+                      type="text"
+                      inputMode="numeric"
+                      value={editFormData.Sebagian ? formatCurrency(editFormData.Sebagian) : ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, Sebagian: parseCurrency(e.target.value) })}
                       placeholder="0"
                       className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 font-bold focus:ring-2 focus:ring-teal-500 outline-none"
                     />
@@ -12200,7 +12210,6 @@ const AdminSavingsManagement = ({
 
   const [dbSummary, setDbSummary] = useState<any>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState<boolean>(false);
-  const [timeframe, setTimeframe] = useState<'all' | 'month'>('all');
 
   const fetchSummary = useCallback(async () => {
     setIsLoadingSummary(true);
@@ -12404,28 +12413,18 @@ const AdminSavingsManagement = ({
   }, []);
 
   const { items, stats, total } = useMemo(() => {
-    const isAll = timeframe === 'all';
-
     if (dbSummary && dbSummary.customer_savings && dbSummary.customer_savings.length > 0) {
       // Filter hanya pelanggan dengan saldo tabungan > 0
       const activeSavings = dbSummary.customer_savings.filter((c: any) => Number(c.value || 0) > 0);
 
       const itms = activeSavings.map((c: any, idx: number) => {
         const color = CHART_COLORS[idx % CHART_COLORS.length];
-        const txCount = isAll ? (c.tx_count || 0) : (c.month_tx_count ?? c.tx_count ?? 0);
-        const totalSetor = isAll ? (c.total_setor || 0) : (c.month_setor ?? 0);
-        const totalTarik = isAll ? (c.total_tarik || 0) : (c.month_tarik ?? 0);
-        const totalMutasiNominal = totalSetor + totalTarik;
 
         return {
           name: c.name,
           value: Number(c.value || 0),
           color,
-          photo: savedPhotos[c.name] || c.foto,
-          countLabel: `${txCount} Mutasi (${isAll ? 'Dari Awal' : 'Bulan Ini'})`,
-          subtext: totalMutasiNominal > 0
-            ? `Setor: Rp ${totalSetor.toLocaleString('id-ID')} • Tarik: Rp ${totalTarik.toLocaleString('id-ID')}`
-            : (c.subtext || `Setor: Rp 0 • Tarik: Rp 0`)
+          photo: savedPhotos[c.name] || c.foto
         };
       });
 
@@ -12445,10 +12444,6 @@ const AdminSavingsManagement = ({
       };
     }
 
-    const now = new Date();
-    const thisMonth = now.getMonth();
-    const thisYear = now.getFullYear();
-
     let totalSum = 0;
     // Filter hanya nasabah dengan saldo di atas 0
     const filtered = customers.filter(c => {
@@ -12464,46 +12459,11 @@ const AdminSavingsManagement = ({
       const val = parseCurrency(c.Tabungan);
       const color = CHART_COLORS[idx % CHART_COLORS.length];
 
-      // Ambil transaksi nasabah ini menggunakan pencocokan cerdas Nama dan ID (isCustomerSavingMatch)
-      const userTxs = transactions.filter(t => isCustomerSavingMatch(t, c));
-      let allCount = userTxs.length;
-      let monthCount = 0;
-      let allSetor = 0;
-      let allTarik = 0;
-      let monthSetor = 0;
-      let monthTarik = 0;
-
-      userTxs.forEach(t => {
-        const d = parseDate(t.Tanggal);
-        const isThisMonth = d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-        const isSetor = String(t.Tipe || '').toUpperCase() === 'SETOR';
-        const isTarik = String(t.Tipe || '').toUpperCase() === 'TARIK';
-        const nominal = t.Nominal || 0;
-
-        if (isSetor) allSetor += nominal;
-        if (isTarik) allTarik += nominal;
-
-        if (isThisMonth) {
-          monthCount++;
-          if (isSetor) monthSetor += nominal;
-          if (isTarik) monthTarik += nominal;
-        }
-      });
-      
-      const txCount = isAll ? allCount : monthCount;
-      const totalSetor = isAll ? allSetor : monthSetor;
-      const totalTarik = isAll ? allTarik : monthTarik;
-      const totalMutasiNominal = totalSetor + totalTarik;
-
       return { 
         name: c.Nama, 
         value: val, 
         color, 
-        photo: savedPhotos[c.Nama] || c.Foto || c.foto, 
-        countLabel: `${txCount} Mutasi (${isAll ? 'Dari Awal' : 'Bulan Ini'})`,
-        subtext: totalMutasiNominal > 0
-          ? `Setor: Rp ${totalSetor.toLocaleString('id-ID')} • Tarik: Rp ${totalTarik.toLocaleString('id-ID')}`
-          : `Setor: Rp 0 • Tarik: Rp 0`
+        photo: savedPhotos[c.Nama] || c.Foto || c.foto
       };
     });
 
@@ -12515,90 +12475,34 @@ const AdminSavingsManagement = ({
     }));
 
     return { items: itms, stats: sts, total: totalSum };
-  }, [dbSummary, timeframe, customers, transactions, savedPhotos]);
+  }, [dbSummary, customers, savedPhotos]);
 
   const handleItemClick = (name: string) => {
     const cust = customers.find(c => c.Nama.toLowerCase() === name.toLowerCase());
     const param = cust?.id_pelanggan || name;
-    navigate(`/tabungan/${encodeURIComponent(param)}`);
+    navigate(`/admin/savings/${encodeURIComponent(param)}`);
   };
 
   const extraContent = (
-    <div className="w-full space-y-4">
-      {/* Timeframe selector & RPC Database Indicator */}
-      <div className="px-4 pt-1 flex items-center justify-between">
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setTimeframe('all')}
-            className={`px-3 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all ${
-              timeframe === 'all'
-                ? 'bg-white dark:bg-slate-700 text-[#005E6A] dark:text-teal-300 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-            }`}
-          >
-            Dari Awal Menabung
-          </button>
-          <button
-            type="button"
-            onClick={() => setTimeframe('month')}
-            className={`px-3 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all ${
-              timeframe === 'month'
-                ? 'bg-white dark:bg-slate-700 text-[#005E6A] dark:text-teal-300 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-            }`}
-          >
-            Bulan Ini
-          </button>
-        </div>
-
-        <div className="flex items-center gap-1 text-[8px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/50 px-2 py-0.5 rounded-md border border-teal-200/50">
-          <Database className="w-2.5 h-2.5" />
-          <span>RPC Database</span>
-        </div>
-      </div>
-
-      {/* Cash Flow Summary */}
-      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 dark:border-slate-800/50 pt-3 mt-1">
+    <div className="w-full">
+      {/* Cash Flow Summary Bulan Ini */}
+      <div className="flex items-center justify-between w-full px-4 border-t border-slate-50 dark:border-slate-800/50 pt-3 mt-1 pb-2">
         <div className="text-center flex-1">
           <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-[0.1em] mb-1">
-            {timeframe === 'all' ? 'Total Setoran (Dari Awal)' : 'Setoran Bulan Ini'}
+            Setoran Bulan Ini
           </p>
           <p className="text-xs font-black text-green-600">
-            + Rp {(timeframe === 'all' ? cashFlow.setorAll : cashFlow.setorMonth).toLocaleString('id-ID')}
+            + Rp {cashFlow.setorMonth.toLocaleString('id-ID')}
           </p>
         </div>
         <div className="w-[1px] h-8 bg-slate-100 dark:bg-slate-800 flex-shrink-0 mx-2" />
         <div className="text-center flex-1">
           <p className="text-[9px] font-black text-slate-400 dark:text-slate-300 uppercase tracking-[0.1em] mb-1">
-            {timeframe === 'all' ? 'Total Tarikan (Dari Awal)' : 'Tarikan Bulan Ini'}
+            Tarikan Bulan Ini
           </p>
           <p className="text-xs font-black text-red-600">
-            - Rp {(timeframe === 'all' ? cashFlow.tarikAll : cashFlow.tarikMonth).toLocaleString('id-ID')}
+            - Rp {cashFlow.tarikMonth.toLocaleString('id-ID')}
           </p>
-        </div>
-      </div>
-
-      {/* Active Rate Indicator & Total Mutation Counter */}
-      <div className="px-4 pb-2 space-y-2">
-        <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-            <span className="text-[9px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">
-              Total Mutasi Terhitung (RPC)
-            </span>
-          </div>
-          <span className="text-[10px] font-black text-[#005E6A] dark:text-teal-300">
-            {timeframe === 'all' ? `${cashFlow.mutasiAll} Mutasi (Dari Awal)` : `${cashFlow.mutasiMonth} Mutasi (Bulan Ini)`}
-          </span>
-        </div>
-
-        <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-            <span className="text-[9px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest">Keaktifan Menabung</span>
-          </div>
-          <span className="text-[10px] font-black text-[#005E6A] dark:text-teal-300">{activeRate}% Aktif (30hr)</span>
         </div>
       </div>
     </div>
@@ -13569,7 +13473,7 @@ const AdminCustomerDetailPage = ({
               <div className="flex items-center gap-3">
                 <span className="font-bold text-slate-800">Rp {currentSavings.toLocaleString('id-ID')}</span>
                 <button 
-                  onClick={() => navigate(`/tabungan/${encodeURIComponent(localCustomer.Nama)}`)}
+                  onClick={() => navigate(`/admin/savings/${encodeURIComponent(localCustomer.id_pelanggan || localCustomer.Nama)}`)}
                   className="p-2 bg-slate-50 hover:bg-teal-50 text-slate-400 hover:text-[#005E6A] rounded-lg transition-all"
                   title="Detail Tabungan"
                 >
@@ -15742,7 +15646,7 @@ const AdminStockManagement = ({ stock, setStock }: { stock: StockItem[], setStoc
     let isMounted = true;
     SupabaseStockService.calculateStockValuationRpc().then(res => {
       if (isMounted && res.data) {
-        setRpcValuation(res.data);
+        setRpcValuation(res.data as any);
       }
     }).catch(() => {});
     return () => { isMounted = false; };
@@ -16756,9 +16660,10 @@ const AdminOtherManagement = ({
                       Rp
                     </span>
                     <input 
-                      type="number"
-                      value={editSebagian}
-                      onChange={(e) => setEditSebagian(e.target.value)}
+                      type="text"
+                      inputMode="numeric"
+                      value={editSebagian && editSebagian !== "0" ? formatCurrency(parseCurrency(editSebagian)) : (editSebagian === "0" ? "0" : "")}
+                      onChange={(e) => setEditSebagian(String(parseCurrency(e.target.value)))}
                       placeholder="0"
                       className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs font-black text-slate-800 dark:text-slate-100 outline-none focus:border-[#005E6A] dark:focus:border-teal-400 transition-colors"
                     />
@@ -19508,7 +19413,7 @@ const AdminMasterDataPage = ({
       // Special case for customers: search in Nama and id_pelanggan
       if (activeCollection === "customers") {
         const nameMatch = (item.Nama || "").toLowerCase().includes(searchStr);
-        const idPart = (item.id_pelanggan || "");
+        const idPart = ((item as any).id_pelanggan || "");
         const idMatch = idPart.toLowerCase().includes(searchStr);
         return nameMatch || idMatch;
       }
@@ -20028,9 +19933,10 @@ const AdminMasterDataPage = ({
                         <div className="flex items-center w-full">
                           <span className="mr-1 opacity-50">Rp</span>
                           <input 
-                            type="number"
-                            value={popupEditValues.Nominal}
-                            onChange={(e) => setPopupEditValues({ ...popupEditValues, Nominal: parseFloat(e.target.value) || 0 })}
+                            type="text"
+                            inputMode="numeric"
+                            value={popupEditValues.Nominal ? formatCurrency(popupEditValues.Nominal) : ""}
+                            onChange={(e) => setPopupEditValues({ ...popupEditValues, Nominal: parseCurrency(e.target.value) })}
                             className="w-full bg-transparent border-none outline-none"
                           />
                         </div>
@@ -20050,9 +19956,10 @@ const AdminMasterDataPage = ({
                           <div className="flex items-center w-full">
                             <span className="mr-1 opacity-50">Rp</span>
                             <input 
-                              type="number"
-                              value={popupEditValues.Modal || 0}
-                              onChange={(e) => setPopupEditValues({ ...popupEditValues, Modal: parseFloat(e.target.value) || 0 })}
+                              type="text"
+                              inputMode="numeric"
+                              value={popupEditValues.Modal ? formatCurrency(popupEditValues.Modal) : ""}
+                              onChange={(e) => setPopupEditValues({ ...popupEditValues, Modal: parseCurrency(e.target.value) })}
                               className="w-full bg-transparent border-none outline-none"
                             />
                           </div>
@@ -20075,9 +19982,10 @@ const AdminMasterDataPage = ({
                             <div className="flex items-center w-full">
                               <span className="mr-1 opacity-50">Rp</span>
                               <input 
-                                type="number"
-                                value={popupEditValues.Sebagian || 0}
-                                onChange={(e) => setPopupEditValues({ ...popupEditValues, Sebagian: parseFloat(e.target.value) || 0 })}
+                                type="text"
+                                inputMode="numeric"
+                                value={popupEditValues.Sebagian ? formatCurrency(popupEditValues.Sebagian) : ""}
+                                onChange={(e) => setPopupEditValues({ ...popupEditValues, Sebagian: parseCurrency(e.target.value) })}
                                 className="w-full bg-transparent border-none outline-none"
                               />
                             </div>
@@ -22863,7 +22771,7 @@ const compressImage = async (
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
-      const img = new Image();
+      const img = new window.Image();
       img.src = event.target?.result as string;
       img.onload = () => {
         let width = img.width;
@@ -26690,7 +26598,7 @@ interface PLNInquiryResult {
   adminBank: number;
   denda: number;
   totalTagihan: number;
-  statusTagihan: 'LUNAS' | 'BELUM DIBAYAR';
+  statusTagihan: 'LUNAS' | 'BELUM DIBAYAR' | 'TERVERIFIKASI DIGIFLAZZ';
   refId: string;
 }
 
@@ -31369,7 +31277,7 @@ export default function App() {
                 DeltaCache.set('savingTransactions', merged, fetchTime);
                 allSavingsTransactions = merged;
                 setSavingsTransactions(merged);
-              } else if (extraOptions?.monthFilter) {
+              } else if (extraOptions?.monthFilter || p.startsWith('/admin/savings')) {
                 setSavingsTransactions(prev => {
                   const merged = DeltaCache.mergeDelta(prev, mappedSavings, ['id_tabungan', 'id']);
                   return merged;
@@ -32092,6 +32000,30 @@ export default function App() {
         <Route path="/admin/savings" element={
           <AdminLayout activeTab="savings">
             <AdminSavingsManagement customers={customers} setCustomers={setCustomers} transactions={savingsTransactions} setTransactions={setSavingsTransactions} dataSource={dataSource} />
+          </AdminLayout>
+        } />
+        <Route path="/admin/savings/:customerName" element={
+          <AdminLayout activeTab="savings">
+            <AdminSavingsDetailPage 
+              customers={customers} 
+              setCustomers={setCustomers} 
+              savingsTransactions={savingsTransactions} 
+              setSavingsTransactions={setSavingsTransactions} 
+              dataSource={dataSource} 
+              fetchData={fetchData} 
+            />
+          </AdminLayout>
+        } />
+        <Route path="/admin/tabungan/:customerName" element={
+          <AdminLayout activeTab="savings">
+            <AdminSavingsDetailPage 
+              customers={customers} 
+              setCustomers={setCustomers} 
+              savingsTransactions={savingsTransactions} 
+              setSavingsTransactions={setSavingsTransactions} 
+              dataSource={dataSource} 
+              fetchData={fetchData} 
+            />
           </AdminLayout>
         } />
         <Route path="/admin/investment" element={

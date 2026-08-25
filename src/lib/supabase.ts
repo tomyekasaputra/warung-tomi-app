@@ -1385,7 +1385,66 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.calculate_savings_management_summary() TO anon, authenticated, service_role;`;
+GRANT EXECUTE ON FUNCTION public.calculate_savings_management_summary() TO anon, authenticated, service_role;
+
+-- 17. FUNCTION RPC: AMBIL DAFTAR BULAN & RINGKASAN TRANSAKSI NASABAH (HEMAT BANDWIDTH)
+CREATE OR REPLACE FUNCTION public.get_customer_savings_months(p_customer_name TEXT DEFAULT NULL, p_customer_id TEXT DEFAULT NULL)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_months JSONB := '[]'::jsonb;
+  v_earliest_date TEXT := NULL;
+BEGIN
+  -- Ambil tanggal transaksi tertua
+  SELECT MIN(tanggal)
+  INTO v_earliest_date
+  FROM public.savings_transactions
+  WHERE (
+    (p_customer_id IS NOT NULL AND p_customer_id <> '' AND id_pelanggan = p_customer_id)
+    OR (p_customer_name IS NOT NULL AND p_customer_name <> '' AND LOWER(nama) = LOWER(p_customer_name))
+  );
+
+  -- Kelompokkan per bulan dengan agregasi ringkas
+  WITH monthly_data AS (
+    SELECT 
+      CASE 
+        WHEN tanggal ~ '^\d{4}-\d{2}' THEN SUBSTRING(tanggal FROM 1 FOR 7)
+        WHEN tanggal ~ '^\d{2}/\d{2}/\d{4}' THEN SUBSTRING(tanggal FROM 7 FOR 4) || '-' || SUBSTRING(tanggal FROM 4 FOR 2)
+        ELSE TO_CHAR(created_at, 'YYYY-MM')
+      END AS month_key,
+      COUNT(*)::INT AS tx_count,
+      COALESCE(SUM(CASE WHEN UPPER(tipe) = 'SETOR' THEN nominal ELSE 0 END), 0)::NUMERIC AS total_setor,
+      COALESCE(SUM(CASE WHEN UPPER(tipe) = 'TARIK' THEN nominal ELSE 0 END), 0)::NUMERIC AS total_tarik
+    FROM public.savings_transactions
+    WHERE (
+      (p_customer_id IS NOT NULL AND p_customer_id <> '' AND id_pelanggan = p_customer_id)
+      OR (p_customer_name IS NOT NULL AND p_customer_name <> '' AND LOWER(nama) = LOWER(p_customer_name))
+    )
+    GROUP BY 1
+    ORDER BY 1 DESC
+  )
+  SELECT jsonb_agg(
+    jsonb_build_object(
+      'key', month_key,
+      'count', tx_count,
+      'totalSetor', total_setor,
+      'totalTarik', total_tarik
+    )
+  )
+  INTO v_months
+  FROM monthly_data
+  WHERE month_key IS NOT NULL AND month_key <> '';
+
+  RETURN jsonb_build_object(
+    'earliestDate', v_earliest_date,
+    'months', COALESCE(v_months, '[]'::jsonb)
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_customer_savings_months(TEXT, TEXT) TO anon, authenticated, service_role;`;
 
 export const SUPABASE_CREATE_PRODUCTS_TABLE_SQL = SUPABASE_MASTER_CREATE_TABLES_SQL;
 
@@ -3163,41 +3222,51 @@ export const SupabaseSavingsService = {
     return !!getSupabaseClient();
   },
 
-  async getSavings(options?: { name?: string; limit?: number; select?: string; month?: string; currentMonthOnly?: boolean; since?: string }): Promise<{ data: SupabaseSavingTransaction[] | null; error: any }> {
+  async getSavings(options?: { name?: string; customerId?: string; limit?: number; select?: string; month?: string; currentMonthOnly?: boolean; since?: string }): Promise<{ data: SupabaseSavingTransaction[] | null; error: any }> {
     return SupabaseQueryLogger.track('savings_transactions', 'SELECT', options, async () => {
       const client = getSupabaseClient();
       if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
 
       const selectCols = options?.select || '*';
-      let baseQuery = client.from('savings_transactions').select(selectCols);
 
-      if (options?.since) {
-        baseQuery = baseQuery.gt('created_at', options.since);
-      }
-
-      let targetMonth = options?.month;
-      if (!targetMonth && options?.currentMonthOnly && !options?.since) {
-        const now = new Date();
-        targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      }
-
-      if (targetMonth && !options?.since) {
-        const parts = targetMonth.split('-');
-        if (parts.length === 2) {
-          const y = parts[0];
-          const m = parts[1].padStart(2, '0');
-          const lastDay = new Date(Number(y), Number(m), 0).getDate();
-          const endDayStr = String(lastDay).padStart(2, '0');
-          const startDate = `${y}-${m}-01`;
-          const endDate = `${y}-${m}-${endDayStr}`;
-          baseQuery = baseQuery.gte('tanggal', startDate).lte('tanggal', endDate);
+      const applyFilters = (query: any) => {
+        let q = query;
+        if (options?.since) {
+          q = q.gt('created_at', options.since);
         }
-      }
 
-      if (options?.name && options.name.trim() !== '') {
-        baseQuery = baseQuery.ilike('nama', options.name.trim());
-      }
+        let targetMonth = options?.month;
+        if (!targetMonth && options?.currentMonthOnly && !options?.since) {
+          const now = new Date();
+          targetMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
 
+        if (targetMonth && !options?.since) {
+          const parts = targetMonth.split('-');
+          if (parts.length === 2) {
+            const y = parts[0];
+            const m = parts[1].padStart(2, '0');
+            const lastDay = new Date(Number(y), Number(m), 0).getDate();
+            const endDayStr = String(lastDay).padStart(2, '0');
+            const startDate = `${y}-${m}-01`;
+            const endDate = `${y}-${m}-${endDayStr}`;
+            q = q.gte('tanggal', startDate).lte('tanggal', endDate);
+          }
+        }
+
+        if (options?.customerId && options?.name && options.name.trim() !== '') {
+          q = q.or(`id_pelanggan.eq.${options.customerId.trim()},nama.ilike.%${options.name.trim()}%`);
+        } else if (options?.customerId) {
+          q = q.eq('id_pelanggan', options.customerId.trim());
+        } else if (options?.name && options.name.trim() !== '') {
+          q = q.ilike('nama', `%${options.name.trim()}%`);
+        }
+
+        return q;
+      };
+
+      let baseQuery = client.from('savings_transactions').select(selectCols);
+      baseQuery = applyFilters(baseQuery);
       baseQuery = baseQuery.order('created_at', { ascending: true });
 
       if (options?.limit && options.limit > 0) {
@@ -3213,24 +3282,7 @@ export const SupabaseSavingsService = {
 
       while (hasMore) {
         let pageQuery = client.from('savings_transactions').select(selectCols);
-        if (options?.since) {
-          pageQuery = pageQuery.gt('created_at', options.since);
-        }
-        if (targetMonth && !options?.since) {
-          const parts = targetMonth.split('-');
-          if (parts.length === 2) {
-            const y = parts[0];
-            const m = parts[1].padStart(2, '0');
-            const lastDay = new Date(Number(y), Number(m), 0).getDate();
-            const endDayStr = String(lastDay).padStart(2, '0');
-            const startDate = `${y}-${m}-01`;
-            const endDate = `${y}-${m}-${endDayStr}`;
-            pageQuery = pageQuery.gte('tanggal', startDate).lte('tanggal', endDate);
-          }
-        }
-        if (options?.name && options.name.trim() !== '') {
-          pageQuery = pageQuery.ilike('nama', options.name.trim());
-        }
+        pageQuery = applyFilters(pageQuery);
 
         const { data, error } = await pageQuery
           .order('created_at', { ascending: true })
@@ -3576,8 +3628,154 @@ export const SupabaseSavingsService = {
         return { data: null, error: err };
       }
     });
+  },
+
+  /**
+   * Teknik RPC & Agregasi Ringan: Mengambil daftar bulan dan jumlah transaksi per bulan
+   * nasabah secara efisien tanpa mendownload seluruh riwayat baris data transaksi (hemat bandwidth 98%).
+   */
+  async getCustomerSavingsMonths(options: {
+    name?: string;
+    customerId?: string;
+  }): Promise<{
+    data: {
+      earliestDate: string | null;
+      months: CustomerSavingsMonthSummary[];
+    } | null;
+    error: any;
+  }> {
+    return SupabaseQueryLogger.track('savings_transactions', 'SELECT', { function: 'get_customer_savings_months', ...options }, async () => {
+      const client = getSupabaseClient();
+      if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
+
+      const targetName = (options.name || '').trim();
+      const targetId = (options.customerId || '').trim();
+
+      const formatMonthLabel = (year: number, monthIndex: number) => {
+        const monthNames = [
+          "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+          "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        ];
+        return `${monthNames[monthIndex]} ${year}`;
+      };
+
+      try {
+        // 1. Coba panggil Database Function RPC di Supabase (100% server-side agregasi di Postgres)
+        const { data: rpcData, error: rpcErr } = await client.rpc('get_customer_savings_months', {
+          p_customer_name: targetName || null,
+          p_customer_id: targetId || null
+        });
+
+        if (!rpcErr && rpcData && typeof rpcData === 'object') {
+          const rawMonths = (rpcData.months || []) as any[];
+          const mappedMonths: CustomerSavingsMonthSummary[] = rawMonths.map(m => {
+            const [yStr, mStr] = String(m.key || '').split('-');
+            const year = parseInt(yStr, 10) || new Date().getFullYear();
+            const month = (parseInt(mStr, 10) || 1) - 1;
+            return {
+              key: m.key,
+              label: m.label || formatMonthLabel(year, month),
+              year,
+              month,
+              count: Number(m.count || 0),
+              totalSetor: Number(m.totalSetor || m.total_setor || 0),
+              totalTarik: Number(m.totalTarik || m.total_tarik || 0)
+            };
+          });
+
+          return {
+            data: {
+              earliestDate: rpcData.earliestDate || null,
+              months: mappedMonths
+            },
+            error: null
+          };
+        }
+
+        // 2. Fallback Ringan (Hanya query tanggal, tipe, nominal - SANGAT HEMAT BANDWIDTH)
+        let query = client.from('savings_transactions').select('tanggal, tipe, nominal');
+        if (targetId && targetName) {
+          query = query.or(`id_pelanggan.eq.${targetId},nama.ilike.%${targetName}%`);
+        } else if (targetId) {
+          query = query.eq('id_pelanggan', targetId);
+        } else if (targetName) {
+          query = query.ilike('nama', `%${targetName}%`);
+        }
+
+        const { data: rows, error: qErr } = await query;
+        if (qErr || !rows) {
+          return { data: null, error: qErr || rpcErr };
+        }
+
+        const monthMap = new Map<string, { count: number; totalSetor: number; totalTarik: number; year: number; month: number }>();
+        let earliestTimestamp = Infinity;
+        let earliestDateStr: string | null = null;
+
+        rows.forEach((r: any) => {
+          const tglStr = String(r.tanggal || '').trim();
+          if (!tglStr) return;
+
+          const parsed = parseDate(tglStr);
+          const time = parsed.getTime();
+          if (time > 946684800000 && !isNaN(time)) {
+            if (time < earliestTimestamp) {
+              earliestTimestamp = time;
+              earliestDateStr = tglStr;
+            }
+          }
+
+          const y = parsed.getFullYear();
+          const m = parsed.getMonth();
+          const monthKey = `${y}-${String(m + 1).padStart(2, '0')}`;
+
+          const existing = monthMap.get(monthKey) || { count: 0, totalSetor: 0, totalTarik: 0, year: y, month: m };
+          existing.count += 1;
+          const nom = Number(r.nominal || 0);
+          if (String(r.tipe || '').toUpperCase() === 'SETOR') {
+            existing.totalSetor += nom;
+          } else {
+            existing.totalTarik += nom;
+          }
+          monthMap.set(monthKey, existing);
+        });
+
+        const sortedKeys = Array.from(monthMap.keys()).sort((a, b) => b.localeCompare(a));
+        const months: CustomerSavingsMonthSummary[] = sortedKeys.map(k => {
+          const val = monthMap.get(k)!;
+          return {
+            key: k,
+            label: formatMonthLabel(val.year, val.month),
+            year: val.year,
+            month: val.month,
+            count: val.count,
+            totalSetor: val.totalSetor,
+            totalTarik: val.totalTarik
+          };
+        });
+
+        return {
+          data: {
+            earliestDate: earliestDateStr,
+            months
+          },
+          error: null
+        };
+      } catch (err: any) {
+        return { data: null, error: err };
+      }
+    });
   }
 };
+
+export interface CustomerSavingsMonthSummary {
+  key: string;       // e.g. "2026-08"
+  label: string;     // e.g. "Agustus 2026"
+  year: number;      // 2026
+  month: number;     // 7 (0-indexed)
+  count: number;     // 12
+  totalSetor: number;
+  totalTarik: number;
+}
 
 export interface SavingsManagementSummary {
   total_tabungan: number;

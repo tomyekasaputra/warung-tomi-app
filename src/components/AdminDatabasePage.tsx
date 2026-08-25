@@ -156,6 +156,19 @@ export const formatInputToDate = (isoStr: string): string => {
   return formatDateForInput(isoStr);
 };
 
+export const parseCurrency = (val: string | number | undefined): number => {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const cleaned = String(val).replace(/[^\d]/g, '');
+  return cleaned ? parseInt(cleaned, 10) || 0 : 0;
+};
+
+export const formatCurrency = (val: number | string | undefined): string => {
+  if (val === undefined || val === null || val === '' || val === 0) return '';
+  const num = typeof val === 'number' ? val : parseCurrency(val);
+  return num.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+};
+
 export const getDefaultSortColumn = (tbl?: TableMeta | null): string => {
   if (!tbl) return "";
   if (tbl.id === "customers" || tbl.name === "customers") return "nama";
@@ -1376,7 +1389,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
               <span>{DATABASE_TABLES.length} Tabel</span>
             </div>
             <div className="px-3.5 py-2 rounded-xl bg-amber-400 text-slate-900 text-xs font-black uppercase tracking-wider shadow-md">
-              <span>{formatByteSize(stats.totalBytesTransferred)} Traffic</span>
+              <span>{formatByteSize(stats.totalBytes)} Traffic</span>
             </div>
           </div>
         </div>
@@ -2254,14 +2267,28 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                             onChange={(e) => setNewRowData({ ...newRowData, [col.key]: e.target.value })}
                             className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 font-medium focus:outline-none focus:border-[#005E6A]"
                           />
+                        ) : col.type === "number" ? (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={newRowData[col.key] !== undefined && newRowData[col.key] !== null ? (newRowData[col.key] === 0 ? "0" : formatCurrency(newRowData[col.key])) : ""}
+                            onChange={(e) =>
+                              setNewRowData({
+                                ...newRowData,
+                                [col.key]: parseCurrency(e.target.value)
+                              })
+                            }
+                            className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 font-bold focus:outline-none focus:border-[#005E6A]"
+                          />
                         ) : (
                           <input
-                            type={col.type === "number" ? "number" : "text"}
+                            type="text"
                             value={newRowData[col.key] !== undefined ? newRowData[col.key] : ""}
                             onChange={(e) =>
                               setNewRowData({
                                 ...newRowData,
-                                [col.key]: col.type === "number" ? Number(e.target.value) : e.target.value
+                                [col.key]: e.target.value
                               })
                             }
                             className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 font-medium focus:outline-none focus:border-[#005E6A]"
@@ -2378,15 +2405,17 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                           </select>
                         ) : col.type === "number" ? (
                           <input
-                            type="number"
-                            value={val !== undefined ? val : 0}
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="0"
+                            value={val !== undefined && val !== null ? (val === 0 ? "0" : formatCurrency(val)) : ""}
                             onChange={(e) =>
                               setEditingModalValues((prev) => ({
                                 ...prev,
-                                [col.key]: Number(e.target.value)
+                                [col.key]: parseCurrency(e.target.value)
                               }))
                             }
-                            className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 font-mono"
+                            className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#005E6A] font-mono"
                           />
                         ) : col.type === "date" || col.key === "tanggal" || col.key === "jatuh_tempo" ? (
                           <input

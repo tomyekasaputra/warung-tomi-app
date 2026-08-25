@@ -36,7 +36,8 @@ import {
 import {
   generateNextTabunganId,
   generateNextHutangId,
-  get4DigitCustId
+  get4DigitCustId,
+  SalesTransaction
 } from "../App";
 import { DatabaseSuccessModal, SuccessModalData } from "./DatabaseSuccessModal";
 
@@ -53,26 +54,18 @@ export interface AdminInputDataPageProps {
   setInvestmentTransactions?: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
-interface SalesTransaction {
-  id: string;
-  id_transaksi?: string;
-  id_pelanggan?: string;
-  Tanggal?: string;
-  tanggal?: string;
-  Nama?: string;
-  nama?: string;
-  Jenis?: string;
-  Melalui?: string;
-  Metode?: string;
-  Pemasukan?: number;
-  pemasukan?: number;
-  hargaAdmin?: number;
-  HargaModal?: number;
-  Sebagian?: number;
-  Poin?: number;
-  Status?: string;
-  created_at?: string;
-}
+const parseCurrency = (val: string | number | undefined): number => {
+  if (val === undefined || val === null || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const cleaned = String(val).replace(/[^\d]/g, '');
+  return cleaned ? parseInt(cleaned, 10) || 0 : 0;
+};
+
+const formatCurrency = (val: number | string | undefined): string => {
+  if (val === undefined || val === null || val === '' || val === 0) return '';
+  const num = typeof val === 'number' ? val : parseCurrency(val);
+  return num.toLocaleString('id-ID', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+};
 
 export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
   salesTransactions,
@@ -133,8 +126,8 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
     setProcessingMsg(subtitle || "Data sukses tersimpan ke Database!");
     setSuccessModalData({
       title,
-      subtitle: subtitle || "Data Berhasil Disimpan",
-      detailInfo: detail || "Perubahan telah langsung tersinkron ke Supabase Database."
+      message: subtitle || "Data Berhasil Disimpan",
+      details: detail || "Perubahan telah langsung tersinkron ke Supabase Database."
     });
     setIsProcessingModal(false);
     setIsSuccessModalOpen(true);
@@ -1099,10 +1092,11 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
                     Nominal Jual (Rp) *
                   </label>
                   <input
-                    type="number"
-                    placeholder="100000"
-                    value={addSalesForm.Pemasukan || ""}
-                    onChange={(e) => handleSalesPemasukanChange(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="100.000"
+                    value={addSalesForm.Pemasukan ? formatCurrency(addSalesForm.Pemasukan) : ""}
+                    onChange={(e) => handleSalesPemasukanChange(parseCurrency(e.target.value))}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
                   />
                 </div>
@@ -1112,10 +1106,11 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
                     Harga Modal (RP)*
                   </label>
                   <input
-                    type="number"
-                    placeholder="97000"
-                    value={addSalesForm.HargaModal || ""}
-                    onChange={(e) => handleSalesHargaModalChange(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="97.000"
+                    value={addSalesForm.HargaModal ? formatCurrency(addSalesForm.HargaModal) : ""}
+                    onChange={(e) => handleSalesHargaModalChange(parseCurrency(e.target.value))}
                     className="w-full px-3.5 py-2.5 bg-teal-50/60 dark:bg-teal-950/40 border border-teal-300 dark:border-teal-700 text-xs font-black text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A]"
                   />
                 </div>
@@ -1126,10 +1121,11 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
                     Sebagian / DP (Rp)
                   </label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="0"
-                    value={addSalesForm.Sebagian || ""}
-                    onChange={(e) => setAddSalesForm({ ...addSalesForm, Sebagian: Number(e.target.value) })}
+                    value={addSalesForm.Sebagian ? formatCurrency(addSalesForm.Sebagian) : ""}
+                    onChange={(e) => setAddSalesForm({ ...addSalesForm, Sebagian: parseCurrency(e.target.value) })}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
                   />
                 </div>
@@ -1247,10 +1243,11 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
                     Nominal (Rp) *
                   </label>
                   <input
-                    type="number"
-                    placeholder="50000"
-                    value={addSavingForm.nominal || ""}
-                    onChange={(e) => handleSavingNominalChange(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="50.000"
+                    value={addSavingForm.nominal ? formatCurrency(addSavingForm.nominal) : ""}
+                    onChange={(e) => handleSavingNominalChange(parseCurrency(e.target.value))}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
                   />
                 </div>
@@ -1260,10 +1257,10 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
                     Estimasi Saldo Akhir (Rp)
                   </label>
                   <input
-                    type="number"
-                    value={addSavingForm.saldo_akhir || 0}
-                    onChange={(e) => setAddSavingForm({ ...addSavingForm, saldo_akhir: Number(e.target.value) })}
-                    className="w-full px-3.5 py-2.5 bg-teal-50/60 dark:bg-teal-950/40 border border-teal-300 dark:border-teal-700 text-xs font-black text-[#005E6A] dark:text-teal-300 focus:outline-none focus:border-[#005E6A]"
+                    type="text"
+                    readOnly
+                    value={`Rp ${(addSavingForm.saldo_akhir || 0).toLocaleString('id-ID')}`}
+                    className="w-full px-3.5 py-2.5 bg-teal-50/60 dark:bg-teal-950/40 border border-teal-300 dark:border-teal-700 text-xs font-black text-[#005E6A] dark:text-teal-300 cursor-not-allowed"
                   />
                 </div>
 
@@ -1448,10 +1445,11 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
                     Nominal Investasi (Rp) *
                   </label>
                   <input
-                    type="number"
-                    placeholder="5000000"
-                    value={addInvestmentForm.nominal || ""}
-                    onChange={(e) => setAddInvestmentForm({ ...addInvestmentForm, nominal: Number(e.target.value) })}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="5.000.000"
+                    value={addInvestmentForm.nominal ? formatCurrency(addInvestmentForm.nominal) : ""}
+                    onChange={(e) => setAddInvestmentForm({ ...addInvestmentForm, nominal: parseCurrency(e.target.value) })}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
                   />
                 </div>
@@ -1612,10 +1610,11 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
                     Jumlah (Rp) *
                   </label>
                   <input
-                    type="number"
-                    placeholder="25000"
-                    value={addDebtForm.jumlah || ""}
-                    onChange={(e) => handleDebtJumlahChange(Number(e.target.value))}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="25.000"
+                    value={addDebtForm.jumlah ? formatCurrency(addDebtForm.jumlah) : ""}
+                    onChange={(e) => handleDebtJumlahChange(parseCurrency(e.target.value))}
                     className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A]"
                   />
                 </div>
@@ -1625,10 +1624,10 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
                     Estimasi Saldo Akhir Hutang (Rp)
                   </label>
                   <input
-                    type="number"
-                    value={addDebtForm.saldo_akhir || 0}
-                    onChange={(e) => setAddDebtForm({ ...addDebtForm, saldo_akhir: Number(e.target.value) })}
-                    className="w-full px-3.5 py-2.5 bg-rose-50/60 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-700 text-xs font-black text-rose-800 dark:text-rose-300 focus:outline-none focus:border-rose-500"
+                    type="text"
+                    readOnly
+                    value={`Rp ${(addDebtForm.saldo_akhir || 0).toLocaleString('id-ID')}`}
+                    className="w-full px-3.5 py-2.5 bg-rose-50/60 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-700 text-xs font-black text-rose-800 dark:text-rose-300 cursor-not-allowed"
                   />
                 </div>
 
