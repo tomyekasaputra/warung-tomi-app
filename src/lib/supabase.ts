@@ -1774,15 +1774,8 @@ class SupabaseQueryLoggerClass {
     const sizeColor = log.estimatedBytes > 500000 ? '#ef4444' : log.estimatedBytes > 100000 ? '#f59e0b' : '#3b82f6';
 
     if (log.status === 'ERROR') {
-      const isFunctionMissing = /Could not find the function|function .* does not exist|schema cache/i.test(String(log.error || ''));
       const isNetworkError = /Failed to fetch|NetworkError|fetch/i.test(String(log.error || ''));
-      if (isFunctionMissing) {
-        console.warn(
-          `%c[Supabase RPC Notice]%c ${log.table}.${log.operation} ⚡ ${log.durationMs}ms | Function RPC belum di-deploy di Supabase (Otomatis beralih ke Fallback)`,
-          'background: #3b82f6; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold;',
-          'color: #2563eb; font-weight: bold;'
-        );
-      } else if (isNetworkError) {
+      if (isNetworkError) {
         console.warn(
           `%c[Supabase Query Offline/Warning]%c ${log.table}.${log.operation} ⚡ ${log.durationMs}ms | Network Notice: ${log.error} (Mode Offline/Fallback)`,
           'background: #f59e0b; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold;',
@@ -2111,124 +2104,117 @@ export const SupabaseCustomerService = {
           p_customer_name: customerName,
           p_customer_id: customerId || null
         });
-        if (!error && data) {
+        if (!error && data && typeof data === 'object' && 'name' in data) {
           return { data: data as any, error: null };
         }
+      } catch (err: any) {
+        // Fallback ke kalkulasi langsung dari tabel jika RPC belum di-create di Supabase
+      }
 
-        // Fallback jika RPC function belum di-deploy di Supabase: Hitung dari sales_transactions 3 bulan terakhir
+      // Fallback: Query tabel sales_transactions secara langsung untuk kalkulasi level 3 bulan terakhir
+      try {
         const threeMonthsAgo = new Date();
         threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
         let query = client
           .from('sales_transactions')
-          .select('pemasukan, tanggal, created_at');
+          .select('pemasukan, tanggal, created_at, nama, id_pelanggan');
 
-        if (customerId && customerId.trim()) {
-          query = query.or(`id_pelanggan.eq.${customerId.trim()},nama.ilike.${customerName.trim()}`);
+        const cleanCustId = (customerId || '').trim();
+        const cleanCustName = customerName.trim();
+
+        if (cleanCustId && cleanCustId !== '-') {
+          query = query.or(`id_pelanggan.eq.${cleanCustId},nama.ilike.${cleanCustName}`);
         } else {
-          query = query.ilike('nama', customerName.trim());
+          query = query.ilike('nama', cleanCustName);
         }
 
-        const { data: rows, error: fbErr } = await query;
-        if (fbErr || !rows) {
-          return {
-            data: {
-              name: 'Bronze',
-              total: 0,
-              min: 0,
-              max: 999999,
-              progress: 0,
-              color: 'text-amber-700',
-              bg: 'bg-amber-100',
-              border: 'border-amber-200'
-            },
-            error: null
-          };
+        const { data: rows, error: queryErr } = await query;
+        if (queryErr) {
+          return { data: null, error: queryErr };
         }
 
         let total = 0;
-        rows.forEach((row: any) => {
-          let txDate: Date | null = null;
-          if (row.created_at) {
-            txDate = new Date(row.created_at);
-          } else if (row.tanggal) {
-            txDate = parseDate(row.tanggal);
-          }
-          if (!txDate || isNaN(txDate.getTime()) || txDate >= threeMonthsAgo) {
-            const nominal = typeof row.pemasukan === 'number' ? row.pemasukan : parseFloat(String(row.pemasukan || 0).replace(/[^\d.-]/g, '')) || 0;
-            total += nominal;
-          }
-        });
+        if (rows && rows.length > 0) {
+          rows.forEach((r: any) => {
+            let rowDate: Date | null = null;
+            if (r.created_at) {
+              rowDate = new Date(r.created_at);
+            } else if (r.tanggal) {
+              if (r.tanggal.includes('/')) {
+                const parts = r.tanggal.split(' ')[0].split('/');
+                if (parts.length === 3) {
+                  rowDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+                }
+              } else {
+                rowDate = new Date(r.tanggal);
+              }
+            }
 
-        let level = 'Bronze';
-        let min = 0;
-        let max = 999999;
-        let progress = 0;
-        let color = 'text-amber-700';
-        let bg = 'bg-amber-100';
-        let border = 'border-amber-200';
+            if (!rowDate || isNaN(rowDate.getTime()) || rowDate >= threeMonthsAgo) {
+              const val = typeof r.pemasukan === 'number' ? r.pemasukan : parseFloat(String(r.pemasukan || 0).replace(/[^\d.-]/g, '')) || 0;
+              total += val;
+            }
+          });
+        }
+
+        let v_level = 'Bronze';
+        let v_min = 0;
+        let v_max = 999999;
+        let v_progress = 0;
+        let v_color = 'text-amber-700';
+        let v_bg = 'bg-amber-100';
+        let v_border = 'border-amber-200';
 
         if (total >= 20000000) {
-          level = 'Platinum';
-          min = 20000000;
-          max = 999999999;
-          progress = 100;
-          color = 'text-teal-600';
-          bg = 'bg-teal-100';
-          border = 'border-teal-300';
+          v_level = 'Platinum';
+          v_min = 20000000;
+          v_max = 999999999;
+          v_progress = 100;
+          v_color = 'text-teal-600';
+          v_bg = 'bg-teal-100';
+          v_border = 'border-teal-300';
         } else if (total >= 10000000) {
-          level = 'Gold';
-          min = 10000000;
-          max = 19999999;
-          progress = Math.min(100, Math.max(0, ((total - 10000000) / 10000000) * 100));
-          color = 'text-yellow-600';
-          bg = 'bg-yellow-100';
-          border = 'border-yellow-300';
+          v_level = 'Gold';
+          v_min = 10000000;
+          v_max = 19999999;
+          v_progress = Math.min(100, Math.max(0, Math.round(((total - 10000000) / 10000000) * 100)));
+          v_color = 'text-yellow-600';
+          v_bg = 'bg-yellow-100';
+          v_border = 'border-yellow-300';
         } else if (total >= 1000000) {
-          level = 'Silver';
-          min = 1000000;
-          max = 9999999;
-          progress = Math.min(100, Math.max(0, ((total - 1000000) / 9000000) * 100));
-          color = 'text-slate-500';
-          bg = 'bg-slate-100';
-          border = 'border-slate-300';
+          v_level = 'Silver';
+          v_min = 1000000;
+          v_max = 9999999;
+          v_progress = Math.min(100, Math.max(0, Math.round(((total - 1000000) / 9000000) * 100)));
+          v_color = 'text-slate-500';
+          v_bg = 'bg-slate-100';
+          v_border = 'border-slate-300';
         } else {
-          level = 'Bronze';
-          min = 0;
-          max = 999999;
-          progress = Math.min(100, Math.max(0, (total / 1000000) * 100));
-          color = 'text-amber-700';
-          bg = 'bg-amber-100';
-          border = 'border-amber-200';
+          v_level = 'Bronze';
+          v_min = 0;
+          v_max = 999999;
+          v_progress = Math.min(100, Math.max(0, Math.round((total / 1000000) * 100)));
+          v_color = 'text-amber-700';
+          v_bg = 'bg-amber-100';
+          v_border = 'border-amber-200';
         }
 
         return {
           data: {
-            name: level,
+            name: v_level,
             total,
-            min,
-            max,
-            progress,
-            color,
-            bg,
-            border
+            min: v_min,
+            max: v_max,
+            progress: v_progress,
+            color: v_color,
+            bg: v_bg,
+            border: v_border
           },
           error: null
         };
-      } catch (err: any) {
-        return {
-          data: {
-            name: 'Bronze',
-            total: 0,
-            min: 0,
-            max: 999999,
-            progress: 0,
-            color: 'text-amber-700',
-            bg: 'bg-amber-100',
-            border: 'border-amber-200'
-          },
-          error: null
-        };
+      } catch (fallbackErr: any) {
+        return { data: null, error: fallbackErr };
       }
     });
   },
@@ -3191,43 +3177,48 @@ export const SupabaseStockService = {
       if (!client) return { data: null, error: new Error("Supabase belum dikonfigurasi.") };
       try {
         const { data, error } = await client.rpc('calculate_stock_valuation');
-        if (!error && data) {
+        if (!error && data && typeof data === 'object' && 'total_items' in data) {
           return { data: data as any, error: null };
         }
+      } catch (err: any) {
+        // Fallback
+      }
 
-        // Fallback: Query minimal data produk (hanya kolom stok, harga_modal, harga_jual)
-        const { data: prods, error: pErr } = await client
+      try {
+        const { data: products, error: prodErr } = await client
           .from('products')
-          .select('stok, harga_modal, harga_jual');
+          .select('stok, harga_modal, harga_jual, min_stok');
 
-        if (pErr || !prods) {
-          return { data: null, error: pErr || error };
-        }
+        if (prodErr) return { data: null, error: prodErr };
 
-        let total_items = prods.length;
+        let total_items = 0;
         let total_qty = 0;
         let total_modal_value = 0;
         let total_jual_value = 0;
+        let potential_profit = 0;
         let low_stock_count = 0;
         let out_of_stock_count = 0;
 
-        prods.forEach((p: any) => {
-          const qty = Number(p.stok || 0);
-          const modal = Number(p.harga_modal || 0);
-          const jual = Number(p.harga_jual || 0);
+        if (products && Array.isArray(products)) {
+          total_items = products.length;
+          products.forEach((p: any) => {
+            const stok = Number(p.stok || 0);
+            const modal = Number(p.harga_modal || 0);
+            const jual = Number(p.harga_jual || 0);
+            const minStok = Number(p.min_stok || 5);
 
-          total_qty += qty;
-          total_modal_value += qty * modal;
-          total_jual_value += qty * jual;
+            total_qty += stok;
+            total_modal_value += stok * modal;
+            total_jual_value += stok * jual;
+            potential_profit += stok * (jual - modal);
 
-          if (qty <= 0) {
-            out_of_stock_count++;
-          } else if (qty <= 5) {
-            low_stock_count++;
-          }
-        });
-
-        const potential_profit = total_jual_value - total_modal_value;
+            if (stok <= 0) {
+              out_of_stock_count++;
+            } else if (stok <= minStok) {
+              low_stock_count++;
+            }
+          });
+        }
 
         return {
           data: {
@@ -3241,8 +3232,8 @@ export const SupabaseStockService = {
           },
           error: null
         };
-      } catch (err: any) {
-        return { data: null, error: err };
+      } catch (fallbackErr: any) {
+        return { data: null, error: fallbackErr };
       }
     });
   }
@@ -4784,42 +4775,73 @@ export const SupabaseSalesService = {
           p_time_filter: timeFilter,
           p_custom_date: customDate || null
         });
-        if (!error && data) {
+        if (!error && data && typeof data === 'object' && 'total_pemasukan' in data) {
           return { data: data as any, error: null };
         }
-
-        // Fallback jika RPC belum ada
-        return {
-          data: {
-            total_pemasukan: 0,
-            total_pengeluaran: 0,
-            net_defisit_surplus: 0,
-            sales_inflow: 0,
-            sales_outflow: 0,
-            savings_inflow: 0,
-            savings_outflow: 0,
-            debt_inflow: 0,
-            debt_outflow: 0,
-            chart_data: []
-          },
-          error: null
-        };
       } catch (err: any) {
+        // Fallback
+      }
+
+      try {
+        const [salesRes, savingsRes, debtRes] = await Promise.all([
+          client.from('sales_transactions').select('pemasukan, pengeluaran, harga_modal, tanggal, created_at').limit(2000),
+          client.from('savings_transactions').select('tipe, nominal, tanggal, created_at').limit(2000),
+          client.from('debt_transactions').select('tipe, nominal, tanggal, created_at').limit(2000)
+        ]);
+
+        let sales_inflow = 0;
+        let sales_outflow = 0;
+        let savings_inflow = 0;
+        let savings_outflow = 0;
+        let debt_inflow = 0;
+        let debt_outflow = 0;
+
+        (salesRes.data || []).forEach((r: any) => {
+          sales_inflow += Number(r.pemasukan || 0);
+          sales_outflow += Number(r.pengeluaran || r.harga_modal || 0);
+        });
+
+        (savingsRes.data || []).forEach((r: any) => {
+          const tipe = String(r.tipe || '').toLowerCase();
+          const nom = Number(r.nominal || 0);
+          if (tipe.includes('setor') || tipe.includes('masuk')) {
+            savings_inflow += nom;
+          } else {
+            savings_outflow += nom;
+          }
+        });
+
+        (debtRes.data || []).forEach((r: any) => {
+          const tipe = String(r.tipe || '').toLowerCase();
+          const nom = Number(r.nominal || 0);
+          if (tipe.includes('bayar') || tipe.includes('lunas') || tipe.includes('masuk')) {
+            debt_inflow += nom;
+          } else {
+            debt_outflow += nom;
+          }
+        });
+
+        const total_pemasukan = sales_inflow + savings_inflow + debt_inflow;
+        const total_pengeluaran = sales_outflow + savings_outflow + debt_outflow;
+        const net_defisit_surplus = total_pemasukan - total_pengeluaran;
+
         return {
           data: {
-            total_pemasukan: 0,
-            total_pengeluaran: 0,
-            net_defisit_surplus: 0,
-            sales_inflow: 0,
-            sales_outflow: 0,
-            savings_inflow: 0,
-            savings_outflow: 0,
-            debt_inflow: 0,
-            debt_outflow: 0,
+            total_pemasukan,
+            total_pengeluaran,
+            net_defisit_surplus,
+            sales_inflow,
+            sales_outflow,
+            savings_inflow,
+            savings_outflow,
+            debt_inflow,
+            debt_outflow,
             chart_data: []
           },
           error: null
         };
+      } catch (fallbackErr: any) {
+        return { data: null, error: fallbackErr };
       }
     });
   },
@@ -4854,32 +4876,57 @@ export const SupabaseSalesService = {
           p_year: options?.year || null,
           p_search: options?.search || null
         });
-        if (!error && data) {
+        if (!error && data && typeof data === 'object' && 'total_pemasukan' in data) {
           return { data: data as any, error: null };
         }
-
-        // Fallback jika RPC belum terpasang di Postgres
-        return {
-          data: {
-            total_pemasukan: 0,
-            total_modal: 0,
-            total_keuntungan: 0,
-            total_transaksi: 0,
-            grouped_summary: []
-          },
-          error: null
-        };
       } catch (err: any) {
+        // Fallback
+      }
+
+      try {
+        let query = client.from('sales_transactions').select('jenis, pemasukan, harga_modal, tanggal, nama, id_transaksi').limit(3000);
+        if (options?.search && options.search.trim()) {
+          query = query.or(`nama.ilike.%${options.search.trim()}%,id_transaksi.ilike.%${options.search.trim()}%,jenis.ilike.%${options.search.trim()}%`);
+        }
+
+        const { data: rows, error: qErr } = await query;
+        if (qErr) return { data: null, error: qErr };
+
+        let total_pemasukan = 0;
+        let total_modal = 0;
+        let total_keuntungan = 0;
+        const groups: Record<string, { jenis: string; pemasukan: number; keuntungan: number; count: number }> = {};
+
+        (rows || []).forEach((r: any) => {
+          const pemasukan = Number(r.pemasukan || 0);
+          const modal = Number(r.harga_modal || 0);
+          const untung = pemasukan - modal;
+          const jenis = r.jenis || 'Lainnya';
+
+          total_pemasukan += pemasukan;
+          total_modal += modal;
+          total_keuntungan += untung;
+
+          if (!groups[jenis]) {
+            groups[jenis] = { jenis, pemasukan: 0, keuntungan: 0, count: 0 };
+          }
+          groups[jenis].pemasukan += pemasukan;
+          groups[jenis].keuntungan += untung;
+          groups[jenis].count += 1;
+        });
+
         return {
           data: {
-            total_pemasukan: 0,
-            total_modal: 0,
-            total_keuntungan: 0,
-            total_transaksi: 0,
-            grouped_summary: []
+            total_pemasukan,
+            total_modal,
+            total_keuntungan,
+            total_transaksi: (rows || []).length,
+            grouped_summary: Object.values(groups)
           },
           error: null
         };
+      } catch (fallbackErr: any) {
+        return { data: null, error: fallbackErr };
       }
     });
   },
@@ -5197,28 +5244,73 @@ export const SupabasePointsService = {
           p_customer_name: customerName,
           p_customer_id: customerId || null
         });
-        if (!error && data) {
+        if (!error && data && typeof data === 'object' && 'active_points' in data) {
           return { data: data as any, error: null };
         }
-        return {
-          data: {
-            active_points: 0,
-            earned_points: 0,
-            expired_points: 0,
-            redeemed_points: 0
-          },
-          error: null
-        };
       } catch (err: any) {
+        // Fallback
+      }
+
+      try {
+        let salesQuery = client.from('sales_transactions').select('pemasukan, tanggal, created_at');
+        const cleanCustId = (customerId || '').trim();
+        const cleanCustName = customerName.trim();
+
+        if (cleanCustId && cleanCustId !== '-') {
+          salesQuery = salesQuery.or(`id_pelanggan.eq.${cleanCustId},nama.ilike.${cleanCustName}`);
+        } else {
+          salesQuery = salesQuery.ilike('nama', cleanCustName);
+        }
+
+        let redeemQuery = client.from('redeemed_points').select('poin');
+        if (cleanCustId && cleanCustId !== '-') {
+          redeemQuery = redeemQuery.or(`id_pelanggan.eq.${cleanCustId},nama.ilike.${cleanCustName}`);
+        } else {
+          redeemQuery = redeemQuery.ilike('nama', cleanCustName);
+        }
+
+        const [salesRes, redeemRes] = await Promise.all([salesQuery, redeemQuery]);
+
+        let earned_points = 0;
+        let expired_points = 0;
+        let redeemed_points = 0;
+
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        const nov2025 = new Date('2025-11-01');
+
+        (salesRes.data || []).forEach((r: any) => {
+          const pem = Number(r.pemasukan || 0);
+          const pts = Math.floor(pem / 10000);
+          let rowDate: Date | null = null;
+          if (r.created_at) rowDate = new Date(r.created_at);
+          else if (r.tanggal) rowDate = new Date(r.tanggal);
+
+          if (!rowDate || isNaN(rowDate.getTime()) || rowDate >= nov2025) {
+            earned_points += pts;
+          }
+          if (rowDate && !isNaN(rowDate.getTime()) && rowDate < oneYearAgo) {
+            expired_points += pts;
+          }
+        });
+
+        (redeemRes.data || []).forEach((r: any) => {
+          redeemed_points += Number(r.poin || 0);
+        });
+
+        const active_points = Math.max(0, earned_points - expired_points - redeemed_points);
+
         return {
           data: {
-            active_points: 0,
-            earned_points: 0,
-            expired_points: 0,
-            redeemed_points: 0
+            active_points,
+            earned_points,
+            expired_points,
+            redeemed_points
           },
           error: null
         };
+      } catch (fallbackErr: any) {
+        return { data: null, error: fallbackErr };
       }
     });
   }

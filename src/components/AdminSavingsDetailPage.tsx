@@ -32,7 +32,6 @@ import {
   TrendingUp,
   Receipt,
   FileSpreadsheet,
-  Loader2,
   X
 } from "lucide-react";
 import jsPDF from "jspdf";
@@ -47,8 +46,6 @@ import {
   get4DigitCustId
 } from "../App";
 import { SupabaseSavingsService, SupabaseCustomerService, formatDateDDMMYYYY, CustomerSavingsMonthSummary } from "../lib/supabase";
-import { downloadSavingsStatementPdf } from "../lib/pdfSavingsStatement";
-import { downloadSavingsStatementExcel } from "../lib/excelSavingsStatement";
 import { DatabaseSuccessModal, SuccessModalData } from "./DatabaseSuccessModal";
 
 interface AdminSavingsDetailPageProps {
@@ -155,7 +152,7 @@ export const AdminSavingsDetailPage: React.FC<AdminSavingsDetailPageProps> = ({
     }
 
     // 2. Bangun daftar bulan hanya dari minMonthDate hingga maxMonthDate (terbaru ke terlama)
-    const list: { key: string; label: string; fullLabel?: string; year: number; month: number; count: number; totalSetor?: number; totalTarik?: number }[] = [];
+    const list: { key: string; label: string; year: number; month: number; count: number; totalSetor?: number; totalTarik?: number }[] = [];
     const loop = new Date(maxMonthDate.getFullYear(), maxMonthDate.getMonth(), 1);
 
     const rpcMap = new Map<string, CustomerSavingsMonthSummary>();
@@ -167,8 +164,7 @@ export const AdminSavingsDetailPage: React.FC<AdminSavingsDetailPageProps> = ({
       const yr = loop.getFullYear();
       const mo = loop.getMonth();
       const key = `${yr}-${String(mo + 1).padStart(2, "0")}`;
-      const label = loop.toLocaleString("id-ID", { month: "long" });
-      const fullLabel = loop.toLocaleString("id-ID", { month: "long", year: "numeric" });
+      const label = loop.toLocaleString("id-ID", { month: "long", year: "numeric" });
       
       const rpcItem = rpcMap.get(key);
       const localCount = customerAllTransactions.filter((t) => {
@@ -181,7 +177,6 @@ export const AdminSavingsDetailPage: React.FC<AdminSavingsDetailPageProps> = ({
       list.push({
         key,
         label,
-        fullLabel,
         year: yr,
         month: mo,
         count,
@@ -703,57 +698,227 @@ export const AdminSavingsDetailPage: React.FC<AdminSavingsDetailPageProps> = ({
   };
 
   // Helper Export PDF e-Statement via jsPDF + jsPDF-autotable
-  const [downloadingMonthKey, setDownloadingMonthKey] = useState<string | null>(null);
-  const [downloadingMonthExcelKey, setDownloadingMonthExcelKey] = useState<string | null>(null);
-  const [isGeneratingExcel, setIsGeneratingExcel] = useState(false);
-
-  const handleDownloadMonthPdf = async (monthKey: string, monthLabel: string) => {
-    if (!customer) return;
-    try {
-      setDownloadingMonthKey(monthKey);
-      await downloadSavingsStatementPdf(customer, customerAllTransactions, monthKey, monthLabel);
-    } catch (err) {
-      console.error('Gagal download statement PDF:', err);
-    } finally {
-      setDownloadingMonthKey(null);
-    }
-  };
-
-  const handleDownloadMonthExcel = async (monthKey: string, monthLabel: string) => {
-    if (!customer) return;
-    try {
-      setDownloadingMonthExcelKey(monthKey);
-      await downloadSavingsStatementExcel(customer, customerAllTransactions, monthKey, monthLabel);
-    } catch (err) {
-      console.error('Gagal download statement Excel:', err);
-    } finally {
-      setDownloadingMonthExcelKey(null);
-    }
-  };
-
-  // Helper Export PDF e-Statement via downloadSavingsStatementPdf (Semua Riwayat)
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = () => {
     if (!customer) return;
     setIsGeneratingPdf(true);
+
     try {
-      await downloadSavingsStatementPdf(customer, customerAllTransactions, 'all', 'Semua Riwayat Transaksi');
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
+      });
+
+      const custName = customer.Nama || "Nasabah";
+      const custId = customer.id_pelanggan || get4DigitCustId(customer.id_pelanggan, customer.Nama) || "-";
+      const custPhone = customer.Telepon || customer.telepon || "-";
+      const custAddress = customer.Alamat || customer.alamat || "Pelanggan Warung Tomi";
+      const printDate = new Date().toLocaleString("id-ID", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+
+      // Top Primary Header Banner (BNI Blue #005E6A)
+      doc.setFillColor(0, 94, 106); // #005E6A
+      doc.rect(0, 0, 210, 28, "F");
+
+      // Brand Title
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("WARUNG TOMI", 14, 12);
+
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "normal");
+      doc.text("LAYANAN TABUNGAN & KEUANGAN DIGITAL KELUARGA", 14, 17);
+      doc.setFontSize(7.5);
+      doc.text("Sistem Pembukuan & Tabungan Terpercaya Komunitas", 14, 22);
+
+      // Statement Title (Right Top)
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.text("REKENING KORAN", 196, 12, { align: "right" });
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text("e-Statement Tabungan Nasabah", 196, 17, { align: "right" });
+      doc.text(`Periode: ${statementData.periodLabel}`, 196, 22, { align: "right" });
+
+      // Orange divider line (#F15A24)
+      doc.setFillColor(241, 90, 36);
+      doc.rect(0, 28, 210, 2, "F");
+
+      // Box Informasi Nasabah & Rekening
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(14, 34, 182, 32, 2, 2, "F");
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(14, 34, 182, 32, 2, 2, "S");
+
+      // Left Column: Data Nasabah
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("NAMA PEMILIK REKENING", 20, 42);
+      doc.setFontSize(10.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text(custName.toUpperCase(), 20, 48);
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      doc.text("ALAMAT / WILAYAH", 20, 56);
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text(custAddress.substring(0, 45), 20, 61);
+
+      // Right Column: Info Akun
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text("NO. REKENING / ID", 120, 42);
+      doc.setFontSize(10.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 94, 106);
+      doc.text(custId, 120, 48);
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      doc.text("NO. TELEPON / WA", 120, 56);
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text(custPhone, 120, 61);
+
+      doc.text("STATUS: AKTIF", 170, 48, { align: "right" });
+      doc.text("MATA UANG: IDR", 170, 61, { align: "right" });
+
+      // Box Ringkasan Saldo (Account Summary Grid)
+      const sumY = 70;
+      doc.setFillColor(241, 245, 249);
+      doc.rect(14, sumY, 182, 18, "F");
+      doc.setDrawColor(203, 213, 225);
+      doc.rect(14, sumY, 182, 18, "S");
+
+      // Saldo Awal
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text("SALDO AWAL", 18, sumY + 6);
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text(`Rp ${statementData.saldoAwal.toLocaleString("id-ID")}`, 18, sumY + 13);
+
+      // Total Setoran (+)
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text("TOTAL SETORAN (+)", 65, sumY + 6);
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(16, 149, 106); // Green
+      doc.text(`+Rp ${statementData.periodSetor.toLocaleString("id-ID")}`, 65, sumY + 13);
+
+      // Total Tarikan (-)
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text("TOTAL PENARIKAN (-)", 115, sumY + 6);
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(225, 29, 72); // Rose
+      doc.text(`-Rp ${statementData.periodTarik.toLocaleString("id-ID")}`, 115, sumY + 13);
+
+      // Saldo Akhir
+      doc.setFontSize(7);
+      doc.setTextColor(100, 116, 139);
+      doc.text("SALDO AKHIR", 160, sumY + 6);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 94, 106); // BNI Blue
+      doc.text(`Rp ${statementData.saldoAkhir.toLocaleString("id-ID")}`, 160, sumY + 13);
+
+      // Table of Mutations
+      const tableData = statementData.rows.map((r) => [
+        r.no.toString(),
+        r.tanggal,
+        r.id,
+        r.keterangan,
+        r.debet > 0 ? `Rp ${r.debet.toLocaleString("id-ID")}` : "-",
+        r.kredit > 0 ? `Rp ${r.kredit.toLocaleString("id-ID")}` : "-",
+        `Rp ${r.saldo.toLocaleString("id-ID")}`
+      ]);
+
+      autoTable(doc, {
+        startY: 92,
+        head: [["No", "Tanggal", "ID Mutasi", "Keterangan / Berita", "Debet (-)", "Kredit (+)", "Saldo (Rp)"]],
+        body: tableData,
+        theme: "striped",
+        headStyles: {
+          fillColor: [0, 94, 106],
+          textColor: [255, 255, 255],
+          fontSize: 7.5,
+          fontStyle: "bold",
+          halign: "center",
+          cellPadding: 3
+        },
+        columnStyles: {
+          0: { cellWidth: 10, halign: "center" },
+          1: { cellWidth: 24, halign: "center" },
+          2: { cellWidth: 28, halign: "left" },
+          3: { cellWidth: 50, halign: "left" },
+          4: { cellWidth: 22, halign: "right", textColor: [225, 29, 72] },
+          5: { cellWidth: 22, halign: "right", textColor: [16, 149, 106] },
+          6: { cellWidth: 26, halign: "right", fontStyle: "bold", textColor: [0, 94, 106] }
+        },
+        styles: {
+          fontSize: 7,
+          cellPadding: 2.5,
+          textColor: [30, 41, 59],
+          overflow: "linebreak"
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        margin: { left: 14, right: 14, bottom: 35 }
+      });
+
+      // Footer & Disclaimer Section at bottom of page
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+
+        // Footer lines & note
+        doc.setDrawColor(226, 232, 240);
+        doc.line(14, 275, 196, 275);
+
+        doc.setFontSize(6.5);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(148, 163, 184);
+        doc.text(
+          "Dokumen ini dicetak otomatis oleh Sistem Digital Warung Tomi dan sah secara elektronik tanpa tanda tangan basah.",
+          14,
+          279
+        );
+        doc.text(
+          `Dicetak pada: ${printDate} WIB • Database Supabase ID: ${custId} • Halaman ${i} dari ${pageCount}`,
+          14,
+          283
+        );
+
+        // Authenticity stamp badge
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 94, 106);
+        doc.text("[ VERIFIED E-STATEMENT • WARUNG TOMI ]", 196, 283, { align: "right" });
+      }
+
+      // Save PDF file
+      const safeName = custName.replace(/[^a-zA-Z0-9]/g, "_");
+      const safePeriod = statementData.periodLabel.replace(/[^a-zA-Z0-9]/g, "_");
+      doc.save(`e-Statement_Tabungan_${safeName}_${safePeriod}.pdf`);
     } catch (err) {
-      console.error('Gagal generate PDF e-Statement:', err);
+      console.error("Gagal generate PDF e-Statement:", err);
+      alert("Gagal membuat file PDF e-Statement.");
     } finally {
       setIsGeneratingPdf(false);
-    }
-  };
-
-  // Helper Export Excel e-Statement via downloadSavingsStatementExcel (Semua Riwayat)
-  const handleDownloadAllExcel = async () => {
-    if (!customer) return;
-    setIsGeneratingExcel(true);
-    try {
-      await downloadSavingsStatementExcel(customer, customerAllTransactions, 'all', 'Semua Riwayat Transaksi');
-    } catch (err) {
-      console.error('Gagal generate Excel e-Statement:', err);
-    } finally {
-      setIsGeneratingExcel(false);
     }
   };
 
@@ -1018,158 +1183,200 @@ export const AdminSavingsDetailPage: React.FC<AdminSavingsDetailPageProps> = ({
         </div>
       </div>
 
-      {/* 5. MODAL E-STATEMENT GENERATOR (SIMPLIFIED: KIRI BULAN/TAHUN, KANAN PDF) */}
+      {/* 5. MODAL E-STATEMENT GENERATOR (BOTTOM SIDE / BOTTOM SHEET) */}
       <AnimatePresence>
         {isStatementModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-xs p-0 sm:p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsStatementModalOpen(false)}
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
+              className="fixed inset-0"
             />
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative z-10 bg-white dark:bg-slate-900 rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4 max-h-[85vh] flex flex-col"
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="relative z-10 w-full max-w-2xl bg-white dark:bg-slate-900 rounded-t-[2.5rem] sm:rounded-[2.5rem] p-6 sm:p-8 shadow-2xl border-t sm:border border-slate-200 dark:border-slate-800 space-y-5 max-h-[88vh] overflow-y-auto"
             >
-              {/* Header Modal */}
+              {/* Drag Handle Indicator */}
+              <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto -mt-2 mb-2" />
+
+              {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-orange-50 dark:bg-orange-950/40 text-[#F15A24] flex items-center justify-center border border-orange-200/60 dark:border-orange-800/40">
+                  <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-[#005E6A] dark:text-teal-300 flex items-center justify-center">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">
-                      e-Statement Tabungan
+                    <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                      Cetak e-Statement / Rekening Koran
                     </h3>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                      {custName} • {custId}
+                    <p className="text-[10px] text-slate-400 font-medium">
+                      Laporan rekening koran perbankan resmi ala Warung Tomi
                     </p>
                   </div>
                 </div>
+
                 <button
-                  type="button"
                   onClick={() => setIsStatementModalOpen(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* Title Section */}
-              <div className="flex items-center justify-between px-1">
-                <p className="text-[11px] font-black text-[#005E6A] dark:text-teal-400 uppercase tracking-wider">
-                  DAFTAR PERIODE BULANAN
-                </p>
-                <span className="text-[10px] font-bold text-slate-400">
-                  {availableMonths.length} Periode
-                </span>
-              </div>
+              {/* Period Configuration Dropdown */}
+              <div className="space-y-2.5">
+                <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>Pilih Periode / Bulan e-Statement:</span>
+                  <span className="text-[10px] text-[#005E6A] dark:text-teal-400 font-bold">
+                    {statementData.totalCount} Mutasi Tercatat
+                  </span>
+                </label>
 
-              {/* List of Months: Kiri Bulan/Tahun, Kanan Tombol PDF */}
-              <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 no-scrollbar max-h-[50vh]">
-                {availableMonths.length === 0 ? (
-                  <div className="py-8 text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-100 dark:border-slate-800">
-                    <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-xs font-bold text-slate-500">Belum ada riwayat transaksi tabungan.</p>
-                  </div>
-                ) : (
-                  availableMonths.map((m) => (
-                    <div
-                      key={m.key}
-                      className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/80 hover:border-teal-200 dark:hover:border-teal-800 transition-all"
-                    >
-                      {/* Sebelah Kiri: Bulan dan Tahun */}
-                      <div className="flex items-center gap-3 min-w-0 pr-3">
-                        <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/40 text-[#005E6A] dark:text-teal-400 flex items-center justify-center shrink-0">
-                          <Calendar className="w-4 h-4" />
-                        </div>
-                        <div className="truncate">
-                          <h4 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-tight truncate">
-                            {m.label}
-                          </h4>
-                          <span className="text-[10px] font-bold text-slate-400">
-                            {m.count} Transaksi
-                          </span>
-                        </div>
-                      </div>
+                <div className="relative">
+                  <select
+                    value={statementPeriod}
+                    onChange={(e) => setStatementPeriod(e.target.value)}
+                    className="w-full pl-3.5 pr-10 py-2.5 sm:py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-xs sm:text-sm text-slate-800 dark:text-white focus:outline-none focus:border-[#005E6A] appearance-none cursor-pointer"
+                  >
+                    <optgroup label="─── Pilihan Berdasarkan Bulan ───">
+                      {availableMonths.map((m) => (
+                        <option key={m.key} value={`month:${m.key}`}>
+                          {m.label} {m.count > 0 ? `(${m.count} transaksi)` : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="─── Pilihan Cepat Lainnya ───">
+                      <option value="all">Semua Riwayat Transaksi (Dari Awal)</option>
+                      <option value="3months">3 Bulan Terakhir</option>
+                      <option value="custom">Kustom Rentang Tanggal...</option>
+                    </optgroup>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
 
-                      {/* Sebelah Kanan: Tombol Excel & PDF Dipisah Garis Pembatas Halus */}
-                      <div className="shrink-0 flex items-center gap-1 p-1 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200/80 dark:border-slate-600/80 shadow-2xs">
-                        {/* Tombol Excel */}
-                        <button
-                          type="button"
-                          disabled={downloadingMonthExcelKey === m.key}
-                          title={`Download e-Statement Excel ${m.label}`}
-                          onClick={() => {
-                            handleDownloadMonthExcel(m.key, m.label);
-                          }}
-                          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 font-black text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          {downloadingMonthExcelKey === m.key ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <FileSpreadsheet className="w-3.5 h-3.5" />
-                          )}
-                          <span>{downloadingMonthExcelKey === m.key ? "MEMUAT..." : "EXCEL"}</span>
-                        </button>
-
-                        {/* Garis Pembatas Halus */}
-                        <div className="w-px h-3.5 bg-slate-300 dark:bg-slate-600 mx-0.5" />
-
-                        {/* Tombol PDF */}
-                        <button
-                          type="button"
-                          disabled={downloadingMonthKey === m.key}
-                          title={`Download e-Statement PDF ${m.label}`}
-                          onClick={() => {
-                            handleDownloadMonthPdf(m.key, m.label);
-                          }}
-                          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/60 font-black text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          {downloadingMonthKey === m.key ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <FileText className="w-3.5 h-3.5" />
-                          )}
-                          <span>{downloadingMonthKey === m.key ? "MEMUAT..." : "PDF"}</span>
-                        </button>
-                      </div>
+                {statementPeriod === "custom" && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="grid grid-cols-2 gap-3 pt-2"
+                  >
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Dari Tanggal</label>
+                      <input
+                        type="date"
+                        value={statementCustomStart}
+                        onChange={(e) => setStatementCustomStart(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                      />
                     </div>
-                  ))
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Sampai Tanggal</label>
+                      <input
+                        type="date"
+                        value={statementCustomEnd}
+                        onChange={(e) => setStatementCustomEnd(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                      />
+                    </div>
+                  </motion.div>
                 )}
               </div>
 
-              {/* Tombol Unduh Semua Riwayat & Tutup */}
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row gap-2">
-                <button
-                  type="button"
+              {/* Statement Live Preview Box (Authentic Warung Tomi Banking Card) */}
+              <div className="border border-slate-200 dark:border-slate-700 rounded-2xl p-4 sm:p-5 bg-slate-50/70 dark:bg-slate-800/50 space-y-4 font-sans">
+                {/* Official Bank Header */}
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-[#005E6A] dark:text-teal-400 tracking-tight">
+                      <Building2 className="w-4 h-4" /> WARUNG TOMI DIGITAL BANKING
+                    </div>
+                    <p className="text-[9px] text-slate-400">Unit Simpan Pinjam & Ritel Komunitas Terpercaya</p>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 rounded-md">
+                      e-Statement
+                    </span>
+                    <p className="text-[9px] font-bold text-slate-400 mt-0.5">{statementData.periodLabel}</p>
+                  </div>
+                </div>
+
+                {/* Customer Snapshot */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[9px] text-slate-400 font-bold block uppercase">Nama Nasabah</span>
+                    <span className="font-black text-slate-800 dark:text-white">{custName}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 font-bold block uppercase">No. Rekening / ID</span>
+                    <span className="font-black text-[#005E6A] dark:text-teal-400">{custId}</span>
+                  </div>
+                </div>
+
+                {/* Summary Figures */}
+                <div className="grid grid-cols-3 gap-2 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/70 dark:border-slate-700/80 text-center">
+                  <div>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">Saldo Awal</p>
+                    <p className="text-xs font-black text-slate-700 dark:text-slate-200">
+                      Rp {statementData.saldoAwal.toLocaleString("id-ID")}
+                    </p>
+                  </div>
+                  <div className="border-x border-slate-100 dark:border-slate-800">
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">Total Setoran</p>
+                    <p className="text-xs font-black text-emerald-600">
+                      +Rp {statementData.periodSetor.toLocaleString("id-ID")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase">Saldo Akhir</p>
+                    <p className="text-xs font-black text-[#005E6A] dark:text-teal-400">
+                      Rp {statementData.saldoAkhir.toLocaleString("id-ID")}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-[9px] text-center text-slate-400 font-medium">
+                  {statementData.totalCount} mutasi tercatat pada periode ini.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   disabled={isGeneratingPdf}
                   onClick={handleDownloadPdf}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-[#005E6A] hover:bg-[#004852] text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                  className="px-4 py-3 bg-[#005E6A] hover:bg-[#004852] text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md disabled:opacity-50 cursor-pointer"
                 >
-                  {isGeneratingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                  <span>{isGeneratingPdf ? "Memuat PDF..." : "Semua Riwayat (PDF)"}</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={isGeneratingExcel}
-                  onClick={handleDownloadAllExcel}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer disabled:opacity-50"
+                  <Download className="w-4 h-4" />
+                  <span>{isGeneratingPdf ? "Menyiapkan PDF..." : "Unduh PDF Resmi"}</span>
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handlePrintBrowser}
+                  className="px-4 py-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
-                  {isGeneratingExcel ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
-                  <span>{isGeneratingExcel ? "Memuat Excel..." : "Semua Riwayat (Excel)"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsStatementModalOpen(false)}
-                  className="py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-black uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                  <Printer className="w-4 h-4" />
+                  <span>Cetak Browser</span>
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleShareWhatsApp}
+                  className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
-                  Tutup
-                </button>
+                  <Share2 className="w-4 h-4" />
+                  <span>Bagikan WA</span>
+                </motion.button>
               </div>
             </motion.div>
           </div>
