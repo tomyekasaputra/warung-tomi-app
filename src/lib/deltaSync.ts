@@ -8,6 +8,86 @@ const CACHE_PREFIX = 'wt_delta_cache_v3_';
 const SYNC_TIME_PREFIX = 'wt_last_sync_v3_';
 
 /**
+ * Safe LocalStorage Wrapper
+ * Menangani QuotaExceededError dan error storage secara transparan tanpa pernah melempar unhandled exception.
+ * Jika kuota localStorage penuh, otomatis melakukan pembersihan cache tabel non-kritis dan mencoba kembali.
+ */
+export const safeStorage = {
+  getItem(key: string): string | null {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return null;
+      return localStorage.getItem(key);
+    } catch (e) {
+      console.warn(`safeStorage: Gagal membaca key "${key}":`, e);
+      return null;
+    }
+  },
+
+  setItem(key: string, value: string): boolean {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return false;
+      localStorage.setItem(key, value);
+      return true;
+    } catch (e: any) {
+      console.warn(`safeStorage: Gagal menyimpan key "${key}" (kuota penuh / error):`, e);
+      
+      // Jika kuota penuh (QuotaExceededError)
+      try {
+        // 1. Bersihkan delta cache non-esensial yang berukuran besar untuk membebaskan ruang
+        const bulkyKeys = [
+          'wt_delta_cache_v3_salesTransactions',
+          'wt_delta_cache_v3_savingsTransactions',
+          'wt_delta_cache_v3_debtTransactions',
+          'wt_delta_cache_v3_stockItems',
+          'wt_delta_cache_v3_investmentTransactions',
+          'wt_delta_cache_v3_redeemedPoints'
+        ];
+        
+        for (const k of bulkyKeys) {
+          if (k !== key) {
+            localStorage.removeItem(k);
+          }
+        }
+
+        // Coba lagi setelah pembersihan
+        localStorage.setItem(key, value);
+        return true;
+      } catch (retryErr) {
+        console.warn(`safeStorage: Tetap gagal menyimpan "${key}" setelah pembersihan cache:`, retryErr);
+        return false;
+      }
+    }
+  },
+
+  removeItem(key: string): void {
+    try {
+      if (typeof window === 'undefined' || !window.localStorage) return;
+      localStorage.removeItem(key);
+    } catch (e) {
+      console.warn(`safeStorage: Gagal menghapus key "${key}":`, e);
+    }
+  },
+
+  getJSON<T>(key: string, fallback: T): T {
+    try {
+      const raw = this.getItem(key);
+      if (!raw) return fallback;
+      return JSON.parse(raw) as T;
+    } catch {
+      return fallback;
+    }
+  },
+
+  setJSON<T>(key: string, value: T): boolean {
+    try {
+      return this.setItem(key, JSON.stringify(value));
+    } catch {
+      return false;
+    }
+  }
+};
+
+/**
  * Memformat dan menormalkan URL gambar agar dapat dimuat dengan sempurna di berbagai lingkungan (Local, Dev, Production Publish).
  * - Menangani link Google Drive (mengubah format /file/d/.../view atau uc?id= menjadi lh3.googleusercontent.com/d/ID)
  * - Menangani link Dropbox (mengubah dl=0 menjadi raw=1)
@@ -56,7 +136,7 @@ export const DeltaCache = {
    */
   get<T>(key: string): T[] {
     try {
-      const raw = localStorage.getItem(`${CACHE_PREFIX}${key}`);
+      const raw = safeStorage.getItem(`${CACHE_PREFIX}${key}`);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed) ? parsed : [];
@@ -71,9 +151,9 @@ export const DeltaCache = {
    */
   set<T>(key: string, data: T[], syncTime?: string): void {
     try {
-      localStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(data));
+      safeStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify(data));
       if (syncTime) {
-        localStorage.setItem(`${SYNC_TIME_PREFIX}${key}`, syncTime);
+        safeStorage.setItem(`${SYNC_TIME_PREFIX}${key}`, syncTime);
       }
     } catch (e) {
       console.warn(`Gagal menulis cache untuk ${key} (kemungkinan kuota localStorage penuh):`, e);
@@ -85,7 +165,7 @@ export const DeltaCache = {
    */
   getLastSync(key: string): string | null {
     try {
-      return localStorage.getItem(`${SYNC_TIME_PREFIX}${key}`) || null;
+      return safeStorage.getItem(`${SYNC_TIME_PREFIX}${key}`) || null;
     } catch (e) {
       return null;
     }
@@ -96,7 +176,7 @@ export const DeltaCache = {
    */
   setLastSync(key: string, isoTimestamp: string): void {
     try {
-      localStorage.setItem(`${SYNC_TIME_PREFIX}${key}`, isoTimestamp);
+      safeStorage.setItem(`${SYNC_TIME_PREFIX}${key}`, isoTimestamp);
     } catch (e) {
       console.warn(`Gagal menyimpan last sync time untuk ${key}:`, e);
     }

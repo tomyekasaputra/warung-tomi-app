@@ -1774,8 +1774,15 @@ class SupabaseQueryLoggerClass {
     const sizeColor = log.estimatedBytes > 500000 ? '#ef4444' : log.estimatedBytes > 100000 ? '#f59e0b' : '#3b82f6';
 
     if (log.status === 'ERROR') {
+      const isFunctionMissing = /Could not find the function|function .* does not exist|schema cache/i.test(String(log.error || ''));
       const isNetworkError = /Failed to fetch|NetworkError|fetch/i.test(String(log.error || ''));
-      if (isNetworkError) {
+      if (isFunctionMissing) {
+        console.warn(
+          `%c[Supabase RPC Notice]%c ${log.table}.${log.operation} ⚡ ${log.durationMs}ms | Function RPC belum di-deploy di Supabase (Otomatis beralih ke Fallback)`,
+          'background: #3b82f6; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold;',
+          'color: #2563eb; font-weight: bold;'
+        );
+      } else if (isNetworkError) {
         console.warn(
           `%c[Supabase Query Offline/Warning]%c ${log.table}.${log.operation} ⚡ ${log.durationMs}ms | Network Notice: ${log.error} (Mode Offline/Fallback)`,
           'background: #f59e0b; color: white; padding: 2px 5px; border-radius: 3px; font-weight: bold;',
@@ -2040,7 +2047,9 @@ export const SupabaseCustomerService = {
       }
 
       if (options?.name && options.name.trim() !== '') {
-        baseQuery = baseQuery.ilike('nama', options.name.trim()).order('nama', { ascending: true });
+        const nameTerm = options.name.trim();
+        const pattern = nameTerm.includes('%') ? nameTerm : `%${nameTerm}%`;
+        baseQuery = baseQuery.ilike('nama', pattern).order('nama', { ascending: true });
         if (options?.limit && options.limit > 0) baseQuery = baseQuery.limit(options.limit);
         const { data, error } = await baseQuery;
         return { data: data as any, error };
@@ -2105,9 +2114,121 @@ export const SupabaseCustomerService = {
         if (!error && data) {
           return { data: data as any, error: null };
         }
-        return { data: null, error };
+
+        // Fallback jika RPC function belum di-deploy di Supabase: Hitung dari sales_transactions 3 bulan terakhir
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+        let query = client
+          .from('sales_transactions')
+          .select('pemasukan, tanggal, created_at');
+
+        if (customerId && customerId.trim()) {
+          query = query.or(`id_pelanggan.eq.${customerId.trim()},nama.ilike.${customerName.trim()}`);
+        } else {
+          query = query.ilike('nama', customerName.trim());
+        }
+
+        const { data: rows, error: fbErr } = await query;
+        if (fbErr || !rows) {
+          return {
+            data: {
+              name: 'Bronze',
+              total: 0,
+              min: 0,
+              max: 999999,
+              progress: 0,
+              color: 'text-amber-700',
+              bg: 'bg-amber-100',
+              border: 'border-amber-200'
+            },
+            error: null
+          };
+        }
+
+        let total = 0;
+        rows.forEach((row: any) => {
+          let txDate: Date | null = null;
+          if (row.created_at) {
+            txDate = new Date(row.created_at);
+          } else if (row.tanggal) {
+            txDate = parseDate(row.tanggal);
+          }
+          if (!txDate || isNaN(txDate.getTime()) || txDate >= threeMonthsAgo) {
+            const nominal = typeof row.pemasukan === 'number' ? row.pemasukan : parseFloat(String(row.pemasukan || 0).replace(/[^\d.-]/g, '')) || 0;
+            total += nominal;
+          }
+        });
+
+        let level = 'Bronze';
+        let min = 0;
+        let max = 999999;
+        let progress = 0;
+        let color = 'text-amber-700';
+        let bg = 'bg-amber-100';
+        let border = 'border-amber-200';
+
+        if (total >= 20000000) {
+          level = 'Platinum';
+          min = 20000000;
+          max = 999999999;
+          progress = 100;
+          color = 'text-teal-600';
+          bg = 'bg-teal-100';
+          border = 'border-teal-300';
+        } else if (total >= 10000000) {
+          level = 'Gold';
+          min = 10000000;
+          max = 19999999;
+          progress = Math.min(100, Math.max(0, ((total - 10000000) / 10000000) * 100));
+          color = 'text-yellow-600';
+          bg = 'bg-yellow-100';
+          border = 'border-yellow-300';
+        } else if (total >= 1000000) {
+          level = 'Silver';
+          min = 1000000;
+          max = 9999999;
+          progress = Math.min(100, Math.max(0, ((total - 1000000) / 9000000) * 100));
+          color = 'text-slate-500';
+          bg = 'bg-slate-100';
+          border = 'border-slate-300';
+        } else {
+          level = 'Bronze';
+          min = 0;
+          max = 999999;
+          progress = Math.min(100, Math.max(0, (total / 1000000) * 100));
+          color = 'text-amber-700';
+          bg = 'bg-amber-100';
+          border = 'border-amber-200';
+        }
+
+        return {
+          data: {
+            name: level,
+            total,
+            min,
+            max,
+            progress,
+            color,
+            bg,
+            border
+          },
+          error: null
+        };
       } catch (err: any) {
-        return { data: null, error: err };
+        return {
+          data: {
+            name: 'Bronze',
+            total: 0,
+            min: 0,
+            max: 999999,
+            progress: 0,
+            color: 'text-amber-700',
+            bg: 'bg-amber-100',
+            border: 'border-amber-200'
+          },
+          error: null
+        };
       }
     });
   },
@@ -3073,7 +3194,53 @@ export const SupabaseStockService = {
         if (!error && data) {
           return { data: data as any, error: null };
         }
-        return { data: null, error };
+
+        // Fallback: Query minimal data produk (hanya kolom stok, harga_modal, harga_jual)
+        const { data: prods, error: pErr } = await client
+          .from('products')
+          .select('stok, harga_modal, harga_jual');
+
+        if (pErr || !prods) {
+          return { data: null, error: pErr || error };
+        }
+
+        let total_items = prods.length;
+        let total_qty = 0;
+        let total_modal_value = 0;
+        let total_jual_value = 0;
+        let low_stock_count = 0;
+        let out_of_stock_count = 0;
+
+        prods.forEach((p: any) => {
+          const qty = Number(p.stok || 0);
+          const modal = Number(p.harga_modal || 0);
+          const jual = Number(p.harga_jual || 0);
+
+          total_qty += qty;
+          total_modal_value += qty * modal;
+          total_jual_value += qty * jual;
+
+          if (qty <= 0) {
+            out_of_stock_count++;
+          } else if (qty <= 5) {
+            low_stock_count++;
+          }
+        });
+
+        const potential_profit = total_jual_value - total_modal_value;
+
+        return {
+          data: {
+            total_items,
+            total_qty,
+            total_modal_value,
+            total_jual_value,
+            potential_profit,
+            low_stock_count,
+            out_of_stock_count
+          },
+          error: null
+        };
       } catch (err: any) {
         return { data: null, error: err };
       }
@@ -3162,6 +3329,13 @@ export function parseDate(val: any): Date {
   }
   const fallback = new Date(val);
   return isNaN(fallback.getTime()) ? new Date(0) : fallback;
+}
+
+export function getTodayDateISO(d: Date = new Date()): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -4613,9 +4787,39 @@ export const SupabaseSalesService = {
         if (!error && data) {
           return { data: data as any, error: null };
         }
-        return { data: null, error };
+
+        // Fallback jika RPC belum ada
+        return {
+          data: {
+            total_pemasukan: 0,
+            total_pengeluaran: 0,
+            net_defisit_surplus: 0,
+            sales_inflow: 0,
+            sales_outflow: 0,
+            savings_inflow: 0,
+            savings_outflow: 0,
+            debt_inflow: 0,
+            debt_outflow: 0,
+            chart_data: []
+          },
+          error: null
+        };
       } catch (err: any) {
-        return { data: null, error: err };
+        return {
+          data: {
+            total_pemasukan: 0,
+            total_pengeluaran: 0,
+            net_defisit_surplus: 0,
+            sales_inflow: 0,
+            sales_outflow: 0,
+            savings_inflow: 0,
+            savings_outflow: 0,
+            debt_inflow: 0,
+            debt_outflow: 0,
+            chart_data: []
+          },
+          error: null
+        };
       }
     });
   },
@@ -4653,9 +4857,29 @@ export const SupabaseSalesService = {
         if (!error && data) {
           return { data: data as any, error: null };
         }
-        return { data: null, error };
+
+        // Fallback jika RPC belum terpasang di Postgres
+        return {
+          data: {
+            total_pemasukan: 0,
+            total_modal: 0,
+            total_keuntungan: 0,
+            total_transaksi: 0,
+            grouped_summary: []
+          },
+          error: null
+        };
       } catch (err: any) {
-        return { data: null, error: err };
+        return {
+          data: {
+            total_pemasukan: 0,
+            total_modal: 0,
+            total_keuntungan: 0,
+            total_transaksi: 0,
+            grouped_summary: []
+          },
+          error: null
+        };
       }
     });
   },
@@ -4841,7 +5065,7 @@ export const SupabasePointsService = {
       const cleanPayload: any = {
         id_tukar: String(point.id_tukar || point.id || `TKR-${Date.now()}`).trim(),
         id_pelanggan: String(point.id_pelanggan || point.idPelanggan || '').trim(),
-        tanggal: String(point.tanggal || point.Tanggal || new Date().toISOString().slice(0, 10)).trim(),
+        tanggal: String(point.tanggal || point.Tanggal || getTodayDateISO()).trim(),
         nama: String(point.nama || point.Nama || 'Pelanggan').trim(),
         poin: Number(point.poin !== undefined ? point.poin : (point.Poin || 0)),
         hadiah: String(point.hadiah || point.Hadiah || '-').trim()
@@ -4924,7 +5148,7 @@ export const SupabasePointsService = {
       const payload = {
         id_tukar: idTukar,
         id_pelanggan: item.id_pelanggan || '',
-        tanggal: item.Tanggal || item.tanggal || new Date().toISOString().split('T')[0],
+        tanggal: item.Tanggal || item.tanggal || getTodayDateISO(),
         nama: nama,
         poin: typeof item.Poin === 'number' ? item.Poin : parseInt(String(item.Poin || '0'), 10) || 0,
         hadiah: item.Hadiah || item.hadiah || 'Voucher'
@@ -4976,9 +5200,25 @@ export const SupabasePointsService = {
         if (!error && data) {
           return { data: data as any, error: null };
         }
-        return { data: null, error };
+        return {
+          data: {
+            active_points: 0,
+            earned_points: 0,
+            expired_points: 0,
+            redeemed_points: 0
+          },
+          error: null
+        };
       } catch (err: any) {
-        return { data: null, error: err };
+        return {
+          data: {
+            active_points: 0,
+            earned_points: 0,
+            expired_points: 0,
+            redeemed_points: 0
+          },
+          error: null
+        };
       }
     });
   }

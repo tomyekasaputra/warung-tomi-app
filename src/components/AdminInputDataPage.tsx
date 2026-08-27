@@ -31,7 +31,8 @@ import {
   MELALUI_OPTIONS,
   STATUS_OPTIONS,
   formatDateForInput,
-  formatInputToDate
+  formatInputToDate,
+  getTodayDateISO
 } from "./AdminDatabasePage";
 import {
   generateNextTabunganId,
@@ -336,7 +337,7 @@ export const AdminInputDataPage: React.FC<AdminInputDataPageProps> = ({
   // ==========================================
   // 2. FORM TABUNGAN
   // ==========================================
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getTodayDateISO();
   const [addSavingForm, setAddSavingForm] = useState<Partial<SupabaseSavingTransaction>>({
     tanggal: todayIso,
     nama_nasabah: "",

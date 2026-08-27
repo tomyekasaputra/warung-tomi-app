@@ -127,13 +127,16 @@ export const parseRowCreatedAt = (val?: string): number => {
   return isNaN(d.getTime()) ? 0 : d.getTime();
 };
 
+export const getTodayDateISO = (d: Date = new Date()): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+
 export const formatDateForInput = (dateStr?: string): string => {
   if (!dateStr || dateStr === "-") {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, "0");
-    const d = String(today.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    return getTodayDateISO();
   }
   const str = dateStr.trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
@@ -149,7 +152,7 @@ export const formatDateForInput = (dateStr?: string): string => {
       return `${y}-${m}-${d}`;
     }
   }
-  return new Date().toISOString().slice(0, 10);
+  return getTodayDateISO();
 };
 
 export const formatInputToDate = (isoStr: string): string => {
@@ -1202,7 +1205,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
       const timeSlice = Math.floor(Date.now() / 1000).toString().slice(-4);
       initialValues["id_transaksi"] = `TRX-${timeSlice}`;
       initialValues["id_pelanggan"] = "CUST-0000";
-      initialValues["tanggal"] = now.toISOString().slice(0, 10);
+      initialValues["tanggal"] = getTodayDateISO();
       initialValues["nama"] = "Pelanggan Umum";
       initialValues["jenis"] = "TARIK TUNAI";
       initialValues["melalui"] = "EDC BNI";
@@ -1231,7 +1234,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
           if (c.type === "number") {
             initialValues[c.key] = 0;
           } else if (c.type === "date" || c.key === "tanggal") {
-            initialValues[c.key] = new Date().toISOString().slice(0, 10);
+            initialValues[c.key] = getTodayDateISO();
           } else {
             initialValues[c.key] = "";
           }
@@ -1770,7 +1773,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                                           ) : col.type === "date" || col.key === "tanggal" || col.key === "jatuh_tempo" ? (
                                             <input
                                               type="date"
-                                              value={cellVal ? formatDateForInput(cellVal) : new Date().toISOString().slice(0, 10)}
+                                              value={cellVal ? formatDateForInput(cellVal) : getTodayDateISO()}
                                               onChange={(e) =>
                                                 setEditRowValues((prev) => ({
                                                   ...prev,
@@ -2263,7 +2266,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                         ) : col.key === "tanggal" || col.key === "jatuh_tempo" || col.type === "date" ? (
                           <input
                             type="date"
-                            value={newRowData[col.key] || new Date().toISOString().slice(0, 10)}
+                            value={newRowData[col.key] || getTodayDateISO()}
                             onChange={(e) => setNewRowData({ ...newRowData, [col.key]: e.target.value })}
                             className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 font-medium focus:outline-none focus:border-[#005E6A]"
                           />
@@ -2420,7 +2423,7 @@ export const AdminDatabasePage: React.FC<AdminDatabasePageProps> = ({
                         ) : col.type === "date" || col.key === "tanggal" || col.key === "jatuh_tempo" ? (
                           <input
                             type="date"
-                            value={val ? String(val).slice(0, 10) : new Date().toISOString().slice(0, 10)}
+                            value={val ? String(val).slice(0, 10) : getTodayDateISO()}
                             onChange={(e) =>
                               setEditingModalValues((prev) => ({
                                 ...prev,
